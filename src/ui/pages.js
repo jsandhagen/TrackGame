@@ -217,7 +217,7 @@ function athletePage(s, a, view) {
       const id = a.gear[slot],
         d = ITEMS[id];
       const options = Object.keys(s.bag).filter((k) => ITEMS[k].kind === "gear" && ITEMS[k].slot === slot);
-      return `<div class="gear-slot">${d ? icon(id, 40) : `<span class="empty-icon">${ico(slot === "implement" ? "ball" : slot === "shoes" ? "shoe" : "charm")}</span>`}<div><span class="eyebrow">${SLOT_NAMES[slot]}</span><strong>${d ? d.name + (s.forge[id] ? " +" + s.forge[id] : "") : slot === "implement" ? "Club issue" : "Nothing"}</strong><small>${d ? d.desc : "No bonus."}</small>
+      return `<div class="gear-slot">${d ? icon(id, 40) : `<span class="empty-icon">${ico(slot === "implement" ? "ball" : slot === "shoes" ? "shoe" : "charm")}</span>`}<div><span class="eyebrow">${SLOT_NAMES[slot]}</span><strong>${d ? d.name + (s.forge[id] ? " +" + s.forge[id] : "") : slot === "implement" ? "Club issue" : "Nothing"}</strong><small>${d ? d.desc + (d.event ? " Other events use club-issue equipment; bonuses apply only in " + EVENTS[d.event].name + "." : "") : "No bonus."}</small>
         <div class="inline">${d ? btn("Unequip", "gear-off", `data-id="${a.id}" data-slot="${slot}"`, "subtle small") : ""}${options.map((k) => btn(icon(k, 16) + " " + ITEMS[k].name, "gear-on", `data-id="${a.id}" data-item="${k}"`, "subtle small")).join("")}</div></div></div>`;
     }).join("")}</div>
     <div class="card-title"><h2>Use an item</h2>${btn("Shop", "page", 'data-page="shop"', "text")}</div>
@@ -235,7 +235,7 @@ function athletePage(s, a, view) {
   <nav class="tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav>${body}`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
-const DRILL_ICONS = { lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
+const DRILL_ICONS = { indoor: "target", peer: "video", trial: "ball", lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
 const plus = (n) => "+" + (Math.round(n * 10) / 10).toString();
 const vital = (c) => (c.stat != null ? showStat(c.from) + " → " + showStat(c.to) : Math.round(c.from) + " → " + Math.round(c.to));
 export const previewText = (changes) => changes.map((c) => (c.from != null ? c.label + " " + vital(c) : c.label)).join(" · ");
@@ -493,7 +493,8 @@ export function shop(s, view) {
   if (tab === "shop") {
     const groups = [
       ["Fuel & recovery", "Handed over at the side of the track.", (d) => d.kind === "use"],
-      ["Implements", "One per thrower. Swap any time from the kit bag.", (d) => d.slot === "implement"],
+      ...EVENT_IDS.map(ev => [EVENTS[ev].name + " implements", "Bonuses apply only to this event. Other events use club issue.", d => d.slot === "implement" && d.event === ev]),
+      ["General implements", "One per thrower. Swap any time from the kit bag.", d => d.slot === "implement" && !d.event],
       ["Throwing shoes & spikes", "", (d) => d.slot === "shoes"],
       ["Lucky charms", "", (d) => d.slot === "charm"],
     ];
@@ -560,7 +561,7 @@ function developmentCard(a, all = false) {
 function competitionBoard(s, view) {
   const planning = s.phase === "planning";
   const active = s.competition;
-  return `<section class="card calendar-intro"><span class="eyebrow">THE COMPETITION CIRCUIT</span><h2>Choose your next challenge</h2><p>Duels are one-off meets. Leagues run three fixtures, then a final for the top two. Take Open, Challenger and Championship to earn an invitation up a level.</p>
+  return `<section class="card calendar-intro"><span class="eyebrow">THE COMPETITION CIRCUIT</span><h2>Choose your next challenge</h2><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three fixtures and a final for the top two. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p>
     <div class="calendar-options"><label>Prepare before the first meet<select data-change="booking-preparation" ${planning ? "" : "disabled"}>${[3,5,7,10].map((n) => `<option value="${n}" ${(view.preparation || 5) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label><label>Days between league meets<select data-change="booking-spacing" ${planning ? "" : "disabled"}>${[4,7,10].map((n) => `<option value="${n}" ${(view.spacing || 7) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div>
     ${active ? `<p class="booking-summary"><b>${esc(G.competitionName(s))}</b> · ${s.phase === "seasonEnd" ? "Complete — review your season to book again." : "Next meet: day " + s.matchDay + (active.kind === "league" ? " · " + active.spacing + " days between fixtures" : "")}</p><div class="inline">${btn(s.phase === "seasonEnd" ? "Season review" : "Back to preparations", "page", 'data-page="home"', "subtle")}${s.fixture === 0 && !s.results.length && s.day < s.matchDay ? btn("Cancel booking", "cancel-booking", "", "subtle") : ""}</div>` : "<p class='hint'>Entry's free. Training carries on between meets (so do wages), and every earlier competition stays open.</p>"}
   </section>

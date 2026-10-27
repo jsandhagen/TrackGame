@@ -1,9 +1,12 @@
 import { practiceMastery, masteryOf, masteryCap } from "./mastery.js";
-import { PLANS, STADIUM, FACILITIES } from "../game-content.js";
+import { PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
 import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random } from "./core.js";
 
 export const INSIGHT_START = 16;
 export const DRILLS = {
+  indoor: { name: "Indoor technical rehearsal", desc: "Low-load footwork, release positions and drills into a throwing net. Builds the selected event's mastery within its practice ceiling.", needs: [["indoor",1]], cost: 5, energy: 8, gains: [0,0.65,0,0.2], mastery: 0.8 },
+  peer: { name: "Coached peer review", desc: "Work with a higher-level teammate training this event. Compare routines and learn together.", needs: [["lodge",1]], cost: 5, energy: 10, gains: [0,0.35,0,0.9], mastery: 0.5, peer: true },
+  trial: { name: "Implement fitting & trial", desc: "Trial the athlete's event-specific implement and refine the delivery. Requires matching equipment; builds mastery without bypassing competition experience.", needs: [["testing",1]], cost: 7, energy: 16, gains: [0,1.0,0,0.3], mastery: 1.2, implement: true },
   lifting: { name: "Coached strength session", desc: "Squats, pulls and presses: reinforce force production for the delivery.", needs: [["gym",1]], cost: 6, energy: 22, gains: [1.3,0,0,0] },
   acceleration: { name: "Acceleration & bounds", desc: "Short accelerations and low-volume bounds develop explosive movement for the ring and runway.", needs: [["track",1]], cost: 6, energy: 20, gains: [0.15,0,1.1,0] },
   delivery: { name: "Part-to-whole throwing drills", needs: [["event",1]], cost: 7, energy: 24, gains: [0,1.4,0,0.15] },
@@ -14,6 +17,9 @@ export const DRILLS = {
 // adds 8% to the session's gains. Thresholds are total sessions run with that drill.
 export const DRILL_LEVELS = [0, 3, 8, 15, 25];
 export const DRILL_NAMES = {
+  indoor: ["Indoor technical rehearsal", "Net-release practice", "Footwork & release", "Connected indoor series", "Precision rehearsal"],
+  peer: ["Coached peer review", "Partner observations", "Shared technical cues", "Mentored competition prep", "Club coaching masterclass"],
+  trial: ["Implement fitting & trial", "Grip & release trial", "Implement comparison", "Delivery matching", "Competition implement fitting"],
   lifting: ["Coached strength session", "Squat & pull complex", "Olympic lifts", "Contrast lifting", "Peak-force block"],
   acceleration: ["Acceleration & bounds", "Hill sprints", "Sled pushes", "Plyometric circuit", "Speed-strength mastery"],
   delivery: ["Part-to-whole throwing drills", "Standing-throw ladder", "Full-approach series", "Heavy–light implements", "Competition simulation"],
@@ -87,9 +93,12 @@ export function drillProblem(s,a,id,group = 0) {
   if (s.matchDay != null && s.day >= s.matchDay) return "Meet day: save it for the ring";
   if (a.injury) return "Injured: rest up first";
   if (a.coachedDay === s.day) return "Already trained today";
+  const event = a.trainingEvent || a.event;
+  if(d.peer && !s.roster.some(b => b.id !== a.id && !b.injury && b.level > a.level && (b.trainingEvent || b.event) === event && !["rest","facilities"].includes(b.plan))) return "Needs a higher-level teammate training this event";
+  if(d.implement && ITEMS[a.gear.implement]?.event !== event) return "Equip an implement for this training event";
   return facilityProblem(s,a,d.needs) || (!group && s.coaching.insights < d.cost ? "Needs " + d.cost + " Insights" : null) ||
     (a.stamina < drillEnergy(s,id) + 20 ? "Legs too heavy (needs " + (drillEnergy(s,id) + 20) + " stamina)" : null) ||
-    (drillGains(s,a,id).every((v) => v <= 0) && !(["delivery","review"].includes(id) && masteryOf(a,a.trainingEvent||a.event)<masteryCap(a,a.trainingEvent||a.event)) ? "At their ceiling: a rank-up raises it" : null);
+    (drillGains(s,a,id).every((v) => v <= 0) && !((d.mastery || ["delivery","review"].includes(id)) && masteryOf(a,a.trainingEvent||a.event)<masteryCap(a,a.trainingEvent||a.event)) ? "At their ceiling: a rank-up raises it" : null);
 }
 export function groupProblem(s, ids, id) {
   if (!DRILLS[id]) return "Unknown session";
@@ -117,7 +126,7 @@ export function coachGroup(s, ids, id) {
     a.stamina -= energy;
     a.coachedDay = s.day;
     a.stats = a.stats.map((v, i) => v + gains[i]);
-    const mastery = practiceMastery(a, (id === "delivery" ? 0.9 : id === "review" ? 0.3 : 0) * QUALITY[quality].mult);
+    const mastery = practiceMastery(a, (d.mastery ?? (id === "delivery" ? 0.9 : id === "review" ? 0.3 : 0)) * QUALITY[quality].mult);
     if (quality === "excellent" && !a.career.some((c) => c.label.startsWith("First bomb in training"))) a.career.unshift({ season: s.season, label: "First bomb in training: " + name });
     count(s, "coachedSessions");
     return { id: aid, gains, mastery, energy, quality };

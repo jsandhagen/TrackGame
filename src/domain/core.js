@@ -176,7 +176,7 @@ function apply(e, d, label) {
 }
 export const equippedSkills = (a, mode = "training") =>
   (a.loadouts?.enabled && Array.isArray(a.loadouts[mode]) ? a.loadouts[mode] : a.equipped || []).filter((k) => a.skills.includes(k) && SKILLS[k]);
-export function effects(s, a, club = true, mode = s.match ? "meet" : "training") {
+export function effects(s, a, club = true, mode = s.match ? "meet" : "training", event = mode === "training" ? (a.trainingEvent || a.event) : EVENT_IDS[s.match?.eventIndex] || a.event) {
   const e = blank();
   apply(e, BACKGROUNDS[a.background]);
   apply(e,PROFILES[a.profile]);
@@ -184,8 +184,12 @@ export function effects(s, a, club = true, mode = s.match ? "meet" : "training")
   for (const slot of GEAR_SLOTS) {
     const id = a.gear?.[slot],
       d = ITEMS[id];
-    if (!d) continue;
+    if (!d || (d.event && d.event !== event)) continue;
     apply(e, d, d.name);
+    if (d.masteryMark) {
+      const [lo, hi, bonus] = d.masteryMark;
+      e.mark *= 1 + bonus * clamp((masteryOf(a,event) - lo) / (hi - lo), 0, 1);
+    }
     if (club && s.forge?.[id]) e.mark *= 1 + 0.006 * s.forge[id];
   }
   if (a.buff) e.mark *= a.buff;
@@ -210,7 +214,7 @@ export function rawMark(a, event) {
   return e.min + (e.max - e.min) * Math.pow(clamp(eventRating(a, event), 0, 100) / 100, 1.12);
 }
 export function forecast(s, a, event, o = {}) {
-  const fx = o.fx || effects(s, a, o.club !== false, "meet");
+  const fx = o.fx || effects(s, a, o.club !== false, "meet", event);
   return (
     rawMark(a, event) *
     MOOD_MARK[moodOf(a)] *
@@ -225,7 +229,9 @@ export function xpMultiplier(s, a) {
   const mentor = s.roster.some(
     (b) => b.id !== a.id && b.level > a.level && equippedSkills(b, s.match ? "meet" : "training").includes("mentor"),
   );
-  return m * (mentor ? 1.15 : 1);
+  const peer = s.roster.some(b => b.id !== a.id && !b.injury && b.level > a.level && (b.trainingEvent || b.event) === (a.trainingEvent || a.event) && !["rest", "facilities"].includes(b.plan));
+  const lodge = !s.match && peer ? 1 + 0.08 * facilityLevel(s,"lodge") : 1;
+  return m * (mentor ? 1.15 : 1) * lodge;
 }
 export function grantXp(s, a, n, out = null) {
   a.xp += n * xpMultiplier(s, a);

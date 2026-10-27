@@ -15,7 +15,7 @@ const COACH = { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, shirt: "#2
 const QUALITY_COLOR = { good: "#8cc152", great: "#7cc8f0", excellent: "#f2c94c" };
 const QUALITY_TEXT = { good: "SOLID", great: "STRONG!", excellent: "BOMB!!" };
 // Coaching cues shouted mid-session.
-const CUES = { lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!" };
+const CUES = { lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!", indoor: "SMOOTH RELEASE!", peer: "WATCH THE RHYTHM", trial: "FEEL THE GRIP" };
 const IMPLEMENT = { shot: "#6a6e78", discus: "#d8b060", hammer: "#5a5e68", jav: "#e8e0c8" };
 
 const slots = (n) => [[150], [118, 178], [96, 148, 200]][n - 1];
@@ -114,7 +114,23 @@ function wall(g, ctx) {
   ellipse(g, 211, 46, 9, 9, "#fff6dc");
   ellipse(g, 211, 46, 4, 4, "#d0503a");
 }
-const BACKDROPS = { lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
+function indoor(g,ctx) {
+  gym(g,{...ctx,gymLevel:0});
+  rect(g,0,0,SCENE_W,75,"#c9d8dc");
+  for(let x=12;x<SCENE_W;x+=36) { rect(g,x,8,2,66,"#7b949e"); rect(g,x+4,18,24,16,"#a5c8d4"); }
+  for(let x=78;x<SCENE_W;x+=5) rect(g,x,40,1,40,"#647e7780");
+  for(let y=40;y<80;y+=5) rect(g,78,y,SCENE_W-78,1,"#647e7780");
+  rect(g,0,76,SCENE_W,44,"#899d89");
+  for(const x of ctx.xs) ellipse(g,x,FLOOR+1,12,3,"#c3c9ba");
+}
+function testing(g,ctx) {
+  indoor(g,ctx);
+  rect(g,12,24,48,30,"#344b50");
+  line(g,16,47,25,39,"#8bd0ba");line(g,25,39,35,44,"#8bd0ba");line(g,35,44,52,29,"#8bd0ba");
+  rect(g,24,55,24,3,"#78918d");
+  for(let x=81;x<SCENE_W;x+=35) { rect(g,x,67,25,3,"#a78459"); line(g,x+3,65,x+20,58,"#c3cbd1",2); }
+}
+const BACKDROPS = { indoor, peer: studio, trial: testing, lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
 
 // ── Athlete actions per drill ───────────────────────────────────────────
 // Returns the pose to draw plus any props, given time t since the drill started.
@@ -129,6 +145,8 @@ function act(drill, i, t, ev) {
       const p = wave(t + off * 3, 1500);
       return { pose: "run", frame: Math.floor(t / 80) % 4, dx: -70 + p * 140, dust: true };
     }
+    case "indoor":
+    case "trial":
     case "delivery":
     case "medicine": {
       const period = 1100,
@@ -136,6 +154,7 @@ function act(drill, i, t, ev) {
         frame = p < 0.3 ? 0 : p < 0.5 ? 1 : p < 0.62 ? 2 : 3;
       return { pose: drill === "medicine" ? "throw" : "throw", event: drill === "medicine" ? "shot" : ev, frame, flight: p > 0.5 ? (p - 0.5) / 0.5 : null, sweat: frame === 1 };
     }
+    case "peer":
     case "review": {
       const f = Math.floor((t + off) / 900) % 2;
       return { pose: "study", frame: f, idea: wave(t + off, 1800) > 0.7 };

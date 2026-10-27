@@ -11,6 +11,15 @@ const SHAPES = {
     g.fillStyle = shade(c, -0.3);
     g.fillRect(9, 12, 3, 1);
   },
+  discus(g, c) {
+    ellipse(g,8,9,7,4,"#8a9098"); ellipse(g,8,8,5,3,c); ellipse(g,8,8,2,1,shade(c,0.4));
+  },
+  hammer(g, c) {
+    line(g,4,3,10,10,"#b8c0c8"); line(g,2,2,5,2,"#e0e4e8"); line(g,2,2,4,5,"#b8c0c8"); ellipse(g,11,11,4,4,c);
+  },
+  javelin(g, c) {
+    line(g,2,14,14,2,c,2); line(g,14,2,15,1,"#e0e4e8"); line(g,6,10,9,7,"#a87848",2);
+  },
   shoe(g, c) {
     g.fillStyle = c;
     g.fillRect(3, 6, 6, 5);
