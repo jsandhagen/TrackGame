@@ -1,5 +1,8 @@
 # Roadmap
 
+Current 0.9.0: [event mastery, shared-field meets and rival development](EVENT_MASTERY.md); [current balance](BALANCE_CURRENT.md). Facility duties and coached training are documented separately.
+
+
 ## Implemented in 0.5.0
 
 - [x] A club stadium (track, four throwing areas, grandstand, video room, floodlights) that upgrades in place, with a 13-plot campus around it; home meets in your own stadium.

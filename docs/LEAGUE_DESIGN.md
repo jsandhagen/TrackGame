@@ -1,3 +1,5 @@
+> Historical design/balance notes. See [current event development](EVENT_MASTERY.md) and [current balance](BALANCE_CURRENT.md) for 0.9.0.
+
 # Turning an individual sport into a club game
 
 The campaign uses a deliberately fictional club-duel format. The objective is to make throwing a readable team-management game, rather than to reproduce every rule of a real athletics meet.

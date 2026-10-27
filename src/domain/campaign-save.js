@@ -1,3 +1,4 @@
+import { initMastery, PROFILES, APPROACHES } from "./mastery.js";
 import { ensureCustom } from "./customize.js";
 import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
@@ -202,6 +203,8 @@ function checkAthlete(a, ids, rival = false) {
     if (list !== null && (!Array.isArray(list) || list.length > slotsOf(a) || new Set(list).size !== list.length || list.some((k) => !a.skills.includes(k)))) bad();
     if (presets.enabled && !Array.isArray(list)) bad();
   }
+  if(!EVENT_IDS.includes(a.trainingEvent)||!PROFILES[a.profile]) bad();
+  for(const ev of EVENT_IDS) if(!num(a.mastery?.[ev],0,100)||!int(a.eventMeets?.[ev],0,1e7)||!APPROACHES[ev].some(d=>d.id===a.approaches?.[ev])) bad();
   a.facilityFocus ??= "balanced";
   if(!["balanced","money","insights"].includes(a.facilityFocus)) bad();
   a.coachedDay ??= 0;
@@ -252,8 +255,17 @@ export function validateCampaign(input) {
     data.coaching = { insights: 8, unlocked: [], practiceDays: 0 };
     data.v = 7;
   }
+  if(data?.v===7) {
+    for(const a of [...(data.roster||[]),...(data.prospects||[]),...(data.clubs||[]).flatMap(c=>c.athletes||[])]) initMastery(a,true);
+    for(const c of data.clubs||[]) for(const a of c.athletes||[]) {
+      const tier=data.clubTier??data.league;
+      a.mastery[a.event]=Math.max(a.mastery[a.event],Math.min(100,[30,56,70,82,90][tier]));
+      a.eventMeets[a.event]=Math.max(a.eventMeets[a.event],tier*4);
+    }
+    data.rivalClubs={};data.v=8;
+  }
   const s = data;
-  if (!s || s.v !== 7 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7)) bad();
+  if (!s || s.v !== 8 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7)) bad();
   if (!num(s.money, -1e9, 1e12) || !num(s.fans, 0, 1e12) || !["planning", "season", "seasonEnd"].includes(s.phase) || !int(s.fixture, 0, 3)) bad();
   if (s.phase === "planning") {
     if (s.competition !== null || s.matchDay !== null || s.match) bad();
@@ -293,8 +305,17 @@ export function validateCampaign(input) {
   if (!Array.isArray(s.clubs) || s.clubs.length !== 3) bad();
   const rivalIds = new Set();
   for (const c of s.clubs) {
-    if (!word(c.name) || !color(c.color) || !Array.isArray(c.athletes) || c.athletes.length !== 4 || !num(c.points, 0, 100) || !num(c.diff, -1000, 1000)) bad();
+    if (!word(c.name) || !color(c.color) || !Array.isArray(c.athletes) || (c.athletes.length < 4 || c.athletes.length > 6) || !num(c.points, 0, 100) || !num(c.diff, -1000, 1000)) bad();
     for (const a of c.athletes) checkAthlete(a, rivalIds, true);
+  }
+  if(!s.rivalClubs || typeof s.rivalClubs!=="object" || Array.isArray(s.rivalClubs) || Object.keys(s.rivalClubs).length>5) bad();
+  for(const [tier,clubs] of Object.entries(s.rivalClubs)) {
+    if(!/^[0-4]$/.test(tier)||!Array.isArray(clubs)||clubs.length!==3) bad();
+    const cacheIds=new Set();
+    for(const c of clubs) {
+      if(!word(c.name)||!color(c.color)||!Array.isArray(c.athletes)||c.athletes.length<4||c.athletes.length>6) bad();
+      for(const a of c.athletes)checkAthlete(a,cacheIds,true);
+    }
   }
   const prospectIds = new Set();
   if (!Array.isArray(s.prospects) || s.prospects.length > 6) bad();
@@ -314,8 +335,7 @@ export function validateCampaign(input) {
 }
 export const exportCampaign = (state) => ({
   format: "ring-sector-save",
-  version: 7,
+  version: 8,
   exportedAt: new Date().toISOString(),
   state: validateCampaign(state),
 });
-

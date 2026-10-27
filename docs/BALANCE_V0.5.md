@@ -1,3 +1,5 @@
+> Historical design/balance notes. See [current event development](EVENT_MASTERY.md) and [current balance](BALANCE_CURRENT.md) for 0.9.0.
+
 # Balance notes — 0.5.0
 
 Run `AUDIT_SEEDS=30 node scripts/balance-audit.mjs`. Raw output: [balance-results-v0.5.0.json](balance-results-v0.5.0.json). These are scripted bots, not people: they show that progress is possible and roughly paced, not that it is fun.

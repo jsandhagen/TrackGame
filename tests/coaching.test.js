@@ -17,10 +17,10 @@ test('throwing facilities gate event drills and club-wide plans still require ea
  const s=G.newGame(3),shot=s.roster[0],discus=s.roster[1];s.coaching.insights=100;
  assert.match(G.drillProblem(s,discus,'delivery'),/Discus cage/);
  assert(!G.unlockPlan(s,shot.id,'technicalblock'));
- s.stadium.shot=2;assert(G.unlockPlan(s,shot.id,'technicalblock'));
+ s.stadium.shot=2;shot.eventMeets.shot=2;assert(G.unlockPlan(s,shot.id,'technicalblock'));
  assert(G.setTrainingPlan(s,shot.id,'technicalblock'));
  assert(!G.setTrainingPlan(s,discus.id,'technicalblock'));
- s.stadium.discus=2;assert(G.setTrainingPlan(s,discus.id,'technicalblock'));
+ s.stadium.discus=2;discus.eventMeets.discus=2;assert(G.setTrainingPlan(s,discus.id,'technicalblock'));
  const balance=s.coaching.insights;assert(!G.unlockPlan(s,discus.id,'technicalblock'));assert.equal(s.coaching.insights,balance);
  assert.match(G.EVENT_DRILLS.jav,/crossover/);assert.match(G.EVENT_DRILLS.hammer,/winds/);
 });
@@ -55,7 +55,7 @@ test('injury, meet day, exhaustion and stat caps prevent unsuitable sessions wit
 });
 test('previous careers receive initial coaching resources without losing active competition or athletes',()=>{
  const s=G.newGame(8);G.enterCompetition(s,{kind:'duel',tier:0});s.v=6;delete s.coaching;
- const copy=validateCampaign(s);assert.equal(copy.v,7);assert.equal(copy.coaching.insights,8);assert.deepEqual(copy.competition,s.competition);assert.deepEqual(copy.roster,s.roster);
+ const copy=validateCampaign(s);assert.equal(copy.v,8);assert.equal(copy.coaching.insights,8);assert.deepEqual(copy.competition,s.competition);assert.deepEqual(copy.roster,s.roster);
  for(const mutate of [s=>s.coaching.insights=-1,s=>s.coaching.unlocked=['rest'],s=>s.coaching.unlocked=['strengthblock','strengthblock'],s=>s.roster[0].coachedDay=-1]){const x=G.newGame(9);mutate(x);assert.throws(()=>validateCampaign(x))}
 });
 test('training UI presents event-specific coached sessions, Insights costs and facility requirements',()=>{

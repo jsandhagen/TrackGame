@@ -1,3 +1,5 @@
+> Historical design/balance notes. See [current event development](EVENT_MASTERY.md) and [current balance](BALANCE_CURRENT.md) for 0.9.0.
+
 # Game design — 0.5.0
 
 This document records how 0.5.0 turns Ring & Sector into a Kairosoft-style management game, what each system is for, and where its rules live. [VISION.md](VISION.md) holds the longer-term philosophy; [LEAGUE_DESIGN.md](LEAGUE_DESIGN.md) the competition format.

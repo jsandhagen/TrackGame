@@ -1,3 +1,4 @@
+import { practiceMastery, masteryOf, masteryCap } from "./mastery.js";
 import { PLANS, STADIUM, FACILITIES } from "../game-content.js";
 import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note } from "./core.js";
 
@@ -17,7 +18,7 @@ export const EVENT_DRILLS = {
 };
 export function facilityProblem(s, a, needs) {
   for (const [key, level] of needs || []) {
-    const type = key === "event" ? a.event : key;
+    const type = key === "event" ? (a.trainingEvent || a.event) : key;
     if (facilityLevel(s,type) < level) return (STADIUM[type] || FACILITIES[type]).name + " level " + level + " required";
   }
   return null;
@@ -26,11 +27,12 @@ export function planProblem(s, a, id) {
   const p = PLANS[id];
   if (!p) return "Unknown plan";
   if (!p.course) return null;
-  return facilityProblem(s,a,p.needs) || (!s.coaching.unlocked.includes(id) ? "Unlock for " + p.cost + " Insights" : null);
+  const meets=p.facility === "event" ? (p.cost>=24?4:2) : 0;
+  return (p.course && (a.eventMeets?.[a.trainingEvent||a.event]||0)<meets ? "Needs "+meets+" meets in this training event" : null) || facilityProblem(s,a,p.needs) || (!s.coaching.unlocked.includes(id) ? "Unlock for " + p.cost + " Insights" : null);
 }
 export function unlockPlan(s, athleteId, id) {
   const a = s.roster.find((x) => x.id === athleteId), p = PLANS[id];
-  if (!a || !p?.course || s.match || s.pendingEvent || !["planning","season"].includes(s.phase) || s.coaching.unlocked.includes(id) || facilityProblem(s,a,p.needs) || s.coaching.insights < p.cost) return false;
+  if (!a || !p?.course || s.match || s.pendingEvent || !["planning","season"].includes(s.phase) || s.coaching.unlocked.includes(id) || facilityProblem(s,a,p.needs) || (p.facility === "event" && (a.eventMeets?.[a.trainingEvent||a.event]||0)<(p.cost>=24?4:2)) || s.coaching.insights < p.cost) return false;
   s.coaching.insights -= p.cost; s.coaching.unlocked.push(id);
   note(s,"Training plan unlocked: " + p.name + ". Available to athletes with the required facilities.","level");
   return true;
@@ -46,7 +48,7 @@ export function drillEnergy(s, id) {
 export function drillGains(s, a, id) {
   const d = DRILLS[id], fx = effects(s,a,true,"training"), cap = capOf(a);
   if (!d) return [0,0,0,0];
-  const site = d.needs[0][0] === "event" ? a.event : d.needs[0][0];
+  const site = d.needs[0][0] === "event" ? (a.trainingEvent||a.event) : d.needs[0][0];
   const quality = 1 + 0.12 * (facilityLevel(s,site)-1);
   return d.gains.map((v,i) => Math.max(0,Math.min(cap-a.stats[i],v*quality*fx.gain*fx.train[i]*MOOD_TRAIN[moodOf(a)])));
 }
@@ -59,7 +61,7 @@ export function drillProblem(s,a,id) {
   if (a.coachedDay === s.day) return "Coached session already completed today";
   return facilityProblem(s,a,d.needs) || (s.coaching.insights < d.cost ? "Needs " + d.cost + " Insights" : null) ||
     (a.stamina < drillEnergy(s,id) + 20 ? "Needs enough stamina to finish with 20 in reserve" : null) ||
-    (drillGains(s,a,id).every((v) => v <= 0) ? "Target stats are at their current limit" : null);
+    (drillGains(s,a,id).every((v) => v <= 0) && !(["delivery","review"].includes(id) && masteryOf(a,a.trainingEvent||a.event)<masteryCap(a,a.trainingEvent||a.event)) ? "Target stats are at their current limit" : null);
 }
 export function coachSession(s, athleteId, id) {
   const a = s.roster.find((x) => x.id === athleteId);
@@ -69,9 +71,10 @@ export function coachSession(s, athleteId, id) {
   a.stamina -= drillEnergy(s,id);
   a.coachedDay = s.day;
   a.stats = a.stats.map((v,i) => v+gains[i]);
+  const mastery=practiceMastery(a,id === "delivery"?0.9:id === "review"?0.3:0);
   count(s,"coachedSessions");
   note(s,a.name + ": " + (id === "delivery" ? "coached " + a.event + " delivery drills" : d.name) + ".", "level");
-  return { gains, energy:drillEnergy(s,id), insights:d.cost };
+  return { gains, mastery, energy:drillEnergy(s,id), insights:d.cost };
 }
 export function practiceInsights(s, trained) {
   if (!trained) return 0;

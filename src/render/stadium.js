@@ -207,7 +207,7 @@ export function createStadium(cv) {
     const tt = hasCut ? el - CUTIN_MS : el; // throw timeline after the cut-in
     const landed = !(beat?.type === "throw") || tt >= T.land;
     const reacting = beat?.type === "throw" && landed && tt < 2700 && beat.mark != null && (beat.side === "home" ? beat.newPb || beat.leading : false);
-    const cheer = reacting || (beat?.type === "eventEnd" && beat.h === 3) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
+    const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     drawCrowd(g, s, m, now, cheer, venue);
     const home = homeAthlete(s, bi),
       rival = rivalAthlete(s, bi),
@@ -226,6 +226,11 @@ export function createStadium(cv) {
       const x = O.x + home.pb[ev] * ppm;
       line(g, x, upperY(x) + 2, x, lowerY(x) - 2, "rgba(242,201,76,0.55)");
       text(g, "PB", x, lowerY(x) + 1, { color: "#f2c94c", align: "center" });
+    }
+    if(beat?.target?.mark!=null) {
+      const x=Math.min(W-12,O.x+beat.target.mark*ppm);
+      line(g,x,upperY(x)+2,x,lowerY(x)-2,"#ffe69a");
+      text(g,"TARGET "+beat.target.mark.toFixed(2),x,upperY(x)-7,{color:"#ffe69a",align:"center"});
     }
     // Who is in the circle?
     const throwing = beat?.type === "throw" ? beat.side : beat?.type === "decide" ? "home" : null;
@@ -351,8 +356,8 @@ export function createStadium(cv) {
     if (beat?.type === "meetStart") banner(m.kind === "final" ? "LEAGUE FINAL" : "CLUB DUEL", (s.clubName + " VS " + m.name).toUpperCase(), s.colors.secondary, el / beatDuration(beat));
     if (beat?.type === "eventStart") banner(e.name.toUpperCase(), (home?.name + "  VS  " + rival?.name).toUpperCase(), e.color, el / beatDuration(beat));
     if (beat?.type === "eventEnd") {
-      const who = beat.h === 3 ? "+3 " + s.clubName : beat.a === 3 ? "+3 " + m.name : beat.h ? "TIED · +1 EACH" : "NO MARKS";
-      banner(who.toUpperCase(), (beat.home != null ? beat.home.toFixed(2) : "FOUL") + "  VS  " + (beat.away != null ? beat.away.toFixed(2) : "FOUL") + "   ·   " + beat.score + " - " + beat.against, beat.h === 3 ? "#f2c94c" : beat.a === 3 ? shade(m.color, 0.4) : "#fff6dc", el / beatDuration(beat));
+      const who = s.clubName + " +" + beat.h + " · " + m.name + " +" + beat.a;
+      banner(who.toUpperCase(), (beat.home != null ? beat.home.toFixed(2) : "FOUL") + "  VS  " + (beat.away != null ? beat.away.toFixed(2) : "FOUL") + "   ·   " + beat.score + " - " + beat.against, beat.h > beat.a ? "#f2c94c" : beat.a > beat.h ? shade(m.color, 0.4) : "#fff6dc", el / beatDuration(beat));
     }
     if (beat?.type === "decide") {
       rect(g, W / 2 - 90, 40, 180, 30, "rgba(18,22,30,0.85)");
