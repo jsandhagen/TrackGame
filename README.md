@@ -77,6 +77,7 @@ Careers are stored under the `ring-sector-leagues-v3` key with an internal schem
 | `src/ui/pages.js` | Pop-up window pages (club desk, squad, athlete, recruit, build, shop, league, office, lobby, meet) |
 | `src/main.js` | Wiring: full-screen shell, HUD and menu, windows, map input (pan, zoom, tap), day loop, meet presenter, dialogs, toasts, persistence |
 | `src/platform/` | Native lifecycle, saves, backup sharing and game updates |
+| `scripts/icon.html`, `scripts/render-icons.cjs` | App icon artwork (drawn with the game's sprites) and the exporter for web, Android adaptive and legacy icons |
 | `scripts/balance-audit.mjs` | Scripted careers for pacing and economy checks |
 | `tests/` | Meets, campaign flow, facilities, training, items, skills, recruiting, events, migration and tactics balance |
 

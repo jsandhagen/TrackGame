@@ -1,0 +1,119 @@
+<!doctype html>
+<!-- App icon source. Open through the dev server (npm run dev → /scripts/icon.html) or run
+     `node scripts/render-icons.cjs` to regenerate every icon file from this drawing. -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Ring &amp; Sector icon</title>
+    <style>
+      body { margin: 0; padding: 16px; background: #222; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+      canvas { image-rendering: pixelated; }
+      .round { border-radius: 50%; }
+      .squircle { border-radius: 22%; }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import { figure, athleteLook } from "/src/render/sprites.js";
+      import { canvas, rect, ellipse, line, mix } from "/src/render/pixel.js";
+
+      // Drawn on a 48-unit grid: one unit is 2.25dp of Android's 108dp adaptive icon (×9 = 432px).
+      // The hero and ball sit in the centre 32 units, which every launcher mask shows; web and
+      // legacy icons are that centre crop (×16 = 512px, ×6 = 192px).
+      const N = 48;
+      const MARA = { look: { skin: "#e2b08a", hair: "#8e4c33", style: 2 }, rank: 3 };
+      const COLORS = { primary: "#2f6b52", secondary: "#e2b04a", kit: "plain", shorts: "trim" };
+      const RING = [20, 34];
+      const BALL = [30, 14];
+
+      function background(g) {
+        // Night sky over the stadium.
+        for (let y = 0; y < 22; y++) rect(g, 0, y, N, 1, mix("#0f1a2c", "#25495a", y / 22));
+        for (const [x, y] of [[14, 3], [24, 6], [42, 9], [19, 12], [4, 14]]) rect(g, x, y, 1, 1, "#cfe4ff");
+        // Floodlight towers with soft beams.
+        for (const [x, dir] of [[7, 1], [40, -1]]) {
+          for (let i = 0; i < 14; i++) {
+            const w = 2 + i;
+            rect(g, x + dir * (i + 1) - (dir < 0 ? w - 2 : 0), 8 + i, w, 1, `rgba(255,246,200,${0.2 - i * 0.012})`);
+          }
+          rect(g, x - 1, 4, 4, 3, "#fff6c8");
+          rect(g, x - 2, 3, 6, 1, "#5a6070");
+          rect(g, x, 7, 2, 13, "#3a4050");
+        }
+        // Grandstand with a crowd.
+        rect(g, 0, 19, N, 7, "#1d2c36");
+        rect(g, 0, 19, N, 1, "#3a5060");
+        const crowd = ["#e05a6a", "#f2d070", "#9fd0f0", "#fff6e8", "#e2b04a", "#8cc152"];
+        for (let y = 21; y < 26; y += 2) for (let x = (y % 4 === 1 ? 1 : 0); x < N; x += 2) rect(g, x, y, 1, 1, crowd[(x * 7 + y * 3) % crowd.length]);
+        // Infield.
+        for (let y = 26; y < N; y++) rect(g, 0, y, N, 1, (y >> 1) % 2 ? "#3f8a4e" : "#47955a");
+        // Sector lines fanning out from the ring towards the landing area.
+        for (const end of [[N, 25], [N, 33]]) line(g, RING[0], RING[1], end[0], end[1], "#fff6e8");
+        // A sweep of red track with lane lines across the bottom.
+        for (let x = 0; x < N; x++) {
+          const top = 38 - Math.round(((x - 24) / 24) ** 2 * 3);
+          rect(g, x, top, 1, N - top, "#c0584a");
+          for (const k of [2, 5, 8]) rect(g, x, top + k, 1, 1, "#f4dccf");
+        }
+        // The throwing circle itself, with its stop board.
+        ellipse(g, RING[0], RING[1], 9, 3, "#fff6e8");
+        ellipse(g, RING[0], RING[1], 8, 2, "#cfc6b0");
+        rect(g, RING[0] + 8, RING[1] - 2, 2, 4, "#fff6e8");
+      }
+
+      function foreground(g) {
+        // The shot's flight: a dotted arc from the hand to the ball, then a glow and a sparkle.
+        for (let i = 0; i < 6; i++) {
+          const t = i / 6,
+            x = 26 + (BALL[0] - 26) * t,
+            y = 19 - (19 - BALL[1]) * t - Math.sin(t * Math.PI) * 2;
+          rect(g, Math.round(x), Math.round(y), 1, 1, `rgba(255,236,160,${0.4 + t * 0.55})`);
+        }
+        ellipse(g, BALL[0], BALL[1], 4, 4, "#5a3a14");
+        ellipse(g, BALL[0], BALL[1], 3, 3, "#e2b04a");
+        ellipse(g, BALL[0] - 1, BALL[1] - 1, 1, 1, "#fbe7a0");
+        rect(g, BALL[0] - 2, BALL[1] - 2, 1, 1, "#fffbe8");
+        for (const [dx, dy] of [[0, -6], [6, 0], [-5, -5], [5, -5], [5, 4]]) rect(g, BALL[0] + dx, BALL[1] + dy, 1, 1, "#fff6c8");
+        rect(g, BALL[0], BALL[1] - 7, 1, 1, "#fff6c8");
+        rect(g, BALL[0] + 7, BALL[1], 1, 1, "#fff6c8");
+        // The hero: a starter at the moment of release, drawn by the game's own sprite code.
+        figure(g, athleteLook(MARA, COLORS, { pose: "throw", event: "shot", frame: 2, face: "strain" }), RING[0], RING[1] + 1);
+      }
+
+      function layer(draw, size = N) {
+        const c = canvas(size, size), g = c.getContext("2d");
+        g.imageSmoothingEnabled = false;
+        draw(g);
+        return c;
+      }
+      function scaled(src, scale, crop = 0, round = false) {
+        const w = (src.width - crop * 2) * scale, c = canvas(w, w), g = c.getContext("2d");
+        g.imageSmoothingEnabled = false;
+        if (round) {
+          g.beginPath();
+          g.arc(w / 2, w / 2, w / 2, 0, Math.PI * 2);
+          g.clip();
+        }
+        g.drawImage(src, crop, crop, src.width - crop * 2, src.height - crop * 2, 0, 0, w, w);
+        return c;
+      }
+      const bg = layer(background), fg = layer(foreground), full = layer((g) => (background(g), foreground(g)));
+      // Exported files: key → [canvas, scale, crop]
+      window.ICONS = {
+        "android/fg": [fg, 9, 0],
+        "android/bg": [bg, 9, 0],
+        "android/legacy": [full, 6, 8],
+        "android/legacyRound": [full, 6, 8, true],
+        "web/512": [full, 16, 8],
+        "web/192": [full, 6, 8],
+      };
+      window.iconData = (key) => { const [c, s, crop, round] = window.ICONS[key]; return scaled(c, s, crop, round).toDataURL("image/png"); };
+      // Preview: full art, circle and squircle launcher masks, and small sizes.
+      for (const [cls, s] of [["", 9], ["round", 6], ["squircle", 6], ["squircle", 2]]) {
+        const c = scaled(full, s, cls ? 8 : 0);
+        c.className = cls;
+        document.body.append(c);
+      }
+    </script>
+  </body>
+</html>
