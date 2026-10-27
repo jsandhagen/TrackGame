@@ -13,7 +13,9 @@ export const SCENE = { intro: 700, work: 2900, reveal: 3200, end: 4600 };
 const FLOOR = 102;
 const COACH = { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, shirt: "#2f4e7a", collar: "#f2c94c", rank: 2 };
 const QUALITY_COLOR = { good: "#8cc152", great: "#7cc8f0", excellent: "#f2c94c" };
-const QUALITY_TEXT = { good: "GOOD", great: "GREAT!", excellent: "EXCELLENT!!" };
+const QUALITY_TEXT = { good: "SOLID", great: "STRONG!", excellent: "BOMB!!" };
+// Coaching cues shouted mid-session.
+const CUES = { lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!" };
 const IMPLEMENT = { shot: "#6a6e78", discus: "#d8b060", hammer: "#5a5e68", jav: "#e8e0c8" };
 
 const slots = (n) => [[150], [118, 178], [96, 148, 200]][n - 1];
@@ -196,8 +198,8 @@ export function playTraining(cv, opts) {
     shadow(o, coachX, FLOOR + 1, 6);
     figure(o, { ...COACH, pose: reveal ? "cheer" : "wave", frame: Math.floor(t / 300) % 2, face: "happy" }, coachX, FLOOR);
     if (t > 200 && t < 1100) bubble(o, coachX + 4, FLOOR - 52, "TWEET!");
-    else if (t > 1700 && t < 2500) bubble(o, coachX + 4, FLOOR - 52, "PUSH!");
-    else if (reveal) bubble(o, coachX + 4, FLOOR - 52, opts.athletes.some((r) => r.quality === "excellent") ? "SUPERB!" : "NICE!");
+    else if (t > 1700 && t < 2500) bubble(o, coachX + 4, FLOOR - 52, CUES[opts.drill]);
+    else if (reveal) bubble(o, coachX + 4, FLOOR - 52, opts.athletes.some((r) => r.quality === "excellent") ? "WHAT A BOMB!" : "NICE WORK!");
 
     opts.athletes.forEach((r, i) => {
       const home = xs[i];

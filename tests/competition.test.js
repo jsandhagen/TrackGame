@@ -202,7 +202,7 @@ test('malformed calendars, loadouts and milestone state cannot be imported', () 
 
 test('calendar and athlete pages render in planning, booked, completed and migrated careers', () => {
   const s = G.newGame(100), view = {};
-  assert.match(P.home(s, view), /Choose a competition/);
+  assert.match(P.home(s, view), /Open the meet calendar/);
   assert.match(P.league(s, view), /Book duel/);
   assert.match(P.squad(s, { athlete: s.roster[0].id, tab: 'skills' }), /Saved skill setups/);
   G.enterCompetition(s, { kind: 'league', tier: 0 });

@@ -326,7 +326,7 @@ export function advanceDay(s) {
   s.fans += fans;
   report.fans = fans;
   if (s.day % 7 === 0) report.week = payWeek(s);
-  if (s.day === s.matchDay) note(s, "Meet day! Pick a lineup and head to the stadium.", "meet");
+  if (s.day === s.matchDay) note(s, "Meet day! Lineups to the call room.", "meet");
   report.goals = checkGoals(s);
   report.event = rollStoryEvent(s);
   return report;

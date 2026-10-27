@@ -1,5 +1,7 @@
 import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
+import "@fontsource/oswald/latin-500.css";
+import "@fontsource/oswald/latin-700.css";
 import "./styles.css";
 import * as G from "./domain/game.js";
 import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
@@ -91,7 +93,7 @@ function hud() {
   const since = performance.now() - insightBump.at,
     bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
-  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Open calendar · choose a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days")}</small></div>
+  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></div>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
   <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
@@ -120,9 +122,9 @@ function menu() {
     state.phase === "seasonEnd"
       ? `<button class="go" data-act="window" data-page="home">${ico("trophy")}<span>Season review</span></button>`
       : state.phase === "planning"
-        ? `<button class="go" data-act="window" data-page="league">${ico("league")}<span>Choose a meet</span></button>`
+        ? `<button class="go" data-act="window" data-page="league">${ico("league")}<span>Book a meet</span></button>`
       : ready
-        ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>To the meet</span></button>`
+        ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>Call room</span></button>`
         : view.playing
           ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
           : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
@@ -152,7 +154,7 @@ function windowHTML() {
     lobby: () => P.lobby(state, view),
   }[page]?.();
   if (html == null) return null;
-  const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete" : page === "lobby" ? "Meet lobby · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
+  const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete file" : page === "lobby" ? "Call room · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
   return [title, html];
 }
 function render(preserve = true) {
@@ -321,9 +323,9 @@ const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, conditio
 function showGrowth(a, before, eyebrow, extra = []) {
   const ups = a.stats.map((v, i) => v - before.stats[i]),
     best = ups.indexOf(Math.max(...ups));
-  const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : a.stamina > before.stamina + 0.5 ? "Recharged!" : a.condition > before.condition + 0.5 ? "Feeling great!" : "Done!";
+  const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : a.stamina > before.stamina + 0.5 ? "Legs are back!" : a.condition > before.condition + 0.5 ? "Head in the game!" : "Done!";
   sfx("level");
-  dialog(title, P.growth(a, before, extra), [{ label: "Nice!" }], { eyebrow, tone: "gold" });
+  dialog(title, P.growth(a, before, extra), [{ label: "Back to the infield" }], { eyebrow, tone: "gold" });
 }
 // Special training: run the session, then play it out on a little stage with ratings and results.
 function runTraining(ids, drill) {
@@ -339,7 +341,7 @@ function runTraining(ids, drill) {
   save();
   render();
   world.replan();
-  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Back to work!" }], { eyebrow: "Special training · Lv " + session.level, tone: "gold", cls: "training" });
+  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · session Lv " + session.level, tone: "gold", cls: "training" });
   const dlg = $("#dialog"),
     results = dlg.querySelector(".stage-results"),
     cv = dlg.querySelector(".stage-canvas");
@@ -386,13 +388,14 @@ function help(welcome = false) {
   stopPlaying();
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
-    `<p>${welcome ? "I'm " + HELPER + ", the club secretary. We're a tiny throwing club with four hopefuls and big dreams. Here's how it works:" : "A quick refresher:"}</p>
-    <ol><li><b>Train.</b> Press Train and the days roll by. Athletes head to the gym, the track or their own circle, cage or runway, and their stats tick up. Spend Coaching Insights (the lightbulb) in <b>Train</b> on special training: up to three athletes at once, drills that level up with use, and a rating for every session.</li>
-    <li><b>Build.</b> Upgrade the stadium (throwing areas, track, stands) and put buildings on the plots around it. Neighbouring buildings can form <b>combos</b>.</li>
-    <li><b>Grow.</b> Every stat runs from 1 to 100. Levels give skill points; rank-ups raise an athlete's limit. Items and gear help too.</li>
-    <li><b>Choose your calendar.</b> Open Meets to book a duel or enter a league. Choose preparation days and the gap between fixtures. Win Open, Challenger and Championship trophies to reach the next level.</li><li><b>Compete.</b> Watch your four-event team perform, or coach every throw. Career milestones reward development automatically. Save training and meet skill setups in an athlete’s Skills tab to automate the swaps.</li></ol>
-    <p>Drag the map to look around and tap anything: athletes, buildings, the stadium. Time only moves while you train.</p>`,
-    [{ label: welcome ? "Let's go!" : "Got it", fn: () => ((state.welcomed = true), save()) }],
+    `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams. Here's the drill:" : "The drill, one more time:"}</p>
+    <ol class="howto"><li><b>Train.</b> Hit Train and the days roll. Everyone heads to the gym, the track or their own ring, and the stats tick up.</li>
+    <li><b>Run sessions.</b> Spend Coaching Insights (the lightbulb) in <b>Train</b>: up to three athletes per session, and sessions level up with reps.</li>
+    <li><b>Build.</b> Upgrade the rings, cages, runway, track and stands, then fill the plots outside. Good neighbours make <b>combos</b>.</li>
+    <li><b>Book meets.</b> Duels to test yourselves, leagues for trophies. Win Open, Challenger and Championship to move up a level.</li>
+    <li><b>Compete.</b> Watch your throwers go, or call every attempt from the infield.</li></ol>
+    <p class="hint">Drag to look around, tap anything. The clock only runs while you train.</p>`,
+    [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
 }
@@ -420,10 +423,10 @@ function doDay(now) {
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
   for (const l of r.levelUps) {
-    toast(l.name + " reached level " + l.level + "! Skill points to spend.", "level", "levelup");
+    toast(l.name + " hits level " + l.level + "! Skill points to spend.", "level", "levelup");
     sfx("level");
   }
-  for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " is injured.", "warn", "bandage");
+  for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " pulled up hurt. Recovery first.", "warn", "bandage");
   announce(before);
   save();
   if (state.matchDay != null && state.day >= state.matchDay) {
@@ -538,7 +541,7 @@ $("#app").addEventListener("click", async (e) => {
       return openWindow("lobby");
     case "autolineup":
       G.autoLineup(state);
-      toast("Best available lineup selected.");
+      toast("Strongest lineup entered.");
       break;
     case "medical":
       if (!G.medicalDay(state)) toast("Only available when an injured athlete is in the lineup.");
@@ -606,13 +609,13 @@ $("#app").addEventListener("click", async (e) => {
       if (state.pendingEvent) return showEvent();
       const booked = G.enterCompetition(state, { kind: act === "book-duel" ? "duel" : "league", tier: +b.dataset.tier,
         stage: +(b.dataset.stage || 0), rival: +(b.dataset.rival || 0), preparation: view.preparation || 5, spacing: view.spacing || 7 });
-      if (booked) { view.window = "home"; view.rival = null; world.replan(); toast("Booked for day " + state.matchDay + ". Time to prepare."); }
+      if (booked) { view.window = "home"; view.rival = null; world.replan(); toast("Booked for day " + state.matchDay + ". The countdown starts now."); }
       else toast("That competition isn't available right now.", "warn");
       break;
     }
     case "cancel-booking":
       stopPlaying();
-      if (G.cancelCompetition(state)) { world.replan(); toast("Booking cancelled. Choose another whenever you're ready."); }
+      if (G.cancelCompetition(state)) { world.replan(); toast("Booking scratched. Pick another meet whenever you're ready."); }
       break;
     case "save-loadout":
       if (G.saveLoadout(state, id, b.dataset.mode)) toast("Saved " + b.dataset.mode + " skill setup.");
@@ -660,7 +663,7 @@ $("#app").addEventListener("click", async (e) => {
       }
       break;
     case "skill-toggle":
-      if (!G.toggleSkill(state, id, b.dataset.skill)) toast("All skill slots are full. Unequip one first.");
+      if (!G.toggleSkill(state, id, b.dataset.skill)) toast("Skill slots are full. Bench one first.");
       break;
     case "promote": {
       const a = state.roster.find((x) => x.id === id);
@@ -720,7 +723,7 @@ $("#app").addEventListener("click", async (e) => {
     }
     case "buy":
       if (G.buyItem(state, b.dataset.item)) {
-        toast("Bought " + ITEMS[b.dataset.item].name + ". It's in the bag.", "info", "shop");
+        toast(ITEMS[b.dataset.item].name + " packed in the kit bag.", "info", "shop");
         sfx("coin");
       }
       break;
@@ -785,7 +788,7 @@ $("#app").addEventListener("click", async (e) => {
       break;
     case "recruit":
       if (G.recruit(state, id)) {
-        toast("Welcome to the club!", "level", "squad");
+        toast("Signed! New bib, new beginnings.", "level", "squad");
         sfx("level");
       }
       break;

@@ -4,9 +4,9 @@ import { note } from "./core.js";
 
 export const CIRCUIT_STAGES = ["Open", "Challenger", "Championship"];
 export const CIRCUIT_FORMATS = [
-  "Three throws per athlete; top four get three more in the final. Two home fixtures.",
-  "Three throws per athlete; top four get three more in the final.",
-  "Three throws per athlete; top four get three more in the final. Two away fixtures.",
+  "Three attempts each; the top four earn three more in the final. Two fixtures at home.",
+  "Three attempts each; the top four earn three more in the final.",
+  "Three attempts each; the top four earn three more in the final. Two fixtures on the road.",
 ];
 export const TITLE_GIFTS = ["scroll", "letter", "elixir"];
 export const circuitKey = (tier, stage) => `${tier}:${stage}`;

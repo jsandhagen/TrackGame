@@ -71,11 +71,11 @@ test('group sessions share one bill, rate every athlete, level the drill up and 
  assert.equal(s.coaching.insights,188);assert.equal(out.results.length,3);
  for(const r of out.results) assert(G.QUALITY[r.quality]);
  assert.equal(G.drillXp(s,'lifting'),1);assert.equal(G.drillLevel(s,'lifting'),1);
- assert.match(G.groupProblem(s,[a.id],'lifting'),/already completed/);
+ assert.match(G.groupProblem(s,[a.id],'lifting'),/Already trained today/);
  s.coaching.drills.lifting=2;s.day++;const up=G.coachGroup(s,[a.id],'lifting');
  assert.equal(up.level,2);assert.equal(up.levelUp,G.DRILL_NAMES.lifting[1]);
  const copy=validateCampaign(exportCampaign(s));assert.equal(copy.coaching.drills.lifting,3);
  const old=structuredClone(s);delete old.coaching.drills;assert.deepEqual(validateCampaign(old).coaching.drills,{});
  const broken=structuredClone(s);broken.coaching.drills={nonsense:1};assert.throws(()=>validateCampaign(broken));
- const html=P.train(s,{trainees:[s.roster[3].id]});assert.match(html,/Who's training/);assert.match(html,/Squat &amp; pull complex/);
+ const html=P.train(s,{trainees:[s.roster[3].id]});assert.match(html,/Training group/);assert.match(html,/Squat &amp; pull complex/);
 });

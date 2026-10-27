@@ -22,9 +22,9 @@ export const DRILL_NAMES = {
 };
 // Every athlete in a session gets a rating. Better mood, better odds.
 export const QUALITY = {
-  good: { name: "Good", mult: 0.9, color: "#8cc152" },
-  great: { name: "Great!", mult: 1.15, color: "#5aa4c8" },
-  excellent: { name: "Excellent!!", mult: 1.5, color: "#f2c94c" },
+  good: { name: "Solid", mult: 0.9, color: "#8cc152" },
+  great: { name: "Strong!", mult: 1.15, color: "#5aa4c8" },
+  excellent: { name: "Bomb!!", mult: 1.5, color: "#f2c94c" },
 };
 export const MAX_GROUP = 3;
 export const drillXp = (s, id) => s.coaching.drills?.[id] || 0;
@@ -84,22 +84,22 @@ export function drillProblem(s,a,id,group = 0) {
   const d = DRILLS[id];
   if (!d || !a) return "Unknown session";
   if (s.match || s.pendingEvent || !["planning","season"].includes(s.phase)) return "Finish the current meet or club decision first";
-  if (s.matchDay != null && s.day >= s.matchDay) return "Meet day: protect the warm-up and competition";
-  if (a.injury) return "Recover from injury first";
-  if (a.coachedDay === s.day) return "Coached session already completed today";
+  if (s.matchDay != null && s.day >= s.matchDay) return "Meet day: save it for the ring";
+  if (a.injury) return "Injured: rest up first";
+  if (a.coachedDay === s.day) return "Already trained today";
   return facilityProblem(s,a,d.needs) || (!group && s.coaching.insights < d.cost ? "Needs " + d.cost + " Insights" : null) ||
-    (a.stamina < drillEnergy(s,id) + 20 ? "Needs enough stamina to finish with 20 in reserve" : null) ||
-    (drillGains(s,a,id).every((v) => v <= 0) && !(["delivery","review"].includes(id) && masteryOf(a,a.trainingEvent||a.event)<masteryCap(a,a.trainingEvent||a.event)) ? "Target stats are at their current limit" : null);
+    (a.stamina < drillEnergy(s,id) + 20 ? "Legs too heavy (needs " + (drillEnergy(s,id) + 20) + " stamina)" : null) ||
+    (drillGains(s,a,id).every((v) => v <= 0) && !(["delivery","review"].includes(id) && masteryOf(a,a.trainingEvent||a.event)<masteryCap(a,a.trainingEvent||a.event)) ? "At their ceiling: a rank-up raises it" : null);
 }
 export function groupProblem(s, ids, id) {
   if (!DRILLS[id]) return "Unknown session";
-  if (!ids.length) return "Pick who trains";
+  if (!ids.length) return "Pick a training group";
   if (ids.length > MAX_GROUP || new Set(ids).size !== ids.length) return "Up to " + MAX_GROUP + " athletes per session";
   for (const aid of ids) {
     const a = s.roster.find((x) => x.id === aid);
     if (!a) return "Pick who trains";
     const problem = drillProblem(s, a, id, ids.length);
-    if (problem) return (ids.length > 1 ? a.name.split(" ")[0] + ": " : "") + problem;
+    if (problem) return (ids.length > 1 ? a.name.split(" ")[0] + " · " : "") + problem;
   }
   const cost = groupCost(id, ids.length);
   return s.coaching.insights < cost ? "Needs " + cost + " Insights" : null;
@@ -118,7 +118,7 @@ export function coachGroup(s, ids, id) {
     a.coachedDay = s.day;
     a.stats = a.stats.map((v, i) => v + gains[i]);
     const mastery = practiceMastery(a, (id === "delivery" ? 0.9 : id === "review" ? 0.3 : 0) * QUALITY[quality].mult);
-    if (quality === "excellent" && !a.career.some((c) => c.label.startsWith("First excellent session"))) a.career.unshift({ season: s.season, label: "First excellent session: " + name });
+    if (quality === "excellent" && !a.career.some((c) => c.label.startsWith("First bomb in training"))) a.career.unshift({ season: s.season, label: "First bomb in training: " + name });
     count(s, "coachedSessions");
     return { id: aid, gains, mastery, energy, quality };
   });
@@ -126,7 +126,7 @@ export function coachGroup(s, ids, id) {
   s.coaching.drills[id] = drillXp(s, id) + 1;
   const after = drillLevel(s, id);
   note(s, results.map((r) => s.roster.find((a) => a.id === r.id).name.split(" ")[0]).join(", ") + ": " + name + ".", "level");
-  if (after > level) note(s, "Training level up! " + DRILL_NAMES[id][after - 1] + " is now Lv " + after + ".", "level");
+  if (after > level) note(s, "New session unlocked: " + DRILL_NAMES[id][after - 1] + " (Lv " + after + ").", "level");
   return { drill: id, name, level: after, levelUp: after > level ? DRILL_NAMES[id][after - 1] : null, xp: drillXp(s, id), cost, results };
 }
 // Single-athlete session (the athlete screen and automation).
