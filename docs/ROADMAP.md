@@ -1,32 +1,28 @@
 # Roadmap
 
-## Implemented in the league rebuild
+## Implemented in 0.5.0
 
-- [x] Five repeatable leagues, four-event club duels, round-robin fixtures, standings, finals and promotion.
-- [x] Persistent opponents within a league, club strengths and a defending-world-champion continuation.
-- [x] Four starter specialists, up to eight athletes, double-duty penalties and contract release with a preserved legacy.
-- [x] Training plans, tapering, fatigue/form, traits, learned skills, career moments and growing long-term potential.
-- [x] Recruiting, equipment roles/tuning, sponsor contracts, weekly wages and recoverable match income.
-- [x] Editable grounds: build, upgrade, move and swap; distinct adjacency effects and a discovery notebook.
-- [x] Larger original pixel world, shaded multi-level buildings, trees, people, stadium, release gestures and flight animation.
-- [x] Persistent main-action area and portrait/landscape layouts. Competition decisions never time out.
-- [x] Saved match phases, resume after interruption, portable backups and v2 migration.
-- [x] Android shell, native saves/sharing, landscape/immersive configuration and APK workflow.
+- [x] Living grounds: athletes train at their facilities, visitors spend money, stat/coin/level popups, seasons and time-of-day light.
+- [x] 16 facilities with three visible levels on a 12-plot grid that opens by league; 14 neighbour combos and a hint notebook.
+- [x] Athletes with rarity, backgrounds, mood and stamina, levels, skill points, 28 learnable skills, ranks with new caps/slots/looks.
+- [x] Six secret characters with unique skills, unlocked by milestones.
+- [x] 33 items: consumables, gear with rarities, a fan-tiered shop, meet prize chests, a travelling merchant and forging.
+- [x] Beat-by-beat meets with both sides animated, skill cut-ins, Watch/Coach modes, clutch pauses, manual release, speed and skip.
+- [x] 36 club goals, 16 story events, sponsors, awards night, club records, hall of fame, club colours.
+- [x] New outlined chibi pixel art, 2.5D buildings, pixel font, stadium that grows with the league, synthesized sound.
+- [x] v4 saves with v3/v2 migration; balance harness for pacing and tactics.
 
 ## Validation still needed
 
-- [ ] Install the compiled APK on a physical Android phone and verify system bars, Back, lifecycle and backup sharing.
-- [ ] Longer player-led balance testing: first-hour economy, meaningful training differences, roster attachment, fair promotion pacing and repeat-season variety.
-- [ ] Configure stable development signing before distributing repeated APK updates.
-- [ ] Audit accessibility text scaling, focus order, contrast in bright light, screen-reader labels and touch sizes on smaller phones.
+- [ ] Play sessions on a physical Android phone: readability of the pixel scenes at phone scale, touch targets, session length, sound levels.
+- [ ] Human balance testing for the first hour, the County/Regional middle and the World League wall.
+- [ ] Accessibility audit: text scaling, focus order, screen-reader labels for canvas-driven moments.
+- [ ] Physical-device OTA update test from 0.4.0 to 0.5.0.
 
-## Next fun, focused additions
+## Next ideas
 
-1. More expressive hand-authored athlete animation, celebrations, rivalry reactions, sound and optional haptics.
-2. Personal ambitions and mentorship that give a veteran a role beyond raw stats.
-3. Richer rival clubs, distinct venues and small league-specific coaching challenges without hidden scoring rules.
-4. A short, optional guided first meet and concise post-season advice tailored to the player's results.
-5. More training-route discoveries and equipment visual customization, keeping all choices earnable through play.
-6. Optional cloud backup and an installed web version; an iOS project can follow separately.
-
-Expand to races or jumps only after each discipline has its own tactics and visual language. Avoid making different events the same throw formula with a new label.
+1. A mid-season cup (knockout invitational) with rare item prizes.
+2. Friendships and rivalries between named athletes; mentoring moments.
+3. More secret characters and late-game goals for title defences.
+4. Optional cloud backup; an iOS project.
+5. Races or jumps, only with their own tactics and visual language.

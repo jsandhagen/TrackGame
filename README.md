@@ -1,23 +1,20 @@
 # Ring & Sector — Club Athletics
 
-An offline, landscape-first club management game inspired by the warmth, discovery and connected progression of classic miniature management games. Develop a team of throwers, build a home for them, and take the club from a community league to a repeatable world championship.
+A cosy, offline club-management game about a tiny throwing club that grows into a world champion, in the spirit of Kairosoft's management games such as Pocket League Story 2 and Game Dev Story. Original characters, art and names; no premium currency, ads, energy or login streaks.
 
-## Play loop
+## The loop
 
-**Prepare → choose a four-event lineup → face a rival club → invest → reach the final → promote or try again.**
+**Press ▶ → watch the club train → build, equip and level up → take four throwers into a live head-to-head meet → collect prizes → climb five leagues.**
 
-- Five leagues: Community, County, Regional, National and World.
-- Three round-robin fixtures and a top-two final in each season. All earned club progress carries over.
-- Shot put, discus, hammer and javelin contribute to one team score. Specialists and squad depth matter; double duty is possible with penalties.
-- Two attempts per event in regular meets, three in finals. Choose a safe, controlled or aggressive approach. Handle the release or use assisted timing.
-- No decision timeout. Training advances only when requested; competition and results wait for input. Interrupted attempts resume at planning without duplicating rewards.
-- Athlete training, form, fatigue, recovery, traits, earned skills, personal bests, career moments and gradual long-term potential growth.
-- Recruiting, up to eight athletes, contract release with club legacy, permanent equipment and tuning, weekly wages and season sponsor choices.
-- Nine editable grounds plots, free facility moves/swaps, upgrades with visible art changes, and four synergies with different effects.
-- Original procedural pixel scenery, shaded buildings, animated people, a stadium crowd, event-specific preparation/release gestures and projectile flights.
-- No premium currency, real-money purchases, ads, energy sales or login streaks.
+- **A living 2.5D grounds.** Each athlete walks to the facility for their training plan (Strength Room, Throws Centre, Sprint Lanes, Video Studio, Recovery Spa) and stat gains pop above their heads. Visitors wander the paths and spend money at the café and merch stand. Seasons change the scenery, snow included.
+- **16 facilities on a 4×3 plot grid** that opens up as you climb leagues. Each has three visibly different levels. **14 neighbour combos** (Power Circuit, Fuel Station, Zen Corner, Tech Hub…) are discovered by placing buildings side by side; moving is free.
+- **Characters worth keeping.** Rarity (Common → Legend), 12 backgrounds (Farm Kid, Chess Prodigy, Class Clown…), levels that grant **skill points**, **ranks** (Rookie → Pro → Ace → Star → Legend) that raise stat caps, add skill slots and change their look, mood and stamina, career moments and season awards.
+- **34 skills**: 28 to learn across training, meet, team and event-specific signature moves (Meteor Put, Sky Spear…), each shown with a cut-in when it fires. **Six secret characters** with unique skills arrive when you hit milestones.
+- **33 items**: consumables (Energy Drink, Protein Shake, Skill Scroll…), and implements, shoes and charms with rarities. A shop that stocks more as your fan base grows, meet prize drops, a travelling merchant and a workshop that forges gear.
+- **Watchable meets.** Four events, rival throws first, then you. Watch mode lets athletes choose their approach and pauses only for clutch moments; Coach mode lets you call every throw, with optional manual release timing. Speed 1×/2×/4× or skip.
+- **Always something next:** 36 club goals with rewards, 16 story events with choices (journalists, merchants, tryouts, rainy days, a dog stealing a javelin), sponsors that unlock with fans, awards night, a combo notebook, records and a trophy cabinet.
 
-This is a substantial playable prototype. Campaign correctness and initial balance are tested, but long-term balance and native device behavior still need real playtesting. See [League design](docs/LEAGUE_DESIGN.md) and [design vision](docs/VISION.md).
+No decision times out. Time only moves while you press play and stops for meet day and story events. Progress saves after every day and every throw.
 
 ## Run on your computer
 
@@ -52,29 +49,31 @@ Android requires the same signing key for an in-place update. For repeated distr
 
 ## Saves
 
-Open **Club → Export club / Import club**. JSON backups transfer between browser and app. Imports validate the schema and require confirmation. Existing v2 HTML-prototype backups migrate into the league campaign; existing names, stats, funds and personal bests are retained where applicable, with a starter squad filling missing event roles. Old paid-equipment systems do not map one-to-one onto the redesigned kit rules.
+Open **Office → Export club / Import club**. JSON backups transfer between browser and app. Imports validate the schema and require confirmation.
 
-Saves use the `ring-sector-leagues-v3` key. A damaged save stops loading instead of being silently replaced. Training, planning, recorded throws and settled rewards are saved. A reload during timing returns to the planning decision. A reload after release retains the recorded result. Browser/app storage is separate until transferred; cloud sync is not implemented.
+Careers are stored under the `ring-sector-leagues-v3` key with an internal schema version. 0.5.0 writes schema v4 and migrates older saves on load: v3 league careers keep their roster, stats, personal bests, results, trophies, funds and facilities (mapped onto the new 12-plot grounds); old kit becomes gear in the bag, an equipped skill maps to its nearest new skill, and experienced athletes receive ranks and skill points for their levels. A meet that was interrupted under 0.4 restarts from the lobby, because the meet engine changed. v2 prototype backups still import. A damaged save stops loading instead of being silently replaced.
 
 ## Source map
 
 | Path | Responsibility |
 | --- | --- |
-| `src/game-content.js` | Leagues, events, clubs, equipment, facilities, traits and skill definitions |
-| `src/domain/game.js` | Seeded simulation, progression, economy, lineups and match state machine |
-| `src/domain/campaign-save.js` | Campaign validation and migration |
-| `src/domain/savegame.js` | Legacy v2 import validation |
-| `src/render/art.js` | Cached grounds, buildings, people, stadium and flight animation |
-| `src/main.js` | Game interface, deliberate training, inputs and navigation |
-| `src/platform/` | Native lifecycle, saves and backup sharing |
-| `android/` | Native shell, orientation, immersive view, icon and splash resources |
-| `tests/` | Campaign, scoring, reward idempotence, economy constraints and save scenarios |
-| `.github/workflows/` | Validation and development-APK build |
+| `src/game-content.js` | Events, ranks, rarities, backgrounds, skills, items, facilities, combos, leagues, clubs, sponsors, secret characters |
+| `src/domain/core.js` | Seeded RNG, athlete model, effects aggregation, projections, XP, inventory helpers |
+| `src/domain/game.js` | New game, daily training/visitor/economy simulation, grounds, items, skills, ranks, recruiting, seasons |
+| `src/domain/meet.js` | Beat-by-beat meet engine, tactics and risk model, rival AI, settlement and rewards |
+| `src/domain/story.js` | Club goals, story events, secret characters and season awards |
+| `src/domain/campaign-save.js` | v4 validation and v3/v2 migration |
+| `src/render/` | Pixel helpers, bitmap font, chibi sprites, item icons, buildings, grounds scene, stadium scene, synthesized sound |
+| `src/ui/pages.js` | Panel pages (club desk, squad, athlete, recruit, grounds, shop, league, office, lobby, meet) |
+| `src/main.js` | Wiring: day loop, meet presenter, dialogs, toasts, input, persistence |
+| `src/platform/` | Native lifecycle, saves, backup sharing and game updates |
+| `scripts/balance-audit.mjs` | Scripted careers for pacing and economy checks |
+| `tests/` | Meets, campaign flow, facilities, training, items, skills, recruiting, events, migration and tactics balance |
 
 The native package ID is `io.github.jsandhagen.ringsector`. A web production bundle lives in `dist/` after building, but no public website deployment or app-store publication is configured.
 
-## 0.4.0: progression and automatic game updates
+## 0.5.0: the club comes alive
 
-This release adds facility clinics, league-gated mastery skills and Signature releases, rebuild camps, PB celebrations, tactical risk previews, and an optional event coach. Decisions still wait for the player. See [balance findings](docs/BALANCE_V0.4.md).
+A rebuild of the game around the Kairosoft loop: a living grounds, characters with skills and ranks, items and rarities, secret characters, story events, goals, sponsors and watchable meets, with all-new outlined pixel art and sound. See [game design](docs/GAME_DESIGN.md) and [balance notes](docs/BALANCE_V0.5.md).
 
-The new Android shell can download compatible game updates from this repository's GitHub Releases and apply them on a cold launch. One new APK installation is necessary to add this capability; native changes still require an installer. See [update behavior, publishing and validation limits](docs/AUTO_UPDATES.md). Export your career before uninstalling or switching devices.
+The Android shell from 0.4.0 can receive this version as an automatic game update (no reinstall); see [update behavior](docs/AUTO_UPDATES.md). Export your career before uninstalling or switching devices.

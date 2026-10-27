@@ -1,5 +1,7 @@
 # A tiny club with a long story
 
+> 0.5.0 implemented much of this vision (a living grounds, skills, ranks, items, secret characters, story events, goals and watchable meets). See [GAME_DESIGN.md](GAME_DESIGN.md) for what exists now; the sections below remain the design philosophy and still describe some 0.4-era gaps.
+
 ## The aim
 
 A welcoming sports management toy that grows into a thoughtful club simulation. You can enjoy watching an athlete train, understand why a decision worked, and care about the person who eventually wins a national title. Decisions belong to the player. The game fits a phone screen and rewards play rather than attendance or spending.

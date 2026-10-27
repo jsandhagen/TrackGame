@@ -613,6 +613,28 @@ details.card > summary {
 .fixture-card > .button {
   width: 100%;
 }
+.budget {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.budget span {
+  flex: 1;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.budget b {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+}
+.budget b.neg {
+  color: var(--red);
+}
 .goal {
   display: flex;
   align-items: center;

@@ -67,6 +67,7 @@ export function home(s, view) {
     ${ready ? btn("To the stadium →", "lobby") : btn(playLabel, view.playing ? "pause" : "play")}
     <div class="split">${btn("Advance one day", "day", ready || view.playing ? "disabled" : "", "subtle")}${btn("League table", "page", 'data-page="league"', "subtle")}</div>
   </article>
+  <div class="budget"><span>Weekly <b class="${G.weeklyIncome(s) < G.wages(s) ? "neg" : ""}">${G.weeklyIncome(s) >= G.wages(s) ? "+" : ""}${cash(G.weeklyIncome(s) - G.wages(s))}</b> after wages</span><span>Visitors <b>${G.visitorsPerDay(s)}/day</b></span><span>Shop tier <b>${G.shopStock(s).length} items</b></span></div>
   <section class="card goals-card"><div class="card-title"><h2>Club goals</h2>${btn("All goals →", "page", 'data-page="club"', "text")}</div>
     ${goals.map((g) => goalRow(s, g)).join("") || "<p class='hint'>Every goal complete. Legendary!</p>"}
   </section>

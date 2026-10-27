@@ -4,24 +4,23 @@ The campaign uses a deliberately fictional club-duel format. The objective is to
 
 ## The repeatable loop
 
-1. **Prepare:** select team or individual training; balance growth, form and recovery. Advance one day or train explicitly to the next fixture.
-2. **Shape the club:** choose equipment, develop an earned skill, sign a reserve, or build/move/upgrade a facility. Distinct adjacency effects reward an evolving layout.
-3. **Field the team:** assign one athlete to each of four events. Specialists are strongest. A person can cover at most two events, with specialization and workload penalties.
-4. **Meet a rival club:** each event compares best throws. Event wins award three meet points, ties award one each. Regular fixtures have two attempts; finals have three. Manual release is optional; assisted throws preserve the management game.
-5. **React:** see the mark, opponent, timing feedback and major modeled factors. All decisions wait indefinitely. Club wins award league points and additional income; every meet pays an appearance amount so defeat is recoverable.
-6. **Finish a season:** three round-robin fixtures lead to a top-two final. Win it to promote, or repeat the league with your earned progress. You can also defend a title at the current level. World champions can continue defending against a gradually improving field.
+1. **Prepare:** press play. Athletes train at their facilities, rest when tired and taper before a meet. Build, upgrade and move facilities, learn skills, promote athletes, buy and equip items, and recruit.
+2. **Field the team:** assign one athlete to each of four events. Specialists are strongest; a cross-event athlete performs at 90% of rating, and a second event costs another 3%. The lobby shows each projected mark against the rival athlete.
+3. **Meet a rival club:** in each round the rival throws first, then you. Best mark wins the event: 3 meet points, or 1 each for a tie. Regular fixtures have two attempts; finals have three. Watch mode lets athletes choose their approach and pauses for clutch moments; Coach mode asks for every throw. Rivals use skills and adaptive tactics.
+4. **React:** see the landing, the PB, the skills that fired and the event score. Club wins award league points and more money; every meet pays an appearance fee so defeat is recoverable. Wins drop an item chest.
+5. **Finish a season:** three round-robin fixtures lead to a top-two final. Win it to promote, or repeat the league with everything you earned plus a rebuild camp. Awards night celebrates the season. World champions can keep defending against an improving field.
 
 A tied final is decided by aggregate performance relative to each event's distance scale, awarding one tiebreak point. This is a transparent fictional cup rule, not an official athletics scoring standard.
 
 ## Five leagues
 
-| League | Gameplay role | New club option |
+| League | Gameplay role | Opens |
 | --- | --- | --- |
-| Community | Learn the loop with a forgiving first opponent and a meet after three training days | Basic facilities, training, equipment and skill discovery |
-| County | More demanding opposition makes preparation and reliability matter | Video studio and the release-lab synergy |
-| Regional | Continued development and tuning help close the gap | Workshop discounts on permanent equipment tuning |
-| National | A developed roster and a bigger club economy support the campaign | Grandstand income and the home-advantage synergy |
-| World | Endgame title and repeatable defenses | Keep developing a club with a long career history |
+| Community | Learn the loop against a forgiving field; the first meet is after three days | 6 plots, starter facilities |
+| County | Preparation and a first rank-up start to matter | 2 plots, Video Studio, Scout Office, Kit Workshop |
+| Regional | Facilities, combos and gear close the gap | 2 plots, Grandstand, Sports Lab |
+| National | A developed roster and economy | The last 2 plots |
+| World | The wall: Star ranks, rare recruits and skills needed | Title defences |
 
 Every league has three named clubs with different event strengths: a power-first squad, technical throwers, and a fast-turning hammer/javelin squad. Rival athletes persist across repeat seasons at the same level. Promotion introduces a new field. Failed seasons do not automatically inflate the opposition away from the player.
 
