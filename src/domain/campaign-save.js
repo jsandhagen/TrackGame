@@ -8,6 +8,7 @@ import { statTotal, slotsOf } from "./core.js";
 import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
 import { DRILLS } from "./coaching.js";
+import { WEATHER, weatherSeedFrom } from "./calendar.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
 const int = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
@@ -236,6 +237,7 @@ function checkMatch(s, ids) {
     syncMarks(s);
   }
   if (!Array.isArray(m.sigUsed) || !Array.isArray(m.rivalSig)) bad();
+  if (m.weather != null && !WEATHER[m.weather]) bad();
 }
 
 export function validateCampaign(input) {
@@ -287,6 +289,8 @@ export function validateCampaign(input) {
   s.coaching.drills ??= {};
   if (typeof s.coaching.drills !== "object" || Array.isArray(s.coaching.drills) || Object.entries(s.coaching.drills).some(([k, n]) => !DRILLS[k] || !int(n, 0, 1e7))) bad();
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
+  s.weatherSeed ??= weatherSeedFrom(s.rng);
+  if (!int(s.weatherSeed, 0, 2 ** 32 - 1)) bad();
   if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
   for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, 3))) bad();
   const types = s.plots.filter(Boolean).map((p) => p.type).filter((k) => !FACILITIES[k].decor);

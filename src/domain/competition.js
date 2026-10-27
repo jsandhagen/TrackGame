@@ -75,3 +75,13 @@ export function nextCircuitEntry(s) {
   }
   return { kind: "league", tier: 4, stage: 2 };
 }
+// Booked meet days ahead, for the calendar. Later league fixtures are projected from the spacing.
+export function upcomingMeets(s) {
+  const c = s.competition;
+  if (!c || s.phase !== "season" || s.matchDay == null) return [];
+  if (c.kind !== "league") return [{ day: s.matchDay, label: competitionName(s), rival: (c.kind === "duel" ? s.clubs.find((x) => x.id === c.rival) : null)?.name }];
+  const out = [];
+  for (let f = s.fixture; f < 3; f++) out.push({ day: s.matchDay + (f - s.fixture) * c.spacing, label: "Fixture " + (f + 1) + " / 3", rival: s.clubs[f]?.name });
+  out.push({ day: s.matchDay + (3 - s.fixture) * c.spacing, label: s.fixture === 3 ? "League final" : "League final (top two)", rival: s.fixture === 3 ? s.clubs.find((x) => x.id === s.finalOpponent)?.name : null, projected: s.fixture < 3 });
+  return out;
+}

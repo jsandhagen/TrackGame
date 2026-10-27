@@ -63,7 +63,7 @@ function alerts(s, a) {
   if (!G.promoteProblem(s, a)) out.push(chip("Rank up!", "#e2b04a", "pulse"));
   return out.join("");
 }
-export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Training ground", recruit: "Scouting report", build: "Groundskeeping", shop: "Kit shop", league: "Meet calendar", club: "Club office", lobby: "Call room" };
+export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Training ground", recruit: "Scouting report", build: "Groundskeeping", shop: "Kit shop", league: "Meet calendar", club: "Club office", lobby: "Call room", calendar: "Club calendar" };
 
 // ── Club desk ───────────────────────────────────────────────────────────
 export function home(s, view) {
@@ -75,7 +75,8 @@ export function home(s, view) {
   ${s.phase === "planning" ? `<article class="card calendar-welcome"><span class="eyebrow">OFF-SEASON · NOTHING ON THE CALENDAR</span><h2>Where do we throw next?</h2><p>Book a duel to test the squad, or enter a league and chase some hardware. The infield stays open until you're ready.</p>${btn("Open the meet calendar", "page", 'data-page="league"')}<div class="inline">${btn(view.playing ? "Pause training" : "Keep training", view.playing ? "pause" : "play", "", "subtle")}${btn("Next day", "day", view.playing ? "disabled" : "", "subtle")}</div></article>` : `
   <article class="fixture-card ${ready ? "ready" : ""}" style="--rival:${opp?.color || "#888"}">
     <div class="fixture-top"><span>${s.competition?.kind === "duel" ? "DUEL MEET" : s.fixture === 3 ? "LEAGUE FINAL" : "FIXTURE " + (s.fixture + 1) + " / 3"} · ${esc(G.competitionName(s))}</span><b>${ready ? "MEET DAY" : days + (days === 1 ? " DAY" : " DAYS") + " TO GO"}</b></div>
-    <div class="versus"><span class="crest home">${esc(s.clubName.slice(0, 1))}</span><div><small>NEXT UP</small><h2>${esc(opp?.name)}</h2><p>${esc(opp?.style || "")}</p></div><span class="crest away">${esc(opp?.name.slice(0, 1))}</span></div>
+    <div class="versus"><span class="crest home">${esc(s.clubName.slice(0, 1))}</span><div><small>NEXT UP · ${esc(G.shortDate(s.matchDay))}</small><h2>${esc(opp?.name)}</h2><p>${esc(opp?.style || "")}</p></div><span class="crest away">${esc(opp?.name.slice(0, 1))}</span></div>
+    <p class="meet-forecast">${weatherChip(G.weatherOn(s, s.matchDay))} <span>Meet-day forecast${days > 6 ? " (a week out)" : ""}</span></p>
     ${ready ? btn(ico("stadium") + " Report to the call room", "lobby") : btn(view.playing ? ico("pause") + " Pause" : ico("play") + " Train · " + days + (days === 1 ? " day" : " days") + " to the meet", view.playing ? "pause" : "play")}
     <div class="split">${btn("Next day", "day", ready || view.playing ? "disabled" : "", "subtle")}${btn(ico("league") + " Meets", "page", 'data-page="league"', "subtle")}</div>
   </article>`}
@@ -576,6 +577,49 @@ function competitionBoard(s, view) {
     }).join("")}</div><h3>Duel meets</h3><p class="hint">A first win over each club earns a bonus and a skill scroll. Repeat duels offer smaller match rewards and experience; league invitations come from trophies.</p><div class="duel-list">${CLUBS[i].map((c, j) => `<article class="duel-card"><span><strong>${esc(c.name)}</strong><small>${esc(c.style)}</small><small>${s.circuit.duels.includes(i + ":" + j) ? "First-win reward earned" : "First-win reward available"}</small></span>${btn("Book duel", "book-duel", `data-tier="${i}" data-rival="${j}" ${G.entryProblem(s, "duel", i, 0, j) ? "disabled" : ""}`, "subtle")}</article>`).join("")}</div>`}</details>`).join("")}`;
 }
 
+// ── Calendar ────────────────────────────────────────────────────────────
+export const weatherChip = (w) => `<span class="weather-chip w-${w}">${ico(G.WEATHER[w].icon)}${esc(G.WEATHER[w].name)}</span>`;
+// Everything that falls on a given day: meets, invitations and paydays.
+function dayMarks(s, day, meets) {
+  const out = [];
+  for (const m of meets) if (m.day === day) out.push({ icon: "league", cls: "meet", text: m.label + (m.rival ? " vs " + m.rival : "") + (m.projected ? " · projected" : "") });
+  const inv = s.invitations?.offer;
+  if (inv && inv.day === day) out.push({ icon: "star", cls: "cup", text: inv.name + (s.competition?.kind === "cup" ? " · accepted" : " · invitation") });
+  if (G.isPayday(day)) out.push({ icon: "coin", cls: "pay", text: "Payday" });
+  return out;
+}
+export function calendar(s) {
+  const today = G.dateOf(s.day),
+    w = G.weatherToday(s),
+    meets = G.upcomingMeets(s),
+    start = s.day - today.weekday,
+    forecast = G.forecastDays(s),
+    known = new Map(forecast.map((f) => [f.day, f.weather]));
+  const cells = Array.from({ length: 28 }, (_, i) => {
+    const day = start + i,
+      t = G.dateOf(day),
+      marks = day >= 1 ? dayMarks(s, day, meets) : [],
+      past = day < s.day;
+    return `<div class="cal-day ${day === s.day ? "today" : ""} ${past ? "past" : ""} ${marks.some((m) => m.cls === "meet") ? "has-meet" : ""} ${marks.some((m) => m.cls === "cup") ? "has-cup" : ""}" title="${esc(G.longDate(day))}${marks.map((m) => " · " + esc(m.text)).join("")}">
+      <span class="num">${t.date === 1 || i === 0 ? G.MONTHS[t.month].slice(0, 3) + " " : ""}${t.date}</span>
+      ${known.has(day) ? ico(G.WEATHER[known.get(day)].icon, "cal-weather") : ""}
+      <span class="marks">${marks.map((m) => ico(m.icon, m.cls)).join("")}</span></div>`;
+  }).join("");
+  const ahead = [];
+  for (let day = s.day; day < s.day + 28; day++) for (const m of dayMarks(s, day, meets)) if (m.cls !== "pay") ahead.push({ day, ...m });
+  return `<section class="card cal-today"><div><span class="eyebrow">${esc(G.SEASON_NAMES[today.season].toUpperCase())} · YEAR ${today.year}</span><h2>${esc(G.longDate(s.day))}</h2><p>${esc(G.WEATHER[w].desc)}</p></div>${weatherChip(w)}</section>
+  <div class="card-title"><h2>${ico("sun")} Seven-day forecast</h2></div>
+  <div class="forecast">${forecast.map((f) => {
+    const meet = dayMarks(s, f.day, meets).find((m) => m.cls !== "pay");
+    return `<div class="fc ${f.day === s.day ? "today" : ""} ${meet ? "meet" : ""}"><small>${f.day === s.day ? "Today" : G.WEEKDAYS[G.dateOf(f.day).weekday]}</small>${ico(G.WEATHER[f.weather].icon)}<b>${esc(G.WEATHER[f.weather].name)}</b>${meet ? `<em>${ico(meet.icon)} ${meet.cls === "cup" ? "Invitational" : "Meet"}</em>` : ""}</div>`;
+  }).join("")}</div>
+  <p class="hint">Rain and snow slow outdoor work (laps, sprints, throwing) but not the gym or film room. Meet-day weather sets the conditions in the circle.</p>
+  <div class="card-title"><h2>${ico("calendar")} Next four weeks</h2></div>
+  <div class="cal-grid">${G.WEEKDAYS.map((d) => `<span class="cal-head">${d}</span>`).join("")}${cells}</div>
+  <div class="cal-legend"><span>${ico("league")} Meet</span><span>${ico("star")} Invitational</span><span>${ico("coin")} Payday</span></div>
+  <section class="card"><h3>Coming up</h3>${ahead.length ? ahead.map((m) => `<p class="cal-item ${m.cls}">${ico(m.icon)} <b>${esc(G.shortDate(m.day))}</b> · ${esc(m.text)}${known.has(m.day) ? " · " + esc(G.WEATHER[known.get(m.day)].name) : ""}</p>`).join("") : `<p class="hint">Nothing booked. ${s.phase === "planning" ? "Open the Meets board to book a duel or a league." : ""}</p>`}</section>`;
+}
+
 // ── League ──────────────────────────────────────────────────────────────
 export function league(s, view) {
   return `${competitionBoard(s, view)}<div class="journey">${LEAGUES.map((l, i) => `<div class="${i === s.league ? "current" : i < s.league ? "passed" : ""}"><span>${i < s.league ? ico("check") : i + 1}</span><small>${l.name.replace(" League", "")}</small></div>`).join("")}</div>
@@ -654,6 +698,7 @@ export function lobby(s) {
   const m = G.opponent(s),
     problem = G.lineupProblem(s);
   return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${s.fixture === 3 ? "neutral venue" : s.competition?.kind === "duel" ? "at home" : (s.competition?.stage === 2 ? s.fixture !== 2 : s.fixture === 1) ? "away" : "at home"}</p>
+  <p class="meet-forecast">${weatherChip(G.weatherToday(s))} <span>${esc(G.WEATHER[G.weatherToday(s)].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
     const a = s.roster.find((x) => x.id === s.lineup[ev]),
       r = m.athletes[i],
@@ -714,7 +759,7 @@ export function meetBar(s, view) {
       <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
     </section>
-    <section class="live-standings" aria-label="Live standings"><header><strong>Event standings</strong><small>${m.finalRound ? "Final throws" : "Qualifying"}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""} · 5–3–1 pts</small></header><div class="standings-list">${rows.map(row=>{
+    <section class="live-standings" aria-label="Live standings"><header><strong>Event standings</strong><small>${m.finalRound ? "Final throws" : "Qualifying"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""} · 5–3–1 pts</small></header><div class="standings-list">${rows.map(row=>{
       const {athlete}=meetAthlete(s,row.side,row.id);
       return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
     }).join("")}</div></section>

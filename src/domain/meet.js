@@ -22,6 +22,7 @@ import { checkGoals } from "./story.js";
 import { competitionTier } from "./competition.js";
 import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
+import { WEATHER, weatherToday } from "./calendar.js";
 
 export const best = (marks) => {
   const valid = marks.filter((x) => x != null);
@@ -129,7 +130,9 @@ export function startMatch(s) {
     color: rival.color,
     eventIndex: 0,
     rotation: true,
-    wind: ["calm","headwind","crosswind"][Math.floor(random(s)*3)],
+    // Meet-day weather: the forecast decides the conditions. Windy days always blow.
+    weather: weatherToday(s),
+    wind: weatherToday(s)==="windy" ? (random(s)<0.5?"headwind":"crosswind") : ["calm","calm","headwind","crosswind"][Math.floor(random(s)*4)],
     attempts: 3,
     championship: kind === "final",
     entryIndex: 0,
@@ -377,7 +380,9 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mean = T.mean + (tactic === "attack" ? fx.attackBoost : 0),
     qm = quality === "perfect" ? 1.02 + (fx.perfect ? 0.01 : 0) : quality === "poor" ? 0.95 : 1;
   const P = forecast(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
-  const center = P * mean * qm * mult * discipline.mark;
+  const sky = WEATHER[c.m.weather] || {};
+  if (sky.foul && !sig && !(first && fx.safeFirst)) foul = clamp(foul * sky.foul, 0.01, 0.5);
+  const center = P * mean * qm * mult * discipline.mark * (sky.mark || 1);
   return { foul, sd, center, low: center * (1 - sd * 1.6), high: center * (1 + sd * 1.6), acts, fx, P, discipline, target:c.target };
 }
 
@@ -391,7 +396,7 @@ function throwFor(s, side, tactic, quality, sig) {
     z = clamp(gauss(s), -2.4, 2.4),
     mark = foul ? null : +(r.center * (1 + z * r.sd)).toFixed(2);
   if (sig) (side === "home" ? m.sigUsed : m.rivalSig).push(a.id);
-  a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina, 0, 100);
+  a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.
   a.condition = clamp(a.condition + (foul ? -8 : 2), 0, 100);
   const beforeMargin=c.m.rotation?fieldLeaderboard(s,c.i).reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0):0;
