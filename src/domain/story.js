@@ -1,0 +1,360 @@
+import { EVENTS, EVENT_IDS, ITEMS, SKILLS, SECRETS, LEAGUES, RARITY, CLUBS, showStat } from "../game-content.js";
+import {
+  clamp,
+  random,
+  pick,
+  note,
+  count,
+  addItem,
+  createAthlete,
+  grantXp,
+  randomItem,
+  rosterCap,
+  facilityLevel,
+  statTotal,
+  capOf,
+} from "./core.js";
+
+// ── Club goals: a steady stream of short- and long-term targets ───────────
+const bestMark = (s, ev) => s.records?.[ev]?.mark || 0;
+const plotCount = (s) => s.plots.filter((p) => p && p.type !== "club").length;
+export const GOALS = [
+  { id: "train3", name: "First Sessions", desc: "Complete 3 training days", target: 3, progress: (s) => s.counters.days || 0, reward: { money: 100 } },
+  { id: "event1", name: "On the Board", desc: "Win an event at a meet", target: 1, progress: (s) => s.counters.eventWins || 0, reward: { items: { drink: 2 } } },
+  { id: "build1", name: "Groundbreaking", desc: "Build a new facility", target: 1, progress: (s) => s.counters.built || 0, reward: { money: 150 } },
+  { id: "combo1", name: "Good Neighbours", desc: "Discover a facility combo", target: 1, progress: (s) => s.discovered.length, reward: { items: { manual: 1 } } },
+  { id: "win1", name: "Club Victory", desc: "Win a meet", target: 1, progress: (s) => s.counters.meetWins || 0, reward: { money: 250 } },
+  { id: "learn1", name: "New Trick", desc: "Learn a skill with skill points", target: 1, progress: (s) => s.counters.skillsLearned || 0, reward: { items: { notebook: 1 } } },
+  { id: "use3", name: "Care Package", desc: "Use 3 items", target: 3, progress: (s) => s.counters.itemsUsed || 0, reward: { items: { cake: 2 } } },
+  { id: "fans100", name: "Local Favourites", desc: "Reach 100 fans", target: 100, progress: (s) => s.fans, reward: { money: 300 } },
+  { id: "sign1", name: "New Blood", desc: "Sign a recruit", target: 1, progress: (s) => s.counters.signed || 0, reward: { items: { sock: 1 } } },
+  { id: "pro", name: "Turning Pro", desc: "Promote an athlete to Pro", target: 1, progress: (s) => Math.max(0, ...s.roster.map((a) => a.rank)), reward: { money: 400 } },
+  { id: "combo3", name: "Master Planner", desc: "Discover 3 combos", target: 3, progress: (s) => s.discovered.length, reward: { items: { notebook: 2 } } },
+  { id: "pb10", name: "Record Setter", desc: "Set 10 personal bests", target: 10, progress: (s) => s.counters.pbs || 0, reward: { items: { goldchalk: 1 } } },
+  { id: "county", name: "Moving Up", desc: "Reach the County League", target: 1, progress: (s) => s.league, reward: { money: 500 } },
+  { id: "learn6", name: "Bag of Tricks", desc: "Learn 6 skills", target: 6, progress: (s) => s.counters.skillsLearned || 0, reward: { items: { scroll: 1 } } },
+  { id: "rare", name: "Rare Find", desc: "Sign a Rare-or-better athlete", target: 1, progress: (s) => s.counters.rareSigned || 0, reward: { money: 500 } },
+  { id: "fans500", name: "Town Talk", desc: "Reach 500 fans", target: 500, progress: (s) => s.fans, reward: { items: { scroll: 1 } } },
+  { id: "upgrade3", name: "Top Floor", desc: "Upgrade a facility to level 3", target: 3, progress: (s) => Math.max(...s.plots.map((p) => (p && p.type !== "club" ? p.level : 0))), reward: { money: 400 } },
+  { id: "title1", name: "Silverware", desc: "Win a league title", target: 1, progress: (s) => s.trophies.length, reward: { items: { medal: 1 } } },
+  { id: "shot15", name: "Fifteen Metres", desc: "Club shot put record of 15 m", target: 15, progress: (s) => bestMark(s, "shot"), reward: { money: 600 } },
+  { id: "disc50", name: "Discus Fifty", desc: "Club discus record of 50 m", target: 50, progress: (s) => bestMark(s, "discus"), reward: { money: 600 } },
+  { id: "ham60", name: "Hammer Sixty", desc: "Club hammer record of 60 m", target: 60, progress: (s) => bestMark(s, "hammer"), reward: { money: 600 } },
+  { id: "jav65", name: "Javelin Sixty-Five", desc: "Club javelin record of 65 m", target: 65, progress: (s) => bestMark(s, "jav"), reward: { money: 600 } },
+  { id: "roster8", name: "Full Squad", desc: "Have 8 athletes", target: 8, progress: (s) => s.roster.length, reward: { items: { feast: 2 } } },
+  { id: "regional", name: "Regional Contenders", desc: "Reach the Regional League", target: 2, progress: (s) => s.league, reward: { money: 800 } },
+  { id: "combo6", name: "Grand Designer", desc: "Discover 6 combos", target: 6, progress: (s) => s.discovered.length, reward: { items: { compass: 1 } } },
+  { id: "star", name: "Star Power", desc: "Promote an athlete to Star", target: 3, progress: (s) => Math.max(0, ...s.roster.map((a) => a.rank)), reward: { items: { thunder: 1 } } },
+  { id: "secret2", name: "Curious Characters", desc: "Sign 2 secret characters", target: 2, progress: (s) => s.counters.secretsSigned || 0, reward: { items: { headband: 1 } } },
+  { id: "fans2000", name: "Region's Darlings", desc: "Reach 2,000 fans", target: 2000, progress: (s) => s.fans, reward: { money: 2000 } },
+  { id: "national", name: "National Stage", desc: "Reach the National League", target: 3, progress: (s) => s.league, reward: { money: 1500 } },
+  { id: "learn15", name: "Encyclopaedia", desc: "Learn 15 skills", target: 15, progress: (s) => s.counters.skillsLearned || 0, reward: { items: { elixir: 1 } } },
+  { id: "plots", name: "Every Plot Used", desc: "Build on 11 plots", target: 11, progress: plotCount, reward: { items: { elixir: 1 } } },
+  { id: "world", name: "World League", desc: "Reach the World League", target: 4, progress: (s) => s.league, reward: { items: { scroll: 2 } } },
+  { id: "legend", name: "Living Legend", desc: "Promote an athlete to Legend", target: 4, progress: (s) => Math.max(0, ...s.roster.map((a) => a.rank)), reward: { items: { elixir: 1 } } },
+  { id: "worldtitle", name: "Champions of the World", desc: "Win the World League", target: 1, progress: (s) => s.trophies.filter((t) => t.league === 4).length, reward: { items: { hermes: 1 } } },
+  { id: "fans10000", name: "Global Following", desc: "Reach 10,000 fans", target: 10000, progress: (s) => s.fans, reward: { items: { comet: 1 } } },
+  { id: "secret6", name: "The Whole Gang", desc: "Sign all 6 secret characters", target: 6, progress: (s) => s.counters.secretsSigned || 0, reward: { money: 10000 } },
+];
+export function goalProgress(s, g) {
+  return Math.min(g.target, g.progress(s));
+}
+export function rewardText(r) {
+  const parts = [];
+  if (r.money) parts.push("$" + r.money.toLocaleString());
+  for (const [id, n] of Object.entries(r.items || {})) parts.push((n > 1 ? n + "× " : "") + ITEMS[id].name);
+  if (r.fans) parts.push(r.fans + " fans");
+  return parts.join(" + ");
+}
+export function grantReward(s, r) {
+  if (r.money) s.money += r.money;
+  if (r.fans) s.fans += r.fans;
+  for (const [id, n] of Object.entries(r.items || {})) addItem(s, id, n);
+}
+export function checkGoals(s) {
+  const done = [];
+  for (const g of GOALS) {
+    if (s.goals.includes(g.id) || g.progress(s) < g.target) continue;
+    s.goals.push(g.id);
+    grantReward(s, g.reward);
+    note(s, "Goal complete: " + g.name + "! Reward: " + rewardText(g.reward), "goal");
+    done.push(g);
+  }
+  return done;
+}
+export const openGoals = (s, n = 3) => GOALS.filter((g) => !s.goals.includes(g.id)).slice(0, n);
+
+// ── Secret characters ─────────────────────────────────────────────────
+const SECRET_WHEN = {
+  olga: (s) => s.fans >= 250,
+  bjorn: (s) => s.plots.some((p) => p?.type === "gym" && p.level >= 3),
+  r7: (s) => facilityLevel(s, "workshop") >= 2 && facilityLevel(s, "studio") >= 2,
+  yuki: (s) => (s.counters.meetWins || 0) >= 10,
+  yeti: (s) => s.league >= 4,
+  pip: (s) => s.discovered.length >= 6,
+};
+export const secretFee = (s, key) => SECRETS[key].fee + 150 * s.league;
+export function signSecret(s, key) {
+  const d = SECRETS[key];
+  if (!d || !s.secretsOffered.includes(key) || s.roster.some((a) => a.secret === key) || (s.secretsSigned || []).includes(key)) return false;
+  if (s.roster.length >= rosterCap(s) || s.money < secretFee(s, key)) return false;
+  s.money -= secretFee(s, key);
+  const a = createAthlete(s, d.event, {
+    name: d.name,
+    rarity: "legend",
+    base: LEAGUES[s.league].rating + d.stats,
+    potential: d.potential,
+    background: d.background,
+    look: { ...d.look },
+    secret: key,
+    skill: d.skill,
+  });
+  s.roster.push(a);
+  (s.secretsSigned ??= []).push(key);
+  count(s, "secretsSigned");
+  count(s, "signed");
+  note(s, d.name + " joined the club! Unique skill: " + SKILLS[d.skill].name + ".", "secret");
+  return a;
+}
+
+// ── Story events: small choices that keep each week surprising ───────────
+const someone = (s) => pick(s, s.roster.filter((a) => !a.injury).length ? s.roster.filter((a) => !a.injury) : s.roster);
+const byId = (s, id) => s.roster.find((a) => a.id === id);
+const team = (s, fn) => s.roster.forEach(fn);
+const cond = (a, n) => (a.condition = clamp(a.condition + n, 0, 100));
+const stam = (a, n) => (a.stamina = clamp(a.stamina + n, 0, 100));
+
+export const STORY = {
+  secret: {
+    title: (s, d) => "A special visitor!",
+    text: (s, d) => SECRETS[d.key].story + " " + SECRETS[d.key].name + " would like to join for " + "$" + secretFee(s, d.key).toLocaleString() + ".",
+    choices: [
+      { label: (s, d) => "Sign " + SECRETS[d.key].name.split(" ")[0], ok: (s, d) => s.roster.length < rosterCap(s) && s.money >= secretFee(s, d.key), run: (s, d) => (signSecret(s, d.key) ? SECRETS[d.key].name + " is officially part of the club!" : "Not possible right now.") },
+      { label: () => "Maybe later", run: (s, d) => "They leave a card. Sign them any time from Squad → Recruit." },
+    ],
+  },
+  journalist: {
+    weight: 3,
+    setup: (s) => ({ id: [...s.roster].sort((a, b) => b.level - a.level)[0].id }),
+    title: () => "The local paper calls",
+    text: (s, d) => "A reporter wants a feature on " + byId(s, d.id)?.name + ". Good for the club's profile, but it eats into rest time.",
+    choices: [
+      { label: () => "Do the interview", run: (s, d) => { const f = 15 + 10 * s.league; s.fans += f; const a = byId(s, d.id); if (a) { cond(a, 12); stam(a, -10); } return "The story runs on the back page. +" + f + " fans."; } },
+      { label: () => "Politely decline", run: () => "The reporter promises to come back after your next win." },
+    ],
+  },
+  merchant: {
+    weight: 2,
+    setup: (s) => {
+      const rarity = random(s) < 0.2 + s.league * 0.05 ? "epic" : "rare",
+        item = randomItem(s, rarity);
+      return { item, price: Math.round((ITEMS[item].price || (rarity === "epic" ? 900 : 380)) * (0.8 + random(s) * 0.4)) };
+    },
+    title: () => "A travelling merchant",
+    text: (s, d) => "A cart rattles up to the gate. “" + ITEMS[d.item].name + ", one of a kind. " + ITEMS[d.item].desc + " Yours for $" + d.price + ".”",
+    choices: [
+      { label: (s, d) => "Buy for $" + d.price, ok: (s, d) => s.money >= d.price, run: (s, d) => { s.money -= d.price; addItem(s, d.item); return ITEMS[d.item].name + " added to the bag."; } },
+      { label: () => "No thanks", run: () => "The merchant tips their hat and trundles on." },
+    ],
+  },
+  tryout: {
+    weight: 2,
+    when: (s) => s.roster.length < rosterCap(s),
+    setup: (s) => {
+      const ev = pick(s, EVENT_IDS),
+        a = createAthlete(s, ev, { base: LEAGUES[s.league].rating - 6, rarity: random(s) < 0.3 ? "rare" : "common" });
+      a.potential = Math.min(90, a.potential + 6);
+      return { athlete: a };
+    },
+    title: () => "A tryout at the fence",
+    text: (s, d) => "A teenager has been watching practice for weeks. " + d.athlete.name + " (" + EVENTS[d.athlete.event].name + ", " + RARITY[d.athlete.rarity].name + ", high potential) asks for a chance. No signing fee.",
+    choices: [
+      { label: () => "Welcome aboard!", ok: (s) => s.roster.length < rosterCap(s), run: (s, d) => { s.roster.push(d.athlete); count(s, "signed"); if (d.athlete.rarity !== "common") count(s, "rareSigned"); return d.athlete.name + " joined the squad."; } },
+      { label: () => "Not this time", run: () => "They promise to keep practising." },
+    ],
+  },
+  rain: {
+    weight: 2,
+    title: () => "Rain, rain, rain",
+    text: () => "A storm rolls over the grounds. How should the squad spend the afternoon?",
+    choices: [
+      { label: () => "Gym circuit", run: (s) => { team(s, (a) => { a.stats[0] = Math.min(capOf(a), a.stats[0] + 0.5); stam(a, -10); }); return "Everyone lifts in the dry. Power +5, stamina −10."; } },
+      { label: () => "Movie night", run: (s) => { team(s, (a) => cond(a, 12)); return "Popcorn and old championship tapes. Condition up!"; } },
+    ],
+  },
+  bakery: {
+    weight: 2,
+    title: () => "A gift from next door",
+    text: () => "The bakery sends over a tray of warm cinnamon buns for the team.",
+    choices: [{ label: () => "Share them out", run: (s) => { team(s, (a) => cond(a, 10)); return "Morale is sky high. Condition +10 for everyone."; } }],
+  },
+  masterclass: {
+    weight: 2,
+    setup: (s) => ({ price: 180 + 120 * s.league, ev: pick(s, EVENT_IDS) }),
+    title: () => "A masterclass offer",
+    text: (s, d) => "A retired " + EVENTS[d.ev].name.toLowerCase() + " champion offers a day with the squad for $" + d.price + ".",
+    choices: [
+      { label: (s, d) => "Book it ($" + d.price + ")", ok: (s, d) => s.money >= d.price, run: (s, d) => { s.money -= d.price; team(s, (a) => grantXp(s, a, a.event === d.ev ? 90 : 45)); return "Everyone soaks it up. +45 XP, +90 for " + EVENTS[d.ev].name + " specialists."; } },
+      { label: () => "Not now", run: () => "Maybe next season." },
+    ],
+  },
+  photoshoot: {
+    weight: 2,
+    setup: (s) => ({ pay: 180 + 120 * s.league }),
+    title: () => "Photo shoot request",
+    text: (s, d) => "A sports drink brand wants the squad for an advert. They'll pay $" + d.pay + ", but it's a long, tiring day.",
+    choices: [
+      { label: (s, d) => "Smile! (+$" + d.pay + ")", run: (s, d) => { s.money += d.pay; team(s, (a) => stam(a, -12)); return "The ad looks great. Everyone is exhausted."; } },
+      { label: () => "Protect training", run: (s) => { team(s, (a) => cond(a, 4)); return "The squad appreciates the quiet day."; } },
+    ],
+  },
+  birthday: {
+    weight: 2,
+    setup: (s) => ({ id: someone(s).id }),
+    title: (s, d) => "Happy birthday!",
+    text: (s, d) => "It's " + byId(s, d.id)?.name + "'s birthday today.",
+    choices: [
+      { label: () => "Team party ($60)", ok: (s) => s.money >= 60, run: (s, d) => { s.money -= 60; team(s, (a) => cond(a, 10)); cond(byId(s, d.id) || {}, 10); return "Balloons, cake and a terrible singalong."; } },
+      { label: () => "A quiet cake", run: (s, d) => { const a = byId(s, d.id); if (a) cond(a, 20); return a?.name.split(" ")[0] + " is touched."; } },
+    ],
+  },
+  dog: {
+    weight: 1,
+    setup: (s) => ({ id: someone(s).id }),
+    title: () => "Dog on the field!",
+    text: () => "A scruffy dog has run off with a javelin. The whole squad stops to watch.",
+    choices: [
+      { label: (s, d) => "Send " + byId(s, d.id)?.name.split(" ")[0] + " after it", run: (s, d) => { const a = byId(s, d.id); if (a) a.stats[2] = Math.min(capOf(a), a.stats[2] + 0.6); s.fans += 8; return "A heroic sprint! Speed +6. Someone filmed it: +8 fans."; } },
+      { label: () => "Let it go", run: (s) => { s.fans += 20; return "The dog trots off proudly. The video goes viral: +20 fans."; } },
+    ],
+  },
+  tvcrew: {
+    weight: 2,
+    when: (s) => s.fans >= 300,
+    title: () => "Cameras at the club",
+    text: () => "A TV crew wants to film a training day for the evening sports show.",
+    choices: [
+      { label: () => "Lights, camera!", run: (s) => { const f = 40 + 25 * s.league; s.fans += f; team(s, (a) => cond(a, -6)); return "Nervy, but it airs well. +" + f + " fans."; } },
+      { label: () => "Closed doors", run: () => "Some secrets stay at the club." },
+    ],
+  },
+  sale: {
+    weight: 1,
+    title: () => "Clearance sale!",
+    text: () => "The sports shop in town is clearing stock: 30% off everything in the shop today.",
+    choices: [{ label: () => "Great!", run: (s) => { s.saleDay = s.day; return "Shop prices are 30% lower today."; } }],
+  },
+  knitting: {
+    weight: 2,
+    setup: (s) => ({ id: someone(s).id, item: random(s) < 0.5 ? "sock" : "sweatband" }),
+    title: () => "A gift from a fan",
+    text: (s, d) => "A fan knitted a " + ITEMS[d.item].name.toLowerCase() + " for " + byId(s, d.id)?.name + ". It's a bit lumpy.",
+    choices: [{ label: () => "How kind!", run: (s, d) => { addItem(s, d.item); const a = byId(s, d.id); if (a) cond(a, 8); return ITEMS[d.item].name + " added to the bag."; } }],
+  },
+  wallet: {
+    weight: 1,
+    title: () => "Lost and found",
+    text: () => "A wallet turns up on the track. It belongs to the local mayor.",
+    choices: [
+      { label: () => "Return it in person", run: (s) => { s.fans += 15 + 5 * s.league; return "The mayor tells everyone. Fans up!"; } },
+      { label: () => "Hand it to reception", run: (s) => { s.money += 50; return "A small thank-you reward arrives: +$50."; } },
+    ],
+  },
+  taunt: {
+    weight: 2,
+    setup: (s) => ({ club: CLUBS[s.league][Math.min(2, s.fixture)].name }),
+    title: () => "Trash talk",
+    text: (s, d) => d.club + " told the local paper your club is “a hobby with a car park”.",
+    choices: [
+      { label: () => "Fire up the squad", run: (s) => { team(s, (a) => { cond(a, 14); stam(a, -6); }); return "Extra reps, extra fire. Condition +14."; } },
+      { label: () => "Rise above it", run: (s) => { team(s, (a) => cond(a, 4)); return "Calm heads. Condition +4."; } },
+    ],
+  },
+  tip: {
+    weight: 1,
+    setup: (s) => {
+      const a = createAthlete(s, pick(s, EVENT_IDS), { base: LEAGUES[s.league].rating - 2, rarity: random(s) < 0.25 ? "epic" : "rare" });
+      return { athlete: a };
+    },
+    title: () => "A scout's tip",
+    text: (s, d) => "An old scout says a " + RARITY[d.athlete.rarity].name.toLowerCase() + " " + EVENTS[d.athlete.event].name.toLowerCase() + " thrower is looking for a club.",
+    choices: [{ label: () => "Add to the scouting list", run: (s, d) => { s.prospects.unshift(d.athlete); s.prospects = s.prospects.slice(0, 4); return d.athlete.name + " is on your scouting list."; } }],
+  },
+  camp: {
+    weight: 1,
+    when: (s) => s.league >= 1,
+    setup: (s) => ({ price: 300 + 150 * s.league }),
+    title: () => "Altitude camp invitation",
+    text: (s, d) => "A mountain camp has space for the whole squad this week. $" + d.price + ". Hard work, big gains.",
+    choices: [
+      { label: (s, d) => "Go! ($" + d.price + ")", ok: (s, d) => s.money >= d.price, run: (s, d) => { s.money -= d.price; team(s, (a) => { a.stats = a.stats.map((v) => Math.min(capOf(a), v + 0.6)); stam(a, -25); }); return "Every stat +6. Everyone sleeps for a week."; } },
+      { label: () => "Stay home", run: () => "Home cooking wins today." },
+    ],
+  },
+};
+export function rollStoryEvent(s) {
+  if (s.pendingEvent) return null;
+  const due = Object.keys(SECRET_WHEN).find((k) => !s.secretsOffered.includes(k) && SECRET_WHEN[k](s));
+  if (due) {
+    s.secretsOffered.push(due);
+    s.pendingEvent = { id: "secret", data: { key: due } };
+    s.lastEventDay = s.day;
+    return s.pendingEvent;
+  }
+  if (s.day - (s.lastEventDay || 0) < 2 || s.day >= s.matchDay || random(s) > 0.24) return null;
+  const pool = Object.entries(STORY).filter(([id, e]) => e.weight && (!e.when || e.when(s)));
+  let r = random(s) * pool.reduce((n, [, e]) => n + e.weight, 0),
+    id = pool[0][0];
+  for (const [k, e] of pool) if ((r -= e.weight) < 0) { id = k; break; }
+  s.pendingEvent = { id, data: STORY[id].setup?.(s) || {} };
+  s.lastEventDay = s.day;
+  return s.pendingEvent;
+}
+export function eventView(s) {
+  const p = s.pendingEvent,
+    e = p && STORY[p.id];
+  if (!e) return null;
+  return {
+    id: p.id,
+    title: e.title(s, p.data),
+    text: e.text(s, p.data),
+    choices: e.choices.map((c) => ({ label: c.label(s, p.data), ok: !c.ok || c.ok(s, p.data) })),
+  };
+}
+export function resolveEvent(s, index) {
+  const p = s.pendingEvent,
+    e = p && STORY[p.id],
+    c = e?.choices[index];
+  if (!c || (c.ok && !c.ok(s, p.data))) return null;
+  const message = c.run(s, p.data);
+  s.pendingEvent = null;
+  note(s, message, "story");
+  checkGoals(s);
+  return message;
+}
+
+// ── Season awards ─────────────────────────────────────────────────────
+export function computeAwards(s) {
+  const list = [];
+  const top = (fn) => [...s.roster].sort((a, b) => fn(b) - fn(a))[0];
+  const mvp = top((a) => a.seasonPoints * 10 + a.seasonPbs);
+  if (mvp && mvp.seasonPoints > 0) list.push({ award: "Most Valuable Athlete", id: mvp.id, name: mvp.name, value: mvp.seasonPoints + " event points", sp: 1 });
+  const growth = (a) => statTotal(a) - (a.seasonStart || statTotal(a));
+  const breakout = top(growth);
+  if (breakout && growth(breakout) > 0.5) list.push({ award: "Breakout Athlete", id: breakout.id, name: breakout.name, value: "+" + showStat(growth(breakout)) + " stats", sp: 1 });
+  const records = top((a) => a.seasonPbs);
+  if (records && records.seasonPbs > 0) list.push({ award: "Record Breaker", id: records.id, name: records.name, value: records.seasonPbs + " PBs", item: "goldchalk" });
+  for (const w of list) {
+    const a = s.roster.find((x) => x.id === w.id);
+    if (!a) continue;
+    if (w.sp) a.sp += w.sp;
+    if (w.item) addItem(s, w.item);
+    a.condition = 100;
+    a.career.unshift({ season: s.season, label: w.award });
+    a.career = a.career.slice(0, 20);
+  }
+  s.lastAwards = { season: s.season, league: s.league, champion: !!s.champion, list };
+  s.awardHistory.unshift(...list.map((w) => ({ season: s.season, award: w.award, name: w.name })));
+  s.awardHistory = s.awardHistory.slice(0, 60);
+  return s.lastAwards;
+}

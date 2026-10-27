@@ -1,50 +1,88 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import * as G from '../src/domain/game.js';
-import {validateCampaign} from '../src/domain/campaign-save.js';
-function meet(seed=20){const s=G.newGame(seed);s.day=s.matchDay;G.startMatch(s);s.match.phase='planning';return s;}
-test('facility clinics survive a save and injury, apply once and improve the next training day',()=>{
- const s=G.newGame(10), a=s.roster[0];a.injury=1;G.upgrade(s,2);
- const restored=validateCampaign(s);assert.equal(restored.roster[0].clinics[0].gain,1.5);
- assert.equal(G.advanceDay(restored).breakthroughs.length,3);
- assert.equal(restored.roster[0].clinics.length,1);
- assert.equal(G.advanceDay(restored).breakthroughs.length,1);
- assert.equal(G.advanceDay(restored).breakthroughs.length,0);
-});
-test('mastery tiers gate advanced skills and a signature can only be spent once in a meet',()=>{
- const s=meet(),a=G.currentAthlete(s);Object.assign(a,{sessions:100,meets:30,level:20,form:80,skill:'limitbreak'});
- assert(!G.skillUnlocked(a,'limitbreak'));a.masteryTier=4;assert(G.canSignature(s));
- s.match.signatureEnabled=true;G.beginAttempt(s);const r=G.resolveThrow(s,'perfect');
- assert(r.signature);assert(r.activations.includes('SIGNATURE RELEASE +6.5%'));
- G.nextAttempt(s);assert(!G.canSignature(s));assert.equal(s.match.signatureUsed.length,1);
-});
-test('coach delegation stops at the event result and records PB feedback without settling twice',()=>{
- const s=meet();assert(G.coachEvent(s));assert.equal(s.match.eventIndex,0);assert.equal(s.match.phase,'result');assert.equal(s.match.homeMarks[0].length,2);assert.equal(s.match.homeMarks[1].length,0);
- assert.equal(s.results.length,0);assert.equal(G.coachEvent(s),false);
- G.nextAttempt(s);assert.equal(s.match.eventIndex,1);
- const a=G.currentAthlete(s);a.pb.discus=.01;G.beginAttempt(s);let result=G.resolveThrow(s,'perfect');
- if(result.mark!=null){assert(result.newPb);assert.equal(result.pbDelta,result.mark-.01);}
-});
-test('a failed season adds a rebuild camp while keeping rivals and equipment',()=>{
- const s=G.newGame(5), before=structuredClone(s.clubs),stats=[...s.roster[0].stats];s.phase='seasonEnd';s.champion=false;
- G.nextSeason(s);assert.deepEqual(s.clubs,before);assert(s.roster[0].stats.some((n,i)=>n>stats[i]));assert.equal(s.rebuildStreak,1);assert.equal(s.roster[0].form,63);
-});
-test('old v3 saves gain mastery and clinic defaults without losing an active meet',()=>{
- const s=meet();s.league=2;for(const a of s.roster){delete a.masteryTier;delete a.clinics;}
- delete s.match.signatureUsed;delete s.match.signatureEnabled;
- const r=validateCampaign(s);assert.equal(r.roster[0].masteryTier,2);assert.deepEqual(r.roster[0].clinics,[]);assert.equal(r.match.phase,'planning');assert.deepEqual(r.match.signatureUsed,[]);
-});
-test('risk choices differ and attacking is no longer a near certain victory between equal squads',()=>{
- let wins=0;
- for(let seed=1;seed<=300;seed++){
-  const s=meet(seed);for(const a of [...s.roster,...s.clubs.flatMap(c=>c.athletes)])Object.assign(a,{stats:[40,40,40,40],form:50,energy:100,fatigue:0,trait:'technician'});
-  assert(G.throwRisk(s,s.roster[0],'attack')>G.throwRisk(s,s.roster[0],'safe')*5);
-  while(s.match.phase!=='complete'){
-   if(['intro','planning'].includes(s.match.phase)){s.match.tactic='attack';G.beginAttempt(s);}
-   if(s.match.phase==='timing')G.resolveThrow(s,'good','controlled');
-   if(s.match.phase==='result')G.nextAttempt(s);
+import test from "node:test";
+import assert from "node:assert/strict";
+import * as G from "../src/domain/game.js";
+import { EVENT_IDS } from "../src/game-content.js";
+
+// Head-to-head duel between identical squads using a fixed home policy.
+function duel(seed, policy) {
+  const s = G.newGame(seed);
+  s.day = s.matchDay;
+  s.settings.meetMode = "coach";
+  for (const a of [...s.roster, ...s.clubs[0].athletes]) Object.assign(a, { stats: [45, 45, 45, 45], condition: 50, stamina: 100, background: "bloomer", skills: [], equipped: [], gear: { implement: null, shoes: null, charm: null }, potential: 100 });
+  for (const [i, ev] of EVENT_IDS.entries()) s.clubs[0].athletes[i].event = ev;
+  s.roster.forEach((a, i) => (a.event = EVENT_IDS[i]));
+  G.startMatch(s);
+  for (const r of s.clubs[0].athletes) r.condition = 50;
+  for (let guard = 0; guard < 200 && s.match.phase !== "complete"; guard++) {
+    if (s.match.phase === "decide") {
+      const tactic = policy === "smart" ? G.autoTactic(s, "home") : policy;
+      G.decideThrow(s, tactic);
+    } else G.advanceMatch(s);
   }
-  wins+=s.match.score>s.match.against;
- }
- assert(wins/300<.7);assert(wins/300>.2);
+  return Math.sign(s.match.score - s.match.against);
+}
+function rate(policy, n = 400) {
+  let w = 0,
+    l = 0;
+  for (let seed = 1; seed <= n; seed++) {
+    const r = duel(seed, policy);
+    if (r > 0) w++;
+    if (r < 0) l++;
+  }
+  return { win: w / n, loss: l / n };
+}
+
+test("no single approach dominates equal squads; reading the situation beats blind policies", () => {
+  const attack = rate("attack"),
+    safe = rate("safe"),
+    balanced = rate("balanced"),
+    smart = rate("smart");
+  assert(attack.win < 0.62, "all out " + JSON.stringify(attack));
+  assert(safe.win < 0.35, "safe " + JSON.stringify(safe));
+  assert(balanced.win > 0.2 && balanced.win < 0.6, "controlled " + JSON.stringify(balanced));
+  assert(smart.win >= Math.max(attack.win, balanced.win) - 0.05, "smart " + JSON.stringify(smart));
+});
+
+test("condition and stamina make a visible difference to the projected mark", () => {
+  const s = G.newGame(2),
+    a = s.roster[0];
+  a.condition = 95;
+  const great = G.forecast(s, a, a.event);
+  a.condition = 5;
+  const awful = G.forecast(s, a, a.event);
+  assert(great / awful > 1.08);
+  a.condition = 50;
+  a.stamina = 100;
+  const fresh = G.forecast(s, a, a.event);
+  a.stamina = 0;
+  assert(fresh / G.forecast(s, a, a.event) > 1.07);
+});
+
+test("levelling grants skill points; caps stop growth until a rank-up raises them", () => {
+  const s = G.newGame(3),
+    a = s.roster[0];
+  const sp = a.sp;
+  G.grantXp(s, a, 1000);
+  assert(a.level > 5);
+  assert(a.sp > sp + 4);
+  a.stats = a.stats.map(() => G.capOf(a));
+  const gains = G.trainingGains(s, a, "power");
+  assert(gains.every((g) => g === 0));
+  a.level = 6;
+  s.money = 1000;
+  assert(G.promote(s, a.id));
+  assert(G.trainingGains(s, a, "power")[0] > 0);
+});
+
+test("the grounds earn money from visitors and visitors grow with fans", () => {
+  const s = G.newGame(4);
+  s.money = 5000;
+  assert(G.build(s, 2, "cafe"));
+  const few = G.visitorsPerDay(s);
+  s.fans = 2000;
+  assert(G.visitorsPerDay(s) > few * 3);
+  const before = s.money;
+  const r = G.advanceDay(s);
+  assert(r.spend.length === 1 && r.spend[0].plot === 2);
+  assert(s.money > before);
 });
