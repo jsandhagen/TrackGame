@@ -29,7 +29,7 @@ Current 0.9.0: [event mastery, shared-field meets and rival development](EVENT_M
 
 ## Next ideas
 
-1. A mid-season cup (knockout invitational) with rare item prizes.
+1. ~~A mid-season cup with rare item prizes~~: Invitationals shipped (see [CALENDAR_WEATHER.md](CALENDAR_WEATHER.md)).
 2. Friendships and rivalries between named athletes; mentoring moments.
 3. More secret characters and late-game goals for title defences.
 4. Optional cloud backup; an iOS project.
