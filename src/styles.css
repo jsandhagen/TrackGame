@@ -2679,9 +2679,17 @@ dialog[open] {
     min-height: 38px;
   }
 }
+/* Narrow screens keep the clock but drop the date text and countdown. */
 @media (max-width: 900px) and (min-aspect-ratio: 1/1) {
   .hud-date {
+    padding: 5px 6px;
+  }
+  .hud-date .date-text,
+  .hud-date small {
     display: none;
+  }
+  .hud-date .clock {
+    margin-left: 0;
   }
   #hud .seg {
     margin-left: auto;
@@ -2693,7 +2701,15 @@ dialog[open] {
     flex-wrap: wrap;
   }
   .hud-date {
+    padding: 5px 6px;
+    margin-right: 0;
+  }
+  .hud-date .date-text,
+  .hud-date small {
     display: none;
+  }
+  .hud-date .clock {
+    margin-left: 0;
   }
   #hud .brand {
     max-width: 44vw;
