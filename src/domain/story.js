@@ -56,7 +56,7 @@ export const GOALS = [
   { id: "plots", name: "Every Plot Used", desc: "Build on all 12 free plots", target: 12, progress: plotCount, reward: { items: { elixir: 1 } } },
   { id: "world", name: "World League", desc: "Reach the World League", target: 4, progress: (s) => s.league, reward: { items: { scroll: 2 } } },
   { id: "legend", name: "Living Legend", desc: "Promote an athlete to Legend", target: 4, progress: (s) => Math.max(0, ...s.roster.map((a) => a.rank)), reward: { items: { elixir: 1 } } },
-  { id: "worldtitle", name: "Champions of the World", desc: "Win the World League", target: 1, progress: (s) => s.trophies.filter((t) => t.league === 4).length, reward: { items: { hermes: 1 } } },
+  { id: "worldtitle", name: "Champions of the World", desc: "Win the World League", target: 1, progress: (s) => s.trophies.filter((t) => t.league === 4 && (t.stage ?? 2) === 2).length, reward: { items: { hermes: 1 } } },
   { id: "fans10000", name: "Global Following", desc: "Reach 10,000 fans", target: 10000, progress: (s) => s.fans, reward: { items: { comet: 1 } } },
   { id: "secret6", name: "The Whole Gang", desc: "Sign all 6 secret characters", target: 6, progress: (s) => s.counters.secretsSigned || 0, reward: { money: 10000 } },
 ];
@@ -305,13 +305,18 @@ export function rollStoryEvent(s) {
     s.lastEventDay = s.day;
     return s.pendingEvent;
   }
-  if (s.day - (s.lastEventDay || 0) < 2 || s.day >= s.matchDay || random(s) > 0.24) return null;
+  if (s.day - (s.lastEventDay || 0) < 2 || (s.matchDay != null && s.day >= s.matchDay) || random(s) > 0.24) return null;
   const pool = Object.entries(STORY).filter(([id, e]) => e.weight && (!e.when || e.when(s)));
   let r = random(s) * pool.reduce((n, [, e]) => n + e.weight, 0),
     id = pool[0][0];
   for (const [k, e] of pool) if ((r -= e.weight) < 0) { id = k; break; }
   s.pendingEvent = { id, data: STORY[id].setup?.(s) || {} };
   s.lastEventDay = s.day;
+  // Gifts and announcements have no choice to make: keep the world running.
+  if (STORY[id].choices.length === 1 && !STORY[id].choices[0].ok) {
+    resolveEvent(s, 0);
+    return null;
+  }
   return s.pendingEvent;
 }
 export function eventView(s) {
@@ -357,8 +362,9 @@ export function computeAwards(s) {
     a.career.unshift({ season: s.season, label: w.award });
     a.career = a.career.slice(0, 20);
   }
-  s.lastAwards = { season: s.season, league: s.league, champion: !!s.champion, list };
+  s.lastAwards = { season: s.season, league: s.competition?.tier ?? s.league, champion: !!s.champion, list };
   s.awardHistory.unshift(...list.map((w) => ({ season: s.season, award: w.award, name: w.name })));
   s.awardHistory = s.awardHistory.slice(0, 60);
   return s.lastAwards;
 }
+

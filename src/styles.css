@@ -2691,3 +2691,26 @@ dialog[open] {
     transition: none !important;
   }
 }
+
+
+/* Player-booked circuit and persistent athlete development. */
+.calendar-options, .competition-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.calendar-options { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 16px 0; }
+.calendar-options label { display: grid; gap: 8px; font-size: 13px; }
+.calendar-options select { width: 100%; min-height: 44px; }
+.circuit-tier > summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; min-height: 44px; align-items: center; font-weight: bold; }
+.circuit-tier > summary span { font-size: 12px; font-weight: normal; }
+.competition-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid #68745855; border-radius: 10px; margin-top: 12px; }
+.competition-card.completed { border-color: #8cc152; }
+.competition-card h3, .competition-card p { margin: 0; }
+.competition-card .button { margin-top: auto; }
+.competition-card small, .duel-card small, .loadout-row small { display: block; line-height: 1.5; }
+.duel-card, .loadout-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #68745833; }
+.duel-card .button, .loadout-row .button { flex-shrink: 0; }
+.development-card { margin-top: 16px; }
+.calendar-welcome .inline { margin-top: 12px; }
+.booking-summary { border-left: 3px solid #8cc152; padding-left: 12px; }
+@media (max-width: 560px) {
+  .competition-grid, .calendar-options { grid-template-columns: 1fr; }
+  .duel-card { align-items: flex-start; }
+}

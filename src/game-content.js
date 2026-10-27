@@ -222,10 +222,10 @@ export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1
 
 export const LEAGUES = [
   { name: "Community League", tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
-  { name: "County League", tag: "The local paper is paying attention.", rating: 38, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas & Sports Lab" },
-  { name: "Regional League", tag: "Familiar faces. Fiercer competition.", rating: 52, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots and a championship track" },
-  { name: "National League", tag: "Your little club has made a name.", rating: 66, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage" },
-  { name: "World League", tag: "One club against the best.", rating: 80, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
+  { name: "County League", tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas & Sports Lab" },
+  { name: "Regional League", tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots and a championship track" },
+  { name: "National League", tag: "Your little club has made a name.", rating: 79, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage" },
+  { name: "World League", tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
 ];
 
 export const CLUBS = [
@@ -294,3 +294,4 @@ export const CLUB_PALETTES = [
   { name: "Charcoal & lime", primary: "#3a3f44", secondary: "#b8e050" },
 ];
 export const HELPER = "Juno";
+

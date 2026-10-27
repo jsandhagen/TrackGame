@@ -7,6 +7,7 @@ import { validateCampaign, exportCampaign } from "../src/domain/campaign-save.js
 
 const v3 = () => JSON.parse(readFileSync(new URL("./fixtures/v3-career.json", import.meta.url)));
 function prepare(s) {
+  if (s.phase === "planning") assert(G.enterCompetition(s, G.nextCircuitEntry(s)));
   for (let guard = 0; s.day < s.matchDay && guard < 40; guard++) {
     if (s.pendingEvent) G.resolveEvent(s, G.eventView(s).choices.findIndex((c) => c.ok));
     else assert(G.advanceDay(s).ok);
@@ -49,7 +50,7 @@ test("every beat is presentable: rival throws first, each event closes, and the 
   assert.equal(beats[2].side, "away");
   assert.equal(beats[3].side, "home");
   assert.equal(beats.filter((b) => b.type === "eventEnd").length, 4);
-  assert.equal(beats.filter((b) => b.type === "throw").length, 16);
+  assert.equal(beats.filter((b) => b.type === "throw").length, 48);
   assert.equal(beats.at(-1).type, "complete");
 });
 
@@ -84,31 +85,27 @@ test("coach mode waits for the coach on every home throw, and clutch moments pau
   void clutch;
 });
 
-test("a full campaign can promote through all five leagues and repeat the world league", () => {
+test("the fifteen-trophy circuit preserves athletes and unlocks each next level through Championships", () => {
   const s = G.newGame(123);
-  s.roster.forEach((a) => {
-    a.potential = 100;
-    a.stats = [98, 98, 98, 98];
-  });
-  for (let league = 0; league < 5; league++) {
-    for (let i = 0; i < 4; i++) {
-      play(s);
-      assert(G.leaveMatch(s));
-    }
+  s.roster.forEach((a) => { a.potential = 100; a.stats = [100, 100, 100, 100]; a.skills = ["oldschool", "windreader", "avalanche"]; a.equipped = [...a.skills]; });
+  for (let league = 0; league < 5; league++) for (let stage = 0; stage < 3; stage++) {
+    assert(G.enterCompetition(s, { kind: "league", tier: league, stage }));
+    // This verifies the competition state machine, not probabilistic balance.
+    s.clubs.forEach((c) => c.athletes.forEach((a) => { a.stats = [1, 1, 1, 1]; a.skills = []; a.equipped = []; }));
+    for (let i = 0; i < 4; i++) { play(s); assert(G.leaveMatch(s)); }
     assert.equal(s.phase, "seasonEnd");
-    assert(s.champion, "league " + league);
-    assert(s.lastAwards.list.length >= 1);
+    assert(s.champion);
+    assert(s.circuit.cleared.includes(`${league}:${stage}`));
     const ids = s.roster.map((a) => a.id);
     assert(G.nextSeason(s));
-    assert.deepEqual(
-      s.roster.slice(0, ids.length).map((a) => a.id),
-      ids,
-    );
-    assert.equal(s.league, Math.min(league + 1, 4));
+    assert.equal(s.phase, "planning");
+    assert.deepEqual(s.roster.slice(0, ids.length).map((a) => a.id), ids);
+    assert.equal(s.league, Math.min(league + (stage === 2 ? 1 : 0), 4));
   }
-  assert.equal(s.trophies.length, 5);
+  assert.equal(s.trophies.length, 15);
   assert(s.goals.includes("worldtitle"));
   assert.equal(G.unlockedPlots(s).length, 13);
+  assert(G.enterCompetition(s, { kind: "league", tier: 0, stage: 0 }), "earlier tournaments remain replayable");
 });
 
 test("a losing season is repeatable with a rebuild camp and no lost progress", () => {
@@ -137,6 +134,7 @@ test("a losing season is repeatable with a rebuild camp and no lost progress", (
 test("lineups cap double duty, auto-lineup fills every event and injuries can be postponed", () => {
   const s = G.newGame(9),
     a = s.roster[0];
+  s.entries = null;
   assert(G.assign(s, "discus", a.id));
   assert(G.assign(s, "hammer", a.id) === false);
   assert(G.autoLineup(s));
@@ -332,7 +330,7 @@ test("goals pay out once, story events resolve, and secret characters arrive whe
 test("v3 careers migrate: athletes, gear, facilities and an interrupted meet are preserved safely", () => {
   const old = v3();
   const s = validateCampaign(old);
-  assert.equal(s.v, 5);
+  assert.equal(s.v, 6);
   assert.equal(s.roster.length, old.roster.length);
   assert.equal(s.roster[0].name, old.roster[0].name);
   assert.deepEqual(s.roster[0].skills, ["icevein"]);
@@ -349,7 +347,7 @@ test("v3 careers migrate: athletes, gear, facilities and an interrupted meet are
 test("0.5 development saves (v4) move onto the stadium layout and keep an active meet", () => {
   const old = JSON.parse(readFileSync(new URL("./fixtures/v4-career.json", import.meta.url)));
   const s = validateCampaign(old);
-  assert.equal(s.v, 5);
+  assert.equal(s.v, 6);
   assert.equal(s.plots[9].type, "club");
   assert(s.plots.some((p) => p?.type === "cafe") && s.plots.some((p) => p?.type === "spa") && s.plots.some((p) => p?.type === "gym"));
   assert.equal(s.stadium.shot, 2);
@@ -375,3 +373,4 @@ test("bad imports are rejected and cannot replace a working club", () => {
   assert.throws(() => validateCampaign({ v: 9 }));
   for (const ev of EVENT_IDS) assert(s.lineup[ev]);
 });
+
