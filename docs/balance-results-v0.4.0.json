@@ -1,0 +1,444 @@
+{
+  "version": "0.4.0",
+  "sourceCommit": "e58949010396bacc80f8bdf8c89e9c7a75005ab5",
+  "seeds": 100,
+  "method": {
+    "campaignSeeds": "1..N, same initial seeds per scripted policy",
+    "campaignLimit": 35,
+    "tacticalDuelsPerPolicy": 1000,
+    "tacticalStats": 40,
+    "tacticalOpponent": "controlled, normal quality, no equipment or form advantage",
+    "inputFloor": "simulated manual actions: start/release/continue and two meet transitions; excludes menus, lineup setup and reading"
+  },
+  "campaigns": {
+    "baseline": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 8,
+      "seasonsP90": 9,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.955
+        },
+        {
+          "league": "County League",
+          "mean": 1.05,
+          "winRate": 0.778
+        },
+        {
+          "league": "Regional League",
+          "mean": 1.95,
+          "winRate": 0.594
+        },
+        {
+          "league": "National League",
+          "mean": 1.96,
+          "winRate": 0.599
+        },
+        {
+          "league": "World League",
+          "mean": 2.32,
+          "winRate": 0.478
+        }
+      ],
+      "meanFirstSeasonCash": 4046,
+      "meanWorldCash": 31288,
+      "maxFatigue": 33.000000000000014,
+      "injuryDays": 0,
+      "medianInputFloor": 814,
+      "shotProjectionMultiplier": 2.03
+    },
+    "attack": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 8,
+      "seasonsP90": 8,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1.02,
+          "winRate": 0.901
+        },
+        {
+          "league": "County League",
+          "mean": 1.06,
+          "winRate": 0.768
+        },
+        {
+          "league": "Regional League",
+          "mean": 1.84,
+          "winRate": 0.618
+        },
+        {
+          "league": "National League",
+          "mean": 1.81,
+          "winRate": 0.573
+        },
+        {
+          "league": "World League",
+          "mean": 2.2,
+          "winRate": 0.466
+        }
+      ],
+      "meanFirstSeasonCash": 3963,
+      "meanWorldCash": 30263,
+      "maxFatigue": 34.60000000000002,
+      "injuryDays": 0,
+      "medianInputFloor": 814,
+      "shotProjectionMultiplier": 2
+    },
+    "bankAttack": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 8,
+      "seasonsP90": 9,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.958
+        },
+        {
+          "league": "County League",
+          "mean": 1.02,
+          "winRate": 0.808
+        },
+        {
+          "league": "Regional League",
+          "mean": 1.95,
+          "winRate": 0.597
+        },
+        {
+          "league": "National League",
+          "mean": 1.87,
+          "winRate": 0.604
+        },
+        {
+          "league": "World League",
+          "mean": 2.27,
+          "winRate": 0.469
+        }
+      ],
+      "meanFirstSeasonCash": 4051,
+      "meanWorldCash": 30956,
+      "maxFatigue": 34.60000000000002,
+      "injuryDays": 0,
+      "medianInputFloor": 814,
+      "shotProjectionMultiplier": 2.02
+    },
+    "specialize": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 8,
+      "seasonsP90": 9,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.978
+        },
+        {
+          "league": "County League",
+          "mean": 1,
+          "winRate": 0.995
+        },
+        {
+          "league": "Regional League",
+          "mean": 1.13,
+          "winRate": 0.719
+        },
+        {
+          "league": "National League",
+          "mean": 2,
+          "winRate": 0.481
+        },
+        {
+          "league": "World League",
+          "mean": 3.39,
+          "winRate": 0.396
+        }
+      ],
+      "meanFirstSeasonCash": 4083,
+      "meanWorldCash": 32309,
+      "maxFatigue": 63.9500000000001,
+      "injuryDays": 0,
+      "medianInputFloor": 852,
+      "shotProjectionMultiplier": 1.99
+    },
+    "technique": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 9,
+      "seasonsP90": 10,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.97
+        },
+        {
+          "league": "County League",
+          "mean": 1,
+          "winRate": 0.998
+        },
+        {
+          "league": "Regional League",
+          "mean": 1.16,
+          "winRate": 0.727
+        },
+        {
+          "league": "National League",
+          "mean": 1.96,
+          "winRate": 0.532
+        },
+        {
+          "league": "World League",
+          "mean": 3.54,
+          "winRate": 0.394
+        }
+      ],
+      "meanFirstSeasonCash": 4082,
+      "meanWorldCash": 32875,
+      "maxFatigue": 63.9500000000001,
+      "injuryDays": 0,
+      "medianInputFloor": 892,
+      "shotProjectionMultiplier": 2.02
+    },
+    "sharpen": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 10,
+      "seasonsP90": 11,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.948
+        },
+        {
+          "league": "County League",
+          "mean": 1.19,
+          "winRate": 0.665
+        },
+        {
+          "league": "Regional League",
+          "mean": 2.1,
+          "winRate": 0.452
+        },
+        {
+          "league": "National League",
+          "mean": 2.73,
+          "winRate": 0.381
+        },
+        {
+          "league": "World League",
+          "mean": 3.37,
+          "winRate": 0.347
+        }
+      ],
+      "meanFirstSeasonCash": 4043,
+      "meanWorldCash": 35044,
+      "maxFatigue": 9.25,
+      "injuryDays": 0,
+      "medianInputFloor": 970,
+      "shotProjectionMultiplier": 2
+    },
+    "recover": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 17,
+      "seasonsP90": 18,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1.1,
+          "winRate": 0.766
+        },
+        {
+          "league": "County League",
+          "mean": 2.89,
+          "winRate": 0.415
+        },
+        {
+          "league": "Regional League",
+          "mean": 3.57,
+          "winRate": 0.346
+        },
+        {
+          "league": "National League",
+          "mean": 4.4,
+          "winRate": 0.297
+        },
+        {
+          "league": "World League",
+          "mean": 4.9,
+          "winRate": 0.275
+        }
+      ],
+      "meanFirstSeasonCash": 3721,
+      "meanWorldCash": 51935,
+      "maxFatigue": 6.6,
+      "injuryDays": 0,
+      "medianInputFloor": 1554,
+      "shotProjectionMultiplier": 2
+    },
+    "noTaper": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 8,
+      "seasonsP90": 9,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.985
+        },
+        {
+          "league": "County League",
+          "mean": 1.03,
+          "winRate": 0.868
+        },
+        {
+          "league": "Regional League",
+          "mean": 1.65,
+          "winRate": 0.623
+        },
+        {
+          "league": "National League",
+          "mean": 1.98,
+          "winRate": 0.514
+        },
+        {
+          "league": "World League",
+          "mean": 2.59,
+          "winRate": 0.403
+        }
+      ],
+      "meanFirstSeasonCash": 4086,
+      "meanWorldCash": 31358,
+      "maxFatigue": 100,
+      "injuryDays": 1476,
+      "medianInputFloor": 814,
+      "shotProjectionMultiplier": 2.06
+    },
+    "invest": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 5,
+      "seasonsP90": 5,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.985
+        },
+        {
+          "league": "County League",
+          "mean": 1,
+          "winRate": 1
+        },
+        {
+          "league": "Regional League",
+          "mean": 1,
+          "winRate": 1
+        },
+        {
+          "league": "National League",
+          "mean": 1,
+          "winRate": 1
+        },
+        {
+          "league": "World League",
+          "mean": 1,
+          "winRate": 0.993
+        }
+      ],
+      "meanFirstSeasonCash": 1506,
+      "meanWorldCash": 11961,
+      "maxFatigue": 41.41999999999999,
+      "injuryDays": 0,
+      "medianInputFloor": 580,
+      "shotProjectionMultiplier": 2.08
+    },
+    "planned": {
+      "worldTitleRate": 1,
+      "seasonsMedian": 5,
+      "seasonsP90": 5,
+      "seasonsPerLeague": [
+        {
+          "league": "Community League",
+          "mean": 1,
+          "winRate": 0.985
+        },
+        {
+          "league": "County League",
+          "mean": 1,
+          "winRate": 1
+        },
+        {
+          "league": "Regional League",
+          "mean": 1,
+          "winRate": 1
+        },
+        {
+          "league": "National League",
+          "mean": 1,
+          "winRate": 1
+        },
+        {
+          "league": "World League",
+          "mean": 1.03,
+          "winRate": 0.852
+        }
+      ],
+      "meanFirstSeasonCash": 1504,
+      "meanWorldCash": 11893,
+      "maxFatigue": 28.439999999999998,
+      "injuryDays": 0,
+      "medianInputFloor": 580,
+      "shotProjectionMultiplier": 2.01
+    }
+  },
+  "tactics": {
+    "safe": {
+      "winRate": 0.071,
+      "drawRate": 0.198,
+      "foulRate": 0.03525
+    },
+    "controlled": {
+      "winRate": 0.314,
+      "drawRate": 0.371,
+      "foulRate": 0.074625
+    },
+    "baseline": {
+      "winRate": 0.193,
+      "drawRate": 0.353,
+      "foulRate": 0.05875
+    },
+    "attack": {
+      "winRate": 0.459,
+      "drawRate": 0.349,
+      "foulRate": 0.301375
+    },
+    "bankAttack": {
+      "winRate": 0.289,
+      "drawRate": 0.364,
+      "foulRate": 0.169125
+    }
+  },
+  "upgrades": {
+    "gym": {
+      "shotMetresAfterWeek": 0.1358,
+      "shotRatingAfterWeek": 0.7737
+    },
+    "rings": {
+      "shotMetresAfterWeek": 0.0963,
+      "shotRatingAfterWeek": 0.5489
+    },
+    "sprint": {
+      "shotMetresAfterWeek": 0.0219,
+      "shotRatingAfterWeek": 0.1249
+    },
+    "garden": {
+      "shotMetresAfterWeek": 0.0303,
+      "shotRatingAfterWeek": 0
+    },
+    "recovery": {
+      "shotMetresAfterWeek": 0,
+      "shotRatingAfterWeek": 0
+    }
+  }
+}

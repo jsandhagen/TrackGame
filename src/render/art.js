@@ -664,8 +664,8 @@ export function drawStadium(canvas, s, now, animation = null) {
     r = currentRival(s),
     e = EVENTS[ev];
   const sky = g.createLinearGradient(0, 0, 0, 104);
-  sky.addColorStop(0, "#9cbec7");
-  sky.addColorStop(1, "#e5e5cb");
+  sky.addColorStop(0, s.league>=3 ? "#50687f" : "#9cbec7");
+  sky.addColorStop(1, s.league>=3 ? "#edcda7" : "#e5e5cb");
   g.fillStyle = sky;
   g.fillRect(0, 0, 600, 330);
   ellipse(g, 515, 39, 24, 24, "#f3dda5");
@@ -688,6 +688,7 @@ export function drawStadium(canvas, s, now, animation = null) {
   for (let row = 0; row < 6; row++) {
     rect(g, 0, 96 + row * 9, 600, 8, row % 2 ? "#6e8a78" : "#7e9580");
     for (let col = 0; col < 85; col++) {
+      if ((col*13+row*19)%100 > 18+s.league*20) continue;
       const x = col * 7 + (row % 2) * 3,
         y = 98 + row * 9,
         bob = Math.sin(now / 600 + col + row) > 0.97 ? 1 : 0;
@@ -956,6 +957,16 @@ export function drawStadium(canvas, s, now, animation = null) {
   g.font = "8px monospace";
   g.fillStyle = "#c6d5b7";
   g.fillText(LEAGUES[s.league].venue, 23, 42);
+  if(s.league>=2){
+    for(const x of [18,568]){
+      rect(g,x,15,3,80,"#c8d0c4");rect(g,x-8,13,19,8,"#3b534f");
+      for(let lamp=0;lamp<4;lamp++)rect(g,x-6+lamp*4,15,3,4,"#fff4cb");
+    }
+  }
+  if(animation?.signature){
+    g.fillStyle="#f6df83";g.font="bold 13px sans-serif";g.textAlign="center";
+    g.fillText("✦ SIGNATURE RELEASE ✦",300,178);g.textAlign="left";
+  }
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
 function clamp01(n) {

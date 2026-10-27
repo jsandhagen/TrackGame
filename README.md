@@ -72,3 +72,9 @@ Saves use the `ring-sector-leagues-v3` key. A damaged save stops loading instead
 | `.github/workflows/` | Validation and development-APK build |
 
 The native package ID is `io.github.jsandhagen.ringsector`. A web production bundle lives in `dist/` after building, but no public website deployment or app-store publication is configured.
+
+## 0.4.0: progression and automatic game updates
+
+This release adds facility clinics, league-gated mastery skills and Signature releases, rebuild camps, PB celebrations, tactical risk previews, and an optional event coach. Decisions still wait for the player. See [balance findings](docs/BALANCE_V0.4.md).
+
+The new Android shell can download compatible game updates from this repository's GitHub Releases and apply them on a cold launch. One new APK installation is necessary to add this capability; native changes still require an installer. See [update behavior, publishing and validation limits](docs/AUTO_UPDATES.md). Export your career before uninstalling or switching devices.

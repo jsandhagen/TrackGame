@@ -1,3 +1,5 @@
+import { mayRestart } from "./platform/update-policy.js";
+import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
 import "./styles.css";
 import * as G from "./domain/game.js";
 import {
@@ -36,6 +38,7 @@ const store = await createPersistence("ring-sector-leagues-v3");
 let state = store.read()
   ? validateCampaign(JSON.parse(store.read()))
   : G.newGame();
+let saveEnabled = false;
 const view = {
   page: "home",
   athlete: null,
@@ -53,6 +56,7 @@ let animation = null,
 const world = $("#world"),
   stadium = $("#stadium");
 function save() {
+  if (!saveEnabled) return;
   try {
     store.write(JSON.stringify(state));
   } catch {
@@ -201,7 +205,7 @@ function squad() {
       )
         .map(
           ([id, k]) =>
-            `<article class="skill-card ${a.skill === id ? "equipped" : ""}"><span class="skill-icon">${id === "student" ? "✧" : id === "steady" ? "◎" : "⚑"}</span><div><h3>${k.name}</h3><p>${k.desc}</p><small>${Math.min(a.sessions, k.sessions)} / ${k.sessions} sessions · ${Math.min(a.meets, k.meets)} / ${k.meets} events · level ${k.level}</small>${button(a.skill === id ? "Unequip" : G.skillUnlocked(a, id) ? "Equip skill" : "Keep developing", "skill", `data-id="${a.id}" data-skill="${id}" ${G.skillUnlocked(a, id) ? "" : "disabled"}`, "subtle")}</div></article>`,
+            `<article class="skill-card ${a.skill === id ? "equipped" : ""}"><span class="skill-icon">${id === "student" ? "✧" : id === "steady" ? "◎" : "⚑"}</span><div><h3>${k.name}</h3><p>${k.desc}</p><small>${LEAGUES[k.tier || 0].name} · ${Math.min(a.sessions, k.sessions)} / ${k.sessions} sessions · ${Math.min(a.meets, k.meets)} / ${k.meets} events · level ${k.level}</small>${button(a.skill === id ? "Unequip" : G.skillUnlocked(a, id) ? "Equip skill" : "Keep developing", "skill", `data-id="${a.id}" data-skill="${id}" ${G.skillUnlocked(a, id) ? "" : "disabled"}`, "subtle")}</div></article>`,
         )
         .join(
           "",
@@ -327,7 +331,7 @@ function club() {
       )
       .join(
         "",
-      )}</div><p class="hint">Choose before your first meet. The contract then lasts for the season. Weekly wages: ${cash(G.wages(state))}.</p><h2 class="subheading">The trophy cabinet</h2><div class="trophy-cabinet">${state.trophies.length ? state.trophies.map((t) => `<div><span>♜</span><strong>${LEAGUES[t.league].name}</strong><small>Season ${t.season}</small></div>`).join("") : "<p>Your first trophy has a place waiting.</p>"}</div><h2 class="subheading">Save & transfer</h2><div class="inline-actions">${button("Export club", "export", "", "subtle")}${button("Import club", "import", "", "subtle")}</div><p class="hint">Export before switching devices or uninstalling. Your app and browser saves are separate until transferred.</p><h2 class="subheading">Recent club stories</h2>${state.log
+      )}</div><p class="hint">Choose before your first meet. The contract then lasts for the season. Weekly wages: ${cash(G.wages(state))}.</p><h2 class="subheading">The trophy cabinet</h2><div class="trophy-cabinet">${state.trophies.length ? state.trophies.map((t) => `<div><span>♜</span><strong>${LEAGUES[t.league].name}</strong><small>Season ${t.season}</small></div>`).join("") : "<p>Your first trophy has a place waiting.</p>"}</div><h2 class="subheading">Save & transfer</h2><div class="inline-actions">${button("Export club", "export", "", "subtle")}${button("Import club", "import", "", "subtle")}</div><p class="hint">Export before switching devices or uninstalling. Your app and browser saves are separate until transferred.</p><h2 class="subheading">Game updates · ${GAME_VERSION}</h2><p class="hint">${esc(updateStatus())}</p><div class="inline-actions">${button("Check for updates", "check-update", "", "subtle")}${button("Apply downloaded update", "apply-update", hasPendingUpdate() ? "" : "disabled", "subtle")}</div><p class="hint">Compatible updates download in the background and apply on the next cold launch. Internet is optional for play. Native app changes need a new installer.</p><h2 class="subheading">Recent club stories</h2>${state.log
       .slice(0, 12)
       .map(
         (l) =>
@@ -338,7 +342,7 @@ function club() {
 }
 function seasonEnd() {
   const won = state.champion;
-  return `<div class="season-finish"><div class="trophy-hero">${won ? "♜" : "⚑"}</div>${heading("SEASON " + state.season + " COMPLETE", won ? "You built a champion." : "The next chapter is yours.", won ? LEAGUES[state.league].name + " title earned. The club keeps everything it has built." : "Keep your athletes, facilities and equipment. Develop a new strategy and take another run at the league.")}<div class="metrics"><div><strong>${state.results.filter((r) => r.win).length}</strong><span>Meet wins</span></div><div><strong>${state.fame}</strong><span>Club fame</span></div><div><strong>${state.trophies.length}</strong><span>Titles</span></div></div>${won ? `<p class="reward">Championship bonus ${cash(LEAGUES[state.league].prize)} already added.</p>` : ""}${button(won && state.league < 4 ? "Enter " + LEAGUES[state.league + 1].name + " →" : state.league === 4 && won ? "Defend the world title →" : "Start a fresh season →", "season")} ${won && state.league < 4 ? button("Stay and defend this league", "defend", "", "subtle") : ""}<p class="hint">A fresh season brings new prospects, a sponsor choice and five days to the first meet.</p></div>`;
+  return `<div class="season-finish"><div class="trophy-hero">${won ? "♜" : "⚑"}</div>${heading("SEASON " + state.season + " COMPLETE", won ? "You built a champion." : "The next chapter is yours.", won ? LEAGUES[state.league].name + " title earned. The club keeps everything it has built." : "Keep everything you earned. A rebuild camp adds +"+(1+.5*Math.min(3,(state.rebuildStreak || 0)+1))+" to each athlete’s key and weakest stats, plus 8 form. Rivals keep their ratings.")}<div class="metrics"><div><strong>${state.results.filter((r) => r.win).length}</strong><span>Meet wins</span></div><div><strong>${state.fame}</strong><span>Club fame</span></div><div><strong>${state.trophies.length}</strong><span>Titles</span></div></div>${won ? `<p class="reward">Championship bonus ${cash(LEAGUES[state.league].prize)} already added.</p>` : ""}${button(won && state.league < 4 ? "Enter " + LEAGUES[state.league + 1].name + " →" : state.league === 4 && won ? "Defend the world title →" : "Start a fresh season →", "season")} ${won && state.league < 4 ? button("Stay and defend this league", "defend", "", "subtle") : ""}<p class="hint">A fresh season brings new prospects, a sponsor choice and five days to the first meet.</p></div>`;
 }
 function lobby() {
   const m = G.opponent(state);
@@ -393,9 +397,9 @@ function match() {
       final = m.attempt === m.attempts - 1;
     return (
       intro +
-      `<div class="throw-result ${result.mark == null ? "foul" : ""}"><span class="eyebrow">${result.mark == null ? "NO MARK THIS TIME" : result.quality === "perfect" ? "A BEAUTIFUL RELEASE" : "MARK RECORDED"}</span><strong>${mark(result.mark)}</strong><span>Rival: ${mark(result.away)}</span></div>` +
+      `<div class="throw-result ${result.mark == null ? "foul" : result.newPb ? "personal-best" : ""}"><span class="eyebrow">${result.mark == null ? "NO MARK THIS TIME" : result.newPb ? (result.previousPb ? "NEW PERSONAL BEST · +" + result.pbDelta.toFixed(2) + " M" : "FIRST OFFICIAL MARK") : result.quality === "perfect" ? "A BEAUTIFUL RELEASE" : "MARK RECORDED"}</span><strong>${mark(result.mark)}</strong><span>Rival: ${mark(result.away)}</span></div>` +
       marks +
-      `<div class="throw-feedback">${result.reasons.length ? result.reasons.map((x) => `<p>✦ ${esc(x)}</p>`).join("") : "<p>A controlled, workmanlike attempt. Every mark contributes.</p>"}${result.mark == null ? "<p>A safe approach lowers foul risk on your next attempt.</p>" : ""}</div>${button(animation ? "Watching the flight…" : final ? (m.eventIndex === 3 ? "Finish the meet →" : "Next event →") : "Plan the next throw →", "next-attempt", animation ? "disabled" : "")}`
+      `<div class="throw-feedback">${result.reasons.length ? result.reasons.map((x) => `<p>✦ ${esc(x)}</p>`).join("") : "<p>A controlled, workmanlike attempt. Every mark contributes.</p>"}${result.mark == null ? "<p>A safe approach lowers foul risk on your next attempt.</p>" : ""}</div>${button(animation ? "Skip flight →" : final ? (m.eventIndex === 3 ? "Finish the meet →" : "Next event →") : "Plan the next throw →", "next-attempt", "")}`
     );
   }
   const projection = G.forecast(state, a, ev);
@@ -407,11 +411,11 @@ function match() {
     )
       .map(
         ([id, t]) =>
-          `<button class="choice ${m.tactic === id ? "selected" : ""}" data-act="tactic" data-value="${id}"><strong>${t.name}</strong><span>${t.desc}</span></button>`,
+          `<button class="choice ${m.tactic === id ? "selected" : ""}" data-act="tactic" data-value="${id}"><strong>${t.name}</strong><span>${t.desc}</span><small>${Math.round(G.throwRisk(state,a,id)*100)}% foul risk · normal release</small></button>`,
       )
       .join(
         "",
-      )}</div><p class="hint">${m.attempt === m.attempts - 1 ? "This is your last attempt in this event. A banked mark gives you room to take a risk." : "A safe opener can bank points before you chase distance."}</p>${button("Start the attempt →", "start-attempt")}${button("Let athlete handle the release", "assisted", "", "subtle")}`
+      )}</div><p class="hint">${m.attempt === m.attempts - 1 ? "This is your last attempt in this event. A banked mark gives you room to take a risk." : "A safe opener can bank points before you chase distance."}</p>${a.skill === "limitbreak" ? button(m.signatureEnabled ? "✦ Signature armed · +6.5%" : "✦ Arm signature release", "signature", G.canSignature(state) ? "" : "disabled", m.signatureEnabled ? "primary" : "subtle") + `<p class="hint">Once per athlete per meet. Requires 70 form and fatigue below 50. Costs 8 energy when used.</p>` : ""}${button("Start the attempt →", "start-attempt")}${button("Let athlete handle the release", "assisted", "", "subtle")}${button("Coach this event →", "coach-event", "", "subtle")}<p class="hint">Coach mode chooses approaches and resolves this event. It stops at the result for your next decision.</p>`
   );
 }
 function render(preserve = false) {
@@ -494,6 +498,7 @@ function doDay() {
   if (result.ok) {
     save();
     render(true);
+    if(result.breakthroughs?.length) toast("Clinic breakthrough! " + result.breakthroughs.map(b=>b.name.split(" ")[0]+" +"+b.gain.toFixed(1)+" "+["power","technique","speed","focus"][b.stat]).join(" · "));
   }
   return result.ok;
 }
@@ -553,7 +558,7 @@ function help() {
 function throwNow(quality) {
   if (state.match?.phase !== "timing") return;
   const result = G.resolveThrow(state, quality);
-  animation = { ...result, start: performance.now(), duration: 1800 };
+  animation = { ...result, start: performance.now(), duration: result.signature ? 1600 : 1100 };
   save();
   render();
 }
@@ -575,7 +580,7 @@ function simulate() {
   $("#toast").hidden = true;
   for (let i = 0; i < 40 && m.phase !== "complete"; i++) {
     if (m.phase === "intro") m.phase = "planning";
-    if (m.phase === "planning") G.beginAttempt(state);
+    if (m.phase === "planning") {m.tactic=G.recommendTactic(state); G.beginAttempt(state);}
     if (m.phase === "timing") G.resolveThrow(state, "good");
     if (m.phase === "result") G.nextAttempt(state);
   }
@@ -733,6 +738,20 @@ $("#app").addEventListener("click", async (e) => {
       if (state.match?.phase === "planning" && TACTICS[b.dataset.value])
         state.match.tactic = b.dataset.value;
       break;
+    case "signature":
+      if(G.canSignature(state)) state.match.signatureEnabled=!state.match.signatureEnabled;
+      break;
+    case "coach-event":
+      G.coachEvent(state);
+      animation=null;
+      break;
+    case "check-update":
+      await checkForUpdates();
+      render(true);
+      return;
+    case "apply-update":
+      if(mayRestart(state,view.training)){save();await store.flush();await applyPendingUpdate();}
+      return;
     case "start-attempt":
       if (G.beginAttempt(state)) meterStart = performance.now();
       break;
@@ -754,7 +773,7 @@ $("#app").addEventListener("click", async (e) => {
       return;
     }
     case "next-attempt":
-      if (animation) return;
+      if (animation) {animation=null;render(true);return;}
       G.nextAttempt(state);
       break;
     case "leave":
@@ -934,5 +953,8 @@ function frame(now) {
 render();
 requestAnimationFrame(frame);
 $("#bootStatus").hidden = true;
+await markGameHealthy();
+saveEnabled = true;
 if (!state.welcomed) help();
 save();
+checkForUpdates().catch(console.error);

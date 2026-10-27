@@ -1,4 +1,4 @@
-import { newGame } from "./game.js";
+import { newGame, normalizeCareer } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
 import {
   EVENT_IDS,
@@ -44,7 +44,7 @@ export function validateCampaign(input) {
         s.roster.find((a) => a.event === ev) ||
         s.roster[EVENT_IDS.indexOf(ev) % s.roster.length]
       ).id;
-    return s;
+    return normalizeCareer(s);
   }
   const s = data;
   const bad = () => {
@@ -108,6 +108,8 @@ export function validateCampaign(input) {
     )
       bad();
     if (a.skill && !SKILLS[a.skill]) bad();
+    if(a.masteryTier != null && (!Number.isInteger(a.masteryTier) || a.masteryTier<0 || a.masteryTier>4)) bad();
+    if(a.clinics != null && (!Array.isArray(a.clinics) || a.clinics.length>12 || a.clinics.some(c=>!c || !Number.isInteger(c.stat) || c.stat<0 || c.stat>3 || !validNumber(c.gain,0,2)))) bad();
     ids.add(a.id);
   }
   for (const plot of s.plots)
@@ -180,7 +182,7 @@ export function validateCampaign(input) {
     for (const ev of EVENT_IDS) if (!ids.has(m.lineup?.[ev])) bad();
     if (m.phase === "timing") m.phase = "planning";
   }
-  return s;
+  return normalizeCareer(s);
 }
 export const exportCampaign = (state) => ({
   format: "ring-sector-save",

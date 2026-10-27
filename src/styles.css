@@ -2531,3 +2531,5 @@ td:first-child > span {
     top: 77px;
   }
 }
+
+.personal-best{background:linear-gradient(135deg,#fff0b2,#fff9e5);border:2px solid #c39129;box-shadow:0 0 24px #e9c45d33}.tactic-grid small{display:block;margin-top:8px;font-weight:700;color:#355e51}

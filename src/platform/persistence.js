@@ -25,6 +25,7 @@ export async function createPersistence(key) {
   }
   return {
     read: () => snapshot,
+    flush: () => queue,
     write(value) {
       snapshot = value;
       try {

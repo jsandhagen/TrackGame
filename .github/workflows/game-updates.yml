@@ -1,0 +1,33 @@
+name: Publish game update
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-game-update
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Package compatible game files
+        run: |
+          BUNDLE="game-${GITHUB_SHA}.zip"
+          (cd dist && zip -qr "../$BUNDLE" .)
+          node scripts/publish-manifest.mjs "$BUNDLE"
+      - name: Publish bundle, then update the manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view game-updates >/dev/null 2>&1 || gh release create game-updates --title "Game updates" --notes "Compatible game bundles for the Ring & Sector Android app. Native app changes require a new APK." --prerelease
+          gh release upload game-updates "game-${GITHUB_SHA}.zip" --clobber
+          gh release upload game-updates latest.json --clobber

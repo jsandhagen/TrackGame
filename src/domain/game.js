@@ -54,6 +54,8 @@ export function createAthlete(s, event, options = {}) {
     career: [],
     wage: 40 + Math.round(base / 5),
     injury: 0,
+    masteryTier: s.league || 0,
+    clinics: [],
   };
 }
 export function newGame(seed = Date.now() >>> 0) {
@@ -146,7 +148,7 @@ export function makeClubs(s, league) {
 export function skillUnlocked(a, id) {
   const k = SKILLS[id];
   return (
-    !!k && a.sessions >= k.sessions && a.meets >= k.meets && a.level >= k.level
+    !!k && (a.masteryTier || 0) >= (k.tier || 0) && a.sessions >= k.sessions && a.meets >= k.meets && a.level >= k.level
   );
 }
 export function combos(s) {
@@ -213,6 +215,7 @@ export function kitEffects(a) {
   }
   if (skillUnlocked(a, a.skill) && SKILLS[a.skill].gain)
     e.gain *= SKILLS[a.skill].gain;
+  if (skillUnlocked(a, a.skill) && SKILLS[a.skill].focusedGain && ["power", "speed"].includes(a.plan)) e.gain *= SKILLS[a.skill].focusedGain;
   return e;
 }
 export function eventRating(a, event) {
@@ -250,6 +253,7 @@ export function advanceDay(s) {
     return { ok: false };
   s.day++;
   let gained = 0;
+  const breakthroughs = [];
   const activeCombos = combos(s),
     recovery =
       facilityLevel(s, "recovery") +
@@ -265,6 +269,12 @@ export function advanceDay(s) {
       a.fatigue = clamp(a.fatigue - 12 - recovery, 0, 100);
       continue;
     }
+    for (const c of a.clinics || []) {
+      const gain = Math.max(0, Math.min(c.gain, a.talent - a.stats[c.stat]));
+      a.stats[c.stat] += gain;
+      breakthroughs.push({name:a.name,stat:c.stat,gain});
+    }
+    a.clinics = [];
     a.energy = clamp(a.energy + 13 - plan.load * 11 * k.load, 0, 100);
     a.fatigue = clamp(
       a.fatigue +
@@ -293,7 +303,7 @@ export function advanceDay(s) {
         k.gain *
         trait *
         combo *
-        (1 + facilityLevel(s, facility) * 0.06) *
+        (1 + facilityLevel(s, facility) * 0.12) *
         Math.max(0.2, (a.talent - a.stats[i]) / a.talent);
       a.stats[i] = Math.min(a.talent, a.stats[i] + gain);
       gained += gain;
@@ -320,7 +330,8 @@ export function advanceDay(s) {
   }
   if (s.day === s.matchDay)
     note(s, "Meet day! Choose your lineup and take the club to the stadium.");
-  return { ok: true, gained, cash };
+  if (breakthroughs.length) note(s, "Clinic breakthrough: " + breakthroughs.map(b => b.name.split(" ")[0] + " +" + b.gain.toFixed(1) + " " + ["power","technique","speed","focus"][b.stat]).join(" · "));
+  return { ok: true, gained, cash, breakthroughs };
 }
 export function table(s) {
   const us = { id: "us", name: s.clubName, points: 0, diff: 0, played: 0 };
@@ -374,7 +385,7 @@ export function startMatch(s) {
     attempt: 0,
     attempts: s.fixture < 3 ? 2 : 3,
     phase: "intro",
-    tactic: "safe",
+    tactic: "balanced",
     homeMarks: EVENT_IDS.map(() => []),
     awayMarks: EVENT_IDS.map(() => []),
     lineup: { ...s.lineup },
@@ -382,6 +393,8 @@ export function startMatch(s) {
     against: 0,
     last: null,
     settled: false,
+    signatureUsed: [],
+    signatureEnabled: false,
   };
   return true;
 }
@@ -420,63 +433,65 @@ export function beginAttempt(s) {
   m.phase = "timing";
   return true;
 }
-export function rollThrow(s, a, event, tactic, quality, isHome = true) {
-  const m = s.match,
-    k = kitEffects(a),
-    tr = TRAITS[a.trait],
-    skill = skillUnlocked(a, a.skill) ? SKILLS[a.skill] : {},
-    combo = isHome && combos(s).some((c) => c.key === "precision") ? 0.88 : 1;
-  const risk = clamp(
-    (0.105 - a.stats[3] * 0.00065) *
-      TACTICS[tactic].foul *
-      (tr.foul || 1) *
-      (skill.foul || 1) *
-      k.foul *
-      combo *
-      (quality === "perfect" ? 0.65 : quality === "poor" ? 1.65 : 1),
-    0.004,
-    0.25,
-  );
-  const foul = random(s) < risk;
-  const form = isHome
-    ? forecast(s, a, event)
-    : EVENTS[event].min +
-      (EVENTS[event].max - EVENTS[event].min) *
-        Math.pow(eventRating(a, event) / 100, 1.12);
-  const skillMark = skill.mark && m.attempt === m.attempts - 1 ? skill.mark : 1;
-  const mult = quality === "perfect" ? 1.025 : quality === "poor" ? 0.94 : 1;
-  const mark = +(
-    form *
-    (0.97 + random(s) * 0.035) *
-    TACTICS[tactic].mark *
-    mult *
-    skillMark
-  ).toFixed(2);
-  return {
-    mark: foul ? null : mark,
-    risk,
-    reasons: [
-      a.event !== event ? "Cross-event assignment: −11% rating" : null,
-      a.fatigue > 35 ? "Fatigue reduced your projection" : null,
-      a.form >= 70 ? "Good competition form" : null,
-      quality === "perfect"
-        ? "Clean release: +2.5%"
-        : quality === "poor"
-          ? "Release timing cost distance"
-          : null,
-      skillMark > 1 ? "Last-throw nerve activated" : null,
-      k.mark > 1 ? "Competition equipment added distance" : null,
-    ].filter(Boolean),
-  };
+export function canSignature(s) {
+  const a = currentAthlete(s), m = s.match;
+  return !!(a && m && ["intro","planning"].includes(m.phase) && a.skill === "limitbreak" && skillUnlocked(a,a.skill) && a.form >= 70 && a.fatigue < 50 && !(m.signatureUsed || []).includes(a.id));
 }
-export function resolveThrow(s, quality = "good") {
+export function recommendTactic(s, isHome = true) {
+  const m = s.match, i = m.eventIndex;
+  const own = best((isHome ? m.homeMarks : m.awayMarks)[i]);
+  const rival = best((isHome ? m.awayMarks : m.homeMarks)[i]);
+  if (own != null && rival != null && own > rival * 1.025) return "safe";
+  if (rival != null && (own == null || own <= rival)) return "attack";
+  return "balanced";
+}
+export function throwRisk(s,a,tactic,quality="good",isHome=true) {
+  const skill = skillUnlocked(a,a.skill) ? SKILLS[a.skill] : {}, m = s.match;
+  const marks = m ? (isHome ? m.homeMarks : m.awayMarks)[m.eventIndex] : [];
+  const comeback = skill.comebackMark && marks.length && marks.at(-1) == null;
+  return clamp((.105-a.stats[3]*.00065) * TACTICS[tactic].foul * (TRAITS[a.trait].foul || 1) * (skill.foul || 1) * kitEffects(a).foul *
+    (isHome && combos(s).some(c=>c.key==="precision") ? .88 : 1) * (skill.formMark && a.form>=70 ? .9 : 1) * (comeback ? .8 : 1) *
+    (isHome && m?.signatureEnabled ? .7 : 1) * (quality==="perfect" ? .65 : quality==="poor" ? 1.65 : 1),.004,.45);
+}
+export function teamMark(s) {
+  const squad = EVENT_IDS.map(ev=>s.roster.find(a=>a.id===(s.match?.lineup || s.lineup)[ev]));
+  return new Set(squad.map(a=>a?.id)).size===4 && squad.every(a=>a && readiness(a)>=80) && squad.some(a=>a.skill==="captain" && skillUnlocked(a,a.skill)) ? 1.015 : 1;
+}
+export function rollThrow(s,a,event,tactic,quality,isHome=true) {
+  const m=s.match, k=kitEffects(a), skill=skillUnlocked(a,a.skill) ? SKILLS[a.skill] : {}, activations=[];
+  const risk=throwRisk(s,a,tactic,quality,isHome), foul=random(s)<risk;
+  const form=isHome ? forecast(s,a,event) : EVENTS[event].min+(EVENTS[event].max-EVENTS[event].min)*Math.pow(eventRating(a,event)/100,1.12);
+  let skillMark=1;
+  if(skill.mark && m.attempt===m.attempts-1){skillMark*=skill.mark;activations.push("Last-throw nerve");}
+  if(skill.formMark && a.form>=70){skillMark*=skill.formMark;activations.push("Rhythm engine");}
+  if(skill.attackMark && tactic==="attack" && a.fatigue<=30){skillMark*=skill.attackMark;activations.push("Kinetic chain");}
+  const marks=(isHome?m.homeMarks:m.awayMarks)[m.eventIndex];
+  if(skill.comebackMark && marks.length && marks.at(-1)==null){skillMark*=skill.comebackMark;activations.push("Reset & respond");}
+  const signature=!!(isHome && m.signatureEnabled && a.skill==="limitbreak" && skillUnlocked(a,a.skill) && a.form>=70 && a.fatigue<50 && !(m.signatureUsed||[]).includes(a.id));
+  if(signature){skillMark*=skill.signature;activations.push("SIGNATURE RELEASE +6.5%");}
+  const team=isHome?teamMark(s):1;
+  if(team>1) activations.push("Captain’s standard +1.5%");
+  const [low,high]=TACTICS[tactic].noise;
+  const mark=+(form*(low+random(s)*(high-low))*TACTICS[tactic].mark*(quality==="perfect"?1.025:quality==="poor"?.94:1)*skillMark*team).toFixed(2);
+  return {mark:foul?null:mark,risk,signature,activations,reasons:[
+    ...activations,
+    a.event!==event?"Cross-event assignment: −11% rating":null,
+    a.fatigue>35?"Fatigue reduced your projection":null,
+    quality==="perfect"?"Clean release: +2.5%":quality==="poor"?"Release timing cost distance":null,
+    k.mark>1?"Equipment: +"+((k.mark-1)*100).toFixed(1)+"% distance":null
+  ].filter(Boolean)};
+}
+export function resolveThrow(s, quality = "good", opponentPolicy = "adaptive") {
   const m = s.match;
   if (!m || m.phase !== "timing") return null;
   const ev = EVENT_IDS[m.eventIndex],
     a = currentAthlete(s),
     r = currentRival(s),
     home = rollThrow(s, a, ev, m.tactic, quality, true),
-    away = rollThrow(s, r, ev, "balanced", "good", false);
+    away = rollThrow(s, r, ev, opponentPolicy === "controlled" ? "balanced" : recommendTactic(s,false), "good", false);
+  const previousPb = Math.max(a.pb[ev] || 0, best(m.homeMarks[m.eventIndex]) || 0);
+  if(home.signature){ (m.signatureUsed ??= []).push(a.id); a.energy=clamp(a.energy-8,0,100); }
+  m.signatureEnabled=false;
   m.homeMarks[m.eventIndex].push(home.mark);
   m.awayMarks[m.eventIndex].push(away.mark);
   const scores = eventScores(m);
@@ -484,6 +499,9 @@ export function resolveThrow(s, quality = "good") {
   m.against = scores.reduce((n, e) => n + e.a, 0);
   m.last = {
     ...home,
+    newPb: home.mark != null && home.mark > previousPb,
+    previousPb,
+    pbDelta: home.mark == null ? 0 : home.mark - previousPb,
     away: away.mark,
     quality,
     name: a.name,
@@ -496,10 +514,11 @@ export function resolveThrow(s, quality = "good") {
 export function nextAttempt(s) {
   const m = s.match;
   if (!m || m.phase !== "result") return false;
+  m.signatureEnabled=false;
   if (m.attempt + 1 < m.attempts) {
     m.attempt++;
     m.phase = "planning";
-    m.tactic = best(m.homeMarks[m.eventIndex]) == null ? "safe" : "balanced";
+    m.tactic = recommendTactic(s);
     return true;
   }
   const scores = eventScores(m);
@@ -508,7 +527,7 @@ export function nextAttempt(s) {
   if (m.eventIndex < 3) {
     m.eventIndex++;
     m.attempt = 0;
-    m.tactic = "safe";
+    m.tactic = "balanced";
     m.phase = "planning";
     return true;
   }
@@ -669,7 +688,15 @@ export function nextSeason(s, stay = false) {
         );
     });
   s.money += 150;
+  s.rebuildStreak = wasChampion ? 0 : (s.rebuildStreak || 0) + 1;
   s.roster.forEach((a) => {
+    a.masteryTier=Math.max(a.masteryTier || 0,s.league);
+    if(!wasChampion){
+      const primary=EVENTS[a.event].weights.indexOf(Math.max(...EVENTS[a.event].weights));
+      const weakest=a.stats.indexOf(Math.min(...a.stats));
+      for(const i of new Set([primary,weakest])) a.stats[i]=Math.min(a.talent,a.stats[i]+1+.5*Math.min(3,s.rebuildStreak));
+      a.form=clamp(a.form+8,20,96);
+    }
     a.energy = 100;
     a.fatigue = Math.max(0, a.fatigue - 30);
     a.injury = 0;
@@ -681,7 +708,7 @@ export function nextSeason(s, stay = false) {
       ? "Welcome to " +
           LEAGUES[s.league].name +
           ". New rivals, new opportunities."
-      : "A fresh season. Your club keeps everything it has earned.",
+      : wasChampion ? "A fresh season. Your club keeps everything it has earned." : "Rebuild camp: +"+(1+.5*Math.min(3,s.rebuildStreak))+" to key and weakest stats, +8 form. Your rivals retain their ratings.",
   );
   return true;
 }
@@ -723,6 +750,7 @@ export function build(s, index, type) {
     return false;
   s.money -= d.cost;
   s.plots[index] = { type, level: 1 };
+  grantClinic(s,type,1);
   discover(s);
   note(s, "Built " + d.name + ".");
   return true;
@@ -736,6 +764,7 @@ export function upgrade(s, index) {
   if (s.money < cost) return false;
   s.money -= cost;
   p.level++;
+  grantClinic(s,p.type,p.level);
   note(s, FACILITIES[p.type].name + " reached level " + p.level + ".");
   return true;
 }
@@ -820,5 +849,31 @@ export function releaseAthlete(s, id) {
     s,
     a.name + " begins a new chapter. Their marks stay in the club’s history.",
   );
+  return true;
+}
+
+function grantClinic(s,type,level){
+  const stat=FACILITIES[type].stat;
+  if(stat==null) return;
+  for(const a of s.roster) (a.clinics ??= []).push({stat,gain:1+(level-1)*.5});
+}
+export function normalizeCareer(s){
+  for(const a of [...s.roster,...s.prospects]){
+    a.masteryTier ??= s.league;
+    a.clinics ??= [];
+  }
+  if(s.match){s.match.signatureUsed ??= [];s.match.signatureEnabled ??= false;}
+  return s;
+}
+// Explicit delegation stops on the event result; the coach chooses when to continue.
+export function coachEvent(s){
+  const m=s.match;
+  if(!m || !["intro","planning"].includes(m.phase)) return false;
+  for(let guard=0;guard<3;guard++){
+    m.tactic=recommendTactic(s);
+    beginAttempt(s);resolveThrow(s,"good");
+    if(m.attempt===m.attempts-1) return true;
+    nextAttempt(s);
+  }
   return true;
 }

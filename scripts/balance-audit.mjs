@@ -289,7 +289,7 @@ for (const policy of [
         G.beginAttempt(s);
       }
       if (m.phase === "timing") {
-        fouls += G.resolveThrow(s).mark == null;
+        fouls += G.resolveThrow(s,"good","controlled").mark == null;
         total++;
       }
       if (m.phase === "result") G.nextAttempt(s);
