@@ -57,7 +57,7 @@ export * from "./competition.js";
 export * from "./development.js";
 export * from "./coaching.js";
 export * from "./facility-duties.js";
-import { athleteDuty, dutySite, workFacility, moveDuties } from "./facility-duties.js";
+import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
 import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
 export * from "./core.js";
 export * from "./meet.js";
@@ -181,17 +181,19 @@ export function discover(s) {
 }
 
 // ── Daily simulation ──────────────────────────────────────────────────
-export function plannedActivity(s, a) {
+export function plannedActivity(s, a, assignments) {
   if (a.injury) return "injured";
-  const duty=athleteDuty(s,a.id);
+  if((athleteDuty(s,a.id) || a.plan === "facilities") && a.stamina<30) return "rest";
+  const duty=effectiveDuty(s,a.id,assignments || automaticDuties(s,visitorsPerDay(s)));
   if(duty && dutySite(s,duty)) {
     if(a.stamina<30) return "rest";
     const competing=EVENT_IDS.some(ev=>entriesOf(s,ev).includes(a.id));
     if(!(a.autoTaper && competing && s.matchDay!=null && s.matchDay-s.day<=1)) return "facility";
   }
   const left = s.matchDay == null ? Infinity : s.matchDay - s.day;
-  if (a.autoTaper && left <= 1) return a.stamina < 70 ? "rest" : "sharpen";
+  if (a.autoTaper && left <= 1 && (a.plan !== "facilities" || EVENT_IDS.some(ev=>entriesOf(s,ev).includes(a.id)))) return a.stamina < 70 ? "rest" : "sharpen";
   if (a.autoRest && a.stamina < 25) return "rest";
+  if(a.plan === "facilities") return "rest";
   return planProblem(s,a,a.plan) ? "balanced" : a.plan;
 }
 export function visitorsPerDay(s) {
@@ -211,7 +213,7 @@ export function clubCondition(s) {
 export function trainingGains(s, a, planId, fx = effects(s, a)) {
   const plan = PLANS[planId],
     gains = [0, 0, 0, 0];
-  if (!plan || planId === "rest" || planProblem(s,a,planId)) return gains;
+  if (!plan || planId === "rest" || plan.facilityRole || planProblem(s,a,planId)) return gains;
   const base = 0.38,
     cap = capOf(a),
     mood = MOOD_TRAIN[moodOf(a)];
@@ -236,12 +238,13 @@ export function advanceDay(s) {
   count(s, "days");
   const report = { duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
   const dailyVisitors = visitorsPerDay(s);
+  const autoDuties = automaticDuties(s,dailyVisitors);
   const clubCond = clubCondition(s),
     teamCond = s.roster.map((a) => effects(s, a).teamCond),
     injuryRisk = hasCombo(s, "dorms") ? 0.04 : 0.08;
   for (const [index, a] of s.roster.entries()) {
     const fx = effects(s, a),
-      activity = plannedActivity(s, a),
+      activity = plannedActivity(s, a, autoDuties),
       entry = { id: a.id, activity, gains: [0, 0, 0, 0], facility: null };
     const fromOthers = teamCond.reduce((n, v, j) => n + (j === index ? 0 : v), 0);
     if (activity === "injured") {
@@ -249,7 +252,7 @@ export function advanceDay(s) {
       a.stamina = clamp(a.stamina + 20, 0, 100);
       entry.facility = facilityLevel(s, "spa") ? "spa" : "club";
     } else if(activity === "facility") {
-      const worked=workFacility(s,a,athleteDuty(s,a.id),dailyVisitors,report);
+      const worked=workFacility(s,a,effectiveDuty(s,a.id,autoDuties),dailyVisitors,report);
       entry.facility=worked?.facility || "club";
     } else {
       const plan = PLANS[activity];

@@ -757,10 +757,14 @@ $("#app").addEventListener("change", (e) => {
     a = state.roster.find((x) => x.id === +el.dataset.id);
   if (kind === "facility-staff") G.assignDuty(state,el.dataset.site,+el.value);
   if (kind === "athlete-duty" && a) {
-    if(el.value) G.assignDuty(state,el.value,a.id);
+    if(el.value === "auto") {
+      const previous=G.athleteDuty(state,a.id);if(previous) G.assignDuty(state,previous,0);
+      G.setTrainingPlan(state,a.id,"facilities");
+    } else if(el.value) G.assignDuty(state,el.value,a.id);
     else { const previous=G.athleteDuty(state,a.id); if(previous) G.assignDuty(state,previous,0); }
   }
-  if (["facility-staff","athlete-duty"].includes(kind)) world.replan();
+  if(kind === "facility-focus" && a && ["balanced","money","insights"].includes(el.value)) a.facilityFocus=el.value;
+  if (["facility-staff","athlete-duty","facility-focus"].includes(kind)) world.replan();
   if (kind === "bulk") state.roster.forEach((x) => G.setTrainingPlan(state,x.id,el.value));
   if (kind === "plan" && a) G.setTrainingPlan(state,a.id,el.value);
   if (kind === "plan" || kind === "bulk") world.replan();

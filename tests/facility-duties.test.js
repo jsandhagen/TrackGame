@@ -58,3 +58,29 @@ test('staffing controls explain roles, wages and rewards in squad, building and 
  assert.match(P.build(s,{selected:{kind:'plot',index:10}}),/Training partner/);
  assert.match(P.squad(s,{athlete:s.roster[0].id,tab:'stats'}),/Daily role/);
 });
+
+test('automatic facility plans share available sites, honour manual staff and persist goals',()=>{
+ const s=G.newGame(30);s.money=5000;G.build(s,11,'cafe');
+ G.assignDuty(s,'plot:10',s.roster[0].id);
+ for(const a of s.roster.slice(1)) { G.setTrainingPlan(s,a.id,'facilities');a.facilityFocus='money'; }
+ const allocations=G.automaticDuties(s,G.visitorsPerDay(s));
+ assert(!Object.values(allocations).includes('plot:10'));
+ assert.equal(new Set(Object.values(allocations)).size,Object.values(allocations).length);
+ assert.equal(Object.keys(allocations).length,2,'remaining athletes rest when both available sites are occupied');
+ const copy=validateCampaign(exportCampaign(s));assert.equal(copy.roster[1].plan,'facilities');assert.equal(copy.roster[1].facilityFocus,'money');
+ const report=day(copy);assert.equal(report.duties.length,3);assert.equal(new Set(report.duties.map(d=>d.key)).size,3);
+});
+test('automatic priorities steer money or Insights without buying anything or consuming scarce items',()=>{
+ const s=G.newGame(31),a=s.roster[0];G.setTrainingPlan(s,a.id,'facilities');
+ a.facilityFocus='money';const money=G.automaticDuties(s,5);assert.equal(money[a.id],'plot:9');
+ a.facilityFocus='insights';const insight=G.automaticDuties(s,5);assert.equal(insight[a.id],'plot:10');
+ a.stamina=29;assert.equal(G.plannedActivity(s,a),'rest');assert.equal(G.automaticDuties(s,5)[a.id],undefined);
+ a.stamina=100;a.injury=2;assert.equal(G.plannedActivity(s,a),'injured');
+});
+test('automatic workers rotate access to scarce facilities and use existing facilities after layout changes',()=>{
+ const s=G.newGame(32);s.roster.forEach(a=>G.setTrainingPlan(s,a.id,'facilities'));
+ const seen=new Set();
+ for(let day=1;day<=4;day++) {s.day=day;for(const id of Object.keys(G.automaticDuties(s,5)))seen.add(Number(id));}
+ assert.equal(seen.size,4);
+ s.plots[10]=null;assert(Object.values(G.automaticDuties(s,5)).every(key=>key==='plot:9'));
+});

@@ -9,3 +9,9 @@ Revenue-producing visitor services depend on the actual audience and finite serv
 Assign from Squad → Facility roster, an individual athlete's Daily role selector, or the building window. World animation shows athletes at the assigned facilities with daily currency popups. The UI shows wages and prospective output at today's attendance. Historical staff earnings appear in the facility roster.
 
 Assignments follow moved buildings, clear when a building is sold or an athlete released, and persist in saves. Existing schema-7 saves receive an empty facility roster. Simulation checks cover exclusivity, rest/taper, revenue limits, upgrades, recovery support, persistence and removal.
+
+## Automatic facility plans
+
+Select “Use facilities automatically” in any athlete’s training plan, or apply it through the squad bulk selector. Set an optional balanced, money or Insights priority in the athlete’s Daily role section. Athletes select available productive buildings themselves. Manual assignments take priority. Automatic athletes cannot duplicate an occupied site, rotate access when capacity is limited, rest below 30 stamina, and taper if entered in an approaching meet. When all sites are occupied they recover instead of requiring a new instruction.
+
+Daily staffing decisions use a single snapshot of availability, visitor demand and club resources, so earned currency or fatigue cannot cause mid-day reassignment or duplicate production. No automatic plan spends money, Insights or inventory. Ordinary stat plans already route athletes to the appropriate training facilities.

@@ -4,7 +4,7 @@ import { figure, shadow, athleteLook } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, bush, bench } from "./buildings.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, roundRect, BOWL, TRACK, SPOTS, GATE } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
-import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, athleteDuty, dutySite } from "../domain/game.js";
+import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite } from "../domain/game.js";
 
 export const MAP_W = 720,
   MAP_H = 480;
@@ -114,8 +114,9 @@ function flowerbed(g, x, y) {
 function targetFor(s, a, index, now, activity, counts) {
   const slot = (key) => (counts[key] = (counts[key] || 0) + 1) - 1;
   const plotOf = (type) => s.plots.findIndex((p) => p?.type === type);
-  if(activity === "facility") {
-    const site=dutySite(s,athleteDuty(s,a.id));
+  if(activity === "facility" || activity.startsWith("facility:")) {
+    const key=activity.startsWith("facility:") ? activity.slice(9) : effectiveDuty(s,a.id,automaticDuties(s,visitorsPerDay(s)));
+    const site=dutySite(s,key);
     const [x,y]=site?.type === "studio" ? [336,154] : front(site?.index ?? CLUB_PLOT);
     return {x:x+24,y,pose:"study"};
   }
@@ -410,7 +411,7 @@ export function createWorld(cv) {
   }
 
   function onDay(s, report, now, dayMs) {
-    activities = new Map(report.athletes.map((e) => [e.id, e.activity]));
+    activities = new Map(report.athletes.map((e) => [e.id, e.activity === "facility" ? "facility:" + report.duties.find(d=>d.id===e.id).key : e.activity]));
     report.athletes.forEach((e, n) => {
       const a = s.roster.find((x) => x.id === e.id);
       if (!a) return;

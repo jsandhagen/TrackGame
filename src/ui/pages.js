@@ -108,11 +108,11 @@ function facilityStaffPicker(s,key) {
 }
 function athleteDutyPicker(s,a) {
   const key=G.athleteDuty(s,a.id),site=key && G.dutySite(s,key);
-  return `<section class="card"><label>Daily role<select data-change="athlete-duty" data-id="${a.id}"><option value="">Train with assigned plan</option>${G.dutySites(s).map(site=>`<option value="${site.key}" ${key===site.key ? "selected" : ""}>${site.name} · ${G.DUTIES[site.type].name}</option>`).join("")}</select></label><small>${site ? "Facility duty replaces daily training. Your saved plan resumes when unassigned. " : "Bench athletes can help the club at facilities. "}Tired or injured athletes recover; meet entrants taper automatically.</small></section>`;
+  return `<section class="card"><label>Daily role<select data-change="athlete-duty" data-id="${a.id}"><option value="">Follow daily plan automatically</option><option value="auto" ${!key && a.plan === "facilities" ? "selected" : ""}>Use facilities automatically</option>${G.dutySites(s).map(site=>`<option value="${site.key}" ${key===site.key ? "selected" : ""}>${site.name} · ${G.DUTIES[site.type].name}</option>`).join("")}</select></label>${a.plan === "facilities" ? `<label>Automatic facility priority<select data-change="facility-focus" data-id="${a.id}">${["balanced","money","insights"].map(f=>`<option value="${f}" ${(a.facilityFocus||"balanced")===f ? "selected" : ""}>${f === "balanced" ? "Balanced club needs" : f === "money" ? "Earn money" : "Generate Coaching Insights"}</option>`).join("")}</select></label>` : ""}<small>${site ? "Facility duty replaces daily training. Your saved plan resumes when unassigned. " : "Training plans choose their own training areas. Choose Use facilities for automatic club support. "}Tired or injured athletes recover; meet entrants taper automatically.</small></section>`;
 }
 function facilityBoard(s) {
   const assigned=Object.keys(s.facilityDuties||{}).length;
-  return `<details class="card"><summary>Facility roster · ${assigned} assigned</summary><p>Put squad depth to work: assign athletes to community services, coaching support or recovery. Duties replace daily training, consume stamina and still incur wages. Money can fund buildings and recruitment; Insights can develop the competition squad.</p><p>Earned through staff: ${cash(s.counters.facilityMoney||0)} · ${s.counters.facilityInsights||0} Insights · ${s.counters.facilityFans||0} fans.</p>${G.dutySites(s).map(site=>facilityStaffPicker(s,site.key)).join("")}</details>`;
+  return `<details class="card"><summary>Facility roster · ${assigned} manual · ${s.roster.filter(a=>a.plan === "facilities" && !G.athleteDuty(s,a.id)).length} automatic</summary><p>Put squad depth to work: assign athletes to community services, coaching support or recovery. Duties replace daily training, consume stamina and still incur wages. Money can fund buildings and recruitment; Insights can develop the competition squad.</p><p>Earned through staff: ${cash(s.counters.facilityMoney||0)} · ${s.counters.facilityInsights||0} Insights · ${s.counters.facilityFans||0} fans.</p>${G.dutySites(s).map(site=>facilityStaffPicker(s,site.key)).join("")}</details>`;
 }
 
 // ── Squad ───────────────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ function athletePage(s, a, view) {
       const problem = G.drillProblem(s,a,id);
       return `<article class="coaching-drill"><h4>${d.name}</h4><p>${esc(id === "delivery" ? G.EVENT_DRILLS[a.event] : d.desc)}</p><small>${d.gains.map((n,i) => n ? STAT_NAMES[i] : "").filter(Boolean).join(" & ")} · ${d.cost} Insights · ${G.drillEnergy(s,id)} stamina</small>${btn(problem || "Coach this session", "coach-session", `data-id="${a.id}" data-drill="${id}" ${problem ? "disabled" : ""}`, "subtle")}</article>`;
     }).join("")}</section>
-    <h3>Daily training plans</h3><div class="plan-grid">${Object.entries(PLANS)
+    <h3>Daily plans</h3><div class="plan-grid">${Object.entries(PLANS)
       .map(([id, p]) => {
         const at = p.facility === "event" ? a.event : p.facility;
         const lvl = at ? G.facilityLevel(s, at) : 0,
@@ -184,7 +184,7 @@ function athletePage(s, a, view) {
         return `<button class="plan ${a.plan === id ? "selected" : ""}" data-act="${unlockable ? "unlock-plan" : "plan"}" data-id="${a.id}" data-value="${id}" ${(unlockable ? unlockProblem : problem) ? "disabled" : ""}><strong>${p.name}</strong><small>${p.desc}</small><em>${unlockable ? "Unlock · " + p.cost + " Insights · " : ""}${problem && (!unlockable || unlockProblem) ? esc(unlockProblem || problem) : where}</em></button>`;
       })
       .join("")}</div>
-    <p class="hint">Five days of this plan add about ${perWeek.map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_NAMES[i] : "")).filter(Boolean).join(", ") || "less than one point"} and cost ${a.plan === "rest" ? "no" : Math.round(PLANS[a.plan].load * 13 * G.effects(s, a).stamina)} stamina a day.</p>
+    <p class="hint">${a.plan === "facilities" ? "Automatic duties replace stat training. Rewards and stamina costs depend on the selected facility; athletes recover when no suitable site is available." : `Five days of this plan add about ${perWeek.map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_NAMES[i] : "")).filter(Boolean).join(", ") || "less than one point"} and cost ${a.plan === "rest" ? "no" : Math.round(PLANS[a.plan].load * 13 * G.effects(s, a).stamina)} stamina a day.`}</p>
     <label class="toggle"><input type="checkbox" data-change="autorest" data-id="${a.id}" ${a.autoRest ? "checked" : ""}> Rest automatically below 25 stamina</label>
     <label class="toggle"><input type="checkbox" data-change="autotaper" data-id="${a.id}" ${a.autoTaper ? "checked" : ""}> Taper in the two days before a meet</label>`;
   }

@@ -53,3 +53,42 @@ export function moveDuties(s,from,to) {
   const x=staff[a],y=staff[b];delete staff[a];delete staff[b];
   if(x) staff[b]=x;if(y) staff[a]=y;
 }
+
+const dutyReady = (s,a) => {
+  if(a.injury || a.stamina<30) return false;
+  const competing=Object.values(s.entries||s.lineup).some(ids=>Array.isArray(ids)?ids.includes(a.id):ids===a.id);
+  return !(competing && a.autoTaper && s.matchDay!=null && s.matchDay-s.day<=1);
+};
+// A daily snapshot is passed through the simulation so changing balances or
+// fatigue cannot move staff between sites halfway through the same day.
+export function automaticDuties(s,visitors=0) {
+  const out={},reserved=new Set();
+  for(const [key,id] of Object.entries(s.facilityDuties||{})) {
+    const a=s.roster.find(a=>a.id===id);
+    if(a && dutyReady(s,a) && dutySite(s,key)) reserved.add(key);
+  }
+  const eligible=s.roster.filter(a=>a.plan==='facilities' && !athleteDuty(s,a.id) && dutyReady(s,a));
+  if(!eligible.length) return out;
+  const offset=s.day%eligible.length;
+  const order=[...eligible.slice(offset),...eligible.slice(0,offset)];
+  const sites=dutySites(s);
+  let insights=s.coaching.insights;
+  const resting=s.roster.filter(a=>a.injury||a.stamina<30||a.plan==='rest').length;
+  for(const a of order) {
+    const focus=a.facilityFocus||'balanced';
+    const score=site=>{
+      const r=dutyYield(s,site.key,visitors);
+      const insightWeight=focus==='insights'?8:focus==='money'?0.3:insights<12?4:1.3;
+      const moneyWeight=focus==='money'?1/4:focus==='insights'?1/30:1/12;
+      return r.money*moneyWeight+r.insights*insightWeight+r.fans*0.3+r.recovery*resting*0.2-r.stamina*0.01;
+    };
+    const site=sites.filter(site=>!reserved.has(site.key)).sort((a,b)=>score(b)-score(a)||a.key.localeCompare(b.key))[0];
+    if(site) { out[a.id]=site.key;reserved.add(site.key);insights+=dutyYield(s,site.key,visitors).insights; }
+  }
+  return out;
+}
+export const effectiveDuty = (s,id,assignments) => {
+  const manual=athleteDuty(s,id),a=s.roster.find(a=>a.id===id);
+  if(manual && a && dutyReady(s,a)) return manual;
+  return (assignments||automaticDuties(s,0))[id]||null;
+};

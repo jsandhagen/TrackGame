@@ -201,6 +201,8 @@ function checkAthlete(a, ids, rival = false) {
     if (list !== null && (!Array.isArray(list) || list.length > slotsOf(a) || new Set(list).size !== list.length || list.some((k) => !a.skills.includes(k)))) bad();
     if (presets.enabled && !Array.isArray(list)) bad();
   }
+  a.facilityFocus ??= "balanced";
+  if(!["balanced","money","insights"].includes(a.facilityFocus)) bad();
   a.coachedDay ??= 0;
   if (!int(a.coachedDay,0,1e7)) bad();
   a.seasonStart ??= statTotal(a);
