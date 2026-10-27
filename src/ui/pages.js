@@ -63,7 +63,7 @@ function alerts(s, a) {
   if (!G.promoteProblem(s, a)) out.push(chip("Rank up!", "#e2b04a", "pulse"));
   return out.join("");
 }
-export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Training ground", recruit: "Scouting report", build: "Groundskeeping", shop: "Kit shop", league: "Meet calendar", club: "Club office", lobby: "Call room" };
+export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Training ground", recruit: "Scouting report", build: "Groundskeeping", shop: "Kit shop", league: "Meet calendar", club: "Club office", lobby: "Call room", calendar: "Club calendar" };
 
 // ── Club desk ───────────────────────────────────────────────────────────
 export function home(s, view) {
@@ -74,8 +74,9 @@ export function home(s, view) {
   return `
   ${s.phase === "planning" ? `<article class="card calendar-welcome"><span class="eyebrow">OFF-SEASON · NOTHING ON THE CALENDAR</span><h2>Where do we throw next?</h2><p>Book a duel to test the squad, or enter a league and chase some hardware. The infield stays open until you're ready.</p>${btn("Open the meet calendar", "page", 'data-page="league"')}<div class="inline">${btn(view.playing ? "Pause training" : "Keep training", view.playing ? "pause" : "play", "", "subtle")}${btn("Next day", "day", view.playing ? "disabled" : "", "subtle")}</div></article>` : `
   <article class="fixture-card ${ready ? "ready" : ""}" style="--rival:${opp?.color || "#888"}">
-    <div class="fixture-top"><span>${s.competition?.kind === "duel" ? "DUEL MEET" : s.fixture === 3 ? "LEAGUE FINAL" : "FIXTURE " + (s.fixture + 1) + " / 3"} · ${esc(G.competitionName(s))}</span><b>${ready ? "MEET DAY" : days + (days === 1 ? " DAY" : " DAYS") + " TO GO"}</b></div>
-    <div class="versus"><span class="crest home">${esc(s.clubName.slice(0, 1))}</span><div><small>NEXT UP</small><h2>${esc(opp?.name)}</h2><p>${esc(opp?.style || "")}</p></div><span class="crest away">${esc(opp?.name.slice(0, 1))}</span></div>
+    <div class="fixture-top"><span>${s.competition?.kind === "cup" ? "INVITATIONAL" : s.competition?.kind === "duel" ? "DUEL MEET" : s.fixture === 3 ? "LEAGUE FINAL" : "FIXTURE " + (s.fixture + 1) + " / 3"} · ${esc(G.competitionName(s))}</span><b>${ready ? "MEET DAY" : days + (days === 1 ? " DAY" : " DAYS") + " TO GO"}</b></div>
+    <div class="versus"><span class="crest home">${esc(s.clubName.slice(0, 1))}</span><div><small>NEXT UP · ${esc(G.shortDate(s.matchDay))}</small><h2>${esc(opp?.name)}</h2><p>${esc(opp?.style || "")}</p></div><span class="crest away">${esc(opp?.name.slice(0, 1))}</span></div>
+    <p class="meet-forecast">${weatherChip(G.weatherOn(s, s.matchDay))} <span>Meet-day forecast · ${esc(G.venueLabel(G.meetVenue(s)))}</span></p>
     ${ready ? btn(ico("stadium") + " Report to the call room", "lobby") : btn(view.playing ? ico("pause") + " Pause" : ico("play") + " Train · " + days + (days === 1 ? " day" : " days") + " to the meet", view.playing ? "pause" : "play")}
     <div class="split">${btn("Next day", "day", ready || view.playing ? "disabled" : "", "subtle")}${btn(ico("league") + " Meets", "page", 'data-page="league"', "subtle")}</div>
   </article>`}
@@ -562,10 +563,24 @@ function developmentCard(a, all = false) {
   return `<section class="card development-card"><div class="card-title"><h3>A career built here</h3><small>${earned.length} / ${G.DEVELOPMENT.length}</small></div>
   ${list.map((d) => `<div class="goal ${earned.includes(d.id) ? "done" : ""}"><div><strong>${earned.includes(d.id) ? "✓ " : ""}${d.name}</strong><small>${G.developmentProgress(a, d)} / ${d.target} ${labels[d.field]}</small>${bar(G.developmentProgress(a, d), d.target, "#8cc152")}</div><span class="reward">${d.reward}</span></div>`).join("") || "<p>A club great. Every milestone earned.</p>"}<p class="hint">Milestones are awarded automatically through competition.</p></section>`;
 }
+// The rare invitation, pinned above the regular circuit while it's open.
+function invitationCard(s) {
+  const o = G.invitation(s);
+  if (!o) return "";
+  const accepted = s.competition?.kind === "cup",
+    problem = G.invitationProblem(s),
+    days = o.day - s.day,
+    p = ITEMS[o.prize];
+  return `<section class="card invitation-card"><span class="eyebrow">${ico("star")} RARE INVITATION · ${esc(LEAGUES[o.tier].name.toUpperCase())}</span><h2>${esc(o.name)}</h2>
+    <p>${esc(G.longDate(o.day))} at <b>${esc(o.venue)}</b>${days > 0 ? " · in " + days + (days === 1 ? " day" : " days") : " · today"}. One day, championship format: three throws, then three more for the top four. You face the <b>All-Star Select</b>, the best specialist in each event from every club at this level.</p>
+    <div class="invite-prize">${icon(o.prize, 40)}<span><small>WINNER'S PRIZE · NOT SOLD IN SHOPS</small><strong>${esc(p.name)}</strong><em>${esc(RARITY[p.rarity].name)} · ${esc(p.desc)}</em></span></div>
+    ${accepted ? `<p class="booking-summary">Accepted. ${days > 0 ? "Train up and report on " + esc(G.shortDate(o.day)) + "." : "Report to the call room."}</p>${btn("Withdraw", "cancel-booking", s.day < s.matchDay ? "" : "disabled", "subtle")}` : `${btn(ico("star") + " Accept invitation", "accept-invite", problem ? "disabled" : "")}${problem ? `<p class="hint">${esc(problem)} The invitation lapses after ${esc(G.shortDate(o.day))}.</p>` : `<p class="hint">Every finisher takes home a rare-or-better keepsake.</p>`}`}
+  </section>`;
+}
 function competitionBoard(s, view) {
   const planning = s.phase === "planning";
   const active = s.competition;
-  return `<section class="card calendar-intro"><span class="eyebrow">THE COMPETITION CIRCUIT</span><h2>Choose your next challenge</h2><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three fixtures and a final for the top two. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p>
+  return `${invitationCard(s)}<section class="card calendar-intro"><span class="eyebrow">THE COMPETITION CIRCUIT</span><h2>Choose your next challenge</h2><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three fixtures and a final for the top two. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p>
     <div class="calendar-options"><label>Prepare before the first meet<select data-change="booking-preparation" ${planning ? "" : "disabled"}>${[3,5,7,10].map((n) => `<option value="${n}" ${(view.preparation || 5) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label><label>Days between league meets<select data-change="booking-spacing" ${planning ? "" : "disabled"}>${[4,7,10].map((n) => `<option value="${n}" ${(view.spacing || 7) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div>
     ${active ? `<p class="booking-summary"><b>${esc(G.competitionName(s))}</b> · ${s.phase === "seasonEnd" ? "Complete — review your season to book again." : "Next meet: day " + s.matchDay + (active.kind === "league" ? " · " + active.spacing + " days between fixtures" : "")}</p><div class="inline">${btn(s.phase === "seasonEnd" ? "Season review" : "Back to preparations", "page", 'data-page="home"', "subtle")}${s.fixture === 0 && !s.results.length && s.day < s.matchDay ? btn("Cancel booking", "cancel-booking", "", "subtle") : ""}</div>` : "<p class='hint'>Entry's free. Training carries on between meets (so do wages), and every earlier competition stays open.</p>"}
   </section>
@@ -574,6 +589,49 @@ function competitionBoard(s, view) {
       const problem = G.entryProblem(s, "league", i, j), cleared = s.circuit.cleared.includes(G.circuitKey(i, j));
       return `<article class="competition-card ${cleared ? "completed" : ""}"><span class="eyebrow">${cleared ? "TROPHY WON · REPLAYABLE" : "LEAGUE TOURNAMENT"}</span><h3>${stage}</h3><p>${G.CIRCUIT_FORMATS[j]}</p><small>First title gift: ${ITEMS[G.TITLE_GIFTS[j]].name}</small><small>${j < 2 ? "First title: " + G.CIRCUIT_STAGES[j + 1] + " invitation" : i < 4 ? "First title: " + LEAGUES[i + 1].name + " invitation" : "Become champions of the world"}</small>${btn(cleared ? "Enter again" : "Enter league", "book-league", `data-tier="${i}" data-stage="${j}" ${problem ? "disabled" : ""}`)}${problem && planning ? `<p class="hint">${esc(problem)}</p>` : ""}</article>`;
     }).join("")}</div><h3>Duel meets</h3><p class="hint">A first win over each club earns a bonus and a skill scroll. Repeat duels offer smaller match rewards and experience; league invitations come from trophies.</p><div class="duel-list">${CLUBS[i].map((c, j) => `<article class="duel-card"><span><strong>${esc(c.name)}</strong><small>${esc(c.style)}</small><small>${s.circuit.duels.includes(i + ":" + j) ? "First-win reward earned" : "First-win reward available"}</small></span>${btn("Book duel", "book-duel", `data-tier="${i}" data-rival="${j}" ${G.entryProblem(s, "duel", i, 0, j) ? "disabled" : ""}`, "subtle")}</article>`).join("")}</div>`}</details>`).join("")}`;
+}
+
+// ── Calendar ────────────────────────────────────────────────────────────
+export const weatherChip = (w) => `<span class="weather-chip w-${w}">${ico(G.WEATHER[w].icon)}${esc(G.WEATHER[w].name)}</span>`;
+// Everything that falls on a given day: meets, invitations and paydays.
+function dayMarks(s, day, meets) {
+  const out = [];
+  for (const m of meets) if (m.day === day) out.push({ icon: "league", cls: "meet", text: m.label + (m.rival ? " vs " + m.rival : "") + (m.projected ? " · projected" : "") });
+  const inv = s.invitations?.offer;
+  if (inv && inv.day === day) out.push({ icon: "star", cls: "cup", text: inv.name + (s.competition?.kind === "cup" ? " · accepted" : " · invitation") });
+  if (G.isPayday(day)) out.push({ icon: "coin", cls: "pay", text: "Payday" });
+  return out;
+}
+export function calendar(s) {
+  const today = G.dateOf(s.day),
+    w = G.weatherToday(s),
+    meets = G.upcomingMeets(s),
+    start = s.day - today.weekday,
+    forecast = G.forecastDays(s),
+    known = new Map(forecast.map((f) => [f.day, f.weather]));
+  const cells = Array.from({ length: 28 }, (_, i) => {
+    const day = start + i,
+      t = G.dateOf(day),
+      marks = day >= 1 ? dayMarks(s, day, meets) : [],
+      past = day < s.day;
+    return `<div class="cal-day ${day === s.day ? "today" : ""} ${past ? "past" : ""} ${marks.some((m) => m.cls === "meet") ? "has-meet" : ""} ${marks.some((m) => m.cls === "cup") ? "has-cup" : ""}" title="${esc(G.longDate(day))}${marks.map((m) => " · " + esc(m.text)).join("")}">
+      <span class="num">${t.date === 1 || i === 0 ? G.MONTHS[t.month].slice(0, 3) + " " : ""}${t.date}</span>
+      ${known.has(day) ? ico(G.WEATHER[known.get(day)].icon, "cal-weather") : ""}
+      <span class="marks">${marks.map((m) => ico(m.icon, m.cls)).join("")}</span></div>`;
+  }).join("");
+  const ahead = [];
+  for (let day = s.day; day < s.day + 28; day++) for (const m of dayMarks(s, day, meets)) if (m.cls !== "pay") ahead.push({ day, ...m });
+  return `<section class="card cal-today"><div><span class="eyebrow">${esc(G.SEASON_NAMES[today.season].toUpperCase())} · YEAR ${today.year}</span><h2>${esc(G.longDate(s.day))}</h2><p>${esc(G.WEATHER[w].desc)}</p></div>${weatherChip(w)}</section>
+  <div class="card-title"><h2>${ico("sun")} Seven-day forecast</h2></div>
+  <div class="forecast">${forecast.map((f) => {
+    const meet = dayMarks(s, f.day, meets).find((m) => m.cls !== "pay");
+    return `<div class="fc ${f.day === s.day ? "today" : ""} ${meet ? "meet" : ""}"><small>${f.day === s.day ? "Today" : G.WEEKDAYS[G.dateOf(f.day).weekday]}</small>${ico(G.WEATHER[f.weather].icon)}<b>${esc(G.WEATHER[f.weather].name)}</b>${meet ? `<em>${ico(meet.icon)} ${meet.cls === "cup" ? "Invitational" : "Meet"}</em>` : ""}</div>`;
+  }).join("")}</div>
+  <p class="hint">Rain and snow slow outdoor work (laps, sprints, throwing) but not the gym or film room. Meet-day weather sets the conditions in the circle.</p>
+  <div class="card-title"><h2>${ico("calendar")} Next four weeks</h2></div>
+  <div class="cal-grid">${G.WEEKDAYS.map((d) => `<span class="cal-head">${d}</span>`).join("")}${cells}</div>
+  <div class="cal-legend"><span>${ico("league")} Meet</span><span>${ico("star")} Invitational</span><span>${ico("coin")} Payday</span></div>
+  <section class="card"><h3>Coming up</h3>${ahead.length ? ahead.map((m) => `<p class="cal-item ${m.cls}">${ico(m.icon)} <b>${esc(G.shortDate(m.day))}</b> · ${esc(m.text)}${known.has(m.day) ? " · " + esc(G.WEATHER[known.get(m.day)].name) : ""}</p>`).join("") : `<p class="hint">Nothing booked. ${s.phase === "planning" ? "Open the Meets board to book a duel or a league." : ""}</p>`}</section>`;
 }
 
 // ── League ──────────────────────────────────────────────────────────────
@@ -591,7 +649,7 @@ export function league(s, view) {
     })
     .join("")}
   <div class="card-title"><h2>Club records</h2></div><div class="records">${EVENT_IDS.map((ev) => `<span>${EVENTS[ev].name}<b>${s.records[ev] ? mark(s.records[ev].mark) : "—"}</b><small>${s.records[ev] ? esc(s.records[ev].name) + " · S" + s.records[ev].season : ""}</small></span>`).join("")}</div>
-  <div class="card-title"><h2>${ico("trophy")} Trophy cabinet</h2></div><div class="trophies">${s.trophies.length ? s.trophies.map((t) => `<div>${ico("trophy", "big")}<strong>${LEAGUES[t.league].name} · ${G.CIRCUIT_STAGES[t.stage ?? 2]}</strong><small>Season ${t.season}</small></div>`).join("") : "<p class='hint'>A space is waiting for the first one.</p>"}</div>`;
+  <div class="card-title"><h2>${ico("trophy")} Trophy cabinet</h2></div><div class="trophies">${s.trophies.length || s.invitations?.won.length ? s.trophies.map((t) => `<div>${ico("trophy", "big")}<strong>${LEAGUES[t.league].name} · ${G.CIRCUIT_STAGES[t.stage ?? 2]}</strong><small>Season ${t.season}</small></div>`).join("") + (s.invitations?.won || []).map((t) => `<div class="invite-trophy">${ico("star", "big")}<strong>${esc(t.name)}</strong><small>${LEAGUES[t.tier].name} · ${esc(G.shortDate(t.day))}</small></div>`).join("") : "<p class='hint'>A space is waiting for the first one.</p>"}</div>`;
 }
 
 // ── Office ──────────────────────────────────────────────────────────────
@@ -653,7 +711,8 @@ export function club(s, meta) {
 export function lobby(s) {
   const m = G.opponent(s),
     problem = G.lineupProblem(s);
-  return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${s.fixture === 3 ? "neutral venue" : s.competition?.kind === "duel" ? "at home" : (s.competition?.stage === 2 ? s.fixture !== 2 : s.fixture === 1) ? "away" : "at home"}</p>
+  return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
+  <p class="meet-forecast">${weatherChip(G.weatherToday(s))} <span>${esc(G.WEATHER[G.weatherToday(s)].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
     const a = s.roster.find((x) => x.id === s.lineup[ev]),
       r = m.athletes[i],
@@ -678,7 +737,7 @@ export function lobby(s) {
 // ── Live meet ───────────────────────────────────────────────────────────
 // The strip along the bottom of the stadium during a meet.
 function meetAthlete(s, side, id) {
-  const athletes = side === "home" ? s.roster : (s.clubs.find(c => c.id === s.match.opponentId)?.athletes || []);
+  const athletes = side === "home" ? s.roster : (G.clubById(s, s.match.opponentId)?.athletes || []);
   const athlete = athletes.find(a => a.id === id);
   return { athlete, face: !athlete ? "" : side === "home" ? portrait(athlete) : rivalPortrait(s.match.opponentId, athletes.indexOf(athlete)) };
 }
@@ -714,7 +773,7 @@ export function meetBar(s, view) {
       <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
     </section>
-    <section class="live-standings" aria-label="Live standings"><header><strong>Event standings</strong><small>${m.finalRound ? "Final throws" : "Qualifying"}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""} · 5–3–1 pts</small></header><div class="standings-list">${rows.map(row=>{
+    <section class="live-standings" aria-label="Live standings"><header><strong>Event standings</strong><small>${m.finalRound ? "Final throws" : "Qualifying"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""} · 5–3–1 pts</small></header><div class="standings-list">${rows.map(row=>{
       const {athlete}=meetAthlete(s,row.side,row.id);
       return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
     }).join("")}</div></section>
@@ -772,7 +831,7 @@ export function meetComplete(s, view = {}) {
     draw = G.meetOutcome(m) === 0;
   const growth = view.resultView === "progress";
   const selected = EVENT_IDS.includes(view.resultEvent) ? view.resultEvent : "all";
-  return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b>${m.score} <small>–</small> ${m.against}</b><span>${esc(m.name)}</span></div></header>
+  return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : m.kind === "cup" ? esc(r.invitational?.name || "INVITATIONAL").toUpperCase() : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b>${m.score} <small>–</small> ${m.against}</b><span>${esc(m.name)}</span></div></header>
   <div class="meet-payout"><span>${ico("coin")} <b>+${cash(r.money || 0)}</b></span><span>${ico("heart")} +${r.fans || 0} fans</span><span>${ico("idea")} +${r.insights || 0} Insights</span>${r.mvp ? `<span class="meet-mvp">${ico("star")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}</div>
   ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
   <nav class="meet-result-tabs" aria-label="Meet report"><button data-act="result-view" data-value="results" aria-pressed="${!growth}" class="${!growth?"active":""}">Results</button><button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
@@ -785,6 +844,7 @@ export function meetComplete(s, view = {}) {
 
     ${r.items.length ? `<div class="drops">${r.items.map((k, n) => `<div class="drop rarity-${ITEMS[k].rarity}" style="--delay:${n * 0.35 + 0.3}s">${icon(k, 40)}<strong>${ITEMS[k].name}</strong><small>${RARITY[ITEMS[k].rarity].name}</small></div>`).join("")}</div>` : ""}
     ${r.firstDuel ? `<p class="pb-line">First victory over this club! Bonus funds and a skill scroll earned.</p>` : ""}
+    ${r.invitational ? `<p class="pb-line">${ico("star")} ${r.invitational.won ? esc(r.invitational.name) + " champions! The " + esc(ITEMS[r.invitational.prize].name) + " is ours." : "Thanks for coming to the " + esc(r.invitational.name) + ". A keepsake for the trip; the " + esc(ITEMS[r.invitational.prize].name) + " stays with the winners."}</p>` : ""}
     ${(r.mastery || []).map(d=>`<p class="pb-line">${esc(d.name)} · ${EVENTS[d.event].name} mastery +${d.gain.toFixed(1)} (${Math.floor(d.mastery)})</p>`).join("")}
     ${(r.development || []).map((d) => `<p class="pb-line">${ico("star")} ${esc(d.name)} · ${esc(d.milestone)} · ${esc(d.reward)}</p>`).join("")}
     ${r.pbs.map((p) => `<p class="pb-line">${ico("medal")} ${esc(p.name)} · ${EVENTS[p.event].name} PB ${mark(p.mark)}${p.delta ? " (+" + p.delta.toFixed(2) + ")" : ""}</p>`).join("")}

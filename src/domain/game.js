@@ -62,7 +62,11 @@ import { practiceMastery, masteryOf } from "./mastery.js";
 export * from "./facility-duties.js";
 export * from "./customize.js";
 export * from "./calendar.js";
+export * from "./venues.js";
+export * from "./invitational.js";
+import { invitationDay, closeInvitation, ensureInvitations } from "./invitational.js";
 import { ensureCustom } from "./customize.js";
+import { WEATHER, weatherToday, weatherTrainFactor, weatherSeedFrom } from "./calendar.js";
 import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
 import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
 export * from "./core.js";
@@ -88,6 +92,7 @@ export function newGame(seed = Date.now() >>> 0) {
     facilityDuties: {},
     coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0, drills: {} },
     rng: seed >>> 0 || 1,
+    weatherSeed: weatherSeedFrom(seed),
     nextId: 1,
     clubName: "Ring & Sector",
     colors: { primary: CLUB_PALETTES[0].primary, secondary: CLUB_PALETTES[0].secondary },
@@ -154,6 +159,7 @@ export function newGame(seed = Date.now() >>> 0) {
   autoLineup(s);
   scout(s, true);
   note(s, "Welcome home, Coach! Choose a duel or enter a league from the Meets board.", "story");
+  ensureInvitations(s);
   return ensureCustom(s);
 }
 
@@ -254,7 +260,7 @@ export function plannedActivity(s, a, assignments) {
 }
 export function visitorsPerDay(s) {
   const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.15 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);
-  return Math.round((3 + Math.sqrt(s.fans) * 0.55) * lift);
+  return Math.round((3 + Math.sqrt(s.fans) * 0.55) * lift * WEATHER[weatherToday(s)].visitors);
 }
 export function clubCondition(s) {
   return (
@@ -292,7 +298,9 @@ export function advanceDay(s) {
   if (s.match || !["planning", "season"].includes(s.phase) || (s.matchDay != null && s.day >= s.matchDay) || s.pendingEvent) return { ok: false };
   s.day++;
   count(s, "days");
-  const report = { duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
+  const weather = weatherToday(s),
+    sky = WEATHER[weather];
+  const report = { weather, duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
   const dailyVisitors = visitorsPerDay(s);
   const autoDuties = automaticDuties(s,dailyVisitors);
   const clubCond = clubCondition(s),
@@ -312,7 +320,9 @@ export function advanceDay(s) {
       entry.facility=worked?.facility || "club";
     } else {
       const plan = PLANS[activity];
-      entry.gains = trainingGains(s, a, activity, fx);
+      // Rain and snow slow outdoor work and send more effort into the gym and film room.
+      const outside = weatherTrainFactor(activity, weather);
+      entry.gains = trainingGains(s, a, activity, fx).map((g, i) => Math.max(0, Math.min(g * outside, capOf(a) - a.stats[i])));
       entry.gains.forEach((g, i) => (a.stats[i] += g));
       const technical=plan.facility === "event";
       entry.mastery=practiceMastery(a,technical?(plan.course?0.8:0.5):activity==="balanced"?0.12:activity==="focus"||activity==="filmblock"?0.2:0);
@@ -320,7 +330,7 @@ export function advanceDay(s) {
       entry.facility = where && facilityLevel(s, where) ? where : activity === "rest" ? "club" : null;
       if (activity === "rest") a.stamina = clamp(a.stamina + restAmount(s, a, fx), 0, 100);
       else {
-        a.stamina = clamp(a.stamina - plan.load * 13 * fx.stamina, 0, 100);
+        a.stamina = clamp(a.stamina - plan.load * 13 * fx.stamina * (sky.stamina || 1), 0, 100);
         a.sessions++;
       }
       a.stamina = clamp(a.stamina + 4, 0, 100);
@@ -359,6 +369,7 @@ export function advanceDay(s) {
   if (s.day % 7 === 0) report.week = payWeek(s);
   if (s.day === s.matchDay) note(s, "Meet day! Lineups to the call room.", "meet");
   report.goals = checkGoals(s);
+  report.invitation = invitationDay(s);
   report.event = rollStoryEvent(s);
   return report;
 }
@@ -684,7 +695,8 @@ export function table(s) {
 export function leaveMatch(s) {
   const m = s.match;
   if (!m?.settled) return false;
-  if (m.kind === "duel") {
+  if (m.kind === "duel" || m.kind === "cup") {
+    if (m.kind === "cup") closeInvitation(s);
     s.match = null;
     s.competition = null;
     s.phase = "planning";

@@ -95,7 +95,7 @@ function hud() {
   const since = performance.now() - insightBump.at,
     bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
-  <div class="hud-date" title="${G.longDate(state.day)} · Season ${state.season}"><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></div>
+  <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
   <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
@@ -154,6 +154,7 @@ function windowHTML() {
     league: () => P.league(state, view),
     club: () => P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() }),
     lobby: () => P.lobby(state, view),
+    calendar: () => P.calendar(state, view),
   }[page]?.();
   if (html == null) return null;
   const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete file" : page === "lobby" ? "Call room · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
@@ -230,7 +231,7 @@ function paint(root) {
   });
   root.querySelectorAll("canvas[data-rival]").forEach((c) => {
     const [club, i] = c.dataset.rival.split(":").map(Number),
-      cl = state.clubs.find((x) => x.id === club);
+      cl = G.clubById(state, club);
     if (cl) paintPortrait(c, cl.athletes[i], { primary: cl.color, secondary: "#f4efe2" });
   });
   root.querySelectorAll("canvas[data-icon]").forEach((c) => paintIcon(c, c.dataset.icon));
@@ -432,6 +433,11 @@ function doDay(now) {
     toast(l.name + " hits level " + l.level + "! Skill points to spend.", "level", "levelup");
     sfx("level");
   }
+  if (r.invitation) {
+    world.banner("INVITATION!", r.invitation.name.toUpperCase() + " · " + G.shortDate(r.invitation.day).toUpperCase(), "#f2c94c", now, 3200);
+    toast("Invitation to the " + r.invitation.name + " on " + G.shortDate(r.invitation.day) + ". Open Meets to accept.", "goal", "star");
+    sfx("goal");
+  }
   for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " pulled up hurt. Recovery first.", "warn", "bandage");
   announce(before);
   save();
@@ -621,6 +627,12 @@ $("#app").addEventListener("click", async (e) => {
       else toast("That competition isn't available right now.", "warn");
       break;
     }
+    case "accept-invite":
+      stopPlaying();
+      if (state.pendingEvent) return showEvent();
+      if (G.acceptInvitation(state)) { view.window = "home"; world.replan(); toast("Invitation accepted. See you on " + G.shortDate(state.matchDay) + ".", "goal", "star"); }
+      else toast(G.invitationProblem(state), "warn");
+      break;
     case "cancel-booking":
       stopPlaying();
       if (G.cancelCompetition(state)) { world.replan(); toast("Booking scratched. Pick another meet whenever you're ready."); }
@@ -1065,7 +1077,7 @@ function frame(now) {
       const clock = $("#clock"),
         label = G.clockLabel(view.dayP);
       if (clock && clock.textContent !== label) clock.textContent = label;
-      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: view.dayP, nightScale: (reduced() ? 0.5 : 1) * NIGHT_AT_SPEED[view.playing ? state.settings.speed : 0] });
+      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: view.dayP, nightScale: (reduced() ? 0.5 : 1) * NIGHT_AT_SPEED[view.playing ? state.settings.speed : 0], calm: reduced() });
     }
   }
   requestAnimationFrame(frame);

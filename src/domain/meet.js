@@ -22,6 +22,9 @@ import { checkGoals } from "./story.js";
 import { competitionTier } from "./competition.js";
 import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
+import { WEATHER, weatherToday } from "./calendar.js";
+import { venueFor } from "./venues.js";
+import { invitation, clubById, settleInvitation } from "./invitational.js";
 
 export const best = (marks) => {
   const valid = marks.filter((x) => x != null);
@@ -29,6 +32,7 @@ export const best = (marks) => {
 };
 export function opponent(s) {
   if (!s.competition) return null;
+  if (s.competition.kind === "cup") return invitation(s)?.club;
   if (s.competition.kind === "duel") return s.clubs.find((c) => c.id === s.competition.rival);
   if (s.fixture < 3) return s.clubs[s.fixture];
   return s.clubs.find((c) => c.id === s.finalOpponent);
@@ -112,26 +116,42 @@ function rivalEntries(s,rival) {
   }
   return out;
 }
+// The kind of the next meet on the books, and whether it's in your own stadium.
+// League fixtures alternate grounds; finals are neutral; duels come to you.
+export function bookedMeet(s) {
+  const c = s.competition;
+  if (!c) return null;
+  const kind = c.kind === "duel" ? "duel" : c.kind === "cup" ? "cup" : s.fixture < 3 ? "league" : "final";
+  return { kind, home: kind === "duel" || (kind === "league" && (c.stage === 2 ? s.fixture === 2 : s.fixture !== 1)) };
+}
+export function meetVenue(s) {
+  const m = s.match, booked = m ? { kind: m.kind, home: m.home } : bookedMeet(s);
+  if (!booked) return null;
+  return venueFor(s, { ...booked, tier: competitionTier(s), club: m ? matchClub(s) : opponent(s), invitation: s.invitations?.offer });
+}
+export const matchClub = (s) => clubById(s, s.match?.opponentId);
 export function startMatch(s) {
   if (s.match || !s.competition || s.phase !== "season" || s.day < s.matchDay || s.pendingEvent || lineupProblem(s)) return false;
   const rival = opponent(s);
   if (!rival) return false;
   const awayEntries=rivalEntries(s,rival);
   s.sponsorLocked = true;
-  const kind = s.competition.kind === "duel" ? "duel" : s.fixture < 3 ? "league" : "final";
+  const { kind, home } = bookedMeet(s);
   for (const r of rival.athletes) { r.condition = 35 + Math.round(random(s) * 45); r.stamina=100; }
   s.match = {
     id: s.season + "-" + s.day + "-" + competitionTier(s) + "-" + s.fixture,
     kind,
-    home: kind === "duel" || (kind === "league" && (s.competition.stage === 2 ? s.fixture === 2 : s.fixture !== 1)),
+    home,
     opponentId: rival.id,
     name: rival.name,
     color: rival.color,
     eventIndex: 0,
     rotation: true,
-    wind: ["calm","headwind","crosswind"][Math.floor(random(s)*3)],
+    // Meet-day weather: the forecast decides the conditions. Windy days always blow.
+    weather: weatherToday(s),
+    wind: weatherToday(s)==="windy" ? (random(s)<0.5?"headwind":"crosswind") : ["calm","calm","headwind","crosswind"][Math.floor(random(s)*4)],
     attempts: 3,
-    championship: kind === "final",
+    championship: kind === "final" || kind === "cup",
     entryIndex: 0,
     finalRound: false,
     fields: EVENT_IDS.map((ev, i) => ({
@@ -157,7 +177,7 @@ export function startMatch(s) {
 export const entrant = (s, side, i = s.match?.eventIndex) => s.match?.fields?.[i]?.[side]?.[s.match.entryIndex || 0];
 export const homeAthlete = (s, i = s.match?.eventIndex) => s.roster.find((a) => a.id === (entrant(s, "home", i)?.id ?? s.match?.lineup[EVENT_IDS[i]])) || s.roster[0];
 export const rivalAthlete = (s, i = s.match?.eventIndex) => {
-  const club = s.clubs.find((c) => c.id === s.match?.opponentId);
+  const club = matchClub(s);
   return club?.athletes.find((a) => a.id === entrant(s, "away", i)?.id) || club?.athletes[i];
 };
 export const currentAthlete = (s) => homeAthlete(s);
@@ -267,7 +287,7 @@ export function autoTactic(s,side="home") {
     if(c.left>1)return "balanced";
     const field={home:actual.home.map(e=>({...e,marks:[...e.marks]})),away:actual.away.map(e=>({...e,marks:[...e.marks]}))};
     for(const team of ["home","away"]) for(const e of field[team]) if(!(team===side&&e.id===c.athlete.id)) {
-      const a=(team==="home"?s.roster:s.clubs.find(r=>r.id===c.m.opponentId).athletes).find(a=>a.id===e.id);
+      const a=(team==="home"?s.roster:matchClub(s).athletes).find(a=>a.id===e.id);
       const estimate=forecast(s,a,c.ev,{club:team==="home",doubleDuty:team==="home"?usesOf(s,a.id,c.m.lineup)>1:c.m.fields.filter(f=>f.away.some(r=>r.id===a.id)).length>1});
       if(e.marks.length<c.m.attempts)e.marks.push(estimate*0.995);
     }
@@ -342,7 +362,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
   on(afterFoul, "afterFoul", "Second Wind");
   on(trailing, "trailing", "Rival Hunter");
   on(leading, "leading", "Front Runner");
-  on(c.m.kind === "final", "final", "Big Stage");
+  on(c.m.kind === "final" || c.m.kind === "cup", "final", "Big Stage");
   const teamBehind = side === "home" ? c.m.score < c.m.against : c.m.against < c.m.score;
   on(teamBehind, "teamTrailing", "Anchor");
   if (fx.streak) {
@@ -356,7 +376,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= 1 + fx.crowd * Math.max(0.25, fansFactor(s));
     acts.push(sourceName(a, "crowd") || "Showtime");
   }
-  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : s.clubs.find((x) => x.id === c.m.opponentId).athletes;
+  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : matchClub(s).athletes;
   const captain = squad.find((x) => x && equippedSkills(x, "meet").includes("captain"));
   if (captain) {
     mult *= SKILLS.captain.captain;
@@ -377,7 +397,9 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mean = T.mean + (tactic === "attack" ? fx.attackBoost : 0),
     qm = quality === "perfect" ? 1.02 + (fx.perfect ? 0.01 : 0) : quality === "poor" ? 0.95 : 1;
   const P = forecast(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
-  const center = P * mean * qm * mult * discipline.mark;
+  const sky = WEATHER[c.m.weather] || {};
+  if (sky.foul && !sig && !(first && fx.safeFirst)) foul = clamp(foul * sky.foul, 0.01, 0.5);
+  const center = P * mean * qm * mult * discipline.mark * (sky.mark || 1);
   return { foul, sd, center, low: center * (1 - sd * 1.6), high: center * (1 + sd * 1.6), acts, fx, P, discipline, target:c.target };
 }
 
@@ -391,7 +413,7 @@ function throwFor(s, side, tactic, quality, sig) {
     z = clamp(gauss(s), -2.4, 2.4),
     mark = foul ? null : +(r.center * (1 + z * r.sd)).toFixed(2);
   if (sig) (side === "home" ? m.sigUsed : m.rivalSig).push(a.id);
-  a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina, 0, 100);
+  a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.
   a.condition = clamp(a.condition + (foul ? -8 : 2), 0, 100);
   const beforeMargin=c.m.rotation?fieldLeaderboard(s,c.i).reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0):0;
@@ -544,7 +566,7 @@ function closeEvent(s, i) {
         if (row.place === 1) count(s, "eventWins");
       }
       for(const side of ["home","away"]) {
-        const squad=side==="home"?s.roster:s.clubs.find(c=>c.id===m.opponentId).athletes;
+        const squad=side==="home"?s.roster:matchClub(s).athletes;
         for(const row of e.placings||[]) if(row.side===side&&row.place===1) {
           const winner=squad.find(a=>a.id===row.id);
           if(effects(s,winner,side==="home").hype) for(const a of squad) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
@@ -576,7 +598,7 @@ export function settleMatch(s) {
   const m = s.match;
   if (!m || m.settled || !eventScores(m).every((e) => e.done)) return;
   rescore(m);
-  if (m.kind === "final" && meetOutcome(m) === 0) {
+  if ((m.kind === "final" || m.kind === "cup") && meetOutcome(m) === 0) {
     const total = eventScores(m).reduce((n, e) => n + (e.home || 0) / EVENTS[e.event].max - (e.away || 0) / EVENTS[e.event].max, 0);
     m.tieBreak = true;
     m.tieBreakWinner = total >= 0 ? "home" : "away";
@@ -591,6 +613,7 @@ export function settleMatch(s) {
   let money = 150 + 100 * L + 50 * eventWins + (win ? 120 + 60 * L + (sponsor.winBonus || 0) : 0);
   if (!win && !draw && sponsor.lossPenalty) money -= sponsor.lossPenalty;
   if (m.kind === "duel") money = Math.round(money * 0.6);
+  if (m.kind === "cup") money = Math.round(money * 1.5);
   s.money += money;
   let fans = win ? 15 + 10 * L : draw ? 6 + 4 * L : 3 + 2 * L;
   fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue")) * (win && m.home ? 1 + 0.2 * facilityLevel(s, "lights") : 1);
@@ -643,19 +666,22 @@ export function settleMatch(s) {
     rewards.athleteProgress.push({ id: a.id, name: a.name, before, after, xpGained });
   }
   if(m.fields) for(const [i,ev] of EVENT_IDS.entries()) for(const entry of m.fields[i].away) {
-    const a=s.clubs.find(c=>c.id===m.opponentId).athletes.find(a=>a.id===entry.id);
+    const a=matchClub(s).athletes.find(a=>a.id===entry.id);
     competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
   }
   rewards.insights = meetInsights(s,rewards.pbs.length);
   rewards.fans = Math.round(fans);
   s.fans += rewards.fans;
-  // A reward chest: wins always drop something, finals drop more.
-  const drops = win ? (m.kind === "final" ? 2 : 1) : random(s) < 0.35 ? 1 : 0;
-  for (let n = 0; n < drops; n++) {
-    const rarity = win ? rollRarity(s, 0.15 * L + (m.kind === "final" ? 0.6 : 0)) : "common";
-    const item = randomItem(s, rarity, (d) => win || d.kind === "use");
-    addItem(s, item);
-    rewards.items.push(item);
+  if (m.kind === "cup") settleInvitation(s, win, rewards);
+  else {
+    // A reward chest: wins always drop something, finals drop more.
+    const drops = win ? (m.kind === "final" ? 2 : 1) : random(s) < 0.35 ? 1 : 0;
+    for (let n = 0; n < drops; n++) {
+      const rarity = win ? rollRarity(s, 0.15 * L + (m.kind === "final" ? 0.6 : 0)) : "common";
+      const item = randomItem(s, rarity, (d) => win || d.kind === "use");
+      addItem(s, item);
+      rewards.items.push(item);
+    }
   }
   count(s, "meets");
   if (win) count(s, "meetWins");

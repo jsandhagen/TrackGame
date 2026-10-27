@@ -5,7 +5,7 @@ import { figure, shadow, athleteLook } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
-import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness } from "../domain/game.js";
+import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
 
 export const MAP_W = 1000,
   MAP_H = 740;
@@ -491,6 +491,60 @@ export function createWorld(cv) {
     return true;
   }
 
+  // Weather over the visible map: cloud shadows, rain, snow, gusts or a heat haze.
+  // Particles live in screen space; cloud shadows drift across the ground.
+  function sky(s, ox, oy, now, calm) {
+    const w = weatherToday(s),
+      W = cam.vw,
+      H = cam.vh,
+      t = now / 1000;
+    const tint = { cloudy: "rgba(80,92,104,0.14)", rain: "rgba(52,72,104,0.24)", snow: "rgba(214,226,250,0.12)", heat: "rgba(255,196,110,0.1)", windy: "rgba(120,130,120,0.06)" }[w];
+    if (tint) {
+      sg.fillStyle = tint;
+      sg.fillRect(0, 0, W, H);
+    }
+    if (w === "cloudy" || w === "rain" || w === "windy") {
+      sg.fillStyle = "rgba(20,30,40,0.08)";
+      for (let i = 0; i < 7; i++) {
+        const speed = w === "windy" ? 24 : 8,
+          x = ((hash(i) * MAP_W + t * speed) % (MAP_W + 240)) - 120 - ox,
+          y = hash(i + 9) * MAP_H - oy;
+        sg.beginPath();
+        sg.ellipse(x, y, 70 + hash(i + 3) * 60, 26 + hash(i + 5) * 18, 0, 0, Math.PI * 2);
+        sg.fill();
+      }
+    }
+    if (calm) return;
+    const n = Math.round((W * H) / 900);
+    if (w === "rain") {
+      sg.fillStyle = "rgba(190,214,240,0.55)";
+      for (let i = 0; i < n; i++) {
+        const fall = (t * 260 + hash(i) * 600) % (H + 20),
+          x = (hash(i + 7) * (W + 40) - fall * 0.25 + W) % W;
+        sg.fillRect(Math.round(x), Math.round(fall - 10), 1, 4);
+        if (fall > H * hash(i + 2) && fall < H * hash(i + 2) + 6) sg.fillRect(Math.round(x) - 1, Math.round(fall - 6), 3, 1);
+      }
+    } else if (w === "snow") {
+      sg.fillStyle = "rgba(255,255,255,0.9)";
+      for (let i = 0; i < n * 0.7; i++) {
+        const fall = (t * (14 + hash(i) * 10) + hash(i + 1) * 400) % (H + 10),
+          x = (hash(i + 4) * W + Math.sin(t * 1.3 + i) * 4 + W) % W,
+          big = hash(i + 6) > 0.8 ? 2 : 1;
+        sg.fillRect(Math.round(x), Math.round(fall - 5), big, big);
+      }
+    } else if (w === "windy") {
+      for (let i = 0; i < n * 0.12; i++) {
+        const x = ((t * (120 + hash(i) * 80) + hash(i + 3) * 900) % (W + 60)) - 30,
+          y = (hash(i + 8) * H + Math.sin(t * 3 + i) * 3) | 0;
+        sg.fillStyle = i % 3 ? "rgba(255,255,255,0.35)" : ["#c8783a", "#e0a040", "#8aa040"][i % 3];
+        if (i % 3) sg.fillRect(Math.round(x), y, 6, 1);
+        else sg.fillRect(Math.round(x), y, 2, 1);
+      }
+    } else if (w === "heat") {
+      sg.fillStyle = "rgba(255,240,200,0.06)";
+      for (let i = 0; i < 6; i++) sg.fillRect(0, ((t * 12 + i * H / 6) % H) | 0, W, 2);
+    }
+  }
   // Time of day: a warm dawn, clear daylight, a golden evening, then night with the
   // floodlights and street lamps glowing. nightScale softens the dark at high speed.
   function light(s, ox, oy, progress, nightScale) {
@@ -525,10 +579,12 @@ export function createWorld(cv) {
     }
     for(const [x,y] of STREET_LAMPS) glow(x,y-8,22,dark*0.18);
     for(const lot of RESIDENTIAL_LOTS) glow(lot.x+22,lot.y+(lot.w>60?62:41),25,dark*0.14,"255,214,150");
-    // Lit windows and doorways along the streets.
+    // Lit windows along the streets, the neighbours' houses and the street lamps.
     LOTS.forEach(([x, top], i) => {
       if (s.plots[i]) glow(x + 56, top + 56, 34, dark * 0.22, "255,210,140");
     });
+    for (const lot of RESIDENTIAL_LOTS) glow(lot.x + lot.w / 2, lot.y + (lot.w > 60 ? 56 : 38), 22, dark * 0.18, "255,210,140");
+    for (const [x, y] of STREET_LAMPS) glow(x, y - 16, 14, dark * 0.45);
     sg.globalCompositeOperation = "source-over";
   }
   function draw(s, now, o = {}) {
@@ -659,6 +715,7 @@ export function createWorld(cv) {
     sg.fillStyle = "#4e7a40";
     sg.fillRect(0, 0, cam.vw, cam.vh);
     sg.drawImage(world, -ox, -oy);
+    sky(s, ox, oy, now, o.calm);
     light(s, ox, oy, o.dayProgress ?? 0.25, o.nightScale ?? 1);
     for (let i = banners.length - 1; i >= 0; i--) {
       const b = banners[i],
