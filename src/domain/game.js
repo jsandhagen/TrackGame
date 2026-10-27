@@ -75,7 +75,7 @@ export function newGame(seed = Date.now() >>> 0) {
     v: 8,
     rivalClubs: {},
     facilityDuties: {},
-    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0 },
+    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0, drills: {} },
     rng: seed >>> 0 || 1,
     nextId: 1,
     clubName: "Ring & Sector",

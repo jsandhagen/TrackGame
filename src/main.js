@@ -2,10 +2,11 @@ import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { STAT_NAMES, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
+import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium, beatDuration, CUTIN_MS } from "./render/stadium.js";
+import { playTraining } from "./render/training.js";
 import { portrait as paintPortrait } from "./render/sprites.js";
 import { paintIcon } from "./render/icons.js";
 import { installIcons, ico } from "./render/uiicons.js";
@@ -260,7 +261,9 @@ function closeWindow() {
 }
 function dialog(title, body, choices, o = {}) {
   const dlg = $("#dialog");
-  dlg.innerHTML = `<div class="dialog-head">${o.helper ? `<canvas width="64" height="64" data-helper class="portrait helper"></canvas>` : ""}<div><span class="eyebrow">${esc(o.eyebrow || HELPER + ", club secretary")}</span><h1>${esc(title)}</h1></div></div><div class="dialog-body">${body}</div><div class="dialog-actions">${choices.map((c, i) => `<button class="button ${c.secondary ? "subtle" : "primary"}" data-choice="${i}" ${c.disabled ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}</div>`;
+  // Every pop-up shares the window frame; tone picks the header band (news, celebration, warning).
+  dlg.className = "tone-" + (o.tone || "news") + (o.cls ? " " + o.cls : "");
+  dlg.innerHTML = `<div class="dialog-head">${o.helper ? `<span class="medallion"><canvas width="64" height="64" data-helper class="portrait helper"></canvas></span>` : ""}<div><span class="eyebrow">${esc(o.eyebrow || HELPER + ", club secretary")}</span><h1>${esc(title)}</h1></div></div><div class="dialog-body">${body}</div><div class="dialog-actions">${choices.map((c, i) => `<button class="button ${c.secondary ? "subtle" : "primary"}" data-choice="${i}" ${c.disabled ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}</div>`;
   paint(dlg);
   dlg.querySelectorAll("[data-choice]").forEach(
     (b) =>
@@ -300,11 +303,11 @@ function showEvent() {
         render();
       },
     })),
-    { helper: true, locked: true, eyebrow: v.id === "secret" ? "SECRET CHARACTER" : HELPER + " has news" },
+    { helper: true, locked: true, eyebrow: v.id === "secret" ? "SECRET CHARACTER" : HELPER + " has news", tone: v.id === "secret" ? "gold" : "news" },
   );
 }
 function chooseAthlete(title, item, fn, cancel = "Cancel") {
-  dialog(title, P.itemTargets(state, item), [{ label: cancel, secondary: true }], { eyebrow: ITEMS[item].name });
+  dialog(title, P.itemTargets(state, item), [{ label: cancel, secondary: true }], { eyebrow: ITEMS[item].name, tone: "shop" });
   $("#dialog").querySelectorAll("[data-pick]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -320,7 +323,45 @@ function showGrowth(a, before, eyebrow, extra = []) {
     best = ups.indexOf(Math.max(...ups));
   const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : a.stamina > before.stamina + 0.5 ? "Recharged!" : a.condition > before.condition + 0.5 ? "Feeling great!" : "Done!";
   sfx("level");
-  dialog(title, P.growth(a, before, extra), [{ label: "Nice!" }], { eyebrow });
+  dialog(title, P.growth(a, before, extra), [{ label: "Nice!" }], { eyebrow, tone: "gold" });
+}
+// Special training: run the session, then play it out on a little stage with ratings and results.
+function runTraining(ids, drill) {
+  stopPlaying();
+  const athletes = ids.map((id) => state.roster.find((a) => a.id === id));
+  const befores = new Map(athletes.filter(Boolean).map((a) => [a.id, { ...growthBefore(a), ovr: G.overall(a) }]));
+  const problem = G.groupProblem(state, ids, drill),
+    snap = snapshot(),
+    session = G.coachGroup(state, ids, drill);
+  if (!session) return toast(problem || "That session isn't available right now.", "warn");
+  view.trainees = [];
+  announce(snap);
+  save();
+  render();
+  world.replan();
+  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Back to work!" }], { eyebrow: "Special training · Lv " + session.level, tone: "gold", cls: "training" });
+  const dlg = $("#dialog"),
+    results = dlg.querySelector(".stage-results"),
+    cv = dlg.querySelector(".stage-canvas");
+  sfx("whistle");
+  const player = playTraining(cv, {
+    drill,
+    athletes: session.results.map((r) => {
+      const a = state.roster.find((x) => x.id === r.id);
+      return { a, quality: r.quality, gains: r.gains, event: a.trainingEvent || a.event };
+    }),
+    colors: state.colors,
+    ctx: { gymLevel: G.facilityLevel(state, "gym"), trackColor: trackColorOf(Math.max(2, state.stadium.track), styleOf(state).track) },
+    reduced: reduced(),
+    onReveal() {
+      results.classList.add("show");
+      dlg.querySelector(".stage-tap")?.remove();
+      sfx(session.results.some((r) => r.quality === "excellent") ? "goal" : "stamp");
+      if (session.levelUp) setTimeout(() => sfx("combo"), 700);
+    },
+  });
+  cv.onclick = () => player.skip();
+  dlg.addEventListener("close", () => player.stop(), { once: true });
 }
 // Use a consumable and show what it did.
 function applyItem(item, aid) {
@@ -346,7 +387,7 @@ function help(welcome = false) {
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
     `<p>${welcome ? "I'm " + HELPER + ", the club secretary. We're a tiny throwing club with four hopefuls and big dreams. Here's how it works:" : "A quick refresher:"}</p>
-    <ol><li><b>Train.</b> Press Train and the days roll by. Athletes head to the gym, the track or their own circle, cage or runway, and their stats tick up.</li>
+    <ol><li><b>Train.</b> Press Train and the days roll by. Athletes head to the gym, the track or their own circle, cage or runway, and their stats tick up. Spend Coaching Insights (the lightbulb) in <b>Train</b> on special training: up to three athletes at once, drills that level up with use, and a rating for every session.</li>
     <li><b>Build.</b> Upgrade the stadium (throwing areas, track, stands) and put buildings on the plots around it. Neighbouring buildings can form <b>combos</b>.</li>
     <li><b>Grow.</b> Every stat runs from 1 to 100. Levels give skill points; rank-ups raise an athlete's limit. Items and gear help too.</li>
     <li><b>Choose your calendar.</b> Open Meets to book a duel or enter a league. Choose preparation days and the gap between fixtures. Win Open, Challenger and Championship trophies to reach the next level.</li><li><b>Compete.</b> Watch your four-event team perform, or coach every throw. Career milestones reward development automatically. Save training and meet skill setups in an athlete’s Skills tab to automate the swaps.</li></ol>
@@ -595,21 +636,14 @@ $("#app").addEventListener("click", async (e) => {
     case "tab":
       view.tab = b.dataset.tab;
       return render(false);
-    case "coach-session": {
-      stopPlaying();
-      const a = state.roster.find((x) => x.id === id),
-        before = a && growthBefore(a),
-        problem = a && G.drillProblem(state, a, b.dataset.drill);
-      const result = G.coachSession(state,id,b.dataset.drill);
-      if (result) {
-        showGrowth(a, before, G.DRILLS[b.dataset.drill].name, [`${ico("idea")} −${result.insights} Insights`, result.mastery > 0 ? `${ico("target")} +${result.mastery.toFixed(1)} ${EVENTS[a.trainingEvent || a.event].name} mastery` : ""]);
-        world.replan();
-      } else toast(problem || "That session isn't available right now.","warn");
+    case "coach-session":
+      return runTraining((b.dataset.ids || String(id)).split(",").filter(Boolean).map(Number), b.dataset.drill);
+    case "trainee": {
+      const list = P.trainees(state, view).filter((x) => x !== id);
+      if (list.length === P.trainees(state, view).length) list.push(id);
+      view.trainees = list.slice(-G.MAX_GROUP);
       break;
     }
-    case "trainee":
-      view.trainee = id;
-      break;
     case "unlock-plan":
       if (G.unlockPlan(state,id,b.dataset.value)) toast("Unlocked " + PLANS[b.dataset.value].name + " for the club. Select it to begin.","level");
       break;
@@ -632,7 +666,7 @@ $("#app").addEventListener("click", async (e) => {
       const a = state.roster.find((x) => x.id === id);
       if (G.promote(state, id)) {
         sfx("goal");
-        dialog("A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now a <b>${RANKS[a.rank].name}</b>. Their limit is higher, every stat gains a point${RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION" });
+        dialog("A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now a <b>${RANKS[a.rank].name}</b>. Their limit is higher, every stat gains a point${RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
       }
       break;
     }
@@ -744,7 +778,7 @@ $("#app").addEventListener("click", async (e) => {
       return dialog("Clear this plot?", `<p>Remove the ${esc(d.name)} for a ${cash(d.cost / 2)} refund? Its upgrades are lost.</p>`, [
         { label: "Clear it", fn: () => (G.sellFacility(state, i), save(), render()) },
         { label: "Keep it", secondary: true },
-      ]);
+      ], { tone: "warn", eyebrow: "Build" });
     }
     case "scout":
       if (G.scout(state)) sfx("coin");
@@ -767,7 +801,7 @@ $("#app").addEventListener("click", async (e) => {
       return dialog("A new chapter?", `<p>Release ${esc(a.name)}? Their gear returns to the bag and their marks stay in club history.</p>`, [
         { label: "Release contract", fn: () => (G.releaseAthlete(state, a.id), (view.athlete = null), save(), render()) },
         { label: "Keep them", secondary: true },
-      ]);
+      ], { tone: "warn", eyebrow: "Contract" });
     }
     case "rival":
       view.rival = view.rival === id ? null : id;
@@ -894,7 +928,7 @@ function importSave() {
           },
         },
         { label: "Cancel", secondary: true },
-      ]);
+      ], { tone: "warn", eyebrow: "Backup" });
     } catch (error) {
       toast(error.message, "warn");
     }

@@ -171,7 +171,7 @@ function athletePage(s, a, view) {
   }
   if (tab === "stats") body += btn(s.settings.followAthlete===a.id ? "Following in highlights · stop" : "Follow this athlete in highlights","follow-athlete",`data-id="${a.id}"`,"subtle")+masteryCard(s,a)+developmentCard(a);
   if (tab === "train") {
-    body = `${insightBanner(s)}<div class="card-title"><h2>${ico("dumbbell")} Coached sessions</h2><small class="hint">One a day each</small></div>${drillGrid(s, a)}
+    body = `${insightBanner(s)}<div class="card-title"><h2>${ico("dumbbell")} Coached sessions</h2><small class="hint">One a day each</small></div>${drillGrid(s, a.injury || a.coachedDay === s.day ? [] : [a.id])}${a.coachedDay === s.day ? "<p class='hint'>Already trained today.</p>" : ""}
     <h3>Daily plans</h3><div class="plan-grid">${Object.entries(PLANS)
       .map(([id, p]) => {
         const at = p.facility === "event" ? (a.trainingEvent||a.event) : p.facility;
@@ -247,22 +247,45 @@ function planForecast(s, a) {
   const perWeek = G.trainingGains(s, a, a.plan).map((g) => g * 5);
   return `Five days of ${esc(PLANS[a.plan].name)} add about ${perWeek.map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_NAMES[i] : "")).filter(Boolean).join(", ") || "less than one point"} and cost ${a.plan === "rest" ? "no" : Math.round(PLANS[a.plan].load * 13 * G.effects(s, a).stamina)} stamina a day.`;
 }
-// Training menu: every session shows exactly what it raises for this athlete and what it costs.
-function drillGrid(s, a) {
+function shortForecast(s, a) {
+  if (a.plan === "facilities") return "Club duties";
+  if (a.plan === "rest") return "Recovering";
+  const week = G.trainingGains(s, a, a.plan).map((g) => g * 5).map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_SHORT[i] : "")).filter(Boolean);
+  return week.length ? week.join(" ") + " a week" : "Light work";
+}
+// Training menu: each drill shows its level, what it raises for the chosen group and the shared bill.
+function drillGrid(s, ids) {
+  const group = ids.map((id) => s.roster.find((a) => a.id === id)).filter(Boolean),
+    n = Math.max(1, group.length),
+    lead = group[0];
   return `<div class="drill-grid">${Object.entries(G.DRILLS)
     .map(([id, d]) => {
-      const problem = G.drillProblem(s, a, id),
-        gains = G.drillGains(s, a, id),
-        mastery = ["delivery", "review"].includes(id);
-      const pills = gains.map((g, i) => (d.gains[i] ? `<span class="gain" style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} ${g > 0.05 ? plus(g) : "max"}</span>` : "")).join("") + (mastery ? `<span class="gain" style="--c:${EVENTS[a.trainingEvent || a.event].color}">Mastery</span>` : "");
-      return `<article class="drill ${problem ? "locked" : ""}" title="${esc(id === "delivery" ? G.EVENT_DRILLS[a.trainingEvent || a.event] : d.desc)}">
-        <div class="drill-top"><span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><strong>${d.name}</strong></div>
-        <div class="gains">${pills}</div>
-        <div class="drill-foot"><span class="cost ${s.coaching.insights < d.cost ? "short" : ""}">${ico("idea")}${d.cost}</span><span class="cost">${ico("bolt")}${G.drillEnergy(s, id)}</span>${btn("Train", "coach-session", `data-id="${a.id}" data-drill="${id}" ${problem ? "disabled" : ""}`, "small")}</div>
-        ${problem ? `<small class="why">${esc(problem)}</small>` : ""}
+      const problem = G.groupProblem(s, ids, id),
+        level = G.drillLevel(s, id),
+        next = G.DRILL_LEVELS[level],
+        xp = G.drillXp(s, id),
+        prev = G.DRILL_LEVELS[level - 1];
+      const avg = [0, 1, 2, 3].map((i) => (group.length ? group.reduce((sum, a) => sum + G.drillGains(s, a, id, n)[i], 0) / group.length : 0));
+      const ev = lead ? EVENTS[lead.trainingEvent || lead.event] : null;
+      const pills = avg.map((g, i) => (d.gains[i] ? `<span class="gain" style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} ${!group.length ? "↑" : g > 0.05 ? plus(g) : "max"}</span>` : "")).join("") + (["delivery", "review"].includes(id) ? `<span class="gain" style="--c:${ev?.color || "#c8a050"}">Mastery</span>` : "");
+      return `<article class="drill ${problem ? "locked" : ""}" title="${esc(id === "delivery" && lead ? G.EVENT_DRILLS[lead.trainingEvent || lead.event] : d.desc || "")}">
+        <div class="drill-top"><span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span><strong>${esc(G.drillName(s, id))}</strong><span class="drill-lv">Lv ${level}${next != null ? `<span class="xp">${Array.from({ length: next - prev }, (_, k) => `<i class="${k < xp - prev ? "on" : ""}"></i>`).join("")}</span>` : " · MAX"}</span></span></div>
+        <div class="gains">${pills}${n > 1 ? `<span class="gain bonus">Group +${(n - 1) * 10}%</span>` : ""}</div>
+        <div class="drill-foot"><span class="cost ${s.coaching.insights < G.groupCost(id, n) ? "short" : ""}">${ico("idea")}${G.groupCost(id, n)}</span><span class="cost">${ico("bolt")}${G.drillEnergy(s, id)}</span>${btn("Train!", "coach-session", `data-ids="${ids.join(",")}" data-drill="${id}" ${problem ? "disabled" : ""}`, "small")}</div>
+        ${problem && group.length ? `<small class="why">${esc(problem)}</small>` : ""}
       </article>`;
     })
     .join("")}</div>`;
+}
+const canTrain = (s, a) => !a.injury && a.coachedDay !== s.day;
+export function trainees(s, view) {
+  const picked = (view.trainees || []).filter((id) => s.roster.some((a) => a.id === id && canTrain(s, a)));
+  if (picked.length) return picked;
+  const first = s.roster.find((a) => canTrain(s, a));
+  return first ? [first.id] : [];
+}
+function traineeCard(s, a) {
+  return `<div class="mini-card">${portrait(a)}<div><strong>${esc(a.name)}</strong><small>${eventChip(a.trainingEvent || a.event)} ${mood(a)} ${ico("bolt")}${Math.round(a.stamina)}</small><span class="mini-stats">${a.stats.map((v, i) => `<i style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} <b>${showStat(v)}</b>${grade(v)}</i>`).join("")}</span></div></div>`;
 }
 // Consumables in the bag, previewed on this athlete.
 function boostItems(s, a) {
@@ -278,35 +301,88 @@ function boostItems(s, a) {
     .join("")}</div>`;
 }
 export function train(s, view) {
-  const a = s.roster.find((x) => x.id === view.trainee) || s.roster[0];
+  const ids = trainees(s, view);
+  const picked = ids.map((id) => s.roster.find((a) => a.id === id));
+  const items = Object.keys(s.bag).filter((k) => ITEMS[k].kind === "use");
   return `${insightBanner(s)}
+  <div class="card-title step"><h2><span class="step-no">1</span> Who's training?</h2><small class="hint">Up to 3 · partners add 10% each</small></div>
   <div class="trainee-strip">${s.roster
-    .map(
-      (b) => `<button class="trainee ${b.id === a.id ? "on" : ""}" data-act="trainee" data-id="${b.id}" aria-pressed="${b.id === a.id}">${portrait(b)}<span>${esc(b.name.split(" ")[0])}</span>${bar(b.stamina, 100, b.stamina < 30 ? "#e0604a" : "#6ac08a")}${b.coachedDay === s.day ? `<i class="done">${ico("check")}</i>` : ""}</button>`,
-    )
+    .map((b) => {
+      const at = ids.indexOf(b.id),
+        why = b.injury ? "Injured" : b.coachedDay === s.day ? "Done today" : "";
+      return `<button class="trainee ${at >= 0 ? "on" : ""}" data-act="trainee" data-id="${b.id}" aria-pressed="${at >= 0}" ${why ? "disabled" : ""}>${portrait(b)}<span>${esc(b.name.split(" ")[0])}</span>${bar(b.stamina, 100, b.stamina < 30 ? "#e0604a" : "#6ac08a")}${at >= 0 ? `<i class="order">${at + 1}</i>` : ""}${why ? `<i class="done">${ico(b.injury ? "bandage" : "check")}</i><small>${why}</small>` : ""}</button>`;
+    })
     .join("")}</div>
-  <section class="card trainee-card">
-    <div class="trainee-head">${portrait(a)}<div><strong>${esc(a.name)}</strong><small>${eventChip(a.event)} Lv ${a.level} ${mood(a)}</small></div>${ovrBadge(a)}</div>
-    <div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div></div>
-    ${statRows(a, true)}
-    ${btn("Full profile", "athlete", `data-id="${a.id}"`, "text")}
-  </section>
-  <div class="card-title"><h2>${ico("dumbbell")} Coached sessions</h2><small class="hint">One a day each</small></div>
-  ${drillGrid(s, a)}
+  ${picked.length ? `<div class="mini-cards">${picked.map((a) => traineeCard(s, a)).join("")}</div>` : `<p class="hint">Everyone has trained today. Press Train on the menu to move to tomorrow.</p>`}
+  <div class="card-title step"><h2><span class="step-no">2</span> Pick a drill</h2><small class="hint">Drills level up with use</small></div>
+  ${drillGrid(s, ids)}
   <div class="card-title"><h2>${ico("gift")} Items</h2>${btn("Shop", "page", 'data-page="shop"', "text")}</div>
-  ${boostItems(s, a)}
-  <div class="card-title"><h2>${ico("calendar")} Daily plan</h2></div>
-  <select class="wide" data-change="plan" data-id="${a.id}" aria-label="Daily plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s, a, id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.name}</option>`).join("")}</select>
-  <p class="hint">${planForecast(s, a)} New plans unlock with Insights in the athlete's Training tab.</p>`;
+  ${items.length ? `<div class="use-grid">${items.map((k) => `<button class="use-item rarity-${ITEMS[k].rarity}" data-act="use" data-item="${k}">${icon(k, 32)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${esc(ITEMS[k].desc)}</small></span></button>`).join("")}</div>` : `<p class="hint">No consumables in the bag.</p>`}
+  <div class="card-title"><h2>${ico("calendar")} Daily plans</h2></div>
+  <div class="plan-rows">${s.roster
+    .map((a) => `<label class="plan-row">${portrait(a)}<span><strong>${esc(a.name.split(" ")[0])}</strong><small>${esc(shortForecast(s, a))}</small></span><select data-change="plan" data-id="${a.id}" aria-label="Daily plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s, a, id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.short || p.name}</option>`).join("")}</select></label>`)
+    .join("")}</div>
+  <p class="hint">Daily plans run every day you press Train. New plans unlock with Insights in each athlete's Training tab.</p>`;
 }
-// Kairosoft-style result card: bars fill from the old value to the new one.
-export function growth(a, before, extra = []) {
-  const rows = a.stats
+// What each athlete says after a session. Their background colours the best moments.
+const QUOTES = {
+  excellent: ["Did you see that?! Something just clicked!", "Coach, I could do that all day!", "Best session of my life!", "I feel unstoppable!"],
+  great: ["That felt really good.", "I'm getting the hang of this!", "One step closer.", "Same again tomorrow?"],
+  good: ["Phew… that was a tough one.", "Not my best, but I'll get there.", "My legs are jelly.", "Slow and steady!"],
+};
+const BG_QUOTES = {
+  farm: "Easier than hauling hay bales!", lumberjack: "Like splitting logs, but shinier.", gymnast: "Stuck the landing!", dancer: "Like a pirouette, but heavier.",
+  sprinter: "My old sprint coach would be proud!", chess: "Exactly as I calculated.", poker: "…Not bad.", marathon: "Is that it? Let's do another set.",
+  clown: "Ta-da! Hold your applause.", bloomer: "Better every day, just like I said!", showboat: "Somebody get a camera on me!", prodigy: "That's what I was born for.",
+};
+function quoteFor(s, a, quality, k) {
+  const pool = [...QUOTES[quality], ...(quality !== "good" && BG_QUOTES[a.background] ? [BG_QUOTES[a.background], BG_QUOTES[a.background]] : [])];
+  return pool[(s.day * 7 + a.id * 3 + k) % pool.length];
+}
+// Results under the training stage. Hidden until the ratings land.
+export function trainingStage(s, session, befores) {
+  const QUAL = G.QUALITY;
+  const rows = session.results
+    .map((r, k) => {
+      const a = s.roster.find((x) => x.id === r.id),
+        before = befores.get(r.id);
+      const ups = a.stats
+        .map((v, i) => {
+          const was = gradeOf(showStat(before.stats[i]))[0],
+            now = gradeOf(showStat(v))[0];
+          return was !== now ? `${STAT_NAMES[i]} grade ${was} → <b>${now}</b>!` : "";
+        })
+        .filter(Boolean);
+      if (G.overall(a) > before.ovr) ups.push(`OVR ${before.ovr} → <b>${G.overall(a)}</b>`);
+      return `<article class="result-row q-${r.quality}" style="--d:${k * 0.22}s">
+        <div class="result-who">${portrait(a)}<div><strong>${esc(a.name)}</strong><span class="qbadge" style="--q:${QUAL[r.quality].color}">${QUAL[r.quality].name}</span></div></div>
+        <div class="grows compact">${growRows(a, before)}</div>
+        <p class="quote">“${esc(quoteFor(s, a, r.quality, k))}”</p>
+        ${ups.length || r.mastery > 0 ? `<p class="ups">${[...ups, r.mastery > 0 ? `${EVENTS[a.trainingEvent || a.event].name} mastery +${r.mastery.toFixed(1)}` : ""].filter(Boolean).join(" · ")}</p>` : ""}
+      </article>`;
+    })
+    .join("");
+  const level = session.level,
+    next = G.DRILL_LEVELS[level],
+    prev = G.DRILL_LEVELS[level - 1];
+  return `<div class="stage"><canvas class="stage-canvas" width="480" height="240" aria-label="Training scene"></canvas><span class="stage-tap">Tap to skip</span></div>
+  <div class="stage-results">
+    ${session.levelUp ? `<div class="levelup-banner">${ico("levelup")} Training level up! <b>${esc(session.levelUp)}</b> · Lv ${level} · gains +8%</div>` : ""}
+    ${rows}
+    <div class="drill-xp">${ico("dumbbell")} <span>${esc(G.DRILL_NAMES[session.drill][level - 1])} · Lv ${level}</span>${next != null ? `<span class="bar"><i style="width:${((session.xp - prev) / (next - prev)) * 100}%;--bar:#f2c94c"></i></span><small>${next - session.xp} more to Lv ${level + 1}</small>` : "<small>Max level</small>"}<small>${ico("idea")} −${session.cost}</small></div>
+  </div>`;
+}
+function growRows(a, before) {
+  return a.stats
     .map((v, i) => {
       const d = v - before.stats[i];
       return `<div class="grow ${d > 1e-6 ? "up" : ""}"><span>${STAT_NAMES[i]}</span><span class="track"><i style="width:${before.stats[i]}%;--c:${STAT_COLORS[i]}"></i>${d > 1e-6 ? `<em style="left:${before.stats[i]}%;--w:${d}%;--c:${STAT_COLORS[i]};--n:${i}"></em>` : ""}</span><b>${showStat(v)}</b><span class="delta">${d > 1e-6 ? plus(d) : ""}</span></div>`;
     })
     .join("");
+}
+// Kairosoft-style result card: bars fill from the old value to the new one.
+export function growth(a, before, extra = []) {
+  const rows = growRows(a, before);
   const notes = [
     Math.round(a.stamina) !== Math.round(before.stamina) ? `${ico("bolt")} Stamina ${Math.round(before.stamina)} → <b>${Math.round(a.stamina)}</b>` : "",
     Math.round(a.condition) !== Math.round(before.condition) ? `${mood(a)} Condition ${Math.round(before.condition)} → <b>${Math.round(a.condition)}</b>` : "",

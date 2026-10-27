@@ -62,3 +62,20 @@ test('training UI presents event-specific coached sessions, Insights costs and f
  const s=G.newGame(10);const html=P.squad(s,{athlete:s.roster[1].id,tab:'train'});
  assert.match(html,/Coaching Insights/);assert.match(html,/South African/);assert.match(html,/Discus cage level/);assert.match(html,/Maximum-strength block/);
 });
+test('group sessions share one bill, rate every athlete, level the drill up and survive a save',()=>{
+ const s=G.newGame(11);s.coaching.insights=200;const [a,b,c]=s.roster;
+ assert.equal(G.groupCost('lifting',3),12);assert.equal(G.groupCost('lifting',1),6);
+ assert(G.drillGains(s,a,'lifting',3)[0]>G.drillGains(s,a,'lifting',1)[0],'partners add to the gains');
+ assert.match(G.groupProblem(s,[a.id,b.id,c.id,s.roster[3].id],'lifting'),/Up to 3/);
+ const out=G.coachGroup(s,[a.id,b.id,c.id],'lifting');assert(out);
+ assert.equal(s.coaching.insights,188);assert.equal(out.results.length,3);
+ for(const r of out.results) assert(G.QUALITY[r.quality]);
+ assert.equal(G.drillXp(s,'lifting'),1);assert.equal(G.drillLevel(s,'lifting'),1);
+ assert.match(G.groupProblem(s,[a.id],'lifting'),/already completed/);
+ s.coaching.drills.lifting=2;s.day++;const up=G.coachGroup(s,[a.id],'lifting');
+ assert.equal(up.level,2);assert.equal(up.levelUp,G.DRILL_NAMES.lifting[1]);
+ const copy=validateCampaign(exportCampaign(s));assert.equal(copy.coaching.drills.lifting,3);
+ const old=structuredClone(s);delete old.coaching.drills;assert.deepEqual(validateCampaign(old).coaching.drills,{});
+ const broken=structuredClone(s);broken.coaching.drills={nonsense:1};assert.throws(()=>validateCampaign(broken));
+ const html=P.train(s,{trainees:[s.roster[3].id]});assert.match(html,/Who's training/);assert.match(html,/Squat &amp; pull complex/);
+});

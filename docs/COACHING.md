@@ -17,3 +17,18 @@ Save schema 7 migrates earlier careers without replacing their active meet, rost
 Coaching Insights sit in the top bar next to fans and money; the counter pulses and shows +N whenever Insights arrive, and tapping it opens the **Train** window. The Train window works like a sports-sim training menu: pick an athlete from the strip (a tick marks today's completed session), see their stats, and choose a session card. Each card lists the stats it raises *for that athlete* (coloured pills with the expected gain), its Insight and stamina cost, and the reason it is locked if it is. Finishing a session opens a result card where the bars fill from the old value to the new one.
 
 Consumables are previewed on each athlete before use (Power 29 → 31, Stamina 40 → 80) and athletes they would not help are greyed out with the reason (stamina already full, stat at its limit…), so items are never wasted. The shop offers **Buy & use** for consumables (pick the athlete, pay, apply), **+1 bag** to stock up, and for gear **Buy** followed by an optional immediate equip. The same result card shows what the item did.
+
+## Special training (PLS2-style)
+
+Modelled on Pocket League Story 2, where research points pay for a drill that up to three players train together and drills level up with use.
+
+- **Who and what.** The Train window is two steps: pick up to three athletes (numbered badges; anyone injured or already trained today is greyed out), then pick a drill. Each drill card shows the average gain for the group, the shared Insight bill and stamina cost, and the first reason it is blocked.
+- **Group bill and partners.** A group pays once: the base cost plus half again for each extra athlete (lifting: 6 / 9 / 12). Each training partner adds 10% to everyone's gains.
+- **Drill levels.** Every session adds one to that drill's count. Levels 2–5 arrive at 3, 8, 15 and 25 sessions, rename the drill (Coached strength session → Squat & pull complex → Olympic lifts → …) and add 8% per level. Counts are club-wide and saved in `coaching.drills`.
+- **Ratings.** Each athlete rolls Good (×0.9), Great! (×1.15) or Excellent!! (×1.5) from the seeded RNG; better mood improves the odds (Excellent 5–15%, Great 28–40%). A first Excellent session is recorded as a career moment.
+- **Scene.** `src/render/training.js` plays a ~4.5 s pixel scene on a backdrop for the drill: the Strength Room (one rack per level), the track in the club's surface colour, each athlete's own circle, cage or runway, the Video room replay screen, or a medicine-ball target wall. The athletes jog in, the coach whistles, they work through the drill with sweat, dust and flying implements, then rating stamps drop and gains float up. Tap to skip; reduced motion jumps straight to the result.
+- **Results.** Under the scene, each athlete gets a row with their rating, the stats that rose (bars filling from old to new), a line of dialogue (some flavoured by background), and any grade or OVR change. The drill's progress to its next level and the Insight cost close the card.
+
+New careers start with 16 Insights so a three-athlete session is affordable on day one. Migrated careers keep their balance.
+
+All pop-ups share one framed style with a header band by tone: news (green, with Juno's medallion), celebration (gold rays), shop (blue) and warning (brick red).
