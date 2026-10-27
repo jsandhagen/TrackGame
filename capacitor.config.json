@@ -1,0 +1,11 @@
+{
+  "appId": "io.github.jsandhagen.ringsector",
+  "appName": "Ring & Sector",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#244d43"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

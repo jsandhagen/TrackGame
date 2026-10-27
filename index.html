@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#234e43" />
+    <title>Ring &amp; Sector • Club Athletics</title>
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="bootStatus" class="boot" role="status">Opening the clubhouse…</div>
+    <main id="app">
+      <header id="topbar"></header>
+      <section id="playfield">
+        <div id="scene">
+          <div id="sceneLabel"></div>
+          <canvas
+            id="world"
+            width="1024"
+            height="640"
+            aria-label="Club grounds. Select a plot to build or upgrade."
+            tabindex="0"
+          ></canvas
+          ><canvas
+            id="stadium"
+            width="1200"
+            height="660"
+            aria-label="Live throwing competition"
+            hidden
+          ></canvas>
+          <div id="sceneFoot"></div>
+        </div>
+        <div id="panelShell">
+          <section id="panel" aria-label="Club controls"></section>
+          <div id="quickAction" hidden></div>
+        </div>
+      </section>
+      <footer id="navigation" aria-label="Game navigation"></footer>
+    </main>
+    <dialog id="dialog"></dialog>
+    <div id="toast" role="status" hidden></div>
+    <script type="module" src="/src/bootstrap.js"></script>
+  </body>
+</html>
