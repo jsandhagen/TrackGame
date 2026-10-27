@@ -129,7 +129,7 @@ export const STORY = {
     title: (s, d) => "A special visitor!",
     text: (s, d) => SECRETS[d.key].story + " " + SECRETS[d.key].name + " would like to join for " + "$" + secretFee(s, d.key).toLocaleString() + ".",
     choices: [
-      { label: (s, d) => "Sign " + SECRETS[d.key].name.split(" ")[0], ok: (s, d) => s.roster.length < rosterCap(s) && s.money >= secretFee(s, d.key), run: (s, d) => (signSecret(s, d.key) ? SECRETS[d.key].name + " is officially part of the club!" : "Not possible right now.") },
+      { label: (s, d) => "Sign " + SECRETS[d.key].name.replace(/ “.*”/, ""), ok: (s, d) => s.roster.length < rosterCap(s) && s.money >= secretFee(s, d.key), run: (s, d) => (signSecret(s, d.key) ? SECRETS[d.key].name + " is officially part of the club!" : "Not possible right now.") },
       { label: () => "Maybe later", run: (s, d) => "They leave a card. Sign them any time from Squad → Recruit." },
     ],
   },

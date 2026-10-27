@@ -506,7 +506,7 @@ export function chooseSponsor(s, id) {
   return true;
 }
 export function medicalDay(s) {
-  if (s.match || s.phase !== "season" || s.day < s.matchDay || !EVENT_IDS.some((ev) => s.roster.find((a) => a.id === s.lineup[ev])?.injury)) return false;
+  if (s.match || s.pendingEvent || s.phase !== "season" || s.day < s.matchDay || !EVENT_IDS.some((ev) => s.roster.find((a) => a.id === s.lineup[ev])?.injury)) return false;
   s.matchDay++;
   const r = advanceDay(s);
   note(s, "A medical postponement gives the squad a recovery day.", "warn");

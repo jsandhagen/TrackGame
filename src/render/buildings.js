@@ -1,0 +1,427 @@
+import { rect, poly, ellipse, line, shade, hash, px } from "./pixel.js";
+import { text } from "./font.js";
+import { figure } from "./sprites.js";
+
+// 2.5D oblique projection: depth runs up and to the right.
+export const DX = 0.4,
+  DY = 0.5;
+let SNOW = false;
+const WALL = "#efe2c0",
+  GLASS = "#8fc4d0",
+  FRAME = "#5a5a48",
+  DOORC = "#6a5040";
+
+export function box(g, x, y, w, h, d, front, opts = {}) {
+  const dx = Math.round(d * DX),
+    dy = Math.round(d * DY);
+  poly(g, [[x + w, y], [x + w, y - h], [x + w + dx, y - h - dy], [x + w + dx, y - dy]], opts.side || shade(front, -0.22));
+  rect(g, x, y - h, w, h, front);
+  poly(g, [[x, y - h], [x + w, y - h], [x + w + dx, y - h - dy], [x + dx, y - h - dy]], SNOW && !opts.noSnow ? "#f6f8fa" : opts.top || shade(front, 0.14));
+  if (opts.edge !== false) rect(g, x, y - h, w, 1, shade(front, 0.28));
+  rect(g, x, y - 1, w, 1, shade(front, -0.3));
+}
+export function gable(g, x, y, w, d, rise, color, overhang = 2) {
+  const dx = Math.round(d * DX),
+    dy = Math.round(d * DY),
+    rx = x - overhang,
+    rw = w + overhang * 2;
+  const ry = y - Math.round(dy / 2) - rise,
+    rdx = Math.round(dx / 2);
+  poly(g, [[x + w, y], [x + w + rdx, ry], [x + w + dx, y - dy]], shade(WALL, -0.25));
+  poly(g, [[rx, y + 1], [rx + rw, y + 1], [rx + rw + rdx, ry], [rx + rdx, ry]], SNOW ? "#f2f5f8" : color);
+  if (!SNOW) for (let yy = ry + 3; yy < y; yy += 3) rect(g, rx + Math.round(((y - yy) / (y - ry)) * rdx), yy, rw, 1, shade(color, -0.14));
+  rect(g, rx + rdx, ry, rw, 1, shade(SNOW ? "#f2f5f8" : color, 0.3));
+  rect(g, rx, y + 1, rw, 1, shade(color, -0.35));
+  return ry;
+}
+export function windowAt(g, x, y, w = 6, h = 5, lit = false) {
+  rect(g, x - 1, y - 1, w + 2, h + 2, FRAME);
+  rect(g, x, y, w, h, lit ? "#f6d878" : GLASS);
+  rect(g, x, y, w, 1, lit ? "#fff0b0" : "#cfe6e8");
+  rect(g, x + Math.floor(w / 2), y, 1, h, lit ? "#e0b850" : "#a8d0d8");
+}
+function door(g, x, y, w = 6, h = 9, c = DOORC) {
+  rect(g, x - 1, y - h - 1, w + 2, h + 1, FRAME);
+  rect(g, x, y - h, w, h, c);
+  rect(g, x + w - 2, y - Math.round(h / 2), 1, 1, "#f2c94c");
+}
+function awning(g, x, y, w, a, b) {
+  for (let i = 0; i < w; i += 3) rect(g, x + i, y, Math.min(3, w - i), 4, (i / 3) % 2 ? b : a);
+  for (let i = 0; i < w; i += 3) rect(g, x + i + 1, y + 4, 1, 1, (i / 3) % 2 ? b : a);
+}
+export function tree(g, x, y, s = 1, season = 1, seed = 0) {
+  const leaf = [
+    ["#5e8a4a", "#78a85a", "#a0c878", "#f2b8c8"],
+    ["#3e7a44", "#5a9a50", "#86bc68", null],
+    ["#b0602e", "#d8843a", "#f0b050", null],
+    ["#6a7a6a", "#8a9a8a", "#f4f6f8", null],
+  ][season];
+  ellipse(g, x + 2, y, Math.round(8 * s), Math.round(2 * s), "rgba(30,50,30,0.25)");
+  rect(g, x - 1, y - Math.round(9 * s), 3, Math.round(9 * s), "#7a5a3a");
+  ellipse(g, x, y - Math.round(14 * s), Math.round(8 * s), Math.round(8 * s), leaf[0]);
+  ellipse(g, x - 2, y - Math.round(16 * s), Math.round(6 * s), Math.round(6 * s), leaf[1]);
+  ellipse(g, x - 3, y - Math.round(19 * s), Math.round(3 * s), Math.round(2 * s), leaf[2]);
+  if (leaf[3]) for (let i = 0; i < 5; i++) px(g, x - 6 + Math.round(hash(seed + i) * 12), y - 20 + Math.round(hash(seed + i + 9) * 10), leaf[3]);
+}
+export function bush(g, x, y, season = 1) {
+  const c = ["#6a9a50", "#4e8a48", "#c07a3a", "#8a9a8a"][season];
+  ellipse(g, x, y - 2, 5, 3, c);
+  ellipse(g, x - 1, y - 3, 3, 2, shade(c, 0.25));
+}
+function flowers(g, x, y, w, rows = 2, seed = 0) {
+  const cols = ["#f06a6a", "#f6d04c", "#f2f2f2", "#c890e0", "#f0a050"];
+  for (let r = 0; r < rows; r++)
+    for (let i = 0; i < w; i += 2) {
+      rect(g, x + i, y + r * 3 + 1, 1, 2, "#4e8a48");
+      px(g, x + i, y + r * 3, cols[Math.floor(hash(seed + i * 7 + r) * cols.length)]);
+    }
+}
+export function bench(g, x, y) {
+  rect(g, x, y - 3, 10, 2, "#b08050");
+  rect(g, x, y - 5, 10, 1, "#c89a60");
+  rect(g, x + 1, y - 1, 1, 2, "#5a4a3a");
+  rect(g, x + 8, y - 1, 1, 2, "#5a4a3a");
+}
+function table(g, x, y, c) {
+  rect(g, x - 3, y - 4, 7, 1, "#f4efe2");
+  rect(g, x, y - 3, 1, 3, "#7a6a5a");
+  rect(g, x, y - 12, 1, 8, "#7a6a5a");
+  poly(g, [[x - 6, y - 10], [x + 7, y - 10], [x + 3, y - 14], [x - 2, y - 14]], c);
+  rect(g, x - 6, y - 10, 13, 1, shade(c, -0.25));
+}
+function flagpole(g, x, y, h = 20) {
+  rect(g, x, y - h, 1, h, "#8a8e90");
+  px(g, x, y - h - 1, "#f2c94c");
+}
+function sign(g, x, y, label, bg, fg = "#fff6dc") {
+  const w = label.length * 6 + 3;
+  rect(g, x - Math.floor(w / 2) - 1, y - 1, w + 2, 11, shade(bg, -0.4));
+  rect(g, x - Math.floor(w / 2), y, w, 9, bg);
+  text(g, label, x, y + 1, { color: fg, outline: null, align: "center" });
+}
+function pad(g, x, y, w, h, c) {
+  rect(g, x, y, w, h, c);
+  rect(g, x, y, w, 1, shade(c, 0.2));
+  rect(g, x, y + h - 1, w, 1, shade(c, -0.2));
+}
+
+// Cell top-left is (x, y); cells are 104×64. Buildings stand on the line y + 52.
+export function drawFacility(g, type, level, x, y, o = {}) {
+  SNOW = o.season === 3;
+  const b = y + 52,
+    season = o.season ?? 1,
+    colors = o.colors || { primary: "#2f6b52", secondary: "#e2b04a" },
+    L = level;
+  const drawers = {
+    club() {
+      const w = 52 + (L > 1 ? 10 : 0),
+        h = 19 + (L > 2 ? 10 : 0),
+        lx = x + 18;
+      box(g, lx, b, w, h, 22, WALL);
+      const ry = gable(g, lx, b - h, w, 22, 8, "#b85a3a");
+      rect(g, lx + w - 8, ry - 4, 4, 8, "#9a5a3a");
+      for (let i = 0; i < (L > 1 ? 4 : 3); i++) windowAt(g, lx + 4 + i * 12, b - 12);
+      if (L > 2) for (let i = 0; i < 4; i++) windowAt(g, lx + 4 + i * 12, b - 23, 6, 5, true);
+      door(g, lx + Math.floor(w / 2) - 3, b, 7, 10, colors.primary);
+      if (L > 1) {
+        awning(g, lx + Math.floor(w / 2) - 9, b - 14, 19, colors.primary, colors.secondary);
+        bench(g, lx - 12, b + 2);
+      }
+      sign(g, lx + Math.floor(w / 2), b - h - 12, "CLUB", colors.primary, colors.secondary);
+      flagpole(g, lx - 6, b, L > 2 ? 34 : 24);
+      bush(g, lx + w + 6, b + 2, season);
+    },
+    gym() {
+      const w = 54 + (L > 1 ? 10 : 0),
+        lx = x + 14;
+      box(g, lx, b, w, 21, 22, "#c27a52");
+      for (let yy = b - 16; yy < b; yy += 3) for (let xx = lx + (yy % 2 ? 0 : 3); xx < lx + w; xx += 6) rect(g, xx, yy, 5, 1, "#b06a44");
+      rect(g, lx + 6, b - 13, 20, 13, "#3a3530");
+      rect(g, lx + 7, b - 12, 18, 12, "#5a504a");
+      for (let i = 0; i < 3; i++) rect(g, lx + 9 + i * 5, b - 6, 3, 5, "#8a8e96");
+      rect(g, lx + 8, b - 9, 16, 1, "#9a9ea6");
+      windowAt(g, lx + w - 14, b - 13, 8, 6, L > 2);
+      sign(g, lx + 16, b - 28, "GYM", "#3a3e46", "#f2c94c");
+      if (L > 1) box(g, lx + w - 12, b - 18, 8, 5, 6, "#9aa0a8", { noSnow: true });
+      if (L > 2) rect(g, lx + 2, b - 17, w - 4, 2, colors.secondary);
+    },
+    rings() {
+      const lx = x + 12;
+      pad(g, lx, b - 18, 64, 20, "#b8b8a0");
+      ellipse(g, lx + 22, b - 8, 10, 5, "#8a8a7a");
+      ellipse(g, lx + 22, b - 9, 9, 4, "#e8e4d0");
+      ellipse(g, lx + 22, b - 9, 7, 3, "#a0a090");
+      // Cage poles and net.
+      for (let i = 0; i < 6; i++) {
+        const px0 = lx + 8 + i * 5;
+        rect(g, px0, b - 30 - (i % 2), 1, 22 + (i % 2), "#5a6a62");
+      }
+      for (let yy = b - 28; yy < b - 10; yy += 3) rect(g, lx + 8, yy, 26, 1, "rgba(90,110,100,0.5)");
+      rect(g, lx + 8, b - 31, 26, 1, "#4a5a52");
+      if (L > 1) {
+        ellipse(g, lx + 50, b - 8, 8, 4, "#8a8a7a");
+        ellipse(g, lx + 50, b - 9, 7, 3, "#e8e4d0");
+        ellipse(g, lx + 50, b - 9, 5, 2, "#a0a090");
+      }
+      box(g, lx + 58, b, 14, 12, 10, "#9a7a58");
+      if (L > 2) {
+        rect(g, lx + 2, b - 40, 1, 40, "#8a8e90");
+        rect(g, lx - 1, b - 42, 7, 3, "#3a3e46");
+        for (let i = 0; i < 3; i++) px(g, lx + i * 2, b - 41, "#fff4c0");
+      }
+    },
+    sprint() {
+      const lx = x + 8;
+      poly(g, [[lx, b], [lx + 76, b], [lx + 84, b - 20], [lx + 8, b - 20]], "#c06a50");
+      for (let i = 1; i < 4; i++) {
+        const yy = b - i * 5;
+        line(g, lx + i * 2, yy, lx + 76 + i * 2, yy, "#f4e8d0");
+      }
+      line(g, lx + 14, b, lx + 22, b - 20, "#f4e8d0");
+      for (let i = 0; i < 3; i++) {
+        const hx = lx + 36 + i * 14,
+          hy = b - 4 - i * 5;
+        rect(g, hx, hy - 5, 6, 1, "#f4efe2");
+        rect(g, hx, hy - 4, 1, 4, "#3a3e46");
+        rect(g, hx + 5, hy - 4, 1, 4, "#3a3e46");
+      }
+      if (L > 1)
+        for (let i = 0; i < 3; i++) {
+          rect(g, lx + 6 + i * 2, b - 3 - i * 5, 3, 2, "#3a5a8a");
+        }
+      if (L > 2) {
+        box(g, lx + 70, b + 2, 14, 14, 8, "#3a3e46");
+        rect(g, lx + 72, b - 10, 10, 5, "#1a1e22");
+        text(g, "9.8", lx + 72, b - 10, { color: "#f06050", outline: null });
+      }
+    },
+    studio() {
+      const w = 52,
+        lx = x + 18;
+      box(g, lx, b, w, 22 + (L > 2 ? 6 : 0), 22, "#d8dce8");
+      rect(g, lx + 3, b - 16, w - 6, 9, "#2c3a5a");
+      for (let i = 0; i < 4; i++) rect(g, lx + 5 + i * 10, b - 15, 7, 7, i % 2 ? "#3a5a8a" : "#4a6aa0");
+      rect(g, lx + 5, b - 15, 7, 1, "#8ab0e0");
+      door(g, lx + 4, b, 6, 6, "#3a4a6a");
+      ellipse(g, lx + 32, b - 30 - (L > 2 ? 6 : 0), 5, 3, "#e8ecf0");
+      rect(g, lx + 32, b - 30 - (L > 2 ? 6 : 0), 1, 6, "#8a8e96");
+      if (L > 1) rect(g, lx + 6, b - 25, 10, 6, "#1a1e2a"), rect(g, lx + 7, b - 24, 8, 4, "#6ad0e0");
+      if (L > 2) rect(g, lx + 20, b - 48, 1, 16, "#8a8e96");
+    },
+    spa() {
+      const lx = x + 10;
+      box(g, lx, b, 34, 17, 20, "#e8eef0");
+      gable(g, lx, b - 17, 34, 20, 6, "#4a9a9a");
+      windowAt(g, lx + 4, b - 10, 6, 5);
+      door(g, lx + 18, b, 6, 8, "#5a8a8a");
+      ellipse(g, lx + 54, b - 7, 14, 6, "#d8d8cc");
+      ellipse(g, lx + 54, b - 7, 12, 5, "#5ab8d8");
+      ellipse(g, lx + 52, b - 8, 6, 2, "#8ad8f0");
+      if (L > 1) {
+        box(g, lx + 66, b + 2, 12, 12, 10, "#a07850");
+        rect(g, lx + 69, b - 6, 4, 6, "#6a4a30");
+      }
+      if (L > 2) {
+        tree(g, lx + 40, b - 12, 0.6, 1, 5);
+        flowers(g, lx + 2, b + 3, 26, 1, 3);
+      }
+    },
+    garden() {
+      const lx = x + 8;
+      pad(g, lx, b - 26, 84, 28, "#78a858");
+      line(g, lx + 4, b, lx + 40, b - 14, "#d8c8a0", 3);
+      line(g, lx + 40, b - 14, lx + 80, b - 20, "#d8c8a0", 3);
+      flowers(g, lx + 4, b - 24, 30, 2, x);
+      flowers(g, lx + 50, b - 8, 26, 2, x + 9);
+      tree(g, lx + 12, b - 4, 0.7, season, x);
+      tree(g, lx + 70, b - 14, 0.6, season, x + 3);
+      bench(g, lx + 44, b - 2);
+      if (L > 1) {
+        ellipse(g, lx + 30, b - 4, 8, 3, "#5aa0c0");
+        ellipse(g, lx + 29, b - 5, 4, 1, "#8ad0e8");
+      }
+      if (L > 2) {
+        box(g, lx + 56, b - 12, 14, 10, 10, "#f4efe2", { top: "#c85a4a" });
+        rect(g, lx + 57, b - 21, 1, 9, "#d8d0c0");
+        rect(g, lx + 68, b - 21, 1, 9, "#d8d0c0");
+      }
+    },
+    cafe() {
+      const lx = x + 12,
+        w = 40;
+      box(g, lx, b, w, 19, 20, "#f2dcc0");
+      gable(g, lx, b - 19, w, 20, 6, "#8a5a3a");
+      awning(g, lx - 1, b - 17, w + 2, "#e07a3a", "#f8efe0");
+      windowAt(g, lx + 3, b - 9, 8, 6, true);
+      door(g, lx + 22, b, 7, 9);
+      rect(g, lx + 26, b - 30, 3, 6, "#8a5a3a");
+      table(g, lx + 46, b + 1, "#e07a3a");
+      if (L > 1) table(g, lx + 60, b - 6, colors.secondary);
+      if (L > 2) {
+        table(g, lx + 70, b + 2, colors.primary);
+        sign(g, lx + 16, b - 34, "CAFE", "#8a5a3a");
+      }
+    },
+    shop() {
+      const lx = x + 16,
+        w = 36 + (L > 1 ? 12 : 0);
+      box(g, lx, b, w, 17 + (L > 2 ? 6 : 0), 18, "#f4efe2");
+      awning(g, lx - 2, b - 15 - (L > 2 ? 6 : 0), w + 4, colors.primary, colors.secondary);
+      rect(g, lx + 2, b - 10, w - 4, 7, "#5a4a3a");
+      for (let i = 0; i < Math.floor((w - 4) / 6); i++) {
+        rect(g, lx + 3 + i * 6, b - 9, 4, 5, i % 2 ? colors.primary : colors.secondary);
+        rect(g, lx + 3 + i * 6, b - 9, 4, 1, shade(i % 2 ? colors.primary : colors.secondary, 0.3));
+      }
+      flagpole(g, lx + w + 8, b, 18);
+      if (L > 2) sign(g, lx + Math.floor(w / 2), b - 34, "SHOP", colors.primary, colors.secondary);
+    },
+    dorm() {
+      const w = 48,
+        h = 20 + (L - 1) * 8,
+        lx = x + 18;
+      box(g, lx, b, w, h, 20, "#e8d8b8");
+      gable(g, lx, b - h, w, 20, 7, "#a0503a");
+      for (let f = 0; f < 1 + L; f++) for (let i = 0; i < 4; i++) windowAt(g, lx + 3 + i * 10, b - 10 - f * 8, 5, 4, (i + f) % 3 === 0);
+      door(g, lx + 17, b, 6, 6);
+      if (L > 2) for (let i = 0; i < 3; i++) rect(g, lx + 6 + i * 10, b - h - 6, 8, 3, "#3a4a6a");
+    },
+    scout() {
+      const lx = x + 22,
+        w = 40;
+      box(g, lx, b, w, 19, 18, "#d8c8a0");
+      gable(g, lx, b - 19, w, 18, 6, "#5a6a3a");
+      windowAt(g, lx + 4, b - 11, 7, 5);
+      door(g, lx + 20, b, 6, 9);
+      line(g, lx + 26, b - 30, lx + 34, b - 34, "#3a3e46", 2);
+      rect(g, lx + 28, b - 30, 1, 6, "#3a3e46");
+      if (L > 1) {
+        rect(g, lx - 14, b - 14, 12, 10, "#c8a870");
+        rect(g, lx - 13, b - 13, 10, 8, "#e8dcc0");
+        line(g, lx - 12, b - 7, lx - 5, b - 11, "#c84a40");
+      }
+      if (L > 2) ellipse(g, lx + 8, b - 34, 5, 3, "#c8d0d8");
+    },
+    workshop() {
+      const lx = x + 14,
+        w = 48 + (L > 2 ? 10 : 0);
+      box(g, lx, b, w, 21, 22, "#9a7050");
+      for (let i = 0; i < w; i += 4) rect(g, lx + i, b - 21, 1, 21, "#8a6040");
+      gable(g, lx, b - 21, w, 22, 7, "#6a4a3a");
+      rect(g, lx + 6, b - 13, 16, 13, "#2a2420");
+      rect(g, lx + 10, b - 5, 8, 3, "#5a5a62");
+      rect(g, lx + 12, b - 7, 4, 2, "#7a7a82");
+      if (L > 1) rect(g, lx + w - 8, b - 36, 4, 10, "#5a4a3a");
+      windowAt(g, lx + w - 12, b - 12, 7, 5, true);
+    },
+    stands() {
+      const lx = x + 8,
+        rows = 3 + L;
+      for (let r = 0; r < rows; r++) {
+        const yy = b - r * 4;
+        rect(g, lx + r * 2, yy - 4, 76, 4, r % 2 ? "#7a8a9a" : "#8a9aaa");
+        for (let i = 0; i < 18; i++) rect(g, lx + r * 2 + 2 + i * 4, yy - 4, 3, 2, (i + r) % 3 ? colors.primary : colors.secondary);
+      }
+      const top = b - rows * 4;
+      rect(g, lx + rows * 2 - 2, top - 14, 80, 3, "#3a4a5a");
+      rect(g, lx + rows * 2, top - 11, 1, 11, "#5a6a7a");
+      rect(g, lx + rows * 2 + 74, top - 11, 1, 11, "#5a6a7a");
+      if (L > 2) {
+        rect(g, lx + 30, top - 26, 22, 11, "#1a1e22");
+        text(g, "R&S", lx + 32, top - 24, { color: "#f2c94c", outline: null });
+      }
+    },
+    lab() {
+      const lx = x + 18,
+        w = 48;
+      box(g, lx, b, w, 20, 20, "#f4f6f8");
+      ellipse(g, lx + 20, b - 22, 11 + L, 8 + L, "#d0dce4");
+      ellipse(g, lx + 17, b - 25, 5, 3, "#eef4f8");
+      rect(g, lx + 18, b - 31 - L, 4, 6, "#3a4a5a");
+      for (let i = 0; i < 3; i++) windowAt(g, lx + 4 + i * 12, b - 12, 7, 5, i === 1);
+      if (L > 1) for (let i = 0; i < 3; i++) rect(g, lx + w + 4 + i * 3, b - 10, 2, 8, ["#6ad0e0", "#a0e070", "#e070c0"][i]);
+    },
+    fountain() {
+      const cx = x + 50,
+        cy = b - 10;
+      pad(g, x + 16, b - 24, 68, 26, "#d8d0bc");
+      for (let i = 0; i < 68; i += 6) rect(g, x + 16 + i, b - 24, 1, 26, "#c8c0ac");
+      ellipse(g, cx, cy, 16 + L * 2, 7 + L, "#a8a090");
+      ellipse(g, cx, cy - 1, 14 + L * 2, 6 + L, "#5ab0d8");
+      ellipse(g, cx - 3, cy - 2, 6, 2, "#8ad8f0");
+      rect(g, cx - 2, cy - 12, 4, 11, "#c8c0ac");
+      if (L > 1) ellipse(g, cx, cy - 12, 6, 2, "#a8a090");
+      if (L > 2) {
+        rect(g, cx - 1, cy - 22, 3, 8, "#d8b85a");
+        ellipse(g, cx, cy - 24, 2, 2, "#d8b85a");
+      }
+    },
+    statue() {
+      const cx = x + 50;
+      pad(g, x + 20, b - 22, 60, 24, "#d8d0bc");
+      box(g, cx - 8, b - 4, 16, 10, 10, "#c8c0ac");
+      figure(g, { look: { skin: "#d8b85a", hair: "#c8a040", style: 0 }, shirt: "#d8b85a", collar: "#f2d070", pose: "cheer", frame: 0 }, cx, b - 14, 1);
+      if (L > 1) for (const dx of [-26, 26]) bush(g, cx + dx, b, season);
+      if (L > 2) {
+        rect(g, cx - 22, b - 40, 3, 36, "#c8c0ac");
+        rect(g, cx + 20, b - 40, 3, 36, "#c8c0ac");
+        rect(g, cx - 24, b - 42, 48, 4, "#d8b85a");
+      }
+    },
+  };
+  (drawers[type] || drawers.club)();
+  SNOW = false;
+}
+
+// Small animated details layered on top of the cached ground.
+export function animateFacility(g, type, level, x, y, t) {
+  const b = y + 52;
+  if (type === "fountain") {
+    const cx = x + 50,
+      cy = b - 10 - (level > 1 ? 12 : 0);
+    for (let i = 0; i < 8; i++) {
+      const p = ((t / 700 + i / 8) % 1),
+        ang = (i / 8) * Math.PI * 2;
+      px(g, cx + Math.cos(ang) * p * 10, cy - 12 + p * p * 14 - Math.sin(p * Math.PI) * 6, "#c8f0ff");
+    }
+  }
+  if (type === "spa") for (let i = 0; i < 3; i++) {
+    const p = ((t / 1600 + i / 3) % 1);
+    px(g, x + 60 + i * 4 + Math.sin(t / 400 + i) * 2, b - 10 - p * 14, `rgba(255,255,255,${0.7 * (1 - p)})`);
+  }
+  if (type === "cafe") for (let i = 0; i < 2; i++) {
+    const p = ((t / 2000 + i / 2) % 1);
+    rect(g, x + 41 + Math.sin(t / 500 + i) * 2, b - 34 - p * 12, 2, 2, `rgba(240,240,240,${0.6 * (1 - p)})`);
+  }
+  if (type === "workshop" && Math.floor(t / 180) % 5 === 0) for (let i = 0; i < 3; i++) px(g, x + 30 + hash(Math.floor(t / 180) + i) * 6, b - 8 - hash(i + t) * 6, "#f8c050");
+  if (type === "lab" && Math.floor(t / 500) % 2) px(g, x + 42, b - 32 - level, "#e85a50");
+  if (type === "studio") px(g, x + 54, b - 33 - (level > 2 ? 6 : 0), Math.floor(t / 600) % 2 ? "#e85a50" : "#6a2a2a");
+}
+export function lockedPlot(g, x, y, label) {
+  const b = y + 52;
+  pad(g, x + 10, b - 26, 84, 28, "#8aa070");
+  for (let i = 0; i < 14; i++) px(g, x + 14 + Math.round(hash(x + i) * 76), b - 22 + Math.round(hash(y + i) * 22), "#6a8a50");
+  for (let i = 0; i <= 84; i += 6) {
+    rect(g, x + 10 + i, b - 30, 1, 6, "#a08060");
+    rect(g, x + 10 + i, b - 2, 1, 4, "#a08060");
+  }
+  rect(g, x + 10, b - 28, 85, 1, "#c0a070");
+  rect(g, x + 10, b, 85, 1, "#c0a070");
+  rect(g, x + 38, b - 18, 28, 11, "#e8dcc0");
+  rect(g, x + 38, b - 18, 28, 1, "#fff6dc");
+  text(g, label, x + 52, b - 16, { color: "#7a5a3a", outline: null, align: "center" });
+}
+export function emptyPlot(g, x, y, highlight = false) {
+  const b = y + 52;
+  pad(g, x + 10, b - 26, 84, 28, highlight ? "#9cbc78" : "#86a866");
+  g.fillStyle = "#b8cc98";
+  for (let i = 0; i < 84; i += 4) {
+    g.fillRect(x + 10 + i, b - 26, 2, 1);
+    g.fillRect(x + 10 + i, b + 1, 2, 1);
+  }
+  for (let j = 0; j < 28; j += 4) {
+    g.fillRect(x + 10, b - 26 + j, 1, 2);
+    g.fillRect(x + 93, b - 26 + j, 1, 2);
+  }
+  rect(g, x + 50, b - 16, 5, 1, "#d8e4c0");
+  rect(g, x + 52, b - 18, 1, 5, "#d8e4c0");
+}

@@ -1,7 +1,7 @@
 // Scripted careers for pacing and economy checks. Run: AUDIT_SEEDS=40 node scripts/balance-audit.mjs
 // These are bots, not people: they measure whether progress is possible and roughly paced, not fun.
 import * as G from "../src/domain/game.js";
-import { EVENT_IDS, EVENTS, SKILLS, RANKS, FACILITIES } from "../src/game-content.js";
+import { EVENTS, SKILLS, FACILITIES } from "../src/game-content.js";
 
 const N = Number(process.env.AUDIT_SEEDS || 30),
   MAX = Number(process.env.AUDIT_SEASONS || 40);
@@ -10,7 +10,7 @@ const pct = (a, q) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) * q
 const BUILD = ["sprint", "spa", "cafe", "garden", "studio", "shop", "dorm", "workshop", "scout", "lab", "stands", "fountain"];
 const SKILL_PRIORITY = ["gymrat", "formfreak", "fasttwitch", "clutch", "icevein", "quickstudy", "hunter", "secondwind", "momentum", "workhorse", "bigstage", "highroller", "captain", "meteor", "cyclone", "tempest", "skyspear"];
 
-function engaged(s) {
+export function engaged(s) {
   const plans = ["power", "technique", "speed", "focus"];
   for (const a of s.roster) {
     const w = EVENTS[a.event].weights;
@@ -31,14 +31,9 @@ function engaged(s) {
       const a = [...s.roster].sort((x, y) => y.level - x.level)[0];
       if (!G.useItem(s, id, a.id)) break;
     }
-  for (const id of Object.keys(s.bag)) {
-    const d = G.effects && id in s.bag ? id : null;
-    if (!d) continue;
-  }
-  for (const [type, i] of BUILD.map((t, n) => [t, n])) {
+  for (const type of BUILD) {
     const free = G.unlockedPlots(s).find((p) => !s.plots[p]);
     if (free != null && s.money > FACILITIES[type].cost + 400 && G.canBuild(s, free, type)) G.build(s, free, type);
-    void i;
   }
   for (let i = 0; i < 12; i++) if (s.plots[i] && s.plots[i].level < 3 && s.money > G.upgradeCost(s.plots[i].type, s.plots[i].level) + 800) G.upgrade(s, i);
   if (s.roster.length < Math.min(6, G.rosterCap(s)) && s.money > 2500) {
@@ -60,7 +55,7 @@ function idle(s) {
   G.autoLineup(s);
 }
 
-function career(seed, policy) {
+export function career(seed, policy) {
   const s = G.newGame(seed);
   const reached = [1, null, null, null, null],
     winsByLeague = [[], [], [], [], []];
@@ -98,6 +93,7 @@ function career(seed, policy) {
   return { title, reached, injuries, minMoney, money: s.money, fans: s.fans, winsByLeague, goals: s.goals.length, levels: s.roster.map((a) => a.level), ranks: s.roster.map((a) => a.rank) };
 }
 
+if (import.meta.url === `file://${process.argv[1]}`) {
 const out = {};
 for (const [name, policy] of [
   ["engaged", engaged],
@@ -123,5 +119,4 @@ for (const [name, policy] of [
   };
 }
 console.log(JSON.stringify(out, null, 2));
-void EVENT_IDS;
-void RANKS;
+}

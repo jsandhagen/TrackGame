@@ -255,7 +255,7 @@ export const SECRETS = {
   pip: { name: "Pip", event: "discus", skill: "wonderkid", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
 };
 
-export const FIRST = ["Mara", "Tomas", "Noor", "Kofi", "Liv", "Hana", "Ezra", "Ines", "Yuki", "Dario", "Priya", "Ama", "Nico", "Zofia", "Kai", "Greta", "Owen", "Elif", "Lars", "Rui", "Tao", "Sade", "Mateo", "Ilse", "Bo", "Femi", "Anouk", "Ravi", "Juno", "Odile", "Pax", "Wren", "Iker", "Saoirse", "Tariq", "Mina", "Otto", "Ayla", "Sven", "Lupe", "Hugo", "Nia", "Felix", "Rosa", "Arjun", "Ida", "Cyrus", "Maeve"];
+export const FIRST = ["Mara", "Tomas", "Noor", "Kofi", "Liv", "Hana", "Ezra", "Ines", "Dario", "Priya", "Ama", "Nico", "Zofia", "Kai", "Greta", "Owen", "Elif", "Lars", "Rui", "Tao", "Sade", "Mateo", "Ilse", "Bo", "Femi", "Anouk", "Ravi", "Odile", "Pax", "Wren", "Iker", "Saoirse", "Tariq", "Mina", "Otto", "Ayla", "Sven", "Lupe", "Hugo", "Nia", "Felix", "Rosa", "Arjun", "Ida", "Cyrus", "Maeve"];
 export const LAST = ["Kowal", "Reyes", "Haddad", "Mensah", "Okafor", "Lindqvist", "Tanaka", "Brennan", "Moreau", "Novak", "Sato", "Duarte", "Walsh", "Holm", "Castro", "Ilunga", "Vance", "Petrov", "Achebe", "Nakamura", "Oduya", "Larsen", "Quinn", "Ferreira", "Kim", "Bauer", "Adeyemi", "Rossi", "Stone", "Vega", "Park", "Okoro", "Silva", "Dubois", "Kaur", "Berg", "Mwangi", "Hale", "Ortiz", "Fox"];
 export const SKINS = ["#f0c6a0", "#e2b08a", "#c98f66", "#a06a48", "#7a4e36", "#5e3a2a"];
 export const HAIRS = ["#3a2a20", "#1e1e24", "#b8843e", "#8e4c33", "#d8c8a0", "#c8562e", "#4a3a5a"];
