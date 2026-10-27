@@ -24,6 +24,13 @@ test("kit and stadium looks unlock through progress and cost club money", () => 
   s.stadium.stands = 2;
   assert(G.buyCustom(s, "seats", "stripes"));
   assert.match(G.customLock(s, "track", "purple"), /championship track/);
+  assert.match(G.customLock(s, "facade", "brick"), /stands all round/);
+  assert.match(G.customLock(s, "towerStyle", "lattice"), /Olympic stadium/);
+  s.stadium.stands = 4;
+  s.money = 5000;
+  assert(G.buyCustom(s, "towerStyle", "lattice") && s.stadiumStyle.towerStyle === "lattice");
+  assert(G.buyCustom(s, "towerColors", "club") && s.stadiumStyle.towerColors === "club");
+  assert(G.buyCustom(s, "facade", "brick") && s.stadiumStyle.facade === "brick");
   G.renameStadium(s, "  The <Ring>  Oval!! ");
   assert.equal(s.stadiumStyle.name, "The Ring Oval");
 });

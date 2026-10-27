@@ -32,6 +32,7 @@ import {
   SHORTS_COLORS,
   trackColorOf,
   roofColorOf,
+  towerColorsOf,
 } from "../game-content.js";
 import { ico, moodIco } from "../render/uiicons.js";
 
@@ -406,6 +407,13 @@ function swatch(s, cat, key) {
   if (cat === "shorts") return key === "dark" ? "#2a3a32" : key === "trim" ? t : SHORTS_COLORS[key];
   if (cat === "seats") return { solid: p, stripes: `repeating-linear-gradient(0deg, ${p} 0 4px, ${t} 4px 8px)`, twotone: `linear-gradient(0deg, ${p} 50%, ${t} 50%)`, blocks: `repeating-linear-gradient(90deg, ${p} 0 8px, ${t} 8px 16px)` }[key];
   if (cat === "roof") return roofColorOf({ ...s, stadiumStyle: { ...s.stadiumStyle, roof: key } });
+  if (cat === "facade")
+    return { auto: "repeating-linear-gradient(45deg, #dcdcd6 0 4px, #a8aeb4 4px 5px)", brick: "repeating-linear-gradient(0deg, #a8503a 0 4px, #c8b8a0 4px 5px)", glass: "linear-gradient(135deg, #6a96bc 40%, #cfe4f2 40% 55%, #527ea4 55%)", timber: "repeating-linear-gradient(90deg, #8a5a34 0 2px, #b47a48 2px 4px, #a06c3e 4px 6px)", club: `repeating-linear-gradient(90deg, ${p} 0 8px, ${t} 8px 16px)` }[key];
+  if (cat === "towerStyle") return { spiral: `repeating-linear-gradient(135deg, #2e3640 0 5px, #c8563e 5px 9px)`, lattice: "repeating-linear-gradient(45deg, #dfe4e8 0 3px, #5a6066 3px 4px)", clock: "radial-gradient(circle, #f4f0e4 0 35%, #d8d0c0 36%)" }[key];
+  if (cat === "towerColors") {
+    const c = towerColorsOf({ ...s, stadiumStyle: { ...s.stadiumStyle, towerColors: key } });
+    return `linear-gradient(135deg, ${c[0]} 50%, ${c[1]} 50%)`;
+  }
   return key === "auto" ? `linear-gradient(90deg, ${trackColorOf(2)} 50%, ${trackColorOf(3)} 50%)` : trackColorOf(2, key);
 }
 function lookCard(s) {

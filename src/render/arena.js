@@ -1,6 +1,6 @@
 import { rect, poly, ellipse, line, shade, hash, px } from "./pixel.js";
 import { text } from "./font.js";
-import { styleOf, trackColorOf, roofColorOf, stadiumNameOf } from "../game-content.js";
+import { styleOf, trackColorOf, roofColorOf, stadiumNameOf, towerColorsOf } from "../game-content.js";
 
 // The club stadium. The ground is drawn top-down and everything built on it has height:
 // a point at ground (x, y) with elevation z appears at screen (x, y − z). Stands are a
@@ -214,14 +214,42 @@ function stands(g, s, season) {
   // Vertical faces we can see: risers facing the field, the pitch-side boards and outer walls.
   const boards = [colors.primary, "#f4f0e4", "#c84a40", "#2c4a7a", colors.secondary];
   function face(x, c, k, len, below) {
-    if (below === "outside" && lvl >= 4) {
-      // A light steel diagrid over pale cladding, with a club-colour band and glazed entrances.
-      if (k === 0) return "#eef0f0";
-      if (k === 1) return "#6a7076";
-      if (k === 3) return colors.primary;
-      if (k === len - 1) return "#8a8e92";
-      if (len >= 10 && x % 32 >= 13 && x % 32 <= 18 && k >= len - 7) return k === len - 7 ? "#3a4652" : "#6a8aa8";
-      return (x + k) % 10 === 0 || (x - k + 100) % 10 === 0 ? "#a8aeb4" : "#dcdcd6";
+    if (below === "outside" && lvl >= 3) {
+      const f = style.facade === "auto" ? (lvl >= 4 ? "diagrid" : "concrete") : style.facade;
+      const door = len >= 10 && x % 32 >= 13 && x % 32 <= 18 && k >= len - 7;
+      if (f === "diagrid") {
+        // A light steel diagrid over pale cladding, with a club-colour band and glazed entrances.
+        if (k === 0) return "#eef0f0";
+        if (k === 1) return "#6a7076";
+        if (k === 3) return colors.primary;
+        if (k === len - 1) return "#8a8e92";
+        if (door) return k === len - 7 ? "#3a4652" : "#6a8aa8";
+        return (x + k) % 10 === 0 || (x - k + 100) % 10 === 0 ? "#a8aeb4" : "#dcdcd6";
+      }
+      if (f === "brick") {
+        if (k === 0) return "#d8d0c0";
+        if (k === len - 1) return "#5a3a2a";
+        if (door) return k === len - 7 ? "#d8d0c0" : "#3a2a24";
+        if (k % 3 === 2) return "#c8b8a0";
+        return (x + (Math.floor(k / 3) % 2) * 3) % 6 === 0 ? "#c8b8a0" : k % 6 < 3 ? "#a8503a" : "#984632";
+      }
+      if (f === "glass") {
+        if (k === 0) return "#e8eef2";
+        if (k === len - 1) return "#3a4652";
+        if (x % 12 === 0 || k % 5 === 1) return "#4a5866";
+        return (x + k * 2) % 23 < 3 ? "#cfe4f2" : k < len / 2 ? "#6a96bc" : "#527ea4";
+      }
+      if (f === "timber") {
+        if (k === 0) return "#3a4046";
+        if (k === len - 1 || k % 9 === 4) return "#4a5056";
+        if (door) return "#2a2420";
+        return x % 3 === 0 ? "#8a5a34" : x % 3 === 1 ? "#b47a48" : "#a06c3e";
+      }
+      if (f === "club") {
+        if (k === 0 || k === len - 1 || x % 16 === 0) return "#3a4046";
+        if (door) return "#2a2e32";
+        return Math.floor(x / 16) % 2 ? colors.primary : colors.secondary;
+      }
     }
     if (below === "outside") {
       if (k === 0) return "#d8d0c0";
@@ -756,14 +784,19 @@ function rail(g) {
 }
 const masts = (s) => s.stadium.lights > 0 && s.stadium.stands < 4;
 
-// The Olympic level's landmark (after the tower at Hayward Field): a slim round tower standing
-// beside the east end, wrapped in a spiral of coloured panels and crowned with a lit ring.
+// The Olympic level's landmark (after the tower at Hayward Field), standing beside the east end.
+// Its design and colours are customisable: a spiral of panels, a steel lattice, or a clock tower.
 export const TOWER = { x: BOWL.x + BOWL.w + 20, y: BOWL.y + 96, r: 7, h: 92 };
-function tower(g, s) {
-  if (s.stadium.stands < 4) return;
-  const { x, y, r, h } = TOWER,
-    panels = ["#c8563e", "#3d6cae", s.colors.primary, "#e2a43a"];
-  ellipse(g, x + 4, y + 1, 12, 3, "rgba(20,30,20,0.3)");
+function crown(g, s, x, top, r, colors) {
+  rect(g, x - r - 1, top - 7, 2 * r + 3, 6, "#fff4cb");
+  rect(g, x - r - 1, top - 7, 2 * r + 3, 1, "#ffffff");
+  ellipse(g, x, top - 7, r + 1, 2, "#f4f0e0");
+  rect(g, x, top - 16, 1, 9, "#c8ccd0");
+  rect(g, x + 1, top - 16, 5, 2, colors[0]);
+  rect(g, x + 1, top - 14, 5, 2, colors[1]);
+}
+function spiralTower(g, s, colors) {
+  const { x, y, r, h } = TOWER;
   ellipse(g, x, y, r + 2, 3, "#8a8e92");
   for (let yy = 0; yy < h; yy++) {
     const sy = y - yy,
@@ -777,23 +810,72 @@ function tower(g, s) {
         phase = ((turn % Math.PI) + Math.PI) % Math.PI,
         band = phase < 1.2,
         fin = phase < 0.16;
-      let c = fin ? "#f4f0e4" : band ? panels[Math.floor(turn / Math.PI) & 1 ? 0 : 2] : yy % 6 === 0 ? "#46525e" : "#2e3640";
+      let c = fin ? "#f4f0e4" : band ? colors[Math.floor(turn / Math.PI) & 1] : yy % 6 === 0 ? "#46525e" : "#2e3640";
       c = shade(c, Math.max(-0.45, Math.min(0.3, light - 0.35)));
       px(g, x + dx, sy, c);
       // Fins stand proud of the silhouette where they wrap round the edge.
       if (fin && Math.abs(dx) === rr) px(g, x + dx + Math.sign(dx), sy, shade("#f4f0e4", -0.15));
     }
   }
-  // Observation ring and crown of light.
   const top = y - h;
   ellipse(g, x, top, r + 3, 3, "#3a4046");
   ellipse(g, x, top - 1, r + 3, 2, "#c8ccd0");
-  rect(g, x - r - 1, top - 7, 2 * r + 3, 6, "#fff4cb");
-  rect(g, x - r - 1, top - 7, 2 * r + 3, 1, "#ffffff");
-  ellipse(g, x, top - 7, r + 1, 2, "#f4f0e0");
-  rect(g, x, top - 16, 1, 9, "#c8ccd0");
-  rect(g, x + 1, top - 16, 5, 2, s.colors.primary);
-  rect(g, x + 1, top - 14, 5, 2, s.colors.secondary);
+  crown(g, s, x, top, r, colors);
+}
+// A tapering steel lattice mast with coloured bands and a lit crown.
+function latticeTower(g, s, colors) {
+  const { x, y, h } = TOWER,
+    base = 11,
+    tip = 3,
+    w = (yy) => Math.round(base - ((base - tip) * yy) / h);
+  for (let yy = 0; yy < h; yy++) {
+    const half = w(yy),
+      sy = y - yy;
+    px(g, x - half, sy, "#5a6066");
+    px(g, x + half, sy, "#3a4046");
+    // Cross bracing: two diagonals repeating up the mast.
+    const cell = yy % 12,
+      f = cell / 12;
+    px(g, Math.round(x - half + 2 * half * f), sy, "#7a8086");
+    px(g, Math.round(x + half - 2 * half * f), sy, "#6a7076");
+    if (cell === 0) rect(g, x - half, sy, 2 * half + 1, 1, "#7a8086");
+    if (yy % 30 >= 24 && yy % 30 < 28) rect(g, x - half + 1, sy, 2 * half - 1, 1, colors[Math.floor(yy / 30) % 2]);
+  }
+  rect(g, x - base - 1, y, 2 * base + 3, 2, "#5a5e62");
+  crown(g, s, x, y - h, tip + 2, colors);
+}
+// A classic clock tower in pale stone with a pointed roof in the tower colours.
+function clockTower(g, s, colors) {
+  const { x, y } = TOWER,
+    w = 14,
+    h = 70,
+    l = x - w / 2;
+  rect(g, l + w, y - h + 2, 3, h - 2, "#9a9284");
+  rect(g, l, y - h, w, h, "#d8d0c0");
+  for (let yy = 6; yy < h; yy += 6) rect(g, l, y - yy, w, 1, "#c4bcac");
+  for (let i = 0; i < 3; i++) rect(g, l + 5, y - 14 - i * 16, 4, 6, "#3a4652");
+  rect(g, l + 4, y - 3, 6, 3, "#5a4a3a");
+  // Clock face.
+  const cy = y - h + 10;
+  ellipse(g, x, cy, 6, 6, "#3a4046");
+  ellipse(g, x, cy, 5, 5, "#f4f0e4");
+  rect(g, x, cy - 4, 1, 4, "#2a2e32");
+  rect(g, x, cy, 3, 1, "#2a2e32");
+  rect(g, l - 1, y - h, w + 2, 2, colors[1]);
+  poly(g, [[l - 2, y - h], [l + w + 2, y - h], [x, y - h - 22]], colors[0]);
+  poly(g, [[x, y - h], [l + w + 2, y - h], [x, y - h - 22]], shade(colors[0], -0.25));
+  rect(g, x, y - h - 30, 1, 8, "#c8ccd0");
+  rect(g, x + 1, y - h - 30, 5, 2, s.colors.primary);
+  rect(g, x + 1, y - h - 28, 5, 2, s.colors.secondary);
+}
+function tower(g, s) {
+  if (s.stadium.stands < 4) return;
+  const colors = towerColorsOf(s),
+    kind = styleOf(s).towerStyle;
+  ellipse(g, TOWER.x + 4, TOWER.y + 1, 12, 3, "rgba(20,30,20,0.3)");
+  if (kind === "lattice") latticeTower(g, s, colors);
+  else if (kind === "clock") clockTower(g, s, colors);
+  else spiralTower(g, s, colors);
 }
 export function drawArena(g, s, season = 1) {
   if (s.stadium.stands >= 3) roundRect(g, { ...BOWL, x: BOWL.x + 3, y: BOWL.y + 4 }, "rgba(20,40,20,0.25)");

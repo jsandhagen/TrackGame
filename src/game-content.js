@@ -356,11 +356,38 @@ export const CUSTOMISE = {
       black: { name: "Black", cost: 1200, req: { track: 3, trophies: 3 } },
     },
   },
+  facade: {
+    name: "Stadium facade",
+    options: {
+      auto: { name: "Classic", cost: 0 },
+      brick: { name: "Red brick", cost: 900, req: { stands: 3 } },
+      glass: { name: "Glass curtain", cost: 1400, req: { stands: 3, fans: 1500 } },
+      timber: { name: "Timber slats", cost: 1200, req: { stands: 3, trophies: 2 } },
+      club: { name: "Club panels", cost: 1600, req: { stands: 4 } },
+    },
+  },
+  towerStyle: {
+    name: "Tower",
+    options: {
+      spiral: { name: "Spiral", cost: 0 },
+      lattice: { name: "Steel lattice", cost: 1500, req: { stands: 4 } },
+      clock: { name: "Clock tower", cost: 1500, req: { stands: 4, trophies: 3 } },
+    },
+  },
+  towerColors: {
+    name: "Tower colours",
+    options: {
+      classic: { name: "Signal red", cost: 0 },
+      club: { name: "Club colours", cost: 600, req: { stands: 4 } },
+      gold: { name: "Champion gold", cost: 1000, req: { stands: 4, trophies: 4 } },
+      night: { name: "Night blue", cost: 800, req: { stands: 4 } },
+    },
+  },
 };
 export const CUSTOM_IDS = Object.keys(CUSTOMISE);
 const SURFACE_COLORS = { red: "#c0604a", blue: "#3d6cae", green: "#4a8a5a", purple: "#7a5aa8", black: "#4a4a52" };
 export const SHORTS_COLORS = { black: "#2a2a30", white: "#f0ece4", navy: "#2c3a5a" };
-export const STYLE_DEFAULT = { seats: "solid", roof: "steel", track: "auto", name: "" };
+export const STYLE_DEFAULT = { seats: "solid", roof: "steel", track: "auto", facade: "auto", towerStyle: "spiral", towerColors: "classic", name: "" };
 export const styleOf = (s) => ({ ...STYLE_DEFAULT, ...(s.stadiumStyle || {}) });
 export function trackColorOf(level, surface = "auto") {
   if (level <= 0) return "#7aa858";
@@ -370,6 +397,11 @@ export function trackColorOf(level, surface = "auto") {
 }
 export function roofColorOf(s) {
   return { steel: "#b8c0c6", club: s.colors.primary, white: "#e8ecee", slate: "#5a646c" }[styleOf(s).roof] || "#b8c0c6";
+}
+// The tower's two accent colours.
+export function towerColorsOf(s) {
+  const c = s.colors;
+  return { classic: ["#c8563e", c.primary], club: [c.primary, c.secondary], gold: ["#e2a43a", "#f4e2a0"], night: ["#3d6cae", "#9fe0ff"] }[styleOf(s).towerColors] || ["#c8563e", c.primary];
 }
 export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 

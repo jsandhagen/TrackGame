@@ -3,7 +3,7 @@ import { CUSTOMISE, CUSTOM_IDS, STYLE_DEFAULT } from "../game-content.js";
 // Kit and stadium customisation. Options unlock through progress and are then bought once;
 // owned options can be switched freely. Kit choices live with the club colours (they travel
 // with every sprite); the stadium's look lives in s.stadiumStyle.
-const SLOT = { kit: ["colors", "kit"], shorts: ["colors", "shorts"], seats: ["stadiumStyle", "seats"], roof: ["stadiumStyle", "roof"], track: ["stadiumStyle", "track"] };
+const SLOT = { kit: ["colors", "kit"], shorts: ["colors", "shorts"], seats: ["stadiumStyle", "seats"], roof: ["stadiumStyle", "roof"], track: ["stadiumStyle", "track"], facade: ["stadiumStyle", "facade"], towerStyle: ["stadiumStyle", "towerStyle"], towerColors: ["stadiumStyle", "towerColors"] };
 const DEFAULTS = Object.fromEntries(CUSTOM_IDS.map((cat) => [cat, Object.keys(CUSTOMISE[cat].options)[0]]));
 
 // Fill in anything missing (new careers and older saves) and drop anything unknown.
