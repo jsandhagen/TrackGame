@@ -187,6 +187,17 @@ small {
   font-size: 12px;
   white-space: nowrap;
 }
+.hud-date .clock {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: #0b1d16;
+  color: #f2d070;
+  font: 700 12px var(--display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
 #hud .res {
   display: flex;
   align-items: center;

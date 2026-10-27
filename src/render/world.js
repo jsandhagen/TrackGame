@@ -2,9 +2,9 @@ import { canvas, rect, ellipse, shade, hash, px } from "./pixel.js";
 import { text } from "./font.js";
 import { figure, shadow, athleteLook } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, lamp, box } from "./buildings.js";
-import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER } from "./arena.js";
+import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
-import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite } from "../domain/game.js";
+import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness } from "../domain/game.js";
 
 export const MAP_W = 1000,
   MAP_H = 740;
@@ -28,7 +28,8 @@ const baseOf = (i) => LOTS[i][1] + 66;
 const front = (i) => [LOTS[i][0] + 30, baseOf(i) + 10];
 // Where the camera starts: the stadium with Club Row below it.
 export const HOME = [300, 262];
-const seasonOf = (s) => (s.season - 1) % 4;
+// Scenery follows the calendar: spring blossom, summer green, autumn leaves, winter snow.
+const seasonOf = (s) => seasonOfDay(s.day);
 const leagueForPlot = (i) => PLOTS_BY_LEAGUE.findIndex((n) => PLOT_ORDER.indexOf(i) < n);
 
 // ── Walking routes ──────────────────────────────────────────────────────
@@ -440,6 +441,44 @@ export function createWorld(cv) {
     return true;
   }
 
+  // Time of day: a warm dawn, clear daylight, a golden evening, then night with the
+  // floodlights and street lamps glowing. nightScale softens the dark at high speed.
+  function light(s, ox, oy, progress, nightScale) {
+    const h = clockMinutes(progress) / 60,
+      dark = nightness(progress) * nightScale;
+    if (h < 8.5) {
+      sg.fillStyle = `rgba(255,214,160,${((8.5 - h) / 2.5) * 0.22})`;
+      sg.fillRect(0, 0, cam.vw, cam.vh);
+    } else if (h > 16.5) {
+      sg.fillStyle = `rgba(255,140,70,${Math.min(1, (h - 16.5) / 2.5) * 0.22 * (1 - dark)})`;
+      sg.fillRect(0, 0, cam.vw, cam.vh);
+    }
+    if (dark <= 0.02) return;
+    sg.fillStyle = `rgba(18,26,64,${dark * 0.55})`;
+    sg.fillRect(0, 0, cam.vw, cam.vh);
+    const glow = (x, y, r, a, color = "255,236,180") => {
+      const gx = x - ox,
+        gy = y - oy;
+      if (gx < -r || gy < -r || gx > cam.vw + r || gy > cam.vh + r) return;
+      const grad = sg.createRadialGradient(gx, gy, 0, gx, gy, r);
+      grad.addColorStop(0, `rgba(${color},${a})`);
+      grad.addColorStop(1, `rgba(${color},0)`);
+      sg.fillStyle = grad;
+      sg.fillRect(gx - r, gy - r, r * 2, r * 2);
+    };
+    sg.globalCompositeOperation = "lighter";
+    // Floodlights wash the infield; a covered bowl lights its ring roof instead.
+    if (s.stadium.lights > 0) {
+      const a = dark * (0.16 + 0.05 * s.stadium.lights);
+      glow(CENTER.x, CENTER.y, 150 + 20 * s.stadium.lights, a);
+      if (masts(s)) for (const [x, y] of MASTS) glow(x, y - 80 - s.stadium.lights * 14, 26, dark * 0.5);
+    }
+    // Lit windows and doorways along the streets.
+    LOTS.forEach(([x, top], i) => {
+      if (s.plots[i]) glow(x + 56, top + 56, 34, dark * 0.22, "255,210,140");
+    });
+    sg.globalCompositeOperation = "source-over";
+  }
   function draw(s, now, o = {}) {
     resize();
     const k = s.plots.map((p) => (p ? p.type + p.level : "-")).join("|") + JSON.stringify(s.stadium) + JSON.stringify(s.stadiumStyle) + plotsOpen(s) + seasonOf(s) + s.colors.primary + s.colors.secondary + s.clubName;
@@ -568,14 +607,7 @@ export function createWorld(cv) {
     sg.fillStyle = "#4e7a40";
     sg.fillRect(0, 0, cam.vw, cam.vh);
     sg.drawImage(world, -ox, -oy);
-    const p = o.dayProgress ?? 0.45;
-    if (p < 0.2) {
-      sg.fillStyle = `rgba(255,220,160,${(0.2 - p) * 0.6})`;
-      sg.fillRect(0, 0, cam.vw, cam.vh);
-    } else if (p > 0.7) {
-      sg.fillStyle = `rgba(255,140,80,${(p - 0.7) * 0.4})`;
-      sg.fillRect(0, 0, cam.vw, cam.vh);
-    }
+    light(s, ox, oy, o.dayProgress ?? 0.25, o.nightScale ?? 1);
     for (let i = banners.length - 1; i >= 0; i--) {
       const b = banners[i],
         t = (now - b.t0) / b.dur;

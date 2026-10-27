@@ -61,6 +61,7 @@ export * from "./mastery.js";
 import { practiceMastery, masteryOf } from "./mastery.js";
 export * from "./facility-duties.js";
 export * from "./customize.js";
+export * from "./calendar.js";
 import { ensureCustom } from "./customize.js";
 import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
 import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
