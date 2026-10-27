@@ -11,7 +11,9 @@ export const CIRCUIT_FORMATS = [
 export const TITLE_GIFTS = ["scroll", "letter", "elixir"];
 export const circuitKey = (tier, stage) => `${tier}:${stage}`;
 export const competitionTier = (s) => s.competition?.tier ?? s.league;
-export const competitionName = (s) => s.competition?.kind === "duel"
+export const competitionName = (s) => s.competition?.kind === "cup"
+  ? s.invitations?.offer?.name || "Invitational"
+  : s.competition?.kind === "duel"
   ? "Duel · " + CLUBS[s.competition.tier][s.competition.rival].name
   : LEAGUES[competitionTier(s)].name + " · " + CIRCUIT_STAGES[s.competition?.stage ?? 2];
 export function entryProblem(s, kind, tier, stage = 0, rival = 0) {
@@ -24,10 +26,10 @@ export function entryProblem(s, kind, tier, stage = 0, rival = 0) {
   if (stage > 0 && !s.circuit.cleared.includes(circuitKey(tier, stage - 1))) return "Win the " + CIRCUIT_STAGES[stage - 1] + " first.";
   return null;
 }
-export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparation = 5, spacing = 7 }) {
-  if (entryProblem(s, kind, tier, stage, rival) || ![3, 5, 7, 10].includes(preparation) || ![4, 7, 10].includes(spacing)) return false;
+// Bring a level's clubs onto the calendar, keeping every club's people between visits.
+// all: the whole pool (duels and invitationals) rather than this season's three opponents.
+export function switchTier(s, tier, strength, all) {
   // Keep the same named athletes when repeating a competition at the same level.
-  const strength = kind === "duel" ? 0 : stage;
   s.rivalClubs ??= {};
   const previousPool = s.rivalClubs[s.clubTier] || [];
   s.rivalClubs[s.clubTier] = [...previousPool.filter(c => !s.clubs.some(active => active.id === c.id)), ...s.clubs].sort((a,b) => a.id-b.id);
@@ -36,7 +38,7 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   pool = [...pool, ...makeClubs(s,tier,strength,missing)].sort((a,b) => a.id-b.id);
   s.rivalClubs[tier] = pool;
   const offset = (strength * 2 + Math.floor((s.season-1)/3)) % pool.length;
-  s.clubs = kind === "duel" ? pool : Array.from({length:3},(_,i) => pool[(offset+i)%pool.length]);
+  s.clubs = all ? pool : Array.from({length:3},(_,i) => pool[(offset+i)%pool.length]);
   // A club keeps its people. New stages develop their existing strengths.
   for(const c of s.clubs) {
     const previous=c.developedStage??(s.clubTier===tier?s.clubStage:strength);
@@ -48,6 +50,11 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   }
   s.clubTier = tier;
   s.clubStage = strength;
+}
+export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparation = 5, spacing = 7 }) {
+  if (entryProblem(s, kind, tier, stage, rival) || ![3, 5, 7, 10].includes(preparation) || ![4, 7, 10].includes(spacing)) return false;
+  const strength = kind === "duel" ? 0 : stage;
+  switchTier(s, tier, strength, kind === "duel");
   s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });
   s.competition = { kind, tier, stage: strength, rival, spacing, startDay: s.day + preparation };
   s.phase = "season";

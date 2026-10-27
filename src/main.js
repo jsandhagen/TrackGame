@@ -231,7 +231,7 @@ function paint(root) {
   });
   root.querySelectorAll("canvas[data-rival]").forEach((c) => {
     const [club, i] = c.dataset.rival.split(":").map(Number),
-      cl = state.clubs.find((x) => x.id === club);
+      cl = G.clubById(state, club);
     if (cl) paintPortrait(c, cl.athletes[i], { primary: cl.color, secondary: "#f4efe2" });
   });
   root.querySelectorAll("canvas[data-icon]").forEach((c) => paintIcon(c, c.dataset.icon));
@@ -433,6 +433,11 @@ function doDay(now) {
     toast(l.name + " hits level " + l.level + "! Skill points to spend.", "level", "levelup");
     sfx("level");
   }
+  if (r.invitation) {
+    world.banner("INVITATION!", r.invitation.name.toUpperCase() + " · " + G.shortDate(r.invitation.day).toUpperCase(), "#f2c94c", now, 3200);
+    toast("Invitation to the " + r.invitation.name + " on " + G.shortDate(r.invitation.day) + ". Open Meets to accept.", "goal", "star");
+    sfx("goal");
+  }
   for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " pulled up hurt. Recovery first.", "warn", "bandage");
   announce(before);
   save();
@@ -622,6 +627,12 @@ $("#app").addEventListener("click", async (e) => {
       else toast("That competition isn't available right now.", "warn");
       break;
     }
+    case "accept-invite":
+      stopPlaying();
+      if (state.pendingEvent) return showEvent();
+      if (G.acceptInvitation(state)) { view.window = "home"; world.replan(); toast("Invitation accepted. See you on " + G.shortDate(state.matchDay) + ".", "goal", "star"); }
+      else toast(G.invitationProblem(state), "warn");
+      break;
     case "cancel-booking":
       stopPlaying();
       if (G.cancelCompetition(state)) { world.replan(); toast("Booking scratched. Pick another meet whenever you're ready."); }

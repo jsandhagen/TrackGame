@@ -397,20 +397,21 @@ export function createStadium(cv) {
     if (upSide === "home" && upAthlete?.pb[ev]) lines.push({ mark: upAthlete.pb[ev], label: "PB " + upAthlete.pb[ev].toFixed(2), color: "#9fe0ff", dash: true });
     if (upSide === "home" && s.records[ev] && s.records[ev].mark !== upAthlete?.pb[ev]) lines.push({ mark: s.records[ev].mark, label: "CLUB REC", color: "#d8b0ff", dash: true });
     if (beat?.target?.mark != null) lines.push({ mark: beat.target.mark, label: "TARGET " + beat.target.mark.toFixed(2), color: "#ffe69a" });
+    // The thrower's own best so far, flagged in their colours.
+    const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
+    if (own != null) lines.push({ mark: own, label: own.toFixed(2), color: "#fff6dc", flag: upSide === "home" ? s.colors.primary : m.color });
     // Stack labels in rows so close marks don't overprint each other.
     const rowsEnd = [];
     for (const l of lines.sort((a, b) => a.mark - b.mark)) {
       const x = atX(l.mark);
-      for (let y = upperY(x) + 2; y < lowerY(x) - 2; y += l.dash ? 4 : 1) rect(g, x, y, 1, l.dash ? 2 : 1, l.color);
+      if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
+      else for (let y = upperY(x) + 2; y < lowerY(x) - 2; y += l.dash ? 4 : 1) rect(g, x, y, 1, l.dash ? 2 : 1, l.color);
       const half = l.label.length * 2.4 + 2;
       let row = 0;
       while (rowsEnd[row] != null && rowsEnd[row] > x - half) row++;
       rowsEnd[row] = x + half;
       text(g, l.label, x, upperY(x) - 9 - row * 10, { color: l.color, align: "center" });
     }
-    // The thrower's own best so far, flagged in their colours.
-    const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
-    if (own != null) flag(g, atX(own), centreY(atX(own)) - 3, upSide === "home" ? s.colors.primary : m.color, own.toFixed(2));
     // Who is in the circle?
     const throwing = beat?.type === "throw" ? beat.side : beat?.type === "decide" ? "home" : null;
     const active = throwing === "away" ? rival : home,

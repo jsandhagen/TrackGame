@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../src/domain/game.js';
+import { LEAGUES } from '../src/game-content.js';
 
 test('the calendar starts on Monday 1 March and paydays fall on Sundays', () => {
   assert.equal(G.shortDate(1), 'Mon 1 Mar');
@@ -85,7 +86,7 @@ test('away grounds grow with the level; finals go to the neutral showpiece', () 
     grand.push(v.grand);
     s.fixture = 3; s.finalOpponent = s.clubs[0].id;
     assert.equal(G.meetVenue(s).neutral, true);
-    assert.equal(G.meetVenue(s).name, G.LEAGUES?.[tier]?.venue ?? G.meetVenue(s).name);
+    assert.equal(G.meetVenue(s).name, LEAGUES[tier].venue);
   }
   assert.deepEqual(grand, [0, 1, 2, 3, 4]);
   assert.equal(G.backdropOf('Harbor Throws'), 'sea');

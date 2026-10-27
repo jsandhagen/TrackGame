@@ -63,6 +63,8 @@ export * from "./facility-duties.js";
 export * from "./customize.js";
 export * from "./calendar.js";
 export * from "./venues.js";
+export * from "./invitational.js";
+import { invitationDay, closeInvitation, ensureInvitations } from "./invitational.js";
 import { ensureCustom } from "./customize.js";
 import { WEATHER, weatherToday, weatherTrainFactor, weatherSeedFrom } from "./calendar.js";
 import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
@@ -157,6 +159,7 @@ export function newGame(seed = Date.now() >>> 0) {
   autoLineup(s);
   scout(s, true);
   note(s, "Welcome home, Coach! Choose a duel or enter a league from the Meets board.", "story");
+  ensureInvitations(s);
   return ensureCustom(s);
 }
 
@@ -366,6 +369,7 @@ export function advanceDay(s) {
   if (s.day % 7 === 0) report.week = payWeek(s);
   if (s.day === s.matchDay) note(s, "Meet day! Lineups to the call room.", "meet");
   report.goals = checkGoals(s);
+  report.invitation = invitationDay(s);
   report.event = rollStoryEvent(s);
   return report;
 }
@@ -691,7 +695,8 @@ export function table(s) {
 export function leaveMatch(s) {
   const m = s.match;
   if (!m?.settled) return false;
-  if (m.kind === "duel") {
+  if (m.kind === "duel" || m.kind === "cup") {
+    if (m.kind === "cup") closeInvitation(s);
     s.match = null;
     s.competition = null;
     s.phase = "planning";

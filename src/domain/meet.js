@@ -24,6 +24,7 @@ import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
 import { WEATHER, weatherToday } from "./calendar.js";
 import { venueFor } from "./venues.js";
+import { invitation, clubById, settleInvitation } from "./invitational.js";
 
 export const best = (marks) => {
   const valid = marks.filter((x) => x != null);
@@ -31,6 +32,7 @@ export const best = (marks) => {
 };
 export function opponent(s) {
   if (!s.competition) return null;
+  if (s.competition.kind === "cup") return invitation(s)?.club;
   if (s.competition.kind === "duel") return s.clubs.find((c) => c.id === s.competition.rival);
   if (s.fixture < 3) return s.clubs[s.fixture];
   return s.clubs.find((c) => c.id === s.finalOpponent);
@@ -127,7 +129,7 @@ export function meetVenue(s) {
   if (!booked) return null;
   return venueFor(s, { ...booked, tier: competitionTier(s), club: m ? matchClub(s) : opponent(s), invitation: s.invitations?.offer });
 }
-export const matchClub = (s) => s.match?.kind === "cup" ? s.invitations?.offer?.club : s.clubs.find((c) => c.id === s.match?.opponentId);
+export const matchClub = (s) => clubById(s, s.match?.opponentId);
 export function startMatch(s) {
   if (s.match || !s.competition || s.phase !== "season" || s.day < s.matchDay || s.pendingEvent || lineupProblem(s)) return false;
   const rival = opponent(s);
@@ -149,7 +151,7 @@ export function startMatch(s) {
     weather: weatherToday(s),
     wind: weatherToday(s)==="windy" ? (random(s)<0.5?"headwind":"crosswind") : ["calm","calm","headwind","crosswind"][Math.floor(random(s)*4)],
     attempts: 3,
-    championship: kind === "final",
+    championship: kind === "final" || kind === "cup",
     entryIndex: 0,
     finalRound: false,
     fields: EVENT_IDS.map((ev, i) => ({
@@ -360,7 +362,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
   on(afterFoul, "afterFoul", "Second Wind");
   on(trailing, "trailing", "Rival Hunter");
   on(leading, "leading", "Front Runner");
-  on(c.m.kind === "final", "final", "Big Stage");
+  on(c.m.kind === "final" || c.m.kind === "cup", "final", "Big Stage");
   const teamBehind = side === "home" ? c.m.score < c.m.against : c.m.against < c.m.score;
   on(teamBehind, "teamTrailing", "Anchor");
   if (fx.streak) {
@@ -596,7 +598,7 @@ export function settleMatch(s) {
   const m = s.match;
   if (!m || m.settled || !eventScores(m).every((e) => e.done)) return;
   rescore(m);
-  if (m.kind === "final" && meetOutcome(m) === 0) {
+  if ((m.kind === "final" || m.kind === "cup") && meetOutcome(m) === 0) {
     const total = eventScores(m).reduce((n, e) => n + (e.home || 0) / EVENTS[e.event].max - (e.away || 0) / EVENTS[e.event].max, 0);
     m.tieBreak = true;
     m.tieBreakWinner = total >= 0 ? "home" : "away";
@@ -611,6 +613,7 @@ export function settleMatch(s) {
   let money = 150 + 100 * L + 50 * eventWins + (win ? 120 + 60 * L + (sponsor.winBonus || 0) : 0);
   if (!win && !draw && sponsor.lossPenalty) money -= sponsor.lossPenalty;
   if (m.kind === "duel") money = Math.round(money * 0.6);
+  if (m.kind === "cup") money = Math.round(money * 1.5);
   s.money += money;
   let fans = win ? 15 + 10 * L : draw ? 6 + 4 * L : 3 + 2 * L;
   fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue")) * (win && m.home ? 1 + 0.2 * facilityLevel(s, "lights") : 1);
@@ -669,13 +672,16 @@ export function settleMatch(s) {
   rewards.insights = meetInsights(s,rewards.pbs.length);
   rewards.fans = Math.round(fans);
   s.fans += rewards.fans;
-  // A reward chest: wins always drop something, finals drop more.
-  const drops = win ? (m.kind === "final" ? 2 : 1) : random(s) < 0.35 ? 1 : 0;
-  for (let n = 0; n < drops; n++) {
-    const rarity = win ? rollRarity(s, 0.15 * L + (m.kind === "final" ? 0.6 : 0)) : "common";
-    const item = randomItem(s, rarity, (d) => win || d.kind === "use");
-    addItem(s, item);
-    rewards.items.push(item);
+  if (m.kind === "cup") settleInvitation(s, win, rewards);
+  else {
+    // A reward chest: wins always drop something, finals drop more.
+    const drops = win ? (m.kind === "final" ? 2 : 1) : random(s) < 0.35 ? 1 : 0;
+    for (let n = 0; n < drops; n++) {
+      const rarity = win ? rollRarity(s, 0.15 * L + (m.kind === "final" ? 0.6 : 0)) : "common";
+      const item = randomItem(s, rarity, (d) => win || d.kind === "use");
+      addItem(s, item);
+      rewards.items.push(item);
+    }
   }
   count(s, "meets");
   if (win) count(s, "meetWins");
