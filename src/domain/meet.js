@@ -30,7 +30,11 @@ export function opponent(s) {
   if (s.fixture < 3) return s.clubs[s.fixture];
   return s.clubs.find((c) => c.id === s.finalOpponent);
 }
-export const usesOf = (s, id, lineup = s.lineup) => EVENT_IDS.filter((ev) => lineup[ev] === id).length;
+export const usesOf = (s, id, lineup = s.lineup) => {
+  if (lineup === s.match?.lineup && s.match.fields) return s.match.fields.filter((f) => f.home.some((e) => e.id === id)).length;
+  if (lineup === s.lineup && s.entries) return EVENT_IDS.filter((ev) => s.entries[ev].includes(id)).length;
+  return EVENT_IDS.filter((ev) => lineup[ev] === id).length;
+};
 export const entriesOf = (s, ev) => s.entries?.[ev] ?? (s.lineup[ev] ? [s.lineup[ev]] : []);
 export function lineupProblem(s) {
   const all = EVENT_IDS.flatMap((ev) => entriesOf(s, ev));
@@ -209,7 +213,7 @@ export function canSignature(s, side = "home") {
 }
 export function projected(s, side = "home") {
   const c = context(s, side);
-  return forecast(s, c.athlete, c.ev, { club: side === "home", doubleDuty: side === "home" && usesOf(s, c.athlete.id, s.match.lineup) > 1 });
+  return forecast(s, c.athlete, c.ev, { club: side === "home", doubleDuty: side === "home" ? usesOf(s, c.athlete.id, s.match.lineup) > 1 : (s.match.fields?.filter((f) => f.away.some((e) => e.id === c.athlete.id)).length || 0) > 1 });
 }
 export function autoTactic(s, side = "home") {
   const c = context(s, side),
@@ -278,7 +282,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= 1 + fx.crowd * Math.max(0.25, fansFactor(s));
     acts.push(sourceName(a, "crowd") || "Showtime");
   }
-  const squad = side === "home" ? EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev])) : s.clubs.find((x) => x.id === c.m.opponentId).athletes;
+  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : s.clubs.find((x) => x.id === c.m.opponentId).athletes;
   const captain = squad.find((x) => x && equippedSkills(x, "meet").includes("captain"));
   if (captain) {
     mult *= SKILLS.captain.captain;
@@ -297,7 +301,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
   const sd = T.sd * fx.variance * (1.25 - focus / 200),
     mean = T.mean + (tactic === "attack" ? fx.attackBoost : 0),
     qm = quality === "perfect" ? 1.02 + (fx.perfect ? 0.01 : 0) : quality === "poor" ? 0.95 : 1;
-  const P = forecast(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" && usesOf(s, a.id, c.m.lineup) > 1 });
+  const P = forecast(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
   const center = P * mean * qm * mult;
   return { foul, sd, center, low: center * (1 - sd * 1.6), high: center * (1 + sd * 1.6), acts, fx, P };
 }

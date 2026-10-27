@@ -50,7 +50,7 @@ import {
   planFacility,
 } from "./core.js";
 import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
-import { autoLineup, meetOutcome } from "./meet.js";
+import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 
 import { competitionTier, competitionName, circuitKey, TITLE_GIFTS } from "./competition.js";
 export * from "./competition.js";
@@ -548,7 +548,7 @@ export function chooseSponsor(s, id) {
   return true;
 }
 export function medicalDay(s) {
-  if (s.match || s.pendingEvent || s.phase !== "season" || s.day < s.matchDay || !EVENT_IDS.some((ev) => s.roster.find((a) => a.id === s.lineup[ev])?.injury)) return false;
+  if (s.match || s.pendingEvent || s.phase !== "season" || s.day < s.matchDay || !EVENT_IDS.some((ev) => entriesOf(s, ev).some((id) => s.roster.find((a) => a.id === id)?.injury))) return false;
   s.matchDay++;
   const r = advanceDay(s);
   note(s, "A medical postponement gives the squad a recovery day.", "warn");
