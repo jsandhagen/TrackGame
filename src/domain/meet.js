@@ -18,6 +18,7 @@ import {
 } from "./core.js";
 import { checkGoals } from "./story.js";
 import { competitionTier } from "./competition.js";
+import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
 
 export const best = (marks) => {
@@ -508,6 +509,7 @@ export function settleMatch(s) {
     grantXp(s,a,30*(m.kind === "duel" ? 0.7:1),rewards.levelUps);
     rewards.development.push(...checkDevelopment(s,a));
   }
+  rewards.insights = meetInsights(s,rewards.pbs.length);
   rewards.fans = Math.round(fans);
   s.fans += rewards.fans;
   // A reward chest: wins always drop something, finals drop more.

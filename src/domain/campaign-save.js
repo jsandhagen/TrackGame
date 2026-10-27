@@ -200,6 +200,8 @@ function checkAthlete(a, ids, rival = false) {
     if (list !== null && (!Array.isArray(list) || list.length > slotsOf(a) || new Set(list).size !== list.length || list.some((k) => !a.skills.includes(k)))) bad();
     if (presets.enabled && !Array.isArray(list)) bad();
   }
+  a.coachedDay ??= 0;
+  if (!int(a.coachedDay,0,1e7)) bad();
   a.seasonStart ??= statTotal(a);
   a.seasonPoints ??= 0;
   a.seasonPbs ??= 0;
@@ -242,8 +244,12 @@ export function validateCampaign(input) {
     data = fromV3(data);
   }
   if (data?.v === 5) { if (!int(data.league,0,4)) bad(); data = fromV5(data); }
+  if (data?.v === 6) {
+    data.coaching = { insights: 8, unlocked: [], practiceDays: 0 };
+    data.v = 7;
+  }
   const s = data;
-  if (!s || s.v !== 6 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7)) bad();
+  if (!s || s.v !== 7 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7)) bad();
   if (!num(s.money, -1e9, 1e12) || !num(s.fans, 0, 1e12) || !["planning", "season", "seasonEnd"].includes(s.phase) || !int(s.fixture, 0, 3)) bad();
   if (s.phase === "planning") {
     if (s.competition !== null || s.matchDay !== null || s.match) bad();
@@ -259,6 +265,8 @@ export function validateCampaign(input) {
   for (const list of [s.circuit.cleared, s.circuit.duels]) {
     if (list.length > 15 || new Set(list).size !== list.length || list.some((k) => typeof k !== "string" || !/^[0-4]:[0-2]$/.test(k))) bad();
   }
+  if (!s.coaching || !int(s.coaching.insights,0,1e9) || !int(s.coaching.practiceDays,0,1e9) || !Array.isArray(s.coaching.unlocked) || new Set(s.coaching.unlocked).size !== s.coaching.unlocked.length || s.coaching.unlocked.some((id) => !PLANS[id]?.course)) bad();
+  for (const a of s.roster || []) if (PLANS[a.plan]?.course && !s.coaching.unlocked.includes(a.plan)) bad();
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
   if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
   for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, 3))) bad();
@@ -297,7 +305,7 @@ export function validateCampaign(input) {
 }
 export const exportCampaign = (state) => ({
   format: "ring-sector-save",
-  version: 6,
+  version: 7,
   exportedAt: new Date().toISOString(),
   state: validateCampaign(state),
 });

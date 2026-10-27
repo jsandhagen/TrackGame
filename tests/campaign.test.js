@@ -330,7 +330,7 @@ test("goals pay out once, story events resolve, and secret characters arrive whe
 test("v3 careers migrate: athletes, gear, facilities and an interrupted meet are preserved safely", () => {
   const old = v3();
   const s = validateCampaign(old);
-  assert.equal(s.v, 6);
+  assert.equal(s.v, 7);
   assert.equal(s.roster.length, old.roster.length);
   assert.equal(s.roster[0].name, old.roster[0].name);
   assert.deepEqual(s.roster[0].skills, ["icevein"]);
@@ -347,7 +347,7 @@ test("v3 careers migrate: athletes, gear, facilities and an interrupted meet are
 test("0.5 development saves (v4) move onto the stadium layout and keep an active meet", () => {
   const old = JSON.parse(readFileSync(new URL("./fixtures/v4-career.json", import.meta.url)));
   const s = validateCampaign(old);
-  assert.equal(s.v, 6);
+  assert.equal(s.v, 7);
   assert.equal(s.plots[9].type, "club");
   assert(s.plots.some((p) => p?.type === "cafe") && s.plots.some((p) => p?.type === "spa") && s.plots.some((p) => p?.type === "gym"));
   assert.equal(s.stadium.shot, 2);

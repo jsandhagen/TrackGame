@@ -55,6 +55,8 @@ import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 import { competitionTier, competitionName, circuitKey, TITLE_GIFTS } from "./competition.js";
 export * from "./competition.js";
 export * from "./development.js";
+export * from "./coaching.js";
+import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
 export * from "./core.js";
 export * from "./meet.js";
 export * from "./story.js";
@@ -63,7 +65,8 @@ export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutc
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
-    v: 6,
+    v: 7,
+    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0 },
     rng: seed >>> 0 || 1,
     nextId: 1,
     clubName: "Ring & Sector",
@@ -180,7 +183,7 @@ export function plannedActivity(s, a) {
   const left = s.matchDay == null ? Infinity : s.matchDay - s.day;
   if (a.autoTaper && left <= 1) return a.stamina < 70 ? "rest" : "sharpen";
   if (a.autoRest && a.stamina < 25) return "rest";
-  return a.plan;
+  return planProblem(s,a,a.plan) ? "balanced" : a.plan;
 }
 export function visitorsPerDay(s) {
   const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.15 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);
@@ -199,7 +202,7 @@ export function clubCondition(s) {
 export function trainingGains(s, a, planId, fx = effects(s, a)) {
   const plan = PLANS[planId],
     gains = [0, 0, 0, 0];
-  if (!plan || planId === "rest") return gains;
+  if (!plan || planId === "rest" || planProblem(s,a,planId)) return gains;
   const base = 0.38,
     cap = capOf(a),
     mood = MOOD_TRAIN[moodOf(a)];
@@ -207,7 +210,7 @@ export function trainingGains(s, a, planId, fx = effects(s, a)) {
     let g;
     if (plan.stat != null) {
       const lvl = facilityLevel(s, planFacility(plan, a));
-      g = plan.stat === i ? base * 2 * (lvl ? 1 + 0.25 * lvl : 0.8) : base * 0.22;
+      g = plan.stat === i ? base * 2 * (plan.rate || 1) * (lvl ? 1 + 0.25 * lvl : 0.8) : base * (plan.secondary?.[0] === i ? plan.secondary[1] : 0.22);
     } else g = base * (planId === "sharpen" ? 0.15 : 0.62);
     const room = clamp((cap - a.stats[i]) / (cap * 0.55), 0.06, 1);
     g *= fx.gain * fx.train[i] * mood * room;
@@ -259,6 +262,7 @@ export function advanceDay(s) {
     a.condition = clamp(a.condition, fx.condFloor, 100);
     report.athletes.push(entry);
   }
+  report.insights = practiceInsights(s,report.athletes.some((e) => e.gains.some((v) => v > 0)));
   // Visitors wander the grounds and spend at the café and merch stand.
   const visitors = visitorsPerDay(s);
   report.visitors = visitors;

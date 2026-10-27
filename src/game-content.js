@@ -50,13 +50,19 @@ export const BACKGROUNDS = {
 
 // Training menu. Each focused plan sends the athlete to its facility on the grounds.
 export const PLANS = {
-  balanced: { name: "All-round", short: "All-round", load: 0.85, cond: 0, desc: "Steady gains in every stat: laps and circuits." },
+  balanced: { name: "All-round", short: "All-round", load: 0.85, cond: 0, desc: "General preparation: mobility, strength circuits, short runs and throwing drills." },
   power: { name: "Power", short: "Power", stat: 0, facility: "gym", load: 1, cond: -1, desc: "Lifting in the Strength Room." },
   technique: { name: "Technique", short: "Technique", stat: 1, facility: "event", load: 1, cond: -1, desc: "Throwing drills at their own circle, cage or runway." },
   speed: { name: "Speed", short: "Speed", stat: 2, facility: "track", load: 1, cond: -1, desc: "Sprints and bounds on the track." },
   focus: { name: "Focus", short: "Focus", stat: 3, facility: "studio", load: 0.7, cond: 0, desc: "Film study in the Video room." },
   sharpen: { name: "Sharpen", short: "Sharpen", load: 0.45, cond: 7, desc: "Light competition prep. Lifts condition." },
   rest: { name: "Rest", short: "Rest", facility: "spa", load: 0, cond: 3, desc: "Recover stamina. Better with a Recovery Spa." },
+  strengthblock: { name: "Maximum-strength block", short: "Strength block", stat: 0, facility: "gym", load: 1.35, cond: -2, rate: 1.55, course: true, cost: 16, needs: [["gym",2]], desc: "Squats, pulls and presses build force for the delivery. Greater power gains, with a heavier recovery cost." },
+  elasticblock: { name: "Elastic-strength block", short: "Elastic strength", stat: 2, facility: "track", load: 1.15, cond: -1, rate: 1.35, secondary: [0,0.35], course: true, cost: 18, needs: [["track",2],["gym",1]], desc: "Bounds, short accelerations and medicine-ball throws develop speed-strength for the ring and runway." },
+  technicalblock: { name: "Event technique block", short: "Event technique", stat: 1, facility: "event", load: 1.1, cond: -1, rate: 1.45, course: true, cost: 14, needs: [["event",2]], desc: "Progress from part drills to connected throws with the competition implement. Uses the athlete's own circle, cage or runway." },
+  filmblock: { name: "Video feedback block", short: "Video feedback", stat: 3, facility: "studio", load: 0.55, cond: 1, rate: 1.25, secondary: [1,0.3], course: true, cost: 18, needs: [["studio",1]], desc: "Review release positions and rehearse a repeatable pre-throw routine. Focus with some technique, at lower physical load." },
+  rhythmblock: { name: "Event rhythm block", short: "Event rhythm", stat: 2, facility: "event", load: 1.2, cond: -1, rate: 1.25, secondary: [1,0.5], course: true, cost: 24, needs: [["event",2],["track",2]], desc: "Connect rhythm and delivery: turn timing in the rotational throws, glide-to-delivery in shot, or crossover-to-block in javelin." },
+  competitionblock: { name: "Competition rehearsal", short: "Meet rehearsal", stat: 3, facility: "event", load: 0.8, cond: 3, rate: 1.2, secondary: [1,0.45], course: true, cost: 28, needs: [["event",3],["studio",1]], desc: "Rehearse a three-throw series: call-up, time limit, a legal opener and recovery between attempts. Focus and technique." },
 };
 
 // Skill effect keys used by the engine:
@@ -153,13 +159,13 @@ export const SLOT_NAMES = { implement: "Implement", shoes: "Shoes", charm: "Char
 // The stadium: fixed installations that are upgraded in place.
 // cost[k] / league[k] = price and league needed to go from level k to k + 1.
 export const STADIUM = {
-  track: { name: "Track", levels: ["Grass loop", "Cinder track", "Synthetic track", "Championship track"], cost: [0, 650, 1600], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level." },
-  shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +25% per level." },
-  discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1000], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +25% per level." },
-  hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 1050], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +25% per level." },
-  jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +25% per level." },
+  track: { name: "Track", levels: ["Grass loop", "Cinder track", "Synthetic track", "Championship track"], cost: [0, 650, 1600], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level. Enables acceleration drills; level 2 supports elastic-strength blocks." },
+  shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1000], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 1050], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
   stands: { name: "Grandstand", levels: ["Grass banks", "Main stand", "Covered stands", "Full bowl"], cost: [500, 1200, 2600], league: [0, 1, 3], start: 0, max: 3, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level." },
-  studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 800, 1500], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +25% per level." },
+  studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 800, 1500], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +25% per level. Enables video sessions and feedback plans; meet reviews generate extra Insights." },
   lights: { name: "Floodlights", levels: ["None", "Floodlights", "Stadium lights"], cost: [900, 1800], league: [2, 3], start: 0, max: 2, desc: "Evening meets: +20% fans from home wins per level and a brighter crowd." },
 };
 export const STADIUM_IDS = Object.keys(STADIUM);
@@ -168,8 +174,8 @@ export const THROW_SPOTS = ["shot", "discus", "hammer", "jav"];
 // Buildings on the plots around the stadium.
 export const FACILITIES = {
   club: { name: "Clubhouse", cost: 0, league: 0, fixed: true, color: "#c0784a", desc: "Home. Each level: +$60 weekly income and +1 daily condition." },
-  gym: { name: "Strength Room", cost: 280, league: 0, stat: 0, color: "#d08a50", desc: "Power training +25% per level." },
-  spa: { name: "Recovery Spa", cost: 340, league: 0, color: "#6ab0b0", desc: "Rest recovers +12 stamina per level. Injuries heal faster." },
+  gym: { name: "Strength Room", cost: 280, league: 0, stat: 0, color: "#d08a50", desc: "Power training +25% per level. Enables coached strength sessions; level 2 supports maximum-strength blocks." },
+  spa: { name: "Recovery Spa", cost: 340, league: 0, color: "#6ab0b0", desc: "Rest recovers +12 stamina per level. Injuries heal faster. Reduces the stamina cost of coached sessions." },
   cafe: { name: "Canteen Café", cost: 300, league: 0, color: "#e0a050", desc: "Visitors spend $2 per level. +1 daily condition." },
   shop: { name: "Merch Stand", cost: 380, league: 0, color: "#d0605a", desc: "Visitors spend $3 per level. +1 fan a day per level." },
   garden: { name: "Club Garden", cost: 150, league: 0, decor: true, color: "#78a858", desc: "+1 daily team condition per level. Visitors love it. You can plant more than one." },
@@ -177,7 +183,7 @@ export const FACILITIES = {
   dorm: { name: "Dormitory", cost: 450, league: 0, color: "#a08a6a", desc: "Room for +2 athletes per level (base squad of 6)." },
   scout: { name: "Scout Office", cost: 500, league: 1, color: "#7a8a5a", desc: "Rarer recruits and −15% scouting cost per level." },
   workshop: { name: "Kit Workshop", cost: 560, league: 1, color: "#9a7a5a", desc: "Forge gear: +0.6% distance per forge level. −10% forge cost per level." },
-  lab: { name: "Sports Lab", cost: 800, league: 2, color: "#7ab0d0", desc: "XP +10% per level." },
+  lab: { name: "Sports Lab", cost: 800, league: 2, color: "#7ab0d0", desc: "XP +10% per level. Adds a Coaching Insight every third productive training day." },
   statue: { name: "Champion Statue", cost: 900, league: 0, needsTitle: true, color: "#c8b078", desc: "Needs a title. +2 fans a day per level; fans from wins +10%." },
 };
 export const FACILITY_IDS = Object.keys(FACILITIES);

@@ -102,6 +102,7 @@ export function createAthlete(s, event, o = {}) {
     plan: "balanced",
     autoRest: true,
     autoTaper: true,
+    coachedDay: 0,
     sessions: 0,
     meets: 0,
     pb: {},

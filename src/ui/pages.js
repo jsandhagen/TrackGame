@@ -73,11 +73,11 @@ export function home(s, view) {
     ${ready ? btn(ico("stadium") + " To the stadium", "lobby") : btn(view.playing ? ico("pause") + " Pause" : ico("play") + " Train · " + days + (days === 1 ? " day" : " days") + " to the meet", view.playing ? "pause" : "play")}
     <div class="split">${btn("Advance one day", "day", ready || view.playing ? "disabled" : "", "subtle")}${btn(ico("league") + " Meets", "page", 'data-page="league"', "subtle")}</div>
   </article>`}
-  <div class="budget"><span>${ico("coin")} Weekly <b class="${G.weeklyIncome(s) < G.wages(s) ? "neg" : ""}">${G.weeklyIncome(s) >= G.wages(s) ? "+" : ""}${cash(G.weeklyIncome(s) - G.wages(s))}</b></span><span>${ico("heart")} Visitors <b>${G.visitorsPerDay(s)}/day</b></span></div>
+  <div class="budget"><span>Coaching Insights <b>${s.coaching.insights}</b></span><span>${ico("coin")} Weekly <b class="${G.weeklyIncome(s) < G.wages(s) ? "neg" : ""}">${G.weeklyIncome(s) >= G.wages(s) ? "+" : ""}${cash(G.weeklyIncome(s) - G.wages(s))}</b></span><span>${ico("heart")} Visitors <b>${G.visitorsPerDay(s)}/day</b></span></div>
   <section class="card"><div class="card-title"><h2>${ico("target")} Club goals</h2>${btn("All goals", "page", 'data-page="club"', "text")}</div>
     ${G.openGoals(s, 3).map((g) => goalRow(s, g)).join("") || "<p class='hint'>Every goal complete. Legendary!</p>"}
   </section>
-  <div class="section-title"><h2>Training</h2><label class="bulk">Everyone <select data-change="bulk">${new Set(s.roster.map((a) => a.plan)).size > 1 ? "<option disabled selected>Mixed</option>" : ""}${Object.entries(PLANS).map(([id, p]) => `<option value="${id}" ${s.roster.every((a) => a.plan === id) ? "selected" : ""}>${p.name}</option>`).join("")}</select></label></div>
+  <div class="section-title"><h2>Training</h2><label class="bulk">Everyone <select data-change="bulk">${new Set(s.roster.map((a) => a.plan)).size > 1 ? "<option disabled selected>Mixed</option>" : ""}${Object.entries(PLANS).filter(([id]) => s.roster.every((a) => !G.planProblem(s,a,id))).map(([id, p]) => `<option value="${id}" ${s.roster.every((a) => a.plan === id) ? "selected" : ""}>${p.name}</option>`).join("")}</select></label></div>
   <div class="roster-strip">${s.roster.map((a) => rosterRow(s, a)).join("")}</div>
   <p class="hint">Focused plans send athletes to their facility: Power to the Strength Room, Technique to their own circle, cage or runway, Speed to the track, Focus to the Video room. Tired athletes rest automatically.</p>
   <section class="card journal"><div class="card-title"><h2>${ico("news")} Club journal</h2></div>${s.log.slice(0, 5).map((l) => `<p class="log ${l.kind}">${esc(l.text)}</p>`).join("")}</section>`;
@@ -92,7 +92,7 @@ function rosterRow(s, a) {
   return `<div class="roster-row rarity-${a.rarity}">
     <button class="who" data-act="athlete" data-id="${a.id}">${portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · OVR ${G.overall(a)} ${mood(a)}</small></span></button>
     ${stamina(a)}
-    <select data-change="plan" data-id="${a.id}" aria-label="Training plan for ${esc(a.name)}">${Object.entries(PLANS).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.name}</option>`).join("")}</select>
+    <select data-change="plan" data-id="${a.id}" aria-label="Training plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s,a,id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.name}</option>`).join("")}</select>
     <span class="doing">${label && act !== a.plan ? chip(label, "#88b0d0") : ""}${alerts(s, a)}</span>
   </div>`;
 }
@@ -146,13 +146,22 @@ function athletePage(s, a, view) {
   if (tab === "stats") body += developmentCard(a);
   if (tab === "train") {
     const perWeek = G.trainingGains(s, a, a.plan).map((g) => g * 5);
-    body = `<div class="plan-grid">${Object.entries(PLANS)
+    body = `<section class="card"><h3>Coaching Insights · ${s.coaching.insights}</h3><p>Earn Insights from productive training days and meet reviews. Spend them on a focused session or unlock a permanent training plan. Video facilities improve meet reviews; the Sports Lab adds Insights from practice.</p></section>
+    <section class="card"><h3>Coached sessions</h3><p>One session per athlete per day, in addition to their daily plan. Sessions use stamina, so leave recovery time before a meet.</p>
+    ${Object.entries(G.DRILLS).map(([id,d]) => {
+      const problem = G.drillProblem(s,a,id);
+      return `<article class="coaching-drill"><h4>${d.name}</h4><p>${esc(id === "delivery" ? G.EVENT_DRILLS[a.event] : d.desc)}</p><small>${d.gains.map((n,i) => n ? STAT_NAMES[i] : "").filter(Boolean).join(" & ")} · ${d.cost} Insights · ${G.drillEnergy(s,id)} stamina</small>${btn(problem || "Coach this session", "coach-session", `data-id="${a.id}" data-drill="${id}" ${problem ? "disabled" : ""}`, "subtle")}</article>`;
+    }).join("")}</section>
+    <h3>Daily training plans</h3><div class="plan-grid">${Object.entries(PLANS)
       .map(([id, p]) => {
         const at = p.facility === "event" ? a.event : p.facility;
         const lvl = at ? G.facilityLevel(s, at) : 0,
           name = at ? (STADIUM[at] || FACILITIES[at]).name : null;
         const where = at ? (lvl ? name + " Lv " + lvl + (p.stat != null ? " · +" + lvl * 25 + "%" : "") : p.stat != null ? "No " + name + " yet · −20%" : "Clubhouse") : id === "balanced" ? "Laps of the track" : "Light drills";
-        return `<button class="plan ${a.plan === id ? "selected" : ""}" data-act="plan" data-id="${a.id}" data-value="${id}"><strong>${p.name}</strong><small>${p.desc}</small><em>${where}</em></button>`;
+        const problem = G.planProblem(s,a,id);
+        const unlockable = p.course && !s.coaching.unlocked.includes(id);
+        const unlockProblem = G.facilityProblem(s,a,p.needs) || (s.coaching.insights < p.cost ? "Not enough Insights" : null);
+        return `<button class="plan ${a.plan === id ? "selected" : ""}" data-act="${unlockable ? "unlock-plan" : "plan"}" data-id="${a.id}" data-value="${id}" ${(unlockable ? unlockProblem : problem) ? "disabled" : ""}><strong>${p.name}</strong><small>${p.desc}</small><em>${unlockable ? "Unlock · " + p.cost + " Insights · " : ""}${problem && (!unlockable || unlockProblem) ? esc(unlockProblem || problem) : where}</em></button>`;
       })
       .join("")}</div>
     <p class="hint">Five days of this plan add about ${perWeek.map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_NAMES[i] : "")).filter(Boolean).join(", ") || "less than one point"} and cost ${a.plan === "rest" ? "no" : Math.round(PLANS[a.plan].load * 13 * G.effects(s, a).stamina)} stamina a day.</p>
@@ -461,7 +470,7 @@ export function meetComplete(s) {
   <div class="event-results">${G.eventScores(m).map((e) => `<div class="${e.h > e.a ? "won" : e.a > e.h ? "lost" : ""}"><span>${EVENTS[e.event].name}</span><b>${mark(e.home)}</b><small>vs ${mark(e.away)}</small><strong>${e.h}:${e.a}</strong></div>`).join("")}</div>
   ${m.fields ? `<section class="card"><h3>Individual placings · 5–3–1</h3>${G.eventScores(m).map((e) => `<h4>${EVENTS[e.event].name}</h4>${e.placings.map((row) => `<p>${row.place || "NM"}. ${esc((row.side === "home" ? s.roster : s.clubs.find((c) => c.id === m.opponentId).athletes).find((a) => a.id === row.id)?.name)} · ${mark(row.mark)} · ${row.points} pts${m.championship ? " · " + row.marks.length + " throws" : ""}</p>`).join("")}`).join("")}</section>` : ""}
   <section class="card rewards"><div class="card-title"><h2>${ico("gift")} Rewards</h2></div>
-    <div class="reward-line"><span>${ico("coin")} ${cash(r.money)}</span><span>${ico("heart")} +${r.fans} fans</span>${r.mvp ? `<span>${ico("star")} MVP ${esc(r.mvp.name)}</span>` : ""}</div>
+    <div class="reward-line"><span>+${r.insights || 0} Coaching Insights</span><span>${ico("coin")} ${cash(r.money)}</span><span>${ico("heart")} +${r.fans} fans</span>${r.mvp ? `<span>${ico("star")} MVP ${esc(r.mvp.name)}</span>` : ""}</div>
     ${r.items.length ? `<div class="drops">${r.items.map((k, n) => `<div class="drop rarity-${ITEMS[k].rarity}" style="--delay:${n * 0.35 + 0.3}s">${icon(k, 40)}<strong>${ITEMS[k].name}</strong><small>${RARITY[ITEMS[k].rarity].name}</small></div>`).join("")}</div>` : ""}
     ${r.firstDuel ? `<p class="pb-line">First victory over this club! Bonus funds and a skill scroll earned.</p>` : ""}
     ${(r.development || []).map((d) => `<p class="pb-line">${ico("star")} ${esc(d.name)} · ${esc(d.milestone)} · ${esc(d.reward)}</p>`).join("")}

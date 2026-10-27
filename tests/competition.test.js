@@ -176,7 +176,7 @@ test('v5 careers retain their current championship and completed invitations', (
   old.clubs = G.makeClubs(old, 2);
   delete old.circuit; delete old.competition; delete old.clubTier; delete old.clubStage;
   const s = validateCampaign(old);
-  assert.equal(s.v, 6);
+  assert.equal(s.v, 7);
   assert.equal(s.competition.stage, 2);
   assert.equal(s.competition.tier, 2);
   assert.equal(s.circuit.cleared.length, 8);

@@ -2714,3 +2714,8 @@ dialog[open] {
   .competition-grid, .calendar-options { grid-template-columns: 1fr; }
   .duel-card { align-items: flex-start; }
 }
+
+.coaching-drill { padding: 12px 0; border-bottom: 1px solid #68745833; }
+.coaching-drill h4 { margin: 4px 0; }
+.coaching-drill small { display:block; margin: 8px 0; }
+.coaching-drill .button { white-space: normal; }

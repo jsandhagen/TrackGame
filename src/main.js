@@ -552,9 +552,21 @@ $("#app").addEventListener("click", async (e) => {
     case "tab":
       view.tab = b.dataset.tab;
       return render(false);
+    case "coach-session": {
+      stopPlaying();
+      const result = G.coachSession(state,id,b.dataset.drill);
+      if (result) {
+        toast("Session complete · " + result.gains.map((n,i) => n > 0 ? "+" + n.toFixed(1) + " " + ["Power","Technique","Speed","Focus"][i] : "").filter(Boolean).join(" · "), "level");
+        sfx("level"); world.replan();
+      } else toast("That session isn't available right now.","warn");
+      break;
+    }
+    case "unlock-plan":
+      if (G.unlockPlan(state,id,b.dataset.value)) toast("Unlocked " + PLANS[b.dataset.value].name + " for the club. Select it to begin.","level");
+      break;
     case "plan": {
       const a = state.roster.find((x) => x.id === id);
-      if (a && PLANS[b.dataset.value]) a.plan = b.dataset.value;
+      if (a) G.setTrainingPlan(state,a.id,b.dataset.value);
       world.replan();
       break;
     }
@@ -743,8 +755,8 @@ $("#app").addEventListener("change", (e) => {
   const el = e.target,
     kind = el.dataset.change,
     a = state.roster.find((x) => x.id === +el.dataset.id);
-  if (kind === "bulk" && PLANS[el.value]) state.roster.forEach((x) => (x.plan = el.value));
-  if (kind === "plan" && a && PLANS[el.value]) a.plan = el.value;
+  if (kind === "bulk") state.roster.forEach((x) => G.setTrainingPlan(state,x.id,el.value));
+  if (kind === "plan" && a) G.setTrainingPlan(state,a.id,el.value);
   if (kind === "plan" || kind === "bulk") world.replan();
   if (kind === "booking-preparation") view.preparation = +el.value;
   if (kind === "booking-spacing") view.spacing = +el.value;
