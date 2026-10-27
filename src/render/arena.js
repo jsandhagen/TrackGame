@@ -249,7 +249,7 @@ function stands(g, s, season) {
       }
       // Remember places where people sit: the front of each seat row.
       const seatRow = c.frac < 0.2 && !wing(x, c) && !aisle(x, y, c);
-      const roofed = lvl >= 4 && c.q > 0.45 && c.zone !== "back";
+      const roofed = lvl >= 4 && c.q > RING.inner - 0.05 && c.zone !== "back";
       if (!roofed && seatRow && x % 3 === 0) spots.push([x, sy, true, id]);
     }
   }
@@ -291,45 +291,79 @@ function mainRoof(g, s, season) {
   if (s.stadium.lights >= 2) for (let x = x0 + 10; x < x1 - 6; x += 14) rect(g, x, frontY + 1, 3, 1, "#fff4cb");
   text(g, stadiumNameOf(s).toUpperCase().slice(0, 26), CENTER.x, topY + 8, { color: shade(c, -0.35), outline: null, align: "center" });
 }
-// Olympic bowl: a ring roof all the way round, solid over the far side and a translucent
-// membrane over the near side so the track stays in view.
+// Olympic bowl: a ring roof over the outer half of the stands, all the way round. It sits a
+// little above the stand beneath it (high over the main stand, lower over the near stand), so
+// in this view it reads as a continuous band. Over the near side it is a translucent membrane
+// so the track stays in view. It is drawn into its own layer and composited once, so the
+// translucent part blends evenly.
+const RING = { inner: 0.5, zFar: 60, zEnd: 48, zNear: 30 };
+function ringRoofZ(x, y) {
+  const s = Math.sin(Math.atan2((y - CENTER.y) / (BOWL.h / 2), (x - CENTER.x) / (BOWL.w / 2)));
+  return s < 0 ? RING.zEnd + (RING.zFar - RING.zEnd) * -s : RING.zEnd + (RING.zNear - RING.zEnd) * s;
+}
 function ringRoof(g, s, season) {
   if (s.stadium.stands < 4) return;
-  const c = season === 3 ? "#f2f5f8" : roofColorOf(s),
-    outer = BOWL,
-    inner = ringAt(0.45);
-  const edges = (b, x) => {
-    if (x < b.x || x >= b.x + b.w) return null;
-    let y0 = null,
-      y1 = null;
-    for (let y = Math.floor(b.y); y < b.y + b.h; y++)
-      if (inside(b, x, y)) {
-        if (y0 == null) y0 = y;
-        y1 = y;
-      }
-    return y0 == null ? null : [y0, y1];
+  const base = rgb(season === 3 ? "#f2f5f8" : roofColorOf(s)),
+    rib = base.map((v) => Math.round(v * 0.93)),
+    rim = base.map((v) => Math.min(255, Math.round(v + (255 - v) * 0.35))),
+    fascia = rgb(s.colors.primary),
+    edge = fascia.map((v) => Math.round(v * 0.55)),
+    lamp = rgb("#fff4cb"),
+    membrane = rgb("#dfeaf2");
+  const X0 = BOWL.x - 2,
+    Y0 = BOWL.y - RING.zFar - 4,
+    W = BOWL.w + 4,
+    H = BOWL.h + RING.zFar + 8,
+    layer = new ImageData(W, H),
+    d = layer.data;
+  const put = (x, y, c, a, onlyEmpty = false) => {
+    const sx = x - X0,
+      sy = y - Y0;
+    if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
+    const i = (sy * W + sx) * 4;
+    if (onlyEmpty && d[i + 3]) return;
+    d[i] = c[0];
+    d[i + 1] = c[1];
+    d[i + 2] = c[2];
+    d[i + 3] = a;
   };
-  const zFar = 64,
-    zNear = 30;
-  for (let x = outer.x; x < outer.x + outer.w; x++) {
-    const o = edges(outer, x),
-      i = edges(inner, x);
-    if (!o) continue;
-    const farTop = o[0] - zFar,
-      farBot = (i ? i[0] : o[0] + 40) - zFar + 8,
-      nearTop = (i ? i[1] : o[1] - 30) - zNear + 6,
-      nearBot = o[1] - zNear;
-    rect(g, x, farTop, 1, Math.max(1, farBot - farTop), x % 10 ? c : shade(c, -0.1));
-    px(g, x, farBot, s.colors.primary);
-    px(g, x, farBot + 1, shade(s.colors.primary, -0.4));
-    px(g, x, farTop, shade(c, 0.3));
-    g.fillStyle = "rgba(240,246,250,0.34)";
-    g.fillRect(x, nearTop, 1, Math.max(1, nearBot - nearTop));
-    px(g, x, nearTop, "rgba(255,255,255,0.7)");
-    px(g, x, nearBot, "rgba(90,100,110,0.6)");
-    if (s.stadium.lights && x % 12 === 0) px(g, x, farBot - 1, "#fff4cb");
+  // Far points first, near points last, so the near band covers the far one where they meet.
+  for (let y = BOWL.y; y < BOWL.y + BOWL.h; y++)
+    for (let x = BOWL.x; x < BOWL.x + BOWL.w; x++) {
+      const q = depthOf(x, y);
+      if (q == null || q < RING.inner) continue;
+      const z = Math.round(ringRoofZ(x, y)),
+        sin = Math.sin(Math.atan2((y - CENTER.y) / (BOWL.h / 2), (x - CENTER.x) / (BOWL.w / 2))),
+        alpha = sin < 0.1 ? 255 : sin > 0.5 ? 140 : Math.round(255 - (sin - 0.1) * 287),
+        ang = Math.atan2(y - CENTER.y, x - CENTER.x),
+        ribbed = Math.floor(((ang + Math.PI) / (2 * Math.PI)) * 96) % 2 === 0;
+      // The frame (outer rim and inner fascia) is solid all the way round; only the panels
+      // over the near stand are see-through.
+      const frame = q > (sin > 0.5 ? 0.92 : 0.96) || q < RING.inner + (sin > 0.5 ? 0.07 : 0.035);
+      let c = alpha < 255 ? (ribbed ? membrane : membrane.map((v) => Math.round(v * 0.94))) : ribbed ? rib : base;
+      if (frame) c = q > RING.inner + 0.1 ? rim : fascia;
+      put(x, y - z, c, frame ? 255 : alpha);
+      // The inner edge has depth: a dark lip under the fascia, with lamps along the far side.
+      if (q < RING.inner + 0.035) {
+        put(x, y - z + 1, edge, 255, true);
+        put(x, y - z + 2, edge, 150, true);
+        if (s.stadium.lights && sin < 0.2 && (x + y) % 14 === 0) put(x, y - z + 1, lamp, 255);
+      }
+    }
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  c.getContext("2d").putImageData(layer, 0, 0);
+  // Slim posts carry the near side of the ring down to the top of the stand.
+  for (let x = BOWL.x + 40; x < BOWL.x + BOWL.w - 30; x += 36) {
+    let yo = null;
+    for (let y = BOWL.y + BOWL.h - 1; y > CENTER.y; y--) if (inside(BOWL, x, y)) { yo = y; break; }
+    if (yo == null) continue;
+    const z = Math.round(ringRoofZ(x, yo - 2));
+    rect(g, x, yo - 2 - z, 1, z - 18, "#8a8e92");
   }
-  text(g, stadiumNameOf(s).toUpperCase().slice(0, 26), CENTER.x, BOWL.y - zFar + 6, { color: shade(c, -0.35), outline: null, align: "center" });
+  g.drawImage(c, X0, Y0);
+  text(g, stadiumNameOf(s).toUpperCase().slice(0, 26), CENTER.x, BOWL.y - RING.zFar + 6, { color: shade(season === 3 ? "#f2f5f8" : roofColorOf(s), -0.35), outline: null, align: "center" });
 }
 // The press box: glazed into the main stand under the roof, or a cabin by the track before that.
 function pressBox(g, s) {
@@ -591,10 +625,10 @@ export function drawArena(g, s, season = 1) {
   throws(g, s, season);
   props(g, s);
   stands(g, s, season);
-  gatehouse(g, s);
-  scoreboard(g, s);
   mainRoof(g, s, season);
   ringRoof(g, s, season);
+  gatehouse(g, s);
+  scoreboard(g, s);
   pressBox(g, s);
 }
 // Front-most details that must overlap people: the cages' nets and the near floodlights.
