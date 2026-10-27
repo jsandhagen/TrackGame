@@ -16,8 +16,9 @@ function venueOf(s, m) {
 }
 const O = { x: 72, y: 220 };
 const centreY = (x) => O.y - (x - O.x) * 0.04;
-const upperY = (x) => O.y - (x - O.x) * 0.17;
-const lowerY = (x) => O.y + (x - O.x) * 0.09;
+const sectorSlope = () => Math.min(0.17, 102 / Math.max(1, W - O.x));
+const upperY = (x) => O.y - (x - O.x) * sectorSlope();
+const lowerY = (x) => O.y + (x - O.x) * Math.min(0.09, 38 / Math.max(1, W - O.x));
 const ppmOf = (ev) => (W - O.x - 36) / EVENTS[ev].max;
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
@@ -174,10 +175,11 @@ export function createStadium(cv) {
       cw = Math.max(1, Math.round(cv.clientWidth * dpr)),
       ch = Math.max(1, Math.round(cv.clientHeight * dpr));
     if (cv.width !== cw || cv.height !== ch) (cv.width = cw), (cv.height = ch);
-    // Fit the 270px layout between the HUD and the meet strip; sky fills any space above.
+    // Fit the venue in normal viewports. On short screens, crop the upper stands
+    // instead of shrinking the athletes below a readable size.
     const insetTop = (view.insetTop || 0) * dpr,
       insetBottom = (view.insetBottom || 0) * dpr,
-      scale = Math.max(1, Math.floor((ch - insetTop - insetBottom) / 240));
+      scale = Math.max(0.25, Math.min(cw / (cw < ch ? 240 : 480), Math.max((ch - insetTop - insetBottom) / H, dpr * 0.75)));
     W = Math.ceil(cw / scale);
     if (off.width !== W) off.width = W;
     const venue = venueOf(s, m);
@@ -187,7 +189,7 @@ export function createStadium(cv) {
       e = EVENTS[ev],
       ppm = ppmOf(ev);
     const LH = Math.ceil(ch / scale),
-      top = Math.round(LH - H - insetBottom / scale + 26);
+      top = Math.round(LH - H - insetBottom / scale);
     if (off.height !== LH) off.height = LH;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = skyFor(s.league)[0];

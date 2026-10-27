@@ -3904,3 +3904,214 @@ ol.howto li::marker {
   font: 700 14px var(--display);
   color: var(--track);
 }
+
+/* Meet desk: information below, the field above. */
+#meetbar { display: flex; flex-direction: column; gap: 0; border: 2px solid #0c211c; border-radius: 8px; overflow: hidden; background: #142e26f5; color: #fff4d5; box-shadow: 0 3px 0 #0005; }
+.meet-desk { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.5fr); }
+.current-thrower { padding: 6px 10px; border-right: 2px solid #ffffff20; min-width: 0; }
+.thrower-heading, .live-standings > header { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.thrower-heading > b { color: #f2d070; }
+.thrower-heading > span, .live-standings small { font-size: 10px; color: #b8cbbb; }
+.thrower-identity { display: flex; align-items: center; gap: 8px; margin: 4px 0; min-width: 0; }
+#meetbar .thrower-identity .portrait { width: 36px; height: 36px; flex: 0 0 36px; }
+.thrower-identity > span { display: grid; min-width: 0; flex: 1; }
+.thrower-identity > span > strong { font-size: 14px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thrower-identity small { color: #b8cbbb; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thrower-best { font: 700 23px var(--display); color: #f2d070; text-align: right; }
+.thrower-best small { display: block; font: 700 8px var(--display); letter-spacing: 1px; }
+.thrower-attempts { display: flex; gap: 3px; }
+.thrower-attempts > span { display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; background: #ffffff12; border: 1px solid #ffffff18; border-radius: 3px; padding: 2px 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.thrower-attempts small { color: #a1baa8; font-size: 9px; }
+.thrower-attempts .pending { color: #8b9e90; }
+.thrower-attempts .foul, .series-row .foul { color: #ef8d78; }
+.live-standings { min-width: 0; padding: 6px 8px; }
+.live-standings > header { padding-bottom: 5px; }
+.standings-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 3px 8px; }
+.standing { min-width: 0; display: grid; grid-template-columns: 20px minmax(0,1fr) 42px; align-items: center; gap: 5px; padding: 3px 5px; background: #ffffff07; font-size: 11px; border-left: 3px solid transparent; }
+.standing > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standing > strong { text-align: right; font-variant-numeric: tabular-nums; }
+.standing.our-athlete { border-left-color: #91cd82; background: #8db87822; }
+.standing.throwing { outline: 1px solid #edc85f; outline-offset: -1px; }
+.standing .club-tag { color: #b8e9a8; font: 700 8px var(--display); margin-left: 4px; }
+.place { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 3px; font: 700 12px var(--display); }
+.place-1 { color: #46320d; background: #efcc65; }
+.place-2 { color: #233334; background: #c4d2d5; }
+.place-3 { color: #492b19; background: #dbab83; }
+.meet-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 4px 8px; border-top: 1px solid #ffffff20; background: #0d211c; }
+.meet-toolbar .seg { display: flex; border: 1px solid #476455; border-radius: 4px; overflow: hidden; }
+.meet-toolbar button { min-height: 32px; font-size: 11px; margin: 0; }
+.meet-toolbar .seg button { min-width: 36px; padding: 4px 9px; background: #254637; color: #dcebd1; border: 0; border-radius: 0; }
+.meet-toolbar .seg .active { background: #f0cb63; color: #302612; }
+.meet-toolbar .ico { width: 13px; height: 13px; vertical-align: middle; }
+.meet-toolbar > .seg:first-child { margin-right: auto; }
+/* Full-time scorebook uses the available window, with one pinned exit. */
+#window.center.meet-results { top: calc(var(--hud) + 8px); bottom: max(8px, env(safe-area-inset-bottom)); left: 50%; width: min(1040px, calc(100vw - 24px)); max-height: none; transform: translateX(-50%); border-radius: 8px; }
+.meet-results .win-head { padding: 4px 12px; }
+.meet-results .win-head h2 { font-size: 14px; }
+.meet-results #panel { padding: 8px 10px; }
+.meet-results #quickAction { padding: 6px 10px; }
+.meet-results #quickAction .button { min-height: 36px; padding: 5px 14px; }
+.meet-verdict { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 6px 12px; border: 2px solid #d6b75d; background: #fff0ba; border-radius: 5px; }
+.meet-verdict.loss { background: #f5ddd2; border-color: #c99280; }
+.meet-verdict.draw { background: #e4ebdb; border-color: #9aaf94; }
+.meet-verdict h1 { margin: 0; font: 700 26px/1.1 var(--display); text-transform: uppercase; }
+.meet-verdict .eyebrow { font-size: 8px; letter-spacing: 1px; }
+.verdict-score { display: flex; align-items: center; gap: 14px; font-size: 12px; font-weight: 700; min-width: 0; }
+.verdict-score > span { max-width: 160px; overflow-wrap: anywhere; }
+.verdict-score > b { font: 700 28px var(--display); white-space: nowrap; }
+.verdict-score small { color: #aa9565; }
+.meet-payout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 7px 4px; font-size: 11px; }
+.meet-payout > span { display: inline-flex; gap: 4px; align-items: center; }
+.meet-payout .ico { width: 15px; height: 15px; }
+.meet-mvp { margin-left: auto; }
+.result-filters { display: flex; align-items: center; gap: 3px; padding-bottom: 6px; }
+.result-filters > button { border: 1px solid #b7bba3; border-radius: 4px; background: #e4e7d5; color: #405242; padding: 5px 10px; min-height: 32px; font: 700 11px var(--display); }
+.result-filters > button.active { background: #27523f; border-color: #143426; color: #fff3ce; }
+.result-filters > small { margin-left: auto; font-size: 9px; color: #607159; }
+.result-filters > small i { display: inline-block; width: 7px; height: 7px; background: #75a45e; margin-right: 3px; }
+.scorebook-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; align-items: start; }
+.scorebook-grid.single-event { grid-template-columns: 1fr; }
+.event-scorebook { min-width: 0; border: 1px solid #8b9a7e; border-radius: 5px; overflow: hidden; background: #fffdf1; }
+.event-scorebook > header { display: flex; align-items: center; justify-content: space-between; padding: 4px 10px; background: #274a3c; border-left: 5px solid var(--event-color); color: #fff0ce; }
+.event-scorebook h3 { margin: 0; font: 700 15px var(--display); }
+.event-scorebook > header > span { font: 700 16px var(--display); color: #f2d070; }
+.event-scorebook > header small { color: #b3c2ad; }
+.placing-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.placing-table thead { background: #e9ecdc; color: #65715a; font-size: 9px; }
+.placing-table th, .placing-table td { padding: 3px 6px; border-bottom: 1px solid #dce0cd; text-align: right; }
+.placing-table th:first-child, .placing-table td:first-child { width: 30px; text-align: center; padding: 3px; }
+.placing-table th:nth-child(2) { text-align: left; }
+.placing-table th:nth-child(3) { width: 66px; }
+.placing-table th:last-child { width: 32px; }
+.placing-table tbody tr.our-athlete { background: #e5efd6; }
+.placing-table tbody tr.our-athlete th { box-shadow: inset 3px 0 #78a45c; }
+.result-athlete { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.result-athlete .portrait { width: 28px; height: 28px; flex: 0 0 28px; }
+.result-athlete > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-athlete small { display: block; font-size: 8px; font-weight: 400; color: #63745a; }
+.result-mark { font: 700 16px var(--display); font-variant-numeric: tabular-nums; }
+.pb-tag { font-style: normal; font-weight: 800; color: #7a5214; background: #f6d471; padding: 0 3px; border-radius: 2px; }
+.throw-series > summary, .meet-reward-details > summary { padding: 6px 8px; background: #f1f0dd; color: #52624d; cursor: pointer; font-size: 10px; }
+.throw-series > summary > span, .meet-reward-details > summary > span { float: right; color: #7b836d; }
+.series-row { padding: 5px 8px; border-top: 1px solid #dce0cd; font-size: 10px; }
+.series-row > strong { display: block; margin-bottom: 3px; }
+.series-row > span { display: flex; gap: 4px; }
+.series-row b { padding: 3px; flex: 1; text-align: center; background: #e9eadc; font-variant-numeric: tabular-nums; }
+.series-row b.best { background: #dae7bc; color: #2b532b; }
+.meet-reward-details { margin-top: 8px; border: 1px solid #bdc2ac; border-radius: 4px; overflow: hidden; }
+.meet-reward-details .rewards { margin: 0; border: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (max-width: 650px) {
+  .meet-desk { grid-template-columns: minmax(175px,.9fr) minmax(0,1fr); }
+  .standings-list { grid-template-columns: 1fr; gap: 1px; }
+  .standing { padding: 2px 3px; font-size: 10px; }
+  .live-standings > header > small { display: none; }
+  .live-standings { padding: 5px; }
+  .scorebook-grid { grid-template-columns: 1fr; }
+  .meet-verdict { gap: 5px; padding: 6px 8px; }
+  .verdict-score { gap: 7px; font-size: 10px; }
+  .verdict-score > span { max-width: 75px; }
+  .meet-verdict h1 { font-size: 23px; }
+  .verdict-score > b { font-size: 24px; }
+  .result-filters { flex-wrap: wrap; }
+  .result-filters > button { flex: 1; padding: 4px 6px; white-space: nowrap; }
+  .result-filters > small { width: 100%; margin-left: 0; }
+  .meet-mvp { margin-left: 0; }
+  .meet-toolbar { gap: 3px; padding: 4px; flex-wrap: wrap; }
+  .meet-toolbar button { font-size: 10px; }
+  .meet-toolbar .seg button { padding: 4px 6px; min-width: 30px; }
+  .thrower-identity small { max-width: 100px; }
+}
+@media (max-height: 440px) and (min-width: 651px) {
+  .thrower-identity { margin: 1px 0; }
+  #meetbar .thrower-identity .portrait { width: 28px; height: 28px; flex-basis: 28px; }
+  .current-thrower, .live-standings { padding-top: 3px; padding-bottom: 3px; }
+  .meet-toolbar { padding-top: 2px; padding-bottom: 2px; }
+  .meet-verdict { padding: 3px 8px; }
+  .meet-verdict h1 { font-size: 22px; }
+}
+/* Scope table sizing so league-table defaults cannot compress athlete names. */
+.placing-table .col-place { width: 30px; }
+.placing-table .col-mark { width: 70px; }
+.placing-table .col-points { width: 32px; }
+.placing-table th:nth-child(2) { width: auto; }
+.placing-table tbody th { background: transparent; color: var(--ink); letter-spacing: 0; font-size: 11px; }
+.placing-table td { border-top: 0; }
+.placing-table thead th { font-size: 9px; letter-spacing: .03em; background: #e9ecdc; }
+.placing-table th, .placing-table td { padding-top: 2px; padding-bottom: 2px; }
+.result-athlete .portrait { width: 22px; height: 22px; flex-basis: 22px; }
+.result-athlete small { line-height: 1.1; }
+.meet-toolbar .seg button { display: inline-flex; flex-direction: row; justify-content: center; align-items: center; gap: 4px; height: 32px; }
+.meet-toolbar .button { padding: 4px 10px; border-width: 1px; border-bottom-width: 2px; border-radius: 4px; }
+#window.center.meet-results { top: max(8px, env(safe-area-inset-top)); }
+.meet-results .win-head { display: none; }
+@media (max-height: 440px) and (min-aspect-ratio: 1/1) {
+  .meet-desk { grid-template-columns: minmax(170px,.75fr) minmax(0,1.5fr); }
+  .standings-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2px 4px; }
+  .standing { font-size: 10px; grid-template-columns: 16px minmax(0,1fr) 34px; gap: 3px; padding: 2px; }
+  .standing .place { width: 16px; height: 16px; font-size: 10px; }
+  .thrower-identity > span > strong { font-size: 12px; }
+  .thrower-heading { font-size: 10px; }
+  .thrower-heading > span { font-size: 9px; }
+  .thrower-identity > span > small:last-child { display: none; }
+  .meet-toolbar { flex-wrap: nowrap; }
+}
+.meeting #hud { flex-wrap: nowrap; }
+.event-scorebook > header { height: 27px; }
+.event-scorebook h3 { font-size: 14px; line-height: 18px; }
+.placing-table thead th { line-height: 12px; padding-top: 1px; padding-bottom: 1px; }
+.placing-table tbody th { line-height: 1.05; }
+.placing-table tbody th, .placing-table tbody td { padding-top: 1px; padding-bottom: 1px; }
+.result-athlete .portrait { width: 20px; height: 20px; flex-basis: 20px; }
+.throw-series > summary { line-height: 12px; padding: 4px 8px; }
+@media (max-width: 650px) {
+  .meeting .meet-score { display: grid; grid-template-columns: minmax(0,1fr) 27px 27px minmax(0,1fr); gap: 2px 5px; padding: 4px 6px; }
+  .meeting .meet-score .side { display: flex; font-size: 9px; }
+  .meeting .meet-score > .side:first-child { grid-column: 1; grid-row: 1; }
+  .meeting .meet-score > b:nth-child(2) { grid-column: 2; grid-row: 1; text-align: right; }
+  .meeting .meet-score > b:nth-child(4) { grid-column: 3; grid-row: 1; text-align: left; }
+  .meeting .meet-score > .side:last-child { grid-column: 4; grid-row: 1; }
+  .meeting .meet-score > b { font-size: 21px; }
+  .meeting .meet-score .event-chips { grid-column: 1 / -1; grid-row: 2; justify-content: center; }
+  .meeting .meet-score .ev { display: flex; gap: 4px; padding: 1px 5px; font-size: 8px; align-items: center; }
+  .meeting .meet-score .ev em { font-size: 9px; }
+  .meeting #hud > .hud-btn { flex: 0 0 30px; width: 30px; height: 32px; }
+  .thrower-identity > span > strong { white-space: normal; font-size: 12px; line-height: 1.15; }
+}
+.meeting #hud::after { content: none; }
+/* Meet report: scores first, then the progress earned by each entrant. */
+.meet-result-tabs { display: flex; gap: 4px; padding: 0 0 7px; border-bottom: 1px solid #cdd2ba; margin-bottom: 7px; }
+.meet-result-tabs > button { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 5px 14px; border: 1px solid #a6b197; border-radius: 4px; background: #e3e8d3; color: #37513f; font: 700 13px var(--display); }
+.meet-result-tabs > button.active { background: #28553f; color: #fff0c7; border-color: #153b2a; }
+.meet-result-tabs > button > b { font: 700 10px var(--display); color: #583b11; background: #f0cc66; border-radius: 3px; padding: 2px 5px; }
+.growth-intro { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 12px; margin: 2px 0 8px; }
+.growth-intro h2 { font-size: 16px; }
+.growth-intro p { font-size: 11px; color: #637259; }
+.growth-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.athlete-growth { min-width: 0; border: 1px solid #a3b18f; border-radius: 5px; background: #fffdf1; overflow: hidden; }
+.athlete-growth.leveled-up { border-color: #c29935; box-shadow: inset 0 0 0 1px #e8d293; }
+.athlete-growth > header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #e7edd9; border-bottom: 1px solid #ccd6b8; }
+.athlete-growth.leveled-up > header { background: #fff0b9; }
+.athlete-growth > header .portrait { flex: 0 0 34px; width: 34px; height: 34px; }
+.athlete-growth > header > div { min-width: 0; flex: 1; }
+.athlete-growth h3 { font: 700 15px/1.2 var(--display); }
+.athlete-growth > header span { font-size: 11px; }
+.level-up-tag { font: 700 11px var(--display); color: #7a5117; white-space: nowrap; }
+.meet-xp { padding: 7px 10px 5px; }
+.meet-xp > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.meet-xp b { font: 700 16px var(--display); color: #366745; }
+.meet-xp span, .meet-xp > small { font-size: 10px; color: #6d785e; }
+.meet-xp progress { display: block; appearance: none; width: 100%; height: 9px; border: 1px solid #a0b489; border-radius: 3px; margin: 4px 0 3px; overflow: hidden; background: #e5e9d7; }
+.meet-xp progress::-webkit-progress-bar { background: #e5e9d7; }
+.meet-xp progress::-webkit-progress-value { background: #74a956; }
+.meet-xp progress::-moz-progress-bar { background: #74a956; }
+.growth-gains { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 5px 10px; font-size: 10px; color: #4b6141; background: #f1f3e4; }
+.growth-gains > b { color: #755218; }
+.growth-mastery { padding: 4px 10px; }
+.growth-mastery > div { display: grid; grid-template-columns: minmax(0,1fr) 38px 80px; gap: 6px; align-items: center; font-size: 11px; padding: 3px 0; border-bottom: 1px solid #e5e8d6; }
+.growth-mastery b { color: #416e40; text-align: right; }
+.growth-mastery small { font-size: 10px; color: #737f67; text-align: right; }
+.growth-pb, .growth-milestone { padding: 3px 10px; font-size: 10px; line-height: 1.4; }
+.growth-pb { color: #856125; }
+.growth-milestone { color: #3b6847; background: #eaf0df; margin-top: 3px; }
+@media (max-width: 650px) { .growth-grid { grid-template-columns: 1fr; } .meet-result-tabs > button { flex: 1; justify-content: center; padding: 5px 8px; } }

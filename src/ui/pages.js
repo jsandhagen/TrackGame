@@ -163,6 +163,8 @@ function athletePage(s, a, view) {
     body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>
     ${athleteDutyPicker(s,a)}
     ${statRows(a)}
+    <section class="card"><h3>Event attribute scaling</h3><p>Attribute weights before mastery, approach, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</section>
+    <section class="card"><h3>Skills & unique abilities</h3>${a.skills.map(k => `<p><b>${esc(SKILLS[k].name)}</b>${a.equipped.includes(k) ? " · Equipped" : " · Learned"}<br>${esc(SKILLS[k].desc)}</p>`).join("") || "<p>No learned skills yet.</p>"}${a.secret ? `<p><b>Unique: ${esc(SKILLS[SECRETS[a.secret].skill].name)}</b> · ${esc(SKILLS[SECRETS[a.secret].skill].desc)}</p>` : ""}${btn("Manage skills", "tab", 'data-tab="skills"', "subtle")}</section>
     <article class="card rank-card"><div class="card-title"><h2>${RANKS[a.rank].name}${next ? " to " + next.name : ""}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : "<p>The highest honour in the sport.</p>"}
     </article>
@@ -232,6 +234,8 @@ function athletePage(s, a, view) {
   }
   return `${btn("‹ Squad", "back-squad", "", "text")}
   <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)}</h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
+  <label>Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select></label>
+  <p class="hint">Switching also selects the technical training event. Mastery and personal bests are kept; choose meet entries in the meet lobby.</p>
   <nav class="tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav>${body}`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
@@ -673,24 +677,48 @@ export function lobby(s) {
 
 // ── Live meet ───────────────────────────────────────────────────────────
 // The strip along the bottom of the stadium during a meet.
+function meetAthlete(s, side, id) {
+  const athletes = side === "home" ? s.roster : (s.clubs.find(c => c.id === s.match.opponentId)?.athletes || []);
+  const athlete = athletes.find(a => a.id === id);
+  return { athlete, face: !athlete ? "" : side === "home" ? portrait(athlete) : rivalPortrait(s.match.opponentId, athletes.indexOf(athlete)) };
+}
+function resultTable(s, event) {
+  const rows = event.placings.length ? event.placings : ["home", "away"].map((side, i) => {
+    const a = side === "home" ? G.homeAthlete(s, EVENT_IDS.indexOf(event.event)) : G.rivalAthlete(s, EVENT_IDS.indexOf(event.event));
+    const marks = (side === "home" ? s.match.homeMarks : s.match.awayMarks)[EVENT_IDS.indexOf(event.event)];
+    return { side, id: a.id, marks, mark: G.best(marks), points: side === "home" ? event.h : event.a, place: null };
+  });
+  return `<article class="event-scorebook" style="--event-color:${EVENTS[event.event].color}">
+    <header><h3>${EVENTS[event.event].name}</h3><span aria-label="Event points">${event.h} <small>–</small> ${event.a}</span></header>
+    <table class="placing-table"><caption class="sr-only">${EVENTS[event.event].name} individual results</caption><colgroup><col class="col-place"><col><col class="col-mark"><col class="col-points"></colgroup><thead><tr><th scope="col">Pl.</th><th scope="col">Athlete</th><th scope="col">Best (m)</th><th scope="col">Pts</th></tr></thead><tbody>${rows.map(row => {
+      const {athlete, face} = meetAthlete(s, row.side, row.id);
+      const pb = s.match.rewards?.pbs?.some(p => p.id === row.id && p.event === event.event);
+      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(s.match.name)}${pb ? ' <em class="pb-tag">PB</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
+    }).join("")}</tbody></table>
+    <details class="throw-series"><summary>Throw series <span>${rows.length} athletes</span></summary>${rows.map(row => {
+      const {athlete} = meetAthlete(s,row.side,row.id);
+      return `<div class="series-row ${row.side === "home" ? "our-athlete" : ""}"><strong>${esc(athlete?.name)}</strong><span>${row.marks.map((v,i) => `<b title="Throw ${i+1}" class="${v == null ? "foul" : v === row.mark ? "best" : ""}">${v == null ? "X" : v.toFixed(2)}</b>`).join("") || "No throws"}</span></div>`;
+    }).join("")}</details></article>`;
+}
 export function meetBar(s, view) {
-  const m = s.match;
-  const hide = view.hide;
-  const marksOf = (side, i) => {
-    const list = (side === "home" ? m.homeMarks : m.awayMarks)[i];
-    return hide && hide.side === side && hide.eventIndex === i ? list.slice(0, hide.attempt) : list;
-  };
-  const i = m.eventIndex,
-    a = G.homeAthlete(s, i),
-    r = G.rivalAthlete(s, i);
-  const attempts = (side) =>
-    Array.from({ length: m.attempts }, (_, k) => {
-      const list = marksOf(side, i);
-      return `<b class="${k < list.length ? (list[k] == null ? "foul" : "") : "pending"}">${k < list.length ? (list[k] == null ? "X" : list[k].toFixed(2)) : "·"}</b>`;
-    }).join("");
-  return `${m.fields ? `<div class="live-field"><strong>${EVENTS[EVENT_IDS[i]].name} · ${m.finalRound?"Final throws":"Qualifying series"}${EVENT_IDS[i]==="discus"?" · "+esc(m.wind||"calm"):""}</strong>${G.fieldLeaderboard(s,i,view.hide).map(r=>`<span>${r.place||"—"}. ${esc((r.side==="home"?s.roster:s.clubs.find(c=>c.id===m.opponentId).athletes).find(a=>a.id===r.id)?.name)} ${r.mark==null?"NM":mark(r.mark)} · ${r.points} pts</span>`).join("")}</div>` : ""}<div class="duelist home">${portrait(a)}<span><strong>${esc(a.name)}</strong><small>${mood(a)} OVR ${G.overall(a)}${G.equippedSkills(a, "meet").length ? " · " + G.equippedSkills(a, "meet").map((k) => SKILLS[k].name).join(", ") : ""}</small><span class="attempts">${attempts("home")}</span></span></div>
-  <div class="meet-controls"><button class="button subtle small" data-act="highlights">${s.settings.highlights?"Highlights on":"Full meet"}</button><div class="seg">${[1, 2, 4].map((n) => `<button class="${(view.meetSpeed || 1) === n ? "active" : ""}" data-act="meet-speed" data-speed="${n}">${n}×</button>`).join("")}</div><div class="seg">${["watch", "coach"].map((mode) => `<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" title="${mode === "watch" ? "Watch" : "Coach every throw"}" aria-label="${mode}">${ico(mode === "watch" ? "eye" : "clipboard")}</button>`).join("")}</div>${btn(view.skipConfirm ? "Confirm skip" : "Skip", "skip", "", "subtle small")}</div>
-  <div class="duelist away" style="--c:${m.color}">${rivalPortrait(m.opponentId, s.clubs.find(c=>c.id===m.opponentId).athletes.findIndex(a=>a.id===r.id))}<span><strong>${esc(r.name)}</strong><small>${esc(m.name)} · OVR ${G.overall(r)}</small><span class="attempts">${attempts("away")}</span></span></div>`;
+  const m = s.match, i = m.eventIndex, ev = EVENT_IDS[i];
+  const side = view.hide?.side || m.turnSide || (m.phase === "decide" ? "home" : m.last?.side) || "away";
+  const a = side === "home" ? G.homeAthlete(s,i) : G.rivalAthlete(s,i);
+  const {face} = meetAthlete(s,side,a.id);
+  let marks = (side === "home" ? m.homeMarks : m.awayMarks)[i];
+  if(view.hide?.side === side && view.hide.eventIndex === i) marks = marks.slice(0,view.hide.attempt);
+  const rows = G.fieldLeaderboard(s,i,view.hide);
+  return `<div class="meet-desk">
+    <section class="current-thrower ${side === "home" ? "our-athlete" : ""}" aria-label="Current thrower">
+      <div class="thrower-heading"><b>${EVENTS[ev].name}</b><span>${m.finalRound ? "Final round" : "Round " + Math.min(m.attempts,marks.length+1) + " / " + m.attempts}</span></div>
+      <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
+      <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
+    </section>
+    <section class="live-standings" aria-label="Live standings"><header><strong>Event standings</strong><small>${m.finalRound ? "Final throws" : "Qualifying"}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""} · 5–3–1 pts</small></header><div class="standings-list">${rows.map(row=>{
+      const {athlete}=meetAthlete(s,row.side,row.id);
+      return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
+    }).join("")}</div></section>
+  </div><div class="meet-toolbar"><div class="seg">${[1,2,4].map(n=>`<button class="${(view.meetSpeed||1) === n ? "active" : ""}" data-act="meet-speed" data-speed="${n}" aria-label="Meet speed ${n} times" aria-pressed="${(view.meetSpeed||1) === n}">${n}×</button>`).join("")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${btn(view.skipConfirm ? "Confirm skip" : "Skip", "skip", "", "subtle small")}</div>`;
 }
 export function meetScore(s) {
   const m = s.match,
@@ -716,16 +744,45 @@ export function decide(s, view) {
     ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}
     <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A banked mark always counts, so a foul now only costs confidence." : "No mark yet: a foul here could cost the event."}</p></div>`;
 }
-export function meetComplete(s) {
+function meetGrowth(s) {
+  const r = s.match.rewards || {};
+  const recorded = Array.isArray(r.athleteProgress);
+  const ids = [...new Set(s.match.fields ? s.match.fields.flatMap(f => f.home.map(e => e.id)) : Object.values(s.match.lineup).filter(Boolean))];
+  const progress = recorded ? r.athleteProgress : ids.map(id => ({id, name: s.roster.find(a=>a.id===id)?.name}));
+  return `<section class="meet-growth"><header class="growth-intro"><h2>Every meet builds your athletes</h2><p>XP is earned once per athlete. Mastery grows in each event they entered.</p></header>${!recorded ? '<p class="hint">This older meet has no XP or attribute breakdown. Recorded mastery, PBs and milestones are shown below.</p>' : ""}<div class="growth-grid">${progress.map(p=>{
+    const a=s.roster.find(a=>a.id===p.id), before=p.before, after=p.after;
+    const levels=after ? after.level-before.level : 0;
+    const levelUp=(r.levelUps||[]).find(d=>d.id===p.id);
+    const mastery=(r.mastery||[]).filter(d=>d.id===p.id);
+    const milestones=(r.development||[]).filter(d=>d.id===p.id);
+    const pbs=(r.pbs||[]).filter(d=>d.id===p.id);
+    return `<article class="athlete-growth ${levels || levelUp ? "leveled-up" : ""}"><header>${a ? portrait(a) : ""}<div><h3>${esc(p.name)}</h3><span>${after ? levels ? `Lv. ${before.level} → <b>Lv. ${after.level}</b>` : `Lv. ${after.level}` : levelUp ? `Reached Lv. ${levelUp.level}` : "Meet completed"}</span></div>${levels || levelUp ? '<strong class="level-up-tag">LEVEL UP!</strong>' : ""}</header>
+    ${after ? `<div class="meet-xp"><div><b>+${Number(p.xpGained.toFixed(1))} XP</b><span>${Math.floor(after.xp)} / ${G.xpNeeded(after.level)} XP to Lv. ${after.level+1}</span></div><progress value="${after.xp}" max="${G.xpNeeded(after.level)}" aria-label="${esc(p.name)} progress to level ${after.level+1}"></progress><small>${Math.ceil(G.xpNeeded(after.level)-after.xp)} XP to next level${levels ? ` · ${levels} level${levels===1?"":"s"} gained` : " · Building toward the next level"}</small></div>` : ""}
+    ${after && (after.sp>before.sp || after.potential>before.potential || after.stats.some((v,i)=>v>before.stats[i])) ? `<div class="growth-gains">${after.sp>before.sp ? `<b>+${after.sp-before.sp} skill point${after.sp-before.sp===1?"":"s"}</b>` : ""}${after.stats.map((v,i)=>v-before.stats[i]>0.001 ? `<span>${STAT_NAMES[i]} <b>+${Number((v-before.stats[i]).toFixed(1))}</b></span>` : "").join("")}${after.potential>before.potential ? `<span>Potential <b>+${after.potential-before.potential}</b></span>` : ""}</div>` : ""}
+    <div class="growth-mastery">${mastery.map(d=>`<div><span>${EVENTS[d.event].name} mastery</span><b>+${d.gain.toFixed(1)}</b><small>${(d.mastery-d.gain).toFixed(1)} → ${d.mastery.toFixed(1)}</small></div>`).join("")}</div>
+    ${pbs.map(d=>`<p class="growth-pb">PB · ${EVENTS[d.event].name} <b>${mark(d.mark)}</b>${d.delta ? ` (+${d.delta.toFixed(2)} m)` : " · First mark"}</p>`).join("")}
+    ${milestones.map(d=>`<p class="growth-milestone"><b>${esc(d.milestone)}</b> · ${esc(d.reward)}</p>`).join("")}
+    </article>`;
+  }).join("")}</div></section>`;
+}
+export function meetComplete(s, view = {}) {
   const m = s.match,
     r = m.rewards || { items: [], pbs: [], levelUps: [], goals: [] },
     win = G.meetOutcome(m) > 0,
     draw = G.meetOutcome(m) === 0;
-  return `<div class="result ${win ? "win" : draw ? "draw" : "loss"}"><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "DUEL MEET" : "LEAGUE FIXTURE"} · FULL TIME</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1><p>${esc(s.clubName)} ${m.score} – ${m.against} ${esc(m.name)}${m.tieBreak ? " (tie-break on distance)" : ""}</p></div>
-  <div class="event-results">${G.eventScores(m).map((e) => `<div class="${e.h > e.a ? "won" : e.a > e.h ? "lost" : ""}"><span>${EVENTS[e.event].name}</span><b>${mark(e.home)}</b><small>vs ${mark(e.away)}</small><strong>${e.h}:${e.a}</strong></div>`).join("")}</div>
-  ${m.fields ? `<section class="card"><h3>Individual placings · 5–3–1</h3>${G.eventScores(m).map((e) => `<h4>${EVENTS[e.event].name}</h4>${e.placings.map((row) => `<p>${row.place || "NM"}. ${esc((row.side === "home" ? s.roster : s.clubs.find((c) => c.id === m.opponentId).athletes).find((a) => a.id === row.id)?.name)} · ${mark(row.mark)} · ${row.points} pts${m.championship ? " · " + row.marks.length + " throws" : ""}</p>`).join("")}`).join("")}</section>` : ""}
+  const growth = view.resultView === "progress";
+  const selected = EVENT_IDS.includes(view.resultEvent) ? view.resultEvent : "all";
+  return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b>${m.score} <small>–</small> ${m.against}</b><span>${esc(m.name)}</span></div></header>
+  <div class="meet-payout"><span>${ico("coin")} <b>+${cash(r.money || 0)}</b></span><span>${ico("heart")} +${r.fans || 0} fans</span><span>${ico("idea")} +${r.insights || 0} Insights</span>${r.mvp ? `<span class="meet-mvp">${ico("star")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}</div>
+  ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
+  <nav class="meet-result-tabs" aria-label="Meet report"><button data-act="result-view" data-value="results" aria-pressed="${!growth}" class="${!growth?"active":""}">Results</button><button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
+  ${growth ? meetGrowth(s) : `
+  <nav class="result-filters" aria-label="Filter event results">${[["all","All events"],...EVENT_IDS.map(ev=>[ev,EVENTS[ev].name])].map(([id,label])=>`<button data-act="result-event" data-event="${id}" aria-pressed="${selected === id}" class="${selected === id ? "active" : ""}">${label}</button>`).join("")}<small><i></i> Your athletes · NM = no mark</small></nav>
+  <div class="scorebook-grid ${selected !== "all" ? "single-event" : ""}">${G.eventScores(m).filter(e=>selected === "all" || e.event === selected).map(e=>resultTable(s,e)).join("")}</div>
+  `}
+  <details class="meet-reward-details"><summary>Meet rewards & development <span>${r.items.length} items · ${r.pbs.length} PBs · ${r.levelUps.length} level-ups</span></summary>
   <section class="card rewards"><div class="card-title"><h2>${ico("gift")} Rewards</h2></div>
-    <div class="reward-line"><span>+${r.insights || 0} Coaching Insights</span><span>${ico("coin")} ${cash(r.money)}</span><span>${ico("heart")} +${r.fans} fans</span>${r.mvp ? `<span>${ico("star")} MVP ${esc(r.mvp.name)}</span>` : ""}</div>
+
     ${r.items.length ? `<div class="drops">${r.items.map((k, n) => `<div class="drop rarity-${ITEMS[k].rarity}" style="--delay:${n * 0.35 + 0.3}s">${icon(k, 40)}<strong>${ITEMS[k].name}</strong><small>${RARITY[ITEMS[k].rarity].name}</small></div>`).join("")}</div>` : ""}
     ${r.firstDuel ? `<p class="pb-line">First victory over this club! Bonus funds and a skill scroll earned.</p>` : ""}
     ${(r.mastery || []).map(d=>`<p class="pb-line">${esc(d.name)} · ${EVENTS[d.event].name} mastery +${d.gain.toFixed(1)} (${Math.floor(d.mastery)})</p>`).join("")}
@@ -733,8 +790,8 @@ export function meetComplete(s) {
     ${r.pbs.map((p) => `<p class="pb-line">${ico("medal")} ${esc(p.name)} · ${EVENTS[p.event].name} PB ${mark(p.mark)}${p.delta ? " (+" + p.delta.toFixed(2) + ")" : ""}</p>`).join("")}
     ${r.levelUps.map((l) => `<p class="pb-line">${ico("levelup")} ${esc(l.name)} reached level ${l.level}</p>`).join("")}
     ${r.goals.map((id) => `<p class="pb-line">${ico("target")} Goal: ${esc(G.GOALS.find((g) => g.id === id)?.name)}</p>`).join("")}
-  </section>
-  ${btn(m.kind !== "duel" && (m.kind === "final" || s.fixture === 2) ? "See what comes next" : "Back to the club", "leave")}`;
+  </section></details>
+  ${growth ? btn(m.kind !== "duel" && (m.kind === "final" || s.fixture === 2) ? "See what comes next" : "Back to the club", "leave") : btn("Athlete growth →", "meet-progress")}`;
 }
 
 // ── Season end & awards ─────────────────────────────────────────────────

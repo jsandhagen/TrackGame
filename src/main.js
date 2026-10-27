@@ -28,7 +28,7 @@ let state = store.read() ? validateCampaign(JSON.parse(store.read())) : G.newGam
 let saveEnabled = false;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
 const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
-const DAY_MS = [0, 2600, 1400, 700];
+const DAY_MS = [0, 8000, 4000, 2000];
 // How dark night gets at each speed, so the fastest speed doesn't strobe.
 const NIGHT_AT_SPEED = [1, 1, 0.75, 0.4];
 const world = createWorld($("#world")),
@@ -138,7 +138,7 @@ function tools() {
 function windowHTML() {
   const m = state.match;
   if (m) {
-    if (m.phase === "complete") return ["Full time", P.meetComplete(state)];
+    if (m.phase === "complete") return ["Full time", P.meetComplete(state, view)];
     if (m.phase === "decide") return [m.last?.clutch ? "Clutch moment" : "Your call, coach", P.decide(state, view)];
     return null;
   }
@@ -166,6 +166,7 @@ function render(preserve = true) {
   menu();
   tools();
   const m = state.match;
+  $("#hud").hidden = m?.phase === "complete";
   $("#world").hidden = !!m;
   $("#stadium").hidden = !m;
   $("#app").classList.toggle("meeting", !!m);
@@ -175,6 +176,7 @@ function render(preserve = true) {
   $("#window").hidden = !win;
   $("#window").classList.toggle("center", !!m);
   $("#window").classList.toggle("low", m?.phase === "decide");
+  $("#window").classList.toggle("meet-results", m?.phase === "complete");
   if (win) {
     $("#winTitle").textContent = win[0];
     $(".win-close").innerHTML = ico("close");
@@ -201,7 +203,7 @@ function quickAction() {
   const shell = $("#quickAction");
   shell.innerHTML = "";
   const m = state.match;
-  const want = m ? (m.phase === "complete" ? ["leave"] : view.meter ? ["release"] : []) : view.window === "home" ? (state.phase === "seasonEnd" ? ["season"] : []) : view.window === "lobby" ? ["enter"] : [];
+  const want = m ? (m.phase === "complete" ? [view.resultView === "progress" ? "leave" : "meet-progress"] : view.meter ? ["release"] : []) : view.window === "home" ? (state.phase === "seasonEnd" ? ["season"] : []) : view.window === "lobby" ? ["enter"] : [];
   for (const act of want) {
     const el = $("#panel").querySelector(`[data-act="${act}"]`);
     if (el) shell.append(el);
@@ -551,6 +553,8 @@ $("#app").addEventListener("click", async (e) => {
       if (!G.medicalDay(state)) toast("Only available when an injured athlete is in the lineup.");
       break;
     case "enter":
+      view.resultView = "results";
+      view.resultEvent = "all";
       if (state.pendingEvent) return showEvent();
       if (!G.startMatch(state)) {
         toast(G.lineupProblem(state) || "The meet can't start yet.", "warn");
@@ -640,6 +644,14 @@ $("#app").addEventListener("click", async (e) => {
       view.athlete = null;
       view.selected = null;
       return render(false);
+    case "meet-progress":
+    case "result-view":
+      view.resultView = act === "meet-progress" ? "progress" : b.dataset.value;
+      return render(false);
+    case "result-event":
+      view.resultEvent = b.dataset.event;
+      render();
+      return;
     case "tab":
       view.tab = b.dataset.tab;
       return render(false);
@@ -880,6 +892,7 @@ $("#app").addEventListener("change", (e) => {
   }
   if(kind === "facility-focus" && a && ["balanced","money","insights"].includes(el.value)) a.facilityFocus=el.value;
   if (["facility-staff","athlete-duty","facility-focus"].includes(kind)) world.replan();
+  if (kind === "athlete-event" && G.setAthleteEvent(state, a?.id, el.value)) world.replan();
   if(kind === "training-event" && a && EVENTS[el.value] && !state.match) a.trainingEvent=el.value;
   if(kind === "approach" && a && !G.approachProblem(a,el.dataset.event,el.value)) a.approaches[el.dataset.event]=el.value;
   if (kind === "bulk") state.roster.forEach((x) => G.setTrainingPlan(state,x.id,el.value));
