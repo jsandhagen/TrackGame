@@ -151,9 +151,10 @@ export function makeClubs(s, league, stage = 0, indices = [0, 1, 2]) {
   const meetSkills = Object.keys(SKILLS).filter((k) => SKILLS[k].cat === "meet" && SKILLS[k].rank <= Math.min(2, league));
   return indices.map((index) => {
     const club = CLUBS[league][index], identity = club.identity;
-    const bias = { power:[4,-2,3,-3], control:[-2,4,-1,0], speed:[-3,1,0,4], hammer:[0,-2,5,-2], adaptable:[-1,1,0,1], depth:[0,0,0,0], clutch:[0,0,0,0] }[identity] || CLUB_BIASES[index % 3];
+    const bias = { power:[4,-2,3,-3], control:[-2,4,-1,0], speed:[-2,0,2,4], hammer:[0,-2,5,-2], adaptable:[-1,2,0,1], depth:[2,0,0,0], clutch:[-2,-1,2,2] }[identity] || CLUB_BIASES[index % 3];
     return ({
     id: index,
+    developedStage: stage,
     name: club.name,
     color: club.color,
     style: club.style,
@@ -193,9 +194,18 @@ export function makeClubs(s, league, stage = 0, indices = [0, 1, 2]) {
         if(index===1)a.mastery[secondary]=Math.min(95,a.mastery[secondary]+8);
       }
       if(league >= 1) {
-        const gear = {shot:star && league>=3?"brassshot":"steelshot", discus:star && league>=3?"highrim":"lowrim", hammer:star && league>=3?"tungstenhammer":"steelhammer", jav:star && league>=3?"stiffjav":"precision"};
+        const gear = {shot:star && league>=3?"brassshot":"steelshot", discus:star && league>=3?"highrim":"lowrim", hammer:star && league>=3?"competitionhammer":"steelhammer", jav:star && league>=3?"stiffjav":"precision"};
         a.gear.implement = gear[event];
-        if(identity === "clutch") a.skills = ["clutch","secondwind","bigstage"].slice(0,Math.min(3,league+1));
+        if(identity === "clutch") {
+          a.skills = ["clutch","secondwind","bigstage"].slice(0,Math.min(3,league+1));
+          if(league>=3 && i===0) a.skills.push("captain");
+          if(league>=4 && star) a.skills.push({shot:"meteor",discus:"cyclone",hammer:"tempest",jav:"skyspear"}[event]);
+        }
+        if(league >= 3) {
+          // Deep squads invest in their supporting event as well as their specialist.
+          a.mastery[secondary] = Math.min(95,a.mastery[secondary]+8);
+          if(["depth","adaptable","clutch"].includes(identity)) a.gear.implement = "carbon";
+        }
         if(league >= 2) a.approaches[event] = "developed";
       }
       a.skills = [...new Set(a.skills)];

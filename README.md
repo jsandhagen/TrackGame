@@ -4,7 +4,7 @@
 
 The APK is refreshed after a successful Android build on `main`.
 
-Current design: [event mastery and throwing development](docs/EVENT_MASTERY.md) · [balance and validation](docs/BALANCE_CURRENT.md).
+Current design: [implements, rival variety and campus improvements](docs/CLUB_VARIETY.md) · [event mastery and throwing development](docs/EVENT_MASTERY.md) · [balance and validation](docs/BALANCE_CURRENT.md).
 
 
 A cosy, offline club-management game about a tiny throwing club that grows into a world champion, in the spirit of Kairosoft's management games such as Pocket League Story 2 and Game Dev Story. Original characters, art and names; no premium currency, ads, energy or login streaks.

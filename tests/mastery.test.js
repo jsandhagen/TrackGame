@@ -45,10 +45,10 @@ test('rival developed deliveries consume stamina, and each discipline offers a d
  assert(G.disciplineModel(a,'hammer','calm','developed').energy>G.disciplineModel(a,'shot','calm','developed').energy);
 });
 test('revisiting a tier or entering a new stage keeps the same rival athletes, including after a save',()=>{
- const s=G.newGame(67);s.circuit.cleared=['0:0','0:1'];const names=s.clubs.flatMap(c=>c.athletes.map(a=>a.name));
- G.enterCompetition(s,{kind:'league',tier:0,stage:1});assert.deepEqual(s.clubs.flatMap(c=>c.athletes.map(a=>a.name)),names);
+ const s=G.newGame(67);s.circuit.cleared=['0:0','0:1'];const names=s.clubs.map(c=>({id:c.id,names:c.athletes.map(a=>a.name)}));
+ G.enterCompetition(s,{kind:'league',tier:0,stage:1});for(const c of names) assert.deepEqual(s.rivalClubs[0].find(r=>r.id===c.id).athletes.map(a=>a.name),c.names);
  G.cancelCompetition(s);s.league=1;G.enterCompetition(s,{kind:'duel',tier:1});G.cancelCompetition(s);
- const copy=validateCampaign(exportCampaign(s));G.enterCompetition(copy,{kind:'duel',tier:0});assert.deepEqual(copy.clubs.flatMap(c=>c.athletes.map(a=>a.name)),names);
+ const copy=validateCampaign(exportCampaign(s));G.enterCompetition(copy,{kind:'duel',tier:0});for(const c of names) assert.deepEqual(copy.clubs.find(r=>r.id===c.id).athletes.map(a=>a.name),c.names);
 });
 test('mastery, training focus and approaches persist, and malformed development cannot be imported',()=>{
  const s=G.newGame(68);s.roster[0].trainingEvent='discus';s.roster[0].mastery.discus=65;s.roster[0].approaches.discus='developed';

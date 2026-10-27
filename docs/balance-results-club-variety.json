@@ -1,0 +1,106 @@
+{
+  "engaged": {
+    "worldTitleMedian": 23,
+    "worldTitleP90": 23,
+    "titledWithinCap": 1,
+    "reachLeagueMedian": [
+      4,
+      7,
+      10,
+      16
+    ],
+    "winRateByLeague": [
+      1,
+      1,
+      1,
+      0.75,
+      0.8
+    ],
+    "medianFinalMoney": 541713,
+    "medianFans": 11477,
+    "lowestMoneySeen": 274,
+    "injuriesPerCareer": 0,
+    "goalsMedian": 37,
+    "ranksSample": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      2,
+      2,
+      2,
+      2,
+      1,
+      1
+    ]
+  },
+  "idle": {
+    "worldTitleMedian": 41,
+    "worldTitleP90": 41,
+    "titledWithinCap": 0,
+    "reachLeagueMedian": [
+      4,
+      7,
+      41,
+      41
+    ],
+    "winRateByLeague": [
+      0.99,
+      0.94,
+      0.33,
+      null,
+      null
+    ],
+    "medianFinalMoney": 53517,
+    "medianFans": 5529,
+    "lowestMoneySeen": 1387,
+    "injuriesPerCareer": 0,
+    "goalsMedian": 16,
+    "ranksSample": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "managed": {
+    "worldTitleMedian": 19,
+    "worldTitleP90": 20,
+    "titledWithinCap": 1,
+    "reachLeagueMedian": [
+      4,
+      7,
+      10,
+      16
+    ],
+    "winRateByLeague": [
+      1,
+      1,
+      1,
+      0.81,
+      0.89
+    ],
+    "medianFinalMoney": 606029,
+    "medianFans": 13130,
+    "lowestMoneySeen": 471,
+    "injuriesPerCareer": 0.2,
+    "goalsMedian": 37,
+    "ranksSample": [
+      4,
+      4,
+      4,
+      4,
+      4,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  }
+}

@@ -235,7 +235,7 @@ function athletePage(s, a, view) {
   <nav class="tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav>${body}`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
-const DRILL_ICONS = { lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
+const DRILL_ICONS = { indoor: "target", peer: "video", trial: "ball", lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
 const plus = (n) => "+" + (Math.round(n * 10) / 10).toString();
 const vital = (c) => (c.stat != null ? showStat(c.from) + " → " + showStat(c.to) : Math.round(c.from) + " → " + Math.round(c.to));
 export const previewText = (changes) => changes.map((c) => (c.from != null ? c.label + " " + vital(c) : c.label)).join(" · ");
@@ -493,7 +493,8 @@ export function shop(s, view) {
   if (tab === "shop") {
     const groups = [
       ["Fuel & recovery", "Handed over at the side of the track.", (d) => d.kind === "use"],
-      ["Implements", "One per thrower. Swap any time from the kit bag.", (d) => d.slot === "implement"],
+      ...EVENT_IDS.map(ev => [EVENTS[ev].name + " implements", "Bonuses apply only to this event. Other events use club issue.", d => d.slot === "implement" && d.event === ev]),
+      ["General implements", "One per thrower. Swap any time from the kit bag.", d => d.slot === "implement" && !d.event],
       ["Throwing shoes & spikes", "", (d) => d.slot === "shoes"],
       ["Lucky charms", "", (d) => d.slot === "charm"],
     ];

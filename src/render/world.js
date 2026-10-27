@@ -1,7 +1,7 @@
-import { canvas, rect, ellipse, shade, hash, px } from "./pixel.js";
+import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text } from "./font.js";
 import { figure, shadow, athleteLook } from "./sprites.js";
-import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, lamp, box } from "./buildings.js";
+import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, lamp, box, gable, windowAt } from "./buildings.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
 import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness } from "../domain/game.js";
@@ -96,6 +96,11 @@ function paving(g, x, y, w, h, season, edge = true) {
   const c = season === 3 ? "#e6e4de" : "#d8cdb2";
   rect(g, x, y, w, h, c);
   for (let i = 0; i < (w * h) / 40; i++) px(g, x + hash(x * 7 + i) * w, y + hash(y * 3 + i * 5) * h, shade(c, -0.07));
+  // Large slabs with staggered joints; retain the uncluttered walking route.
+  if(w>22 && h>9) for(let yy=y+4;yy<y+h-1;yy+=6) {
+    rect(g,x,yy,w,1,shade(c,-0.075));
+    for(let xx=x+((yy-y)%12?4:10);xx<x+w;xx+=12) rect(g,xx,yy-5,1,5,shade(c,-0.07));
+  }
   if (edge) {
     rect(g, x, y, w, 1, shade(c, 0.25));
     rect(g, x, y + h - 1, w, 1, shade(c, -0.22));
@@ -202,6 +207,36 @@ function grove(items, x0, y0, x1, y1, n, seed, season, avoid = [], pines = 0.3) 
   }
 }
 
+function neighbourhood(g,season) {
+  // Background streets are scenery, kept separate from the club's buildable lots.
+  paving(g,594,126,406,17,season);
+  road(g,594,146,406,10,false);
+  const walls=["#d6c8ad","#b9c9c6","#d6b9a2","#c3b6a3","#d3cfb8","#abc0c9"];
+  for(let i=0;i<6;i++) {
+    const x=600+i*65, b=119, h=23+(i%3)*6;
+    rect(g,x+4,b+2,57,4,"rgba(30,45,32,0.16)");
+    box(g,x,b,49,h,18,walls[i],{shadow:false});
+    gable(g,x,b-h,49,18,6,["#8b6553","#596b79","#8d6b56"][i%3]);
+    for(let row=0;row<(i%3===2?2:1);row++) for(let n=0;n<3;n++) windowAt(g,x+6+n*12,b-13-row*11,6,6,(i+n)%4===0);
+    rect(g,x+21,b-12,7,12,"#656e60");
+    rect(g,x-1,b+3,53,2,"#b4ad97");
+    for(const dx of [3,45]) bush(g,x+dx,b+6,season);
+    if(i%2===0) { bench(g,x+10,139); lamp(g,x+55,139); }
+  }
+  text(g,"TOWN LANE",600,151,{color:"#f3ebd7",outline:null});
+}
+function streetSign(g,x,y,label) {
+  rect(g,x,y-17,1,17,"#626c67");
+  rect(g,x-2,y-18,label.length*6+6,7,"#3f655e");
+  text(g,label,x+1,y-17,{color:"#f2ecd7",outline:null});
+}
+function bikeRack(g,x,y) {
+  for(let n=0;n<3;n++) {
+    const xx=x+n*9;
+    line(g,xx,y,xx,y-6,"#8b9697"); line(g,xx,y-6,xx+5,y-6,"#b4bfc0"); line(g,xx+5,y-6,xx+5,y,"#667374");
+    if(n!==1) { ellipse(g,xx,y+1,3,3,"#424c4c"); ellipse(g,xx+7,y+1,3,3,"#424c4c"); line(g,xx,y,xx+4,y-5,"#a76b4f");line(g,xx+4,y-5,xx+7,y,"#a76b4f"); }
+  }
+}
 function baseWorld(s) {
   const c = canvas(MAP_W, MAP_H),
     g = c.getContext("2d"),
@@ -217,6 +252,7 @@ function baseWorld(s) {
     if (season === 0 && i % 23 === 0) px(g, x, y, ["#f6f0f4", "#f6d04c", "#f2a8c0"][i % 3]);
     if (season === 2 && i % 19 === 0) px(g, x, y, ["#d8843a", "#b0602e", "#f0b050"][i % 3]);
   }
+  neighbourhood(g,season);
   // Forecourt, walks and streets.
   paving(g, BOWL.x - 16, PLAZA - 18, BOWL.w + 32, 34, season);
   vpaving(g, ROAD - 10, PLAZA + 14, 20, ROW - PLAZA - 20, season);
@@ -232,6 +268,17 @@ function baseWorld(s) {
   bus(g, ROAD - 12, ROW + 52, s.colors);
   practiceField(g, AVENUE + 30, NORTH + 26, 380, 110, season);
   pond(g, 92, 610, season);
+  // Raised kerbs and drainage break up the car-park approach.
+  for(const xx of [ROAD-17,ROAD+15]) {
+    rect(g,xx,ROW+22,2,MAP_H-ROW-22,"#c5c3b4");
+    for(let yy=ROW+35;yy<MAP_H-12;yy+=54) {
+      rect(g,xx-1,yy,4,7,"#596564");
+      for(let k=1;k<6;k+=2) rect(g,xx,yy+k,2,1,"#8a9592");
+    }
+  }
+  // Inlaid club colours and paired borders frame the stadium entrance.
+  for(let xx=BOWL.x+4;xx<BOWL.x+BOWL.w-4;xx+=12) rect(g,xx,PLAZA+9,8,2,s.colors.primary);
+  rect(g,BOWL.x,PLAZA-16,BOWL.w,2,"#ebe2cc");
   // Lot grounds: front gardens with a path to the street, hedges between neighbours.
   const items = [];
   LOTS.forEach(([x, top], i) => {
@@ -245,6 +292,16 @@ function baseWorld(s) {
     else if (!p) items.push({ y: b, draw: (g) => emptyPlot(g, x + 2, top + 14) });
     else items.push({ y: b, draw: (g) => drawFacility(g, p.type, p.level, x + 2, top + 14, { season, colors: s.colors }) });
   });
+  // Bus shelter, bicycles and wayfinding are placed outside walking routes.
+  items.push({y:ROW+83,draw:g=>{
+    const x=ROAD+37,y=ROW+80;
+    rect(g,x,y-23,2,23,"#536b6c");rect(g,x+27,y-23,2,23,"#536b6c");
+    rect(g,x+2,y-20,25,16,"#b0d3d18c");rect(g,x-3,y-25,36,3,"#466e6b");
+    bench(g,x+6,y-1);text(g,"BUS",x+5,y-23,{color:"#f5edda",outline:null});
+  }});
+  items.push({y:PLAZA+15,draw:g=>bikeRack(g,ROAD-94,PLAZA+15)});
+  items.push({y:ROW+14,draw:g=>streetSign(g,AVENUE-12,ROW+14,"CLUB ROW")});
+  items.push({y:BLVD+16,draw:g=>streetSign(g,ROAD+91,BLVD+16,"STADIUM")});
   // Street furniture: lamps along the near side of each street, benches on the forecourt.
   for (let x = 40; x < MAP_W; x += 96) {
     if (Math.abs(x - ROAD) > 30) items.push({ y: ROW + 12, draw: (g) => lamp(g, x, ROW + 12) });
@@ -263,7 +320,7 @@ function baseWorld(s) {
   hedge(g, ROAD + 16, MAP_H - 18, MAP_W - ROAD - 16, season);
   // Woods frame the club; the stadium and lots are kept clear.
   const lotRects = LOTS.map(([x, top]) => [x - 6, top + 10, LOT_W + 12, 80]);
-  const clear = [[BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [TOWER.x - 26, TOWER.y - 70, 52, 100], [AVENUE + 24, NORTH + 20, 392, 122], [0, ROW - 12, MAP_W, 24], [0, BLVD - 12, MAP_W, 24], [AVENUE - 12, NORTH - 12, 24, ROW - NORTH + 12], [ROAD - 90, ROW, 180, MAP_H - ROW], [AVENUE - 12, NORTH - 12, MAP_W, 24], [40, 590, 110, 40], ...lotRects];
+  const clear = [[590,60,410,100], [BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [TOWER.x - 26, TOWER.y - 70, 52, 100], [AVENUE + 24, NORTH + 20, 392, 122], [0, ROW - 12, MAP_W, 24], [0, BLVD - 12, MAP_W, 24], [AVENUE - 12, NORTH - 12, 24, ROW - NORTH + 12], [ROAD - 90, ROW, 180, MAP_H - ROW], [AVENUE - 12, NORTH - 12, MAP_W, 24], [40, 590, 110, 40], ...lotRects];
   grove(items, 0, 8, MAP_W, 64, 46, 101, season, clear, 0.5);
   grove(items, 0, 64, BOWL.x - 6, ROW - 40, 9, 211, season, clear, 0.4);
   grove(items, BOWL.x + BOWL.w + 6, 60, AVENUE - 14, ROW - 40, 8, 307, season, clear, 0.3);
