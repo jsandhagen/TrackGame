@@ -7,10 +7,11 @@ import { styleOf, trackColorOf, roofColorOf, stadiumNameOf } from "../game-conte
 // height field, rendered back to front, so rows rise as real tiers with risers you can see,
 // near stands show their outer wall, and roofs float above the seats.
 //
-// Grandstand levels: 0 grass banks round a gravel track · 1 metal bleachers on the home
+// Grandstand levels: 0 an open field round a gravel track · 1 metal bleachers on the home
 // straight · 2 a covered main stand with bleachers opposite · 3 stands all round ·
-// 4 an Olympic bowl with a ring roof.
-export const BOWL = { x: 56, y: 76, w: 448, h: 292, r: 84 };
+// 4 an Olympic bowl with a ring roof. Where nothing is built the ground stays flat.
+// The outer footprint follows the oval of the track, so a full set of stands makes a round bowl.
+export const BOWL = { x: 56, y: 76, w: 448, h: 292, r: 146 };
 const DEPTH = { n: 52, s: 20, w: 32, e: 32 },
   APRON = 6;
 const inset = (b, l, t, r = l, bb = t) => {
@@ -110,21 +111,22 @@ function depthOf(x, y) {
   return hi;
 }
 const zoneOf = (x, y) => (x >= MX0 && x <= MX1 ? (y < CENTER.y ? "main" : "back") : "end");
-// What stands where, by grandstand level: kind (bank, bleacher, seats), rows, rise per row,
+// What stands where, by grandstand level: kind (bleacher or seats), rows, rise per row,
 // front wall height, and how deep into the stand it reaches (the rest is grass behind).
+// The straights proper, between the bends: bleachers are straight-sided structures that sit here.
+const SX0 = FIELD.x + FIELD.r,
+  SX1 = FIELD.x + FIELD.w - FIELD.r;
 function specFor(zone, x, lvl) {
-  const bank = { main: [6, 1.6], back: [4, 1.2], end: [6, 1.4] }[zone];
-  const B = { kind: "bank", rows: bank[0], rise: bank[1], front: 1, reach: 1 };
-  const mid = x >= MX0 + 24 && x <= MX1 - 24;
-  if (lvl === 1) return zone === "main" && mid ? { kind: "bleacher", rows: 8, rise: 2.5, front: 2, reach: 0.72 } : B;
+  const straight = x >= SX0 && x <= SX1;
+  if (lvl === 1) return zone === "main" && straight ? { kind: "bleacher", rows: 8, rise: 2.5, front: 2, reach: 0.72 } : null;
   if (lvl === 2) {
     if (zone === "main") return { kind: "seats", rows: 13, rise: 3, front: 4, reach: 1 };
-    if (zone === "back" && mid) return { kind: "bleacher", rows: 5, rise: 2, front: 2, reach: 0.8 };
-    return B;
+    if (zone === "back" && straight) return { kind: "bleacher", rows: 5, rise: 2, front: 2, reach: 0.8 };
+    return null;
   }
   if (lvl === 3) return { main: { kind: "seats", rows: 13, rise: 3, front: 4, reach: 1 }, back: { kind: "seats", rows: 7, rise: 2.2, front: 3, reach: 1 }, end: { kind: "seats", rows: 9, rise: 2.6, front: 3, reach: 1 } }[zone];
   if (lvl >= 4) return { main: { kind: "seats", rows: 14, rise: 3.2, front: 4, reach: 1 }, back: { kind: "seats", rows: 8, rise: 2.2, front: 3, reach: 1 }, end: { kind: "seats", rows: 12, rise: 3, front: 3, reach: 1 } }[zone];
-  return B;
+  return null;
 }
 
 const RGB = new Map();
@@ -178,21 +180,15 @@ function stands(g, s, season) {
       const zone = zoneOf(x, y),
         sp = specFor(zone, x, lvl);
       if (zone === "back" && Math.abs(x - CENTER.x) < 9) continue; // the players' tunnel
-      if (q > sp.reach) {
-        hgt[gx * GH + gy] = 1;
-        info[gx * GH + gy] = { zone, q, sp: { kind: "bank", rows: 2, rise: 0.5, front: 1 }, row: 0, frac: 0.5 };
-        continue;
-      }
+      if (!sp || q > sp.reach) continue;
       const t = q / sp.reach,
         rowPos = t * sp.rows,
         row = Math.min(sp.rows - 1, Math.floor(rowPos)),
-        h = sp.kind === "bank" ? sp.front + rowPos * sp.rise : sp.front + (row + 1) * sp.rise;
+        h = sp.front + (row + 1) * sp.rise;
       hgt[gx * GH + gy] = h;
       info[gx * GH + gy] = { zone, q, sp, row, frac: rowPos - Math.floor(rowPos) };
     }
   const H_ = (gx, gy) => (gx < 0 || gy < 0 || gx >= GW || gy >= GH ? 0 : hgt[gx * GH + gy]);
-  const bankA = ["#86b866", "#78ac58", "#a8a860", "#e8ecea"][season],
-    bankB = shade(bankA, -0.08);
   const seatA = colors.primary,
     seatB = colors.secondary;
   const seatColor = (x, y, c) => {
@@ -202,11 +198,10 @@ function stands(g, s, season) {
     if (pat === "blocks") return (c.zone === "end" ? Math.floor((y - BOWL.y) / 30) : Math.floor((x - MX0) / 36)) % 2 ? seatB : seatA;
     return seatA;
   };
-  const wing = (x, c) => lvl <= 3 && (c.zone === "main" || c.zone === "back") && c.sp.kind !== "bank" && (x - MX0 < 3 || MX1 - x < 3 || (c.sp.kind === "bleacher" && (x - MX0 - 24 < 2 || MX1 - 24 - x < 2)));
+  const wing = (x, c) => lvl <= 3 && (c.zone === "main" || c.zone === "back") && (c.sp.kind === "bleacher" ? x - SX0 < 2 || SX1 - x < 2 : lvl < 3 && (x - MX0 < 3 || MX1 - x < 3));
   const aisle = (x, y, c) => (c.zone === "end" ? (y - BOWL.y) % 30 < 2 : (x - MX0 + 6) % 36 < 2);
   function top(x, y, c) {
     const { sp } = c;
-    if (sp.kind === "bank") return c.q > 0.92 ? shade(bankA, 0.08) : hash(x * 7 + y * 13) < 0.12 ? bankB : bankA;
     if (wing(x, c)) return "#d8d0c0";
     if (sp.kind === "bleacher") return c.frac < 0.45 ? (x % 12 === 0 ? "#8a8e92" : "#d4d8dc") : "#5a5e62";
     if (aisle(x, y, c)) return snow ? "#f4f6f8" : "#c8c2b4";
@@ -219,7 +214,6 @@ function stands(g, s, season) {
   // Vertical faces we can see: risers facing the field, the pitch-side boards and outer walls.
   const boards = [colors.primary, "#f4f0e4", "#c84a40", "#2c4a7a", colors.secondary];
   function face(x, c, k, len, below) {
-    if (below === "outside" && c.sp.kind === "bank") return k === len - 1 ? shade(bankB, -0.3) : shade(bankB, -0.16);
     if (below === "outside") {
       if (k === 0) return "#d8d0c0";
       if (k === 2) return colors.primary;
@@ -228,7 +222,6 @@ function stands(g, s, season) {
       if (len >= 8 && x % 16 >= 7 && x % 16 <= 10 && k >= len - 6) return "#4a4038";
       return "#b4aa98";
     }
-    if (c.sp.kind === "bank") return shade(bankA, -0.03);
     if (wing(x, c)) return "#a8a090";
     if (below === "field" && c.sp.kind === "seats") return k === 0 ? "#f4f0e4" : boards[Math.floor(x / 16) % boards.length];
     if (c.sp.kind === "bleacher") return x % 12 === 0 ? "#9aa0a4" : "#3e4246";
@@ -254,16 +247,28 @@ function stands(g, s, season) {
           len = hz - hn;
         for (let k = 0; k < len; k++) put(x, sy + 1 + k, face(x, c, k, len, below), id);
       }
-      // Remember places where people sit: the front of each seat row, and the banks.
-      const seatRow = c.sp.kind !== "bank" && c.frac < 0.2 && !wing(x, c) && !aisle(x, y, c);
+      // Remember places where people sit: the front of each seat row.
+      const seatRow = c.frac < 0.2 && !wing(x, c) && !aisle(x, y, c);
       const roofed = lvl >= 4 && c.q > 0.45 && c.zone !== "back";
-      if (!roofed && ((seatRow && x % 3 === 0) || (c.sp.kind === "bank" && x % 4 === 0 && Math.floor(c.q * 36) % 4 === 0))) spots.push([x, sy, c.sp.kind !== "bank", id]);
+      if (!roofed && seatRow && x % 3 === 0) spots.push([x, sy, true, id]);
     }
   }
   g.putImageData(img, X0, Y0);
+  // Standing spectators on the grass outside the rail wherever there are no stands.
+  const ring = { ...ringAt(0.12) };
+  ring.r = Math.round(ring.r);
+  const per = Math.round(2 * (ring.w - 2 * ring.r) + 2 * Math.PI * ring.r);
+  for (let i = 0; i < per; i += 5) {
+    const [x, y] = loopPoint(ring, i / per),
+      gx = Math.round(x) - BOWL.x,
+      gy = Math.round(y) - BOWL.y;
+    if (gx >= 0 && gy >= 0 && gx < GW && gy < GH && hgt[gx * GH + gy]) continue;
+    if (Math.abs(x - CENTER.x) < 14 && y > CENTER.y) continue;
+    spots.push([Math.round(x), Math.round(y) + 2, false, -1]);
+  }
   // Keep spectators that are still visible (not hidden behind nearer rows) and not under a roof.
   const covered = (x, y) => lvl >= 2 && x >= MX0 - 2 && x <= MX1 + 2 && y < roofFrontY + 3;
-  SEATS = spots.filter(([x, y, , who]) => owner[(y - Y0) * W + (x - X0)] === who && !covered(x, y)).map(([x, y, seated]) => [x, y, seated]);
+  SEATS = spots.filter(([x, y, , who]) => (who < 0 || owner[(y - Y0) * W + (x - X0)] === who) && !covered(x, y)).map(([x, y, seated]) => [x, y, seated]);
 }
 
 // Covered main stand: roof slab, fascia, shadow over the upper rows and support columns.
@@ -326,7 +331,7 @@ function ringRoof(g, s, season) {
   }
   text(g, stadiumNameOf(s).toUpperCase().slice(0, 26), CENTER.x, BOWL.y - zFar + 6, { color: shade(c, -0.35), outline: null, align: "center" });
 }
-// The press box: glazed into the main stand under the roof, or a cabin on the bank before that.
+// The press box: glazed into the main stand under the roof, or a cabin by the track before that.
 function pressBox(g, s) {
   const L = s.stadium.studio;
   if (!L) return;
@@ -358,8 +363,8 @@ function gatehouse(g, s) {
     lvl = s.stadium.stands,
     h = lvl >= 3 ? 26 : 16;
   if (lvl < 2) {
-    // A gravel path through the bank and a wooden arch with the club's name.
-    rect(g, gx - 9, FIELD.y + FIELD.h, 18, gy - FIELD.y - FIELD.h + 2, "#c8b898");
+    // A gravel path in from the forecourt under a wooden arch with the club's name.
+    rect(g, gx - 6, FIELD.y + FIELD.h - 2, 12, gy - FIELD.y - FIELD.h + 4, "#c8b898");
     for (const fx of [gx - 16, gx + 15]) rect(g, fx, gy - 18, 2, 20, "#7a5a3a");
     rect(g, gx - 20, gy - 24, 40, 8, "#8a6a44");
     rect(g, gx - 19, gy - 23, 38, 6, "#e8d8b0");
@@ -386,7 +391,7 @@ function trackAndField(g, s, season) {
     grass = ["#6caa50", "#5e9e48", "#8a9e48", "#dfe8e0"][season];
   const tc = snow ? "#c8c4c0" : trackColorOf(st.track, styleOf(s).track),
     gravel = st.track <= 1;
-  roundRect(g, FIELD, shade(grass, 0.03));
+  if (st.stands >= 3) roundRect(g, FIELD, shade(grass, 0.03));
   const chalk = gravel ? "#e8e0cc" : "#f4f0e4";
   roundRect(g, TRACK, chalk);
   roundRect(g, { ...inset(TRACK, 1, 1), r: TRACK.r - 1 }, tc);
@@ -566,10 +571,20 @@ export function floodlight(g, x, y, lvl) {
   rect(g, x - w / 2 + 1, y - h - 10, w, 1, "#5a6a70");
   for (let r = 0; r < 2; r++) for (let c = 0; c < cols; c++) rect(g, x - w / 2 + 2 + c * 4, y - h - 8 + r * 5, 3, 3, "#fff4cb");
 }
+// A low white rail round the field, where spectators stand on the grass.
+function rail(g) {
+  const per = Math.round(2 * (FIELD.w - 2 * FIELD.r) + 2 * Math.PI * FIELD.r);
+  for (let i = 0; i < per; i++) {
+    const [x, y] = loopPoint(FIELD, i / per);
+    px(g, x, y - 2, "#f4f0e4");
+    if (i % 8 === 0) rect(g, x, y - 2, 1, 3, "#c8c4b8");
+  }
+}
 const masts = (s) => s.stadium.lights > 0 && s.stadium.stands < 4;
 
 export function drawArena(g, s, season = 1) {
-  roundRect(g, { ...BOWL, x: BOWL.x + 3, y: BOWL.y + 4 }, "rgba(20,40,20,0.25)");
+  if (s.stadium.stands >= 3) roundRect(g, { ...BOWL, x: BOWL.x + 3, y: BOWL.y + 4 }, "rgba(20,40,20,0.25)");
+  else rail(g);
   if (masts(s)) for (const [x, y, near] of MASTS) if (!near) floodlight(g, x, y, s.stadium.lights);
   trackAndField(g, s, season);
   jumps(g, s);
