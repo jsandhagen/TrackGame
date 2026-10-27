@@ -4,13 +4,21 @@ import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best } from "../domain/game.js";
 
-export const W = 480,
-  H = 270;
+// The scene keeps a fixed 270px-tall layout; its width follows the screen.
+let W = 480;
+export const H = 270;
+const TRACK_COLORS = ["#7aa858", "#b07850", "#c46a4e", "#3a6ab0"];
+// Home meets use your own stadium; away venues grow with the league.
+function venueOf(s, m) {
+  if (m.home) return { stands: s.stadium.stands, lights: s.stadium.lights > 0, track: TRACK_COLORS[s.stadium.track], crowd: Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) };
+  const L = s.league;
+  return { stands: Math.min(3, L + 1), lights: L >= 2, track: TRACK_COLORS[L >= 3 ? 3 : 2], crowd: LEAGUES[L].crowd };
+}
 const O = { x: 72, y: 220 };
 const centreY = (x) => O.y - (x - O.x) * 0.04;
 const upperY = (x) => O.y - (x - O.x) * 0.17;
 const lowerY = (x) => O.y + (x - O.x) * 0.09;
-const ppmOf = (ev) => 372 / EVENTS[ev].max;
+const ppmOf = (ev) => (W - O.x - 36) / EVENTS[ev].max;
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
 // Base milliseconds for each beat at 1× speed.
@@ -31,27 +39,36 @@ function skyFor(league) {
     ["#1a2240", "#3a4a78"],
   ][league];
 }
-function stadiumBase(s, ev) {
+function stadiumBase(s, ev, venue) {
   const c = canvas(W, H),
     g = c.getContext("2d"),
     L = s.league,
     sky = skyFor(L);
   for (let y = 0; y < 40; y++) rect(g, 0, y, W, 1, mix(sky[0], sky[1], y / 40));
   if (L === 4) for (let i = 0; i < 40; i++) px(g, hash(i) * W, hash(i + 50) * 30, "#e8e8ff");
-  else ellipse(g, 420, 14, 9, 9, L === 3 ? "#f8c080" : "#fff2c0");
-  // Stand structure.
-  rect(g, 0, 22, W, 6, "#2e3a3e");
-  rect(g, 0, 28, W, 66, "#4a5a5a");
-  for (let r = 0; r < 10; r++) rect(g, 0, 30 + r * 6, W, 5, r % 2 ? "#5a6a68" : "#64746e");
-  for (let x = 10; x < W; x += 80) rect(g, x, 28, 3, 66, "#3a4a4a");
+  else ellipse(g, W - 60, 14, 9, 9, L === 3 ? "#f8c080" : "#fff2c0");
+  // Stand structure: grass banks, a low stand, or a covered stand with a roof.
+  if (venue.stands === 0) {
+    for (let r = 0; r < 10; r++) rect(g, 0, 34 + r * 6, W, 6, r % 2 ? "#5a8a48" : "#64944e");
+    rect(g, 0, 30, W, 4, "#7aa858");
+  } else {
+    const tiers = venue.stands === 1 ? 5 : 10,
+      top = 94 - tiers * 6;
+    for (let r = 0; r < 10 - tiers; r++) rect(g, 0, 34 + r * 6, W, 6, r % 2 ? "#5a8a48" : "#64944e");
+    rect(g, 0, top - 2, W, tiers * 6 + 2, "#4a5a5a");
+    for (let r = 0; r < tiers; r++) rect(g, 0, top + r * 6, W, 5, r % 2 ? "#5a6a68" : "#64746e");
+    for (let x = 10; x < W; x += 80) rect(g, x, top, 3, tiers * 6, "#3a4a4a");
+    if (venue.stands >= 2) rect(g, 0, 22, W, 6, "#2e3a3e");
+  }
   // Ad boards.
   rect(g, 0, 94, W, 12, "#2a3a34");
   const ads = ["RING & SECTOR", "FIZZ DRINKS", "RADIO 98.4", LEAGUES[L].venue.toUpperCase(), "EVERY MARK MATTERS", "CHANNEL 9"];
-  ads.forEach((a, i) => {
-    const x = i * 80;
+  for (let i = 0; i * 80 < W; i++) {
+    const a = ads[i % ads.length],
+      x = i * 80;
     rect(g, x + 1, 95, 78, 10, i % 2 ? "#b0503a" : s.colors.primary);
     text(g, a.slice(0, 13), x + 40, 97, { color: "#fff6dc", outline: null, align: "center" });
-  });
+  }
   // Field.
   rect(g, 0, 106, W, H - 106, "#6aa04e");
   for (let x = 0; x < W; x += 32) rect(g, x, 106, 16, H - 106, "#76ac58");
@@ -70,7 +87,7 @@ function stadiumBase(s, ev) {
   }
   // Circle, cage or runway.
   if (ev === "jav") {
-    poly(g, [[0, O.y - 6], [O.x, O.y - 5], [O.x, O.y + 6], [0, O.y + 8]], "#c46a4e");
+    poly(g, [[0, O.y - 6], [O.x, O.y - 5], [O.x, O.y + 6], [0, O.y + 8]], venue.track);
     line(g, 0, O.y - 6, O.x, O.y - 5, "#f4e8d0");
     line(g, 0, O.y + 8, O.x, O.y + 6, "#f4e8d0");
     for (let i = 0; i < 6; i++) rect(g, O.x - 1, O.y - 5 + i * 2, 2, 1, "#f4f4e8");
@@ -89,8 +106,8 @@ function stadiumBase(s, ev) {
     }
   }
   // Floodlights from the Regional League up.
-  if (L >= 2)
-    for (const x of [24, 456]) {
+  if (venue.lights)
+    for (const x of [24, W - 24]) {
       rect(g, x, 4, 3, 90, "#c8d0c4");
       rect(g, x - 8, 2, 19, 7, "#3b534f");
       for (let k = 0; k < 4; k++) rect(g, x - 6 + k * 4, 4, 3, 3, "#fff4cb");
@@ -98,16 +115,17 @@ function stadiumBase(s, ev) {
   return c;
 }
 
-function drawCrowd(g, s, m, now, cheer) {
-  const L = s.league,
-    density = Math.min(0.95, LEAGUES[L].crowd + (m.home ? Math.min(0.3, s.fans / 6000) : 0));
+function drawCrowd(g, s, m, now, cheer, venue) {
+  const density = venue.crowd,
+    cols = Math.ceil(W / 5),
+    firstRow = venue.stands === 0 ? 0 : venue.stands === 1 ? 5 : 0;
   const skins = ["#f0c6a0", "#e2b08a", "#c98f66", "#a06a48", "#7a4e36"];
-  for (let r = 0; r < 10; r++)
-    for (let col = 0; col < 96; col++) {
+  for (let r = firstRow; r < 10; r++)
+    for (let col = 0; col < cols; col++) {
       if (hash(col * 13 + r * 7 + 1) > density) continue;
       const x = col * 5 + (r % 2) * 2,
         y = 31 + r * 6,
-        home = col < (m.home ? 66 : 40),
+        home = col < cols * (m.home ? 0.7 : 0.4),
         jump = cheer && (home || cheer === "all") && hash(col + r * 99 + Math.floor(now / 160)) > 0.45 ? 2 : 0;
       const shirt = hash(col + r * 31) < 0.6 ? (home ? (hash(col * r) < 0.5 ? s.colors.primary : s.colors.secondary) : m.color) : ["#f4efe2", "#e07a5a", "#5a8ad0", "#f0c060"][Math.floor(hash(col + r) * 4)];
       rect(g, x, y + 2 - jump, 3, 3, shirt);
@@ -135,7 +153,7 @@ function cutin(g, a, colors, name, skill, t, sideColor) {
   }
   const img = sprite(athleteLook(a, colors, { pose: "cheer", frame: 0, face: "happy" }));
   const px0 = -60 + slide * 90;
-  g.drawImage(img, OX - 10, OY - 32, 20, 20, Math.round(px0), y + 4, 60, 60);
+  g.drawImage(img, OX - 9, OY - 25, 18, 18, Math.round(px0), y + 2, 54, 54);
   const tx = W - (W - 130) * slide;
   text(g, "✦ " + skill.toUpperCase() + " ✦", tx + 4, y + 14, { color: "#f2c94c", scale: 2 });
   text(g, name.toUpperCase(), tx + 6, y + 36, { color: "#fff6dc" });
@@ -152,13 +170,24 @@ export function createStadium(cv) {
   function draw(s, now, view = {}) {
     const m = s.match;
     if (!m) return;
+    const dpr = window.devicePixelRatio || 1,
+      cw = Math.max(1, Math.round(cv.clientWidth * dpr)),
+      ch = Math.max(1, Math.round(cv.clientHeight * dpr));
+    if (cv.width !== cw || cv.height !== ch) (cv.width = cw), (cv.height = ch);
+    // Fit the 270px layout between the HUD and the meet strip; sky fills any space above.
+    const insetTop = (view.insetTop || 0) * dpr,
+      insetBottom = (view.insetBottom || 0) * dpr,
+      scale = Math.max(1, Math.floor((ch - insetTop - insetBottom) / 240));
+    W = Math.ceil(cw / scale);
+    if (off.width !== W) off.width = W;
+    const venue = venueOf(s, m);
     const beat = view.beat,
       bi = beat?.eventIndex ?? m.eventIndex,
       ev = EVENT_IDS[bi],
       e = EVENTS[ev],
       ppm = ppmOf(ev);
-    const LH = Math.max(H, Math.round(cv.height / 2)),
-      top = Math.floor((LH - H) / 2);
+    const LH = Math.ceil(ch / scale),
+      top = Math.round(LH - H - insetBottom / scale + 26);
     if (off.height !== LH) off.height = LH;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = skyFor(s.league)[0];
@@ -166,9 +195,9 @@ export function createStadium(cv) {
     g.fillStyle = "#6aa04e";
     g.fillRect(0, top + H - 1, W, LH - H - top + 1);
     g.translate(0, top);
-    const k = ev + s.league + s.colors.primary + m.home;
+    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W;
     if (k !== key) {
-      base = stadiumBase(s, ev);
+      base = stadiumBase(s, ev, venue);
       key = k;
     }
     g.imageSmoothingEnabled = false;
@@ -179,7 +208,7 @@ export function createStadium(cv) {
     const landed = !(beat?.type === "throw") || tt >= T.land;
     const reacting = beat?.type === "throw" && landed && tt < 2700 && beat.mark != null && (beat.side === "home" ? beat.newPb || beat.leading : false);
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h === 3) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
-    drawCrowd(g, s, m, now, cheer);
+    drawCrowd(g, s, m, now, cheer, venue);
     const home = homeAthlete(s, bi),
       rival = rivalAthlete(s, bi),
       rivalColors = { primary: m.color, secondary: "#f4efe2" };
@@ -296,17 +325,6 @@ export function createStadium(cv) {
         rect(g, ex - 2, ey, 5, 2, beat.foul ? "#e04a3a" : "#8a7a50");
       }
     }
-    // HUD: event title and score.
-    rect(g, 4, 4, 128, 22, "rgba(22,34,30,0.86)");
-    text(g, e.name.toUpperCase(), 9, 7, { color: "#fff6dc", outline: null });
-    text(g, (m.kind === "final" ? "FINAL" : "DUEL") + " · " + (beat?.type === "throw" ? "ATT " + (beat.attempt + 1) + "/" + m.attempts : LEAGUES[s.league].venue.toUpperCase()).slice(0, 20), 9, 16, { color: "#a8c8b0", outline: null });
-    rect(g, W - 120, 4, 116, 22, "rgba(22,34,30,0.86)");
-    rect(g, W - 116, 8, 4, 6, s.colors.primary);
-    rect(g, W - 116, 15, 4, 6, m.color);
-    text(g, s.clubName.slice(0, 12).toUpperCase(), W - 108, 7, { color: "#fff6dc", outline: null });
-    text(g, m.name.slice(0, 12).toUpperCase(), W - 108, 15, { color: "#fff6dc", outline: null });
-    text(g, String(m.score), W - 10, 7, { color: "#f2c94c", outline: null, align: "right" });
-    text(g, String(m.against), W - 10, 15, { color: "#f2c94c", outline: null, align: "right" });
     // Landing callouts.
     if (beat?.type === "throw" && landed && tt < 2700) {
       const label = beat.mark == null ? "FOUL" : beat.mark.toFixed(2) + " M";
@@ -343,7 +361,7 @@ export function createStadium(cv) {
     }
     // Fireworks after a win.
     if (m.phase === "complete" && m.score > m.against && !view.reduced) {
-      if (fireworks.length < 6 && Math.random() < 0.05) fireworks.push({ x: 60 + Math.random() * 360, y: 20 + Math.random() * 40, t0: now, c: [s.colors.secondary, "#f2c94c", "#ffffff", "#f07a8a"][Math.floor(Math.random() * 4)] });
+      if (fireworks.length < 6 && Math.random() < 0.05) fireworks.push({ x: 60 + Math.random() * (W - 120), y: 20 + Math.random() * 40, t0: now, c: [s.colors.secondary, "#f2c94c", "#ffffff", "#f07a8a"][Math.floor(Math.random() * 4)] });
       for (let i = fireworks.length - 1; i >= 0; i--) {
         const f = fireworks[i],
           t = (now - f.t0) / 1100;
@@ -360,18 +378,18 @@ export function createStadium(cv) {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, 170 + n * 40, 210 + (n % 2) * 8, 2);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
       });
     } else if (m.phase === "complete") {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, 170 + n * 40, 210 + (n % 2) * 8, 2);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
       });
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
     out.imageSmoothingEnabled = false;
-    out.drawImage(off, 0, 0, cv.width, cv.height);
+    out.drawImage(off, 0, 0, W * scale, LH * scale);
   }
   return { draw };
 }

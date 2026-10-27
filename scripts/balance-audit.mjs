@@ -7,7 +7,8 @@ const N = Number(process.env.AUDIT_SEEDS || 30),
   MAX = Number(process.env.AUDIT_SEASONS || 40);
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) / 2)];
 const pct = (a, q) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) * q)];
-const BUILD = ["sprint", "spa", "cafe", "garden", "studio", "shop", "dorm", "workshop", "scout", "lab", "stands", "fountain"];
+const BUILD = ["cafe", "spa", "garden", "shop", "dorm", "workshop", "scout", "lab", "fountain"];
+const STAND = ["discus", "hammer", "stands", "studio", "shot", "jav", "track", "discus", "hammer", "stands", "studio", "lights"];
 const SKILL_PRIORITY = ["gymrat", "formfreak", "fasttwitch", "clutch", "icevein", "quickstudy", "hunter", "secondwind", "momentum", "workhorse", "bigstage", "highroller", "captain", "meteor", "cyclone", "tempest", "skyspear"];
 
 export function engaged(s) {
@@ -35,7 +36,8 @@ export function engaged(s) {
     const free = G.unlockedPlots(s).find((p) => !s.plots[p]);
     if (free != null && s.money > FACILITIES[type].cost + 400 && G.canBuild(s, free, type)) G.build(s, free, type);
   }
-  for (let i = 0; i < 12; i++) if (s.plots[i] && s.plots[i].level < 3 && s.money > G.upgradeCost(s.plots[i].type, s.plots[i].level) + 800) G.upgrade(s, i);
+  for (const k of STAND) if (!G.stadiumProblem(s, k) && s.money > 900) G.upgradeStadium(s, k);
+  for (let i = 0; i < s.plots.length; i++) if (s.plots[i] && s.plots[i].level < 3 && s.money > G.upgradeCost(s.plots[i].type, s.plots[i].level) + 800) G.upgrade(s, i);
   if (s.roster.length < Math.min(6, G.rosterCap(s)) && s.money > 2500) {
     if (!s.prospects.length) G.scout(s);
     const best = [...s.prospects].sort((a, b) => G.eventRating(b, b.event) - G.eventRating(a, a.event))[0];

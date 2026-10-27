@@ -1,4 +1,4 @@
-import { EVENTS, EVENT_IDS, ITEMS, SKILLS, SECRETS, LEAGUES, RARITY, CLUBS, showStat } from "../game-content.js";
+import { EVENTS, EVENT_IDS, ITEMS, SKILLS, SECRETS, LEAGUES, RARITY, CLUBS } from "../game-content.js";
 import {
   clamp,
   random,
@@ -18,10 +18,12 @@ import {
 // ── Club goals: a steady stream of short- and long-term targets ───────────
 const bestMark = (s, ev) => s.records?.[ev]?.mark || 0;
 const plotCount = (s) => s.plots.filter((p) => p && p.type !== "club").length;
+const throwAreas = (s) => ["shot", "discus", "hammer", "jav"].filter((k) => s.stadium[k] > 0).length;
 export const GOALS = [
   { id: "train3", name: "First Sessions", desc: "Complete 3 training days", target: 3, progress: (s) => s.counters.days || 0, reward: { money: 100 } },
   { id: "event1", name: "On the Board", desc: "Win an event at a meet", target: 1, progress: (s) => s.counters.eventWins || 0, reward: { items: { drink: 2 } } },
   { id: "build1", name: "Groundbreaking", desc: "Build a new facility", target: 1, progress: (s) => s.counters.built || 0, reward: { money: 150 } },
+  { id: "cage", name: "Every Event at Home", desc: "Build all four throwing areas in the stadium", target: 4, progress: throwAreas, reward: { money: 300 } },
   { id: "combo1", name: "Good Neighbours", desc: "Discover a facility combo", target: 1, progress: (s) => s.discovered.length, reward: { items: { manual: 1 } } },
   { id: "win1", name: "Club Victory", desc: "Win a meet", target: 1, progress: (s) => s.counters.meetWins || 0, reward: { money: 250 } },
   { id: "learn1", name: "New Trick", desc: "Learn a skill with skill points", target: 1, progress: (s) => s.counters.skillsLearned || 0, reward: { items: { notebook: 1 } } },
@@ -35,7 +37,8 @@ export const GOALS = [
   { id: "learn6", name: "Bag of Tricks", desc: "Learn 6 skills", target: 6, progress: (s) => s.counters.skillsLearned || 0, reward: { items: { scroll: 1 } } },
   { id: "rare", name: "Rare Find", desc: "Sign a Rare-or-better athlete", target: 1, progress: (s) => s.counters.rareSigned || 0, reward: { money: 500 } },
   { id: "fans500", name: "Town Talk", desc: "Reach 500 fans", target: 500, progress: (s) => s.fans, reward: { items: { scroll: 1 } } },
-  { id: "upgrade3", name: "Top Floor", desc: "Upgrade a facility to level 3", target: 3, progress: (s) => Math.max(...s.plots.map((p) => (p && p.type !== "club" ? p.level : 0))), reward: { money: 400 } },
+  { id: "stand", name: "Take a Seat", desc: "Build the main stand", target: 1, progress: (s) => s.stadium.stands, reward: { fans: 60 } },
+  { id: "upgrade3", name: "Top Floor", desc: "Take any facility to level 3", target: 3, progress: (s) => Math.max(...s.plots.map((p) => (p && p.type !== "club" ? p.level : 0)), s.stadium.shot, s.stadium.discus, s.stadium.hammer, s.stadium.jav, s.stadium.stands, s.stadium.studio), reward: { money: 400 } },
   { id: "title1", name: "Silverware", desc: "Win a league title", target: 1, progress: (s) => s.trophies.length, reward: { items: { medal: 1 } } },
   { id: "shot15", name: "Fifteen Metres", desc: "Club shot put record of 15 m", target: 15, progress: (s) => bestMark(s, "shot"), reward: { money: 600 } },
   { id: "disc50", name: "Discus Fifty", desc: "Club discus record of 50 m", target: 50, progress: (s) => bestMark(s, "discus"), reward: { money: 600 } },
@@ -49,7 +52,8 @@ export const GOALS = [
   { id: "fans2000", name: "Region's Darlings", desc: "Reach 2,000 fans", target: 2000, progress: (s) => s.fans, reward: { money: 2000 } },
   { id: "national", name: "National Stage", desc: "Reach the National League", target: 3, progress: (s) => s.league, reward: { money: 1500 } },
   { id: "learn15", name: "Encyclopaedia", desc: "Learn 15 skills", target: 15, progress: (s) => s.counters.skillsLearned || 0, reward: { items: { elixir: 1 } } },
-  { id: "plots", name: "Every Plot Used", desc: "Build on 11 plots", target: 11, progress: plotCount, reward: { items: { elixir: 1 } } },
+  { id: "arena", name: "World-Class Arena", desc: "Every throwing area at level 2", target: 4, progress: (s) => ["shot", "discus", "hammer", "jav"].filter((k) => s.stadium[k] >= 2).length, reward: { items: { compass: 1 } } },
+  { id: "plots", name: "Every Plot Used", desc: "Build on all 12 free plots", target: 12, progress: plotCount, reward: { items: { elixir: 1 } } },
   { id: "world", name: "World League", desc: "Reach the World League", target: 4, progress: (s) => s.league, reward: { items: { scroll: 2 } } },
   { id: "legend", name: "Living Legend", desc: "Promote an athlete to Legend", target: 4, progress: (s) => Math.max(0, ...s.roster.map((a) => a.rank)), reward: { items: { elixir: 1 } } },
   { id: "worldtitle", name: "Champions of the World", desc: "Win the World League", target: 1, progress: (s) => s.trophies.filter((t) => t.league === 4).length, reward: { items: { hermes: 1 } } },
@@ -130,7 +134,7 @@ export const STORY = {
     text: (s, d) => SECRETS[d.key].story + " " + SECRETS[d.key].name + " would like to join for " + "$" + secretFee(s, d.key).toLocaleString() + ".",
     choices: [
       { label: (s, d) => "Sign " + SECRETS[d.key].name.replace(/ “.*”/, ""), ok: (s, d) => s.roster.length < rosterCap(s) && s.money >= secretFee(s, d.key), run: (s, d) => (signSecret(s, d.key) ? SECRETS[d.key].name + " is officially part of the club!" : "Not possible right now.") },
-      { label: () => "Maybe later", run: (s, d) => "They leave a card. Sign them any time from Squad → Recruit." },
+      { label: () => "Maybe later", run: (s, d) => "They leave a card. Sign them any time from the Squad window (Scout)." },
     ],
   },
   journalist: {
@@ -167,7 +171,7 @@ export const STORY = {
       return { athlete: a };
     },
     title: () => "A tryout at the fence",
-    text: (s, d) => "A teenager has been watching practice for weeks. " + d.athlete.name + " (" + EVENTS[d.athlete.event].name + ", " + RARITY[d.athlete.rarity].name + ", high potential) asks for a chance. No signing fee.",
+    text: (s, d) => "A teenager has been watching practice for weeks. " + d.athlete.name + " (" + EVENTS[d.athlete.event].name + ", " + RARITY[d.athlete.rarity].name + ", potential " + Math.round(d.athlete.potential) + ") asks for a chance. No signing fee.",
     choices: [
       { label: () => "Welcome aboard!", ok: (s) => s.roster.length < rosterCap(s), run: (s, d) => { s.roster.push(d.athlete); count(s, "signed"); if (d.athlete.rarity !== "common") count(s, "rareSigned"); return d.athlete.name + " joined the squad."; } },
       { label: () => "Not this time", run: () => "They promise to keep practising." },
@@ -178,7 +182,7 @@ export const STORY = {
     title: () => "Rain, rain, rain",
     text: () => "A storm rolls over the grounds. How should the squad spend the afternoon?",
     choices: [
-      { label: () => "Gym circuit", run: (s) => { team(s, (a) => { a.stats[0] = Math.min(capOf(a), a.stats[0] + 0.5); stam(a, -10); }); return "Everyone lifts in the dry. Power +5, stamina −10."; } },
+      { label: () => "Gym circuit", run: (s) => { team(s, (a) => { a.stats[0] = Math.min(capOf(a), a.stats[0] + 1); stam(a, -10); }); return "Everyone lifts in the dry. +1 Power, −10 stamina."; } },
       { label: () => "Movie night", run: (s) => { team(s, (a) => cond(a, 12)); return "Popcorn and old championship tapes. Condition up!"; } },
     ],
   },
@@ -224,7 +228,7 @@ export const STORY = {
     title: () => "Dog on the field!",
     text: () => "A scruffy dog has run off with a javelin. The whole squad stops to watch.",
     choices: [
-      { label: (s, d) => "Send " + byId(s, d.id)?.name.split(" ")[0] + " after it", run: (s, d) => { const a = byId(s, d.id); if (a) a.stats[2] = Math.min(capOf(a), a.stats[2] + 0.6); s.fans += 8; return "A heroic sprint! Speed +6. Someone filmed it: +8 fans."; } },
+      { label: (s, d) => "Send " + byId(s, d.id)?.name.split(" ")[0] + " after it", run: (s, d) => { const a = byId(s, d.id); if (a) a.stats[2] = Math.min(capOf(a), a.stats[2] + 1); s.fans += 8; return "A heroic sprint! +1 Speed. Someone filmed it: +8 fans."; } },
       { label: () => "Let it go", run: (s) => { s.fans += 20; return "The dog trots off proudly. The video goes viral: +20 fans."; } },
     ],
   },
@@ -287,7 +291,7 @@ export const STORY = {
     title: () => "Altitude camp invitation",
     text: (s, d) => "A mountain camp has space for the whole squad this week. $" + d.price + ". Hard work, big gains.",
     choices: [
-      { label: (s, d) => "Go! ($" + d.price + ")", ok: (s, d) => s.money >= d.price, run: (s, d) => { s.money -= d.price; team(s, (a) => { a.stats = a.stats.map((v) => Math.min(capOf(a), v + 0.6)); stam(a, -25); }); return "Every stat +6. Everyone sleeps for a week."; } },
+      { label: (s, d) => "Go! ($" + d.price + ")", ok: (s, d) => s.money >= d.price, run: (s, d) => { s.money -= d.price; team(s, (a) => { a.stats = a.stats.map((v) => Math.min(capOf(a), v + 1)); stam(a, -25); }); return "+1 to every stat. Everyone sleeps for a week."; } },
       { label: () => "Stay home", run: () => "Home cooking wins today." },
     ],
   },
@@ -341,7 +345,7 @@ export function computeAwards(s) {
   if (mvp && mvp.seasonPoints > 0) list.push({ award: "Most Valuable Athlete", id: mvp.id, name: mvp.name, value: mvp.seasonPoints + " event points", sp: 1 });
   const growth = (a) => statTotal(a) - (a.seasonStart || statTotal(a));
   const breakout = top(growth);
-  if (breakout && growth(breakout) > 0.5) list.push({ award: "Breakout Athlete", id: breakout.id, name: breakout.name, value: "+" + showStat(growth(breakout)) + " stats", sp: 1 });
+  if (breakout && growth(breakout) > 0.5) list.push({ award: "Breakout Athlete", id: breakout.id, name: breakout.name, value: "+" + Math.round(growth(breakout)) + " stat points", sp: 1 });
   const records = top((a) => a.seasonPbs);
   if (records && records.seasonPbs > 0) list.push({ award: "Record Breaker", id: records.id, name: records.name, value: records.seasonPbs + " PBs", item: "goldchalk" });
   for (const w of list) {

@@ -145,69 +145,6 @@ export function drawFacility(g, type, level, x, y, o = {}) {
       if (L > 1) box(g, lx + w - 12, b - 18, 8, 5, 6, "#9aa0a8", { noSnow: true });
       if (L > 2) rect(g, lx + 2, b - 17, w - 4, 2, colors.secondary);
     },
-    rings() {
-      const lx = x + 12;
-      pad(g, lx, b - 18, 64, 20, "#b8b8a0");
-      ellipse(g, lx + 22, b - 8, 10, 5, "#8a8a7a");
-      ellipse(g, lx + 22, b - 9, 9, 4, "#e8e4d0");
-      ellipse(g, lx + 22, b - 9, 7, 3, "#a0a090");
-      // Cage poles and net.
-      for (let i = 0; i < 6; i++) {
-        const px0 = lx + 8 + i * 5;
-        rect(g, px0, b - 30 - (i % 2), 1, 22 + (i % 2), "#5a6a62");
-      }
-      for (let yy = b - 28; yy < b - 10; yy += 3) rect(g, lx + 8, yy, 26, 1, "rgba(90,110,100,0.5)");
-      rect(g, lx + 8, b - 31, 26, 1, "#4a5a52");
-      if (L > 1) {
-        ellipse(g, lx + 50, b - 8, 8, 4, "#8a8a7a");
-        ellipse(g, lx + 50, b - 9, 7, 3, "#e8e4d0");
-        ellipse(g, lx + 50, b - 9, 5, 2, "#a0a090");
-      }
-      box(g, lx + 58, b, 14, 12, 10, "#9a7a58");
-      if (L > 2) {
-        rect(g, lx + 2, b - 40, 1, 40, "#8a8e90");
-        rect(g, lx - 1, b - 42, 7, 3, "#3a3e46");
-        for (let i = 0; i < 3; i++) px(g, lx + i * 2, b - 41, "#fff4c0");
-      }
-    },
-    sprint() {
-      const lx = x + 8;
-      poly(g, [[lx, b], [lx + 76, b], [lx + 84, b - 20], [lx + 8, b - 20]], "#c06a50");
-      for (let i = 1; i < 4; i++) {
-        const yy = b - i * 5;
-        line(g, lx + i * 2, yy, lx + 76 + i * 2, yy, "#f4e8d0");
-      }
-      line(g, lx + 14, b, lx + 22, b - 20, "#f4e8d0");
-      for (let i = 0; i < 3; i++) {
-        const hx = lx + 36 + i * 14,
-          hy = b - 4 - i * 5;
-        rect(g, hx, hy - 5, 6, 1, "#f4efe2");
-        rect(g, hx, hy - 4, 1, 4, "#3a3e46");
-        rect(g, hx + 5, hy - 4, 1, 4, "#3a3e46");
-      }
-      if (L > 1)
-        for (let i = 0; i < 3; i++) {
-          rect(g, lx + 6 + i * 2, b - 3 - i * 5, 3, 2, "#3a5a8a");
-        }
-      if (L > 2) {
-        box(g, lx + 70, b + 2, 14, 14, 8, "#3a3e46");
-        rect(g, lx + 72, b - 10, 10, 5, "#1a1e22");
-        text(g, "9.8", lx + 72, b - 10, { color: "#f06050", outline: null });
-      }
-    },
-    studio() {
-      const w = 52,
-        lx = x + 18;
-      box(g, lx, b, w, 22 + (L > 2 ? 6 : 0), 22, "#d8dce8");
-      rect(g, lx + 3, b - 16, w - 6, 9, "#2c3a5a");
-      for (let i = 0; i < 4; i++) rect(g, lx + 5 + i * 10, b - 15, 7, 7, i % 2 ? "#3a5a8a" : "#4a6aa0");
-      rect(g, lx + 5, b - 15, 7, 1, "#8ab0e0");
-      door(g, lx + 4, b, 6, 6, "#3a4a6a");
-      ellipse(g, lx + 32, b - 30 - (L > 2 ? 6 : 0), 5, 3, "#e8ecf0");
-      rect(g, lx + 32, b - 30 - (L > 2 ? 6 : 0), 1, 6, "#8a8e96");
-      if (L > 1) rect(g, lx + 6, b - 25, 10, 6, "#1a1e2a"), rect(g, lx + 7, b - 24, 8, 4, "#6ad0e0");
-      if (L > 2) rect(g, lx + 20, b - 48, 1, 16, "#8a8e96");
-    },
     spa() {
       const lx = x + 10;
       box(g, lx, b, 34, 17, 20, "#e8eef0");
@@ -312,23 +249,6 @@ export function drawFacility(g, type, level, x, y, o = {}) {
       rect(g, lx + 12, b - 7, 4, 2, "#7a7a82");
       if (L > 1) rect(g, lx + w - 8, b - 36, 4, 10, "#5a4a3a");
       windowAt(g, lx + w - 12, b - 12, 7, 5, true);
-    },
-    stands() {
-      const lx = x + 8,
-        rows = 3 + L;
-      for (let r = 0; r < rows; r++) {
-        const yy = b - r * 4;
-        rect(g, lx + r * 2, yy - 4, 76, 4, r % 2 ? "#7a8a9a" : "#8a9aaa");
-        for (let i = 0; i < 18; i++) rect(g, lx + r * 2 + 2 + i * 4, yy - 4, 3, 2, (i + r) % 3 ? colors.primary : colors.secondary);
-      }
-      const top = b - rows * 4;
-      rect(g, lx + rows * 2 - 2, top - 14, 80, 3, "#3a4a5a");
-      rect(g, lx + rows * 2, top - 11, 1, 11, "#5a6a7a");
-      rect(g, lx + rows * 2 + 74, top - 11, 1, 11, "#5a6a7a");
-      if (L > 2) {
-        rect(g, lx + 30, top - 26, 22, 11, "#1a1e22");
-        text(g, "R&S", lx + 32, top - 24, { color: "#f2c94c", outline: null });
-      }
     },
     lab() {
       const lx = x + 18,

@@ -77,12 +77,12 @@ test("levelling grants skill points; caps stop growth until a rank-up raises the
 test("the grounds earn money from visitors and visitors grow with fans", () => {
   const s = G.newGame(4);
   s.money = 5000;
-  assert(G.build(s, 2, "cafe"));
+  assert(G.build(s, 8, "cafe"));
   const few = G.visitorsPerDay(s);
   s.fans = 2000;
   assert(G.visitorsPerDay(s) > few * 3);
   const before = s.money;
   const r = G.advanceDay(s);
-  assert(r.spend.length === 1 && r.spend[0].plot === 2);
+  assert(r.spend.length === 1 && r.spend[0].plot === 8);
   assert(s.money > before);
 });

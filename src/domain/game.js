@@ -8,6 +8,9 @@ import {
   SKILLS,
   ITEMS,
   FACILITIES,
+  STADIUM,
+  PLOT_COUNT,
+  CLUB_PLOT,
   CLUBS,
   CLUB_BIASES,
   SPONSORS,
@@ -44,6 +47,7 @@ import {
   isFacilityAvailable,
   slotsOf,
   hasCombo,
+  planFacility,
 } from "./core.js";
 import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
 import { autoLineup } from "./meet.js";
@@ -56,7 +60,7 @@ export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutc
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
-    v: 4,
+    v: 5,
     rng: seed >>> 0 || 1,
     nextId: 1,
     clubName: "Ring & Sector",
@@ -75,7 +79,8 @@ export function newGame(seed = Date.now() >>> 0) {
     log: [],
     roster: [],
     lineup: {},
-    plots: Array(12).fill(null),
+    plots: Array(PLOT_COUNT).fill(null),
+    stadium: Object.fromEntries(Object.entries(STADIUM).map(([k, d]) => [k, d.start])),
     discovered: [],
     prospects: [],
     match: null,
@@ -100,9 +105,8 @@ export function newGame(seed = Date.now() >>> 0) {
     settings: { ...DEFAULT_SETTINGS },
     clubs: [],
   };
-  s.plots[0] = { type: "club", level: 1 };
-  s.plots[1] = { type: "gym", level: 1 };
-  s.plots[4] = { type: "rings", level: 1 };
+  s.plots[CLUB_PLOT] = { type: "club", level: 1 };
+  s.plots[10] = { type: "gym", level: 1 };
   const starters = [
     ["shot", "Mara Kowal", "farm", { skin: "#e2b08a", hair: "#8e4c33", style: 2 }],
     ["discus", "Tomas Reyes", "gymnast", { skin: "#c98f66", hair: "#1e1e24", style: 0 }],
@@ -170,7 +174,7 @@ export function plannedActivity(s, a) {
   return a.plan;
 }
 export function visitorsPerDay(s) {
-  const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.12 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);
+  const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.15 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);
   return Math.round((3 + Math.sqrt(s.fans) * 0.55) * lift);
 }
 export function clubCondition(s) {
@@ -179,7 +183,8 @@ export function clubCondition(s) {
     (facilityLevel(s, "cafe") ? 1 : 0) +
     (facilityLevel(s, "fountain") ? 1 : 0) +
     (facilityLevel(s, "club") - 1) +
-    (hasCombo(s, "zen") ? 2 : 0)
+    (hasCombo(s, "zen") ? 2 : 0) +
+    (hasCombo(s, "teamspirit") ? 1 : 0)
   );
 }
 export function trainingGains(s, a, planId, fx = effects(s, a)) {
@@ -192,7 +197,7 @@ export function trainingGains(s, a, planId, fx = effects(s, a)) {
   for (let i = 0; i < 4; i++) {
     let g;
     if (plan.stat != null) {
-      const lvl = facilityLevel(s, plan.facility);
+      const lvl = facilityLevel(s, planFacility(plan, a));
       g = plan.stat === i ? base * 2 * (lvl ? 1 + 0.25 * lvl : 0.8) : base * 0.22;
     } else g = base * (planId === "sharpen" ? 0.15 : 0.62);
     const room = clamp((cap - a.stats[i]) / (cap * 0.55), 0.06, 1);
@@ -225,7 +230,8 @@ export function advanceDay(s) {
       const plan = PLANS[activity];
       entry.gains = trainingGains(s, a, activity, fx);
       entry.gains.forEach((g, i) => (a.stats[i] += g));
-      entry.facility = plan.facility && facilityLevel(s, plan.facility) ? plan.facility : activity === "rest" ? "club" : null;
+      const where = plan.facility && planFacility(plan, a);
+      entry.facility = where && facilityLevel(s, where) ? where : activity === "rest" ? "club" : null;
       if (activity === "rest") a.stamina = clamp(a.stamina + restAmount(s, a, fx), 0, 100);
       else {
         a.stamina = clamp(a.stamina - plan.load * 13 * fx.stamina, 0, 100);
@@ -250,7 +256,7 @@ export function advanceDay(s) {
   s.plots.forEach((p, i) => {
     if (!p) return;
     const amount =
-      p.type === "cafe" ? Math.round(visitors * 0.6 * 2 * p.level) : p.type === "shop" ? Math.round(visitors * 0.5 * 3 * p.level * (hasCombo(s, "fanzone") ? 1.5 : 1)) : 0;
+      p.type === "cafe" ? Math.round(visitors * 0.6 * 2 * p.level) : p.type === "shop" ? Math.round(visitors * 0.5 * 3 * p.level * (hasCombo(s, "matchday") ? 1.5 : 1)) : 0;
     if (amount) {
       s.money += amount;
       report.spend.push({ plot: i, amount });
@@ -267,7 +273,7 @@ export function advanceDay(s) {
 }
 export function weeklyIncome(s) {
   const sponsor = SPONSORS[s.sponsor] || SPONSORS.bakery;
-  return Math.round((sponsor.weekly + 80 + 60 * (facilityLevel(s, "club") - 1) + 70 * facilityLevel(s, "stands")) * (hasCombo(s, "fans") ? 1.15 : 1));
+  return Math.round((sponsor.weekly + 80 + 60 * (facilityLevel(s, "club") - 1) + 70 * facilityLevel(s, "stands")) * (hasCombo(s, "nightfever") ? 1.15 : 1));
 }
 export const wages = (s) => s.roster.reduce((n, a) => n + wageOf(a), 0);
 function payWeek(s) {
@@ -283,17 +289,18 @@ function payWeek(s) {
 // ── Grounds ───────────────────────────────────────────────────────────
 export const upgradeCost = (type, level) => (type === "club" ? 500 * level : Math.round(FACILITIES[type].cost * 0.9 * level));
 export function canBuild(s, index, type) {
+  const d = FACILITIES[type];
   return (
-    !!FACILITIES[type] &&
+    !!d &&
     type !== "club" &&
-    index > 0 &&
-    index < 12 &&
+    index >= 0 &&
+    index < PLOT_COUNT &&
     plotUnlocked(s, index) &&
     !s.plots[index] &&
     !s.match &&
     isFacilityAvailable(s, type) &&
-    !s.plots.some((p) => p?.type === type) &&
-    s.money >= FACILITIES[type].cost
+    (d.decor || !s.plots.some((p) => p?.type === type)) &&
+    s.money >= d.cost
   );
 }
 export function build(s, index, type) {
@@ -315,11 +322,36 @@ export function upgrade(s, index) {
   p.level++;
   count(s, "upgrades");
   note(s, FACILITIES[p.type].name + " reached level " + p.level + "!", "build");
+  const discoveries = discover(s);
   checkGoals(s);
-  return { level: p.level };
+  return { level: p.level, discoveries };
+}
+// Stadium installations upgrade in place; level 0 means not yet built.
+export function stadiumProblem(s, key) {
+  const d = STADIUM[key],
+    lvl = s.stadium[key];
+  if (!d) return "Unknown";
+  if (lvl >= d.max) return "Fully upgraded";
+  if (s.league < d.league[lvl]) return "Unlocks in the " + LEAGUES[d.league[lvl]].name;
+  if (s.money < d.cost[lvl]) return "Needs $" + d.cost[lvl].toLocaleString();
+  if (s.match) return "Not during a meet";
+  return null;
+}
+export function upgradeStadium(s, key) {
+  if (stadiumProblem(s, key)) return false;
+  const d = STADIUM[key],
+    lvl = s.stadium[key];
+  s.money -= d.cost[lvl];
+  s.stadium[key] = lvl + 1;
+  count(s, "upgrades");
+  count(s, "stadium");
+  note(s, (lvl ? d.name + " upgraded: " : "Built the ") + d.levels[lvl + 1] + "!", "build");
+  const discoveries = discover(s);
+  checkGoals(s);
+  return { level: lvl + 1, discoveries };
 }
 export function moveFacility(s, from, to) {
-  if (s.match || from === to || from < 1 || to < 1 || from > 11 || to > 11 || !s.plots[from] || !plotUnlocked(s, from) || !plotUnlocked(s, to)) return false;
+  if (s.match || from === to || [from, to].some((i) => i < 0 || i >= PLOT_COUNT || i === CLUB_PLOT || !plotUnlocked(s, i)) || !s.plots[from]) return false;
   [s.plots[from], s.plots[to]] = [s.plots[to], s.plots[from]];
   return { discoveries: discover(s) };
 }

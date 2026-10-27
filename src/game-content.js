@@ -3,8 +3,8 @@
 export const STAT_NAMES = ["Power", "Technique", "Speed", "Focus"];
 export const STAT_SHORT = ["POW", "TEC", "SPD", "FOC"];
 export const STAT_COLORS = ["#e07a4f", "#5aa4c8", "#8cc152", "#b48ad8"];
-// Stats are stored 0–100 and shown ×10 so growth reads as satisfying whole numbers.
-export const showStat = (v) => Math.round(v * 10);
+// Stats are stored as fractions; the player sees whole points from 1 to 100.
+export const showStat = (v) => Math.floor(v + 1e-6);
 
 export const EVENTS = {
   shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.45, 0.32, 0.1, 0.13], min: 6, max: 24, hint: "Drive through the ring. Power first, technique close behind." },
@@ -50,11 +50,11 @@ export const BACKGROUNDS = {
 
 // Training menu. Each focused plan sends the athlete to its facility on the grounds.
 export const PLANS = {
-  balanced: { name: "All-round", short: "All-round", load: 0.85, cond: 0, desc: "Steady gains in every stat on the open field." },
+  balanced: { name: "All-round", short: "All-round", load: 0.85, cond: 0, desc: "Steady gains in every stat: laps and circuits." },
   power: { name: "Power", short: "Power", stat: 0, facility: "gym", load: 1, cond: -1, desc: "Lifting in the Strength Room." },
-  technique: { name: "Technique", short: "Technique", stat: 1, facility: "rings", load: 1, cond: -1, desc: "Drills in the Throws Centre." },
-  speed: { name: "Speed", short: "Speed", stat: 2, facility: "sprint", load: 1, cond: -1, desc: "Sprints and bounds on the lanes." },
-  focus: { name: "Focus", short: "Focus", stat: 3, facility: "studio", load: 0.7, cond: 0, desc: "Film study in the Video Studio." },
+  technique: { name: "Technique", short: "Technique", stat: 1, facility: "event", load: 1, cond: -1, desc: "Throwing drills at their own circle, cage or runway." },
+  speed: { name: "Speed", short: "Speed", stat: 2, facility: "track", load: 1, cond: -1, desc: "Sprints and bounds on the track." },
+  focus: { name: "Focus", short: "Focus", stat: 3, facility: "studio", load: 0.7, cond: 0, desc: "Film study in the Video room." },
   sharpen: { name: "Sharpen", short: "Sharpen", load: 0.45, cond: 7, desc: "Light competition prep. Lifts condition." },
   rest: { name: "Rest", short: "Rest", facility: "spa", load: 0, cond: 3, desc: "Recover stamina. Better with a Recovery Spa." },
 };
@@ -100,7 +100,6 @@ export const SKILLS = {
   avalanche: { name: "Avalanche", cat: "unique", sp: 0, rank: 0, desc: "+7% in finals. Rest recovers twice as fast.", final: 1.07, restMult: 2 },
   wonderkid: { name: "Wonderkid", cat: "unique", sp: 0, rank: 0, desc: "XP ×1.6 and all training +20%.", xp: 1.6, gain: 1.2 },
 };
-export const SKILL_ICONS = { train: "▲", meet: "◎", team: "♥", signature: "✦", unique: "★" };
 
 // Tactics for each attempt. Spread is a fraction of the projected mark (one standard deviation).
 export const TACTICS = {
@@ -136,10 +135,10 @@ export const ITEMS = {
   headband: { name: "Golden Headband", kind: "gear", slot: "charm", rarity: "legend", price: null, icon: "band", color: "#f0c840", desc: "All training +20%, distance +1%.", gain: 1.2, mark: 1.01 },
   drink: { name: "Energy Drink", kind: "use", rarity: "common", price: 40, tier: 0, icon: "bottle", color: "#5ad0a0", desc: "+40 stamina.", stamina: 40 },
   cake: { name: "Pep Talk Cake", kind: "use", rarity: "common", price: 55, tier: 0, icon: "cake", color: "#f0a0b8", desc: "+40 condition.", cond: 40 },
-  shake: { name: "Protein Shake", kind: "use", rarity: "common", price: 90, tier: 0, icon: "bottle", color: "#e0a070", desc: "Power +20.", stat: [0, 2] },
-  manual: { name: "Technique Manual", kind: "use", rarity: "common", price: 90, tier: 0, icon: "book", color: "#5aa4c8", desc: "Technique +20.", stat: [1, 2] },
-  ladder: { name: "Agility Ladder", kind: "use", rarity: "common", price: 90, tier: 0, icon: "ladder", color: "#8cc152", desc: "Speed +20.", stat: [2, 2] },
-  puzzle: { name: "Focus Puzzle", kind: "use", rarity: "common", price: 90, tier: 0, icon: "puzzle", color: "#b48ad8", desc: "Focus +20.", stat: [3, 2] },
+  shake: { name: "Protein Shake", kind: "use", rarity: "common", price: 90, tier: 0, icon: "bottle", color: "#e0a070", desc: "+2 Power.", stat: [0, 2] },
+  manual: { name: "Technique Manual", kind: "use", rarity: "common", price: 90, tier: 0, icon: "book", color: "#5aa4c8", desc: "+2 Technique.", stat: [1, 2] },
+  ladder: { name: "Agility Ladder", kind: "use", rarity: "common", price: 90, tier: 0, icon: "ladder", color: "#8cc152", desc: "+2 Speed.", stat: [2, 2] },
+  puzzle: { name: "Focus Puzzle", kind: "use", rarity: "common", price: 90, tier: 0, icon: "puzzle", color: "#b48ad8", desc: "+2 Focus.", stat: [3, 2] },
   icebath: { name: "Ice Bath", kind: "use", rarity: "rare", price: 140, tier: 1, icon: "tub", color: "#9ad8f0", desc: "Full stamina and heals injuries.", stamina: 100, heal: true },
   notebook: { name: "Coach's Notebook", kind: "use", rarity: "rare", price: 160, tier: 1, icon: "book", color: "#c89a5a", desc: "+80 XP.", xp: 80 },
   feast: { name: "Team Feast", kind: "use", rarity: "rare", price: 240, tier: 2, team: true, icon: "cake", color: "#f0c060", desc: "Whole team: +25 condition, +20 stamina.", teamCond: 25, teamStamina: 20 },
@@ -151,54 +150,80 @@ export const ITEMS = {
 export const GEAR_SLOTS = ["implement", "shoes", "charm"];
 export const SLOT_NAMES = { implement: "Implement", shoes: "Shoes", charm: "Charm" };
 
-// Grounds. stat = trained here; activity = what athletes do in front of the building.
+// The stadium: fixed installations that are upgraded in place.
+// cost[k] / league[k] = price and league needed to go from level k to k + 1.
+export const STADIUM = {
+  track: { name: "Track", levels: ["Grass loop", "Cinder track", "Synthetic track", "Championship track"], cost: [0, 650, 1600], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level." },
+  shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +25% per level." },
+  discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1000], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +25% per level." },
+  hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 1050], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +25% per level." },
+  jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +25% per level." },
+  stands: { name: "Grandstand", levels: ["Grass banks", "Main stand", "Covered stands", "Full bowl"], cost: [500, 1200, 2600], league: [0, 1, 3], start: 0, max: 3, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level." },
+  studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 800, 1500], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +25% per level." },
+  lights: { name: "Floodlights", levels: ["None", "Floodlights", "Stadium lights"], cost: [900, 1800], league: [2, 3], start: 0, max: 2, desc: "Evening meets: +20% fans from home wins per level and a brighter crowd." },
+};
+export const STADIUM_IDS = Object.keys(STADIUM);
+export const THROW_SPOTS = ["shot", "discus", "hammer", "jav"];
+
+// Buildings on the plots around the stadium.
 export const FACILITIES = {
   club: { name: "Clubhouse", cost: 0, league: 0, fixed: true, color: "#c0784a", desc: "Home. Each level: +$60 weekly income and +1 daily condition." },
   gym: { name: "Strength Room", cost: 280, league: 0, stat: 0, color: "#d08a50", desc: "Power training +25% per level." },
-  rings: { name: "Throws Centre", cost: 260, league: 0, stat: 1, color: "#5f9a8e", desc: "Technique training +25% per level." },
-  sprint: { name: "Sprint Lanes", cost: 240, league: 0, stat: 2, color: "#c06a50", desc: "Speed training +25% per level." },
-  studio: { name: "Video Studio", cost: 420, league: 1, stat: 3, color: "#8a7fc0", desc: "Focus training +25% per level." },
   spa: { name: "Recovery Spa", cost: 340, league: 0, color: "#6ab0b0", desc: "Rest recovers +12 stamina per level. Injuries heal faster." },
-  garden: { name: "Club Garden", cost: 150, league: 0, color: "#78a858", desc: "+1 daily team condition per level. Visitors love it." },
   cafe: { name: "Canteen Café", cost: 300, league: 0, color: "#e0a050", desc: "Visitors spend $2 per level. +1 daily condition." },
   shop: { name: "Merch Stand", cost: 380, league: 0, color: "#d0605a", desc: "Visitors spend $3 per level. +1 fan a day per level." },
+  garden: { name: "Club Garden", cost: 150, league: 0, decor: true, color: "#78a858", desc: "+1 daily team condition per level. Visitors love it. You can plant more than one." },
+  fountain: { name: "Fountain", cost: 220, league: 0, decor: true, color: "#7ac0e0", desc: "A landmark: more visitors, +1 daily condition. You can build more than one." },
   dorm: { name: "Dormitory", cost: 450, league: 0, color: "#a08a6a", desc: "Room for +2 athletes per level (base squad of 6)." },
   scout: { name: "Scout Office", cost: 500, league: 1, color: "#7a8a5a", desc: "Rarer recruits and −15% scouting cost per level." },
   workshop: { name: "Kit Workshop", cost: 560, league: 1, color: "#9a7a5a", desc: "Forge gear: +0.6% distance per forge level. −10% forge cost per level." },
-  stands: { name: "Grandstand", cost: 700, league: 2, color: "#5a7a9a", desc: "+$70 weekly sponsor money and more visitors per level." },
   lab: { name: "Sports Lab", cost: 800, league: 2, color: "#7ab0d0", desc: "XP +10% per level." },
-  fountain: { name: "Fountain", cost: 220, league: 0, color: "#7ac0e0", desc: "A beloved landmark. More visitors, +1 daily condition." },
   statue: { name: "Champion Statue", cost: 900, league: 0, needsTitle: true, color: "#c8b078", desc: "Needs a title. +2 fans a day per level; fans from wins +10%." },
 };
 export const FACILITY_IDS = Object.keys(FACILITIES);
-export const GRID_COLS = 4;
-export const GRID_ROWS = 3;
-// Plots open in this order as the club climbs leagues (6, 8, 10, 12).
-export const PLOT_ORDER = [0, 1, 2, 4, 5, 6, 3, 7, 8, 9, 10, 11];
-export const PLOTS_BY_LEAGUE = [6, 8, 10, 12, 12];
+// 13 plots in a ring around the stadium: top 0–4, right 5–6, bottom 7–8 | gate | 9–10, left 11–12.
+export const PLOT_COUNT = 13;
+export const CLUB_PLOT = 9;
+export const GATE_GAP = [8, 9];
+// Plots open in this order as the club climbs leagues.
+export const PLOT_ORDER = [9, 10, 8, 11, 7, 12, 6, 0, 5, 1, 4, 2, 3];
+export const PLOTS_BY_LEAGUE = [7, 9, 11, 13, 13];
 
-// Orthogonal neighbours. Effects are read by key in the engine.
+// Neighbouring plots (around the ring) form combos; stadium milestones have a rule instead.
 export const COMBOS = [
-  { a: "gym", b: "rings", key: "power", name: "Power Circuit", desc: "Power & Technique training +10%." },
-  { a: "rings", b: "studio", key: "release", name: "Release Lab", desc: "Meet foul risk −12%." },
-  { a: "sprint", b: "rings", key: "trackfield", name: "Track & Field", desc: "Speed & Technique training +10%." },
-  { a: "spa", b: "garden", key: "spaday", name: "Spa Day", desc: "Rest recovers +10 more stamina." },
   { a: "cafe", b: "gym", key: "fuel", name: "Fuel Station", desc: "Training uses 15% less stamina." },
+  { a: "gym", b: "workshop", key: "ironworks", name: "Iron Works", desc: "Power training +10%." },
+  { a: "spa", b: "garden", key: "spaday", name: "Spa Day", desc: "Rest recovers +10 more stamina." },
   { a: "cafe", b: "garden", key: "picnic", name: "Picnic Lawn", desc: "Visitors +20%." },
   { a: "garden", b: "fountain", key: "zen", name: "Zen Corner", desc: "Team condition +2 a day." },
-  { a: "shop", b: "stands", key: "fanzone", name: "Fan Zone", desc: "Merch spending ×1.5." },
-  { a: "stands", b: "club", key: "fans", name: "Home Advantage", desc: "Weekly income +15%." },
-  { a: "studio", b: "workshop", key: "techhub", name: "Tech Hub", desc: "Forging costs −25%." },
+  { a: "shop", b: "cafe", key: "matchday", name: "Matchday Strip", desc: "Merch spending ×1.5." },
+  { a: "lab", b: "workshop", key: "techhub", name: "Tech Hub", desc: "Forging costs −25%." },
+  { a: "lab", b: "spa", key: "science", name: "Sports Science", desc: "XP +15%." },
   { a: "scout", b: "club", key: "network", name: "Scouting Network", desc: "Rarer recruits." },
-  { a: "lab", b: "studio", key: "science", name: "Science Squad", desc: "XP +15%." },
   { a: "dorm", b: "spa", key: "dorms", name: "Rest & Reload", desc: "Injury risk −50%, rest +5 stamina." },
+  { a: "dorm", b: "cafe", key: "teamspirit", name: "Team Spirit", desc: "Team condition +1 a day." },
   { a: "statue", b: "fountain", key: "legends", name: "Hall of Legends", desc: "Fans from wins +25%." },
+  { key: "arena", stadium: true, name: "Complete Arena", desc: "All four throwing areas at level 2: meet foul risk −12%.", hint: "Upgrade every throwing area…" },
+  { key: "nightfever", stadium: true, name: "Night Fever", desc: "Floodlights plus covered stands: weekly income +15%.", hint: "Something about the stands after dark…" },
 ];
 
+// One clear scale: every stat runs 1–100, with a letter grade.
+export const GRADES = [
+  ["S", 90, "#e2a43a"],
+  ["A", 80, "#e0604a"],
+  ["B", 70, "#d0803a"],
+  ["C", 60, "#8cb040"],
+  ["D", 50, "#4aa07a"],
+  ["E", 40, "#4f8fd6"],
+  ["F", 30, "#7a80b0"],
+  ["G", 0, "#9a9a90"],
+];
+export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1);
+
 export const LEAGUES = [
-  { name: "Community League", tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, Video Studio, Scout Office & Workshop" },
-  { name: "County League", tag: "The local paper is paying attention.", rating: 38, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, Grandstand & Sports Lab" },
-  { name: "Regional League", tag: "Familiar faces. Fiercer competition.", rating: 52, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots" },
+  { name: "Community League", tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
+  { name: "County League", tag: "The local paper is paying attention.", rating: 38, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas & Sports Lab" },
+  { name: "Regional League", tag: "Familiar faces. Fiercer competition.", rating: 52, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots and a championship track" },
   { name: "National League", tag: "Your little club has made a name.", rating: 66, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage" },
   { name: "World League", tag: "One club against the best.", rating: 80, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
 ];
@@ -249,7 +274,7 @@ export const SPONSORS = {
 export const SECRETS = {
   olga: { name: "Grandma Olga", event: "shot", skill: "oldschool", background: "poker", fee: 600, look: { skin: "#f0c6a0", hair: "#d8d8d0", style: 6, special: "granny" }, stats: 4, potential: 78, hint: "Reach 250 fans", story: "A champion from the old days wants one more season. She brought her own knitting." },
   bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
-  r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot" }, stats: 6, potential: 82, hint: "Build a Kit Workshop and a Video Studio, both level 2", story: "Your workshop and studio wired themselves together. Something is beeping." },
+  r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
   yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
   yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the World League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
   pip: { name: "Pip", event: "discus", skill: "wonderkid", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },

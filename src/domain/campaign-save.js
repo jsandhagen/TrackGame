@@ -1,6 +1,6 @@
 import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
-import { EVENT_IDS, FACILITIES, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS } from "../game-content.js";
+import { EVENT_IDS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE } from "../game-content.js";
 import { statTotal } from "./core.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
@@ -15,10 +15,32 @@ const OLD_TRAITS = { technician: "gymnast", powerhouse: "farm", explosive: "spri
 const OLD_PLANS = { recover: "rest" };
 const OLD_KIT = { control: "precision", distance: "competition", development: "weighted", support: "support", reactive: "spikes" };
 const OLD_SKILLS = { student: "quickstudy", steady: "icevein", closer: "clutch", rhythm: "metronome", explosive: "gymrat", chain: "highroller", comeback: "secondwind", captain: "captain", limitbreak: null };
-const OLD_PLOTS = [0, 1, 2, 4, 5, 6, 8, 9, 10];
 const OLD_FACILITY = { analysis: "studio", recovery: "spa" };
 
-// v3 (0.3–0.4 league careers) → v4.
+// Pre-0.5 grounds → a stadium plus a ring of building plots.
+function relayout(s, oldPlots, league) {
+  s.plots = Array(PLOT_COUNT).fill(null);
+  s.stadium = Object.fromEntries(Object.entries(STADIUM).map(([k, d]) => [k, d.start]));
+  const open = PLOT_ORDER.slice(0, PLOTS_BY_LEAGUE[league]).filter((i) => i !== CLUB_PLOT);
+  for (const p of oldPlots) {
+    if (!p) continue;
+    const type = OLD_FACILITY[p.type] || p.type,
+      L = Math.max(1, Math.min(3, p.level | 0));
+    if (type === "club") s.plots[CLUB_PLOT] = { type, level: L };
+    else if (type === "rings") {
+      s.stadium.shot = Math.max(s.stadium.shot, L);
+      s.stadium.jav = Math.max(s.stadium.jav, L - 1);
+      s.stadium.discus = Math.max(s.stadium.discus, L - 1);
+      s.stadium.hammer = Math.max(s.stadium.hammer, L - 1);
+    } else if (type === "sprint") s.stadium.track = Math.max(s.stadium.track, L);
+    else if (type === "studio" || type === "stands") s.stadium[type] = Math.max(s.stadium[type], L);
+    else if (FACILITIES[type] && open.length && !s.plots.some((q) => q?.type === type)) s.plots[open.shift()] = { type, level: L };
+    else if (FACILITIES[type]) s.money += Math.round(FACILITIES[type].cost / 2);
+  }
+  s.plots[CLUB_PLOT] ??= { type: "club", level: 1 };
+}
+
+// v3 (0.3–0.4 league careers) → current.
 function fromV3(o) {
   const s = newGame(o.rng);
   Object.assign(s, {
@@ -46,12 +68,7 @@ function fromV3(o) {
     bag: { drink: 3, cake: 2 },
     lineup: { ...o.lineup },
   });
-  s.plots = Array(12).fill(null);
-  o.plots.forEach((p, i) => {
-    if (!p) return;
-    const type = OLD_FACILITY[p.type] || p.type;
-    if (FACILITIES[type]) s.plots[OLD_PLOTS[i]] = { type, level: p.level };
-  });
+  relayout(s, o.plots, o.league);
   s.roster = o.roster.map((a) => {
     const skills = [];
     const map = OLD_SKILLS[a.skill];
@@ -172,18 +189,25 @@ function checkMatch(s, ids) {
 export function validateCampaign(input) {
   let data = structuredClone(input?.format === "ring-sector-save" ? input.state : input);
   if (data?.v === 2) return fromV2(data);
+  if (data?.v === 4 && Array.isArray(data.plots)) {
+    // 0.5 development saves: same career model, old 12-plot grounds.
+    data.money ??= 0;
+    relayout(data, data.plots, data.league);
+    data.v = 5;
+  }
   if (data?.v === 3) {
     if (!Array.isArray(data.roster) || !data.roster.length || !Array.isArray(data.plots) || !int(data.league, 0, 4)) bad();
     data = fromV3(data);
   }
   const s = data;
-  if (!s || s.v !== 4 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7) || !int(s.matchDay, s.day, s.day + 30)) bad();
+  if (!s || s.v !== 5 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7) || !int(s.matchDay, s.day, s.day + 30)) bad();
   if (!num(s.money, -1e9, 1e12) || !num(s.fans, 0, 1e12) || !["season", "seasonEnd"].includes(s.phase) || !int(s.fixture, 0, 3)) bad();
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
-  if (!Array.isArray(s.plots) || s.plots.length !== 12 || s.plots[0]?.type !== "club") bad();
+  if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
   for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, 3))) bad();
-  const types = s.plots.filter(Boolean).map((p) => p.type);
+  const types = s.plots.filter(Boolean).map((p) => p.type).filter((k) => !FACILITIES[k].decor);
   if (new Set(types).size !== types.length) bad();
+  if (!s.stadium || Object.keys(STADIUM).some((k) => !int(s.stadium[k], 0, STADIUM[k].max))) bad();
   if (!Array.isArray(s.roster) || s.roster.length < 1 || s.roster.length > 12) bad();
   const ids = new Set();
   for (const a of s.roster) checkAthlete(a, ids);
@@ -211,7 +235,7 @@ export function validateCampaign(input) {
 }
 export const exportCampaign = (state) => ({
   format: "ring-sector-save",
-  version: 4,
+  version: 5,
   exportedAt: new Date().toISOString(),
   state: validateCampaign(state),
 });

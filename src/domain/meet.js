@@ -377,7 +377,7 @@ export function settleMatch(s) {
   if (!win && !draw && sponsor.lossPenalty) money -= sponsor.lossPenalty;
   s.money += money;
   let fans = win ? 15 + 10 * L : draw ? 6 + 4 * L : 3 + 2 * L;
-  fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue"));
+  fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue")) * (win && m.home ? 1 + 0.2 * facilityLevel(s, "lights") : 1);
   const rewards = { money, fans: 0, items: [], levelUps: [], pbs: [], mvp: null, goals: [] };
   let mvpScore = -1;
   for (const [i, ev] of EVENT_IDS.entries()) {

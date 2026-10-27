@@ -2,12 +2,13 @@ import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { ITEMS, SKILLS, FACILITIES, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, EVENTS, COMBOS, HELPER } from "./game-content.js";
+import { ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, EVENTS, COMBOS, HELPER } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium, beatDuration, CUTIN_MS } from "./render/stadium.js";
 import { portrait as paintPortrait } from "./render/sprites.js";
 import { paintIcon } from "./render/icons.js";
+import { installIcons, ico } from "./render/uiicons.js";
 import { drawFacility } from "./render/buildings.js";
 import { canvas as makeCanvas } from "./render/pixel.js";
 import { sfx, unlockAudio, setSound } from "./render/audio.js";
@@ -16,12 +17,14 @@ import { exportBackup } from "./platform/backups.js";
 import { initNative } from "./platform/native.js";
 import { validateCampaign, exportCampaign } from "./domain/campaign-save.js";
 
+installIcons();
 const $ = (q) => document.querySelector(q);
 const { esc, cash } = P;
 const store = await createPersistence("ring-sector-leagues-v3");
 let state = store.read() ? validateCampaign(JSON.parse(store.read())) : G.newGame();
 let saveEnabled = false;
-const view = { page: "home", athlete: null, tab: "stats", plot: -1, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: 1, sig: false, meter: null, skipConfirm: false, hide: null };
+// window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
+const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: 1, sig: false, meter: null, skipConfirm: false, hide: null };
 const DAY_MS = [0, 2600, 1400, 700];
 const world = createWorld($("#world")),
   stadium = createStadium($("#stadium"));
@@ -30,142 +33,145 @@ let presenter = null,
   lastFrame = 0,
   dirty = false;
 setSound(state.settings.sound);
-// Match the canvases' logical height to their frame so the scene fills it.
-new ResizeObserver(([entry]) => {
-  const { width, height } = entry.contentRect;
-  if (!width || !height) return;
-  const logical = Math.max(270, Math.min(360, Math.round((480 * height) / width)));
-  for (const c of [$("#world"), $("#stadium")]) if (c.height !== logical * 2) c.height = logical * 2;
-}).observe($(".canvas-wrap"));
 
 function save() {
   if (!saveEnabled) return;
   try {
     store.write(JSON.stringify(state));
   } catch {
-    toast("Could not save. Export a backup from the Club office.", "warn");
+    toast("Could not save. Export a backup from the Office.", "warn");
   }
 }
 const reduced = () => state.settings.reducedMotion || matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ── Toasts ──────────────────────────────────────────────────────────────
-function toast(text, kind = "info") {
+function toast(text, kind = "info", icon = null) {
   const box = $("#toasts"),
     el = document.createElement("div");
   el.className = "toast " + kind;
-  el.textContent = text;
+  el.innerHTML = (icon ? ico(icon) : "") + "<span>" + esc(text) + "</span>";
   box.append(el);
   while (box.children.length > 3) box.firstChild.remove();
   setTimeout(() => el.classList.add("out"), 3000);
   setTimeout(() => el.remove(), 3500);
 }
-// Report what an action changed: goals, discoveries and other headline moments.
 function announce(before) {
   for (const id of state.goals.slice(before.goals)) {
     const g = G.GOALS.find((x) => x.id === id);
-    toast("🎯 Goal complete: " + g.name + " · " + G.rewardText(g.reward), "goal");
+    toast("Goal complete: " + g.name + " · " + G.rewardText(g.reward), "goal", "target");
     sfx("goal");
   }
   for (const key of state.discovered.slice(before.discovered)) {
     const c = COMBOS.find((x) => x.key === key);
     world.banner("COMBO!", c.name.toUpperCase() + " · " + c.desc.toUpperCase());
-    toast("✦ Combo discovered: " + c.name + " — " + c.desc, "combo");
+    toast("Combo discovered: " + c.name + " — " + c.desc, "combo", "spark");
     sfx("combo");
   }
 }
 const snapshot = () => ({ goals: state.goals.length, discovered: state.discovered.length });
 
 // ── Rendering ───────────────────────────────────────────────────────────
-function header() {
-  const L = LEAGUES[state.league];
-  $("#topbar").innerHTML = `<div class="brand"><span class="crest home" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${L.name.toUpperCase()}</small></span></div>
-  <div class="date"><b>Season ${state.season}</b><small>Week ${Math.ceil(state.day / 7)} · Day ${state.day}</small></div>
-  <div class="resource fans" title="Fans"><small>FANS</small><b>♥ ${state.fans.toLocaleString()}</b></div>
-  <div class="resource money" title="Club funds"><small>FUNDS</small><b>${cash(state.money)}</b></div>
-  <button class="icon-button" data-act="fullscreen" aria-label="Full screen">⛶</button><button class="icon-button" data-act="help" aria-label="How to play">?</button>`;
-}
-function navigation() {
-  const items = [
-    ["home", "⌂", "Club"],
-    ["squad", "♟", "Squad"],
-    ["grounds", "▦", "Grounds"],
-    ["shop", "🛍", "Shop"],
-    ["league", "⚑", "League"],
-    ["club", "✦", "Office"],
-  ];
-  const badge = (id) => {
-    if (id === "squad" && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)))) return "<i class='dot-badge'></i>";
-    if (id === "shop" && state.saleDay === state.day) return "<i class='dot-badge'></i>";
-    return "";
-  };
-  $("#navigation").innerHTML = state.match
-    ? `<span class="quiet">${state.match.phase === "complete" ? "Full time · rewards are saved" : "Live meet · progress saves after every throw"}</span>`
-    : items.map(([id, ic, name]) => `<button class="nav-item ${view.page === id || (view.page === "recruit" && id === "squad") || (view.page === "lobby" && id === "home") ? "active" : ""}" data-act="page" data-page="${id}"><span aria-hidden="true">${ic}</span><em>${name}</em>${badge(id)}</button>`).join("");
-}
-function scene() {
+function hud() {
   const m = state.match;
-  $("#world").hidden = !!m;
-  $("#stadium").hidden = !m;
-  $("#scene").classList.toggle("meeting", !!m);
   if (m) {
-    $("#sceneLabel").innerHTML = `<span class="eyebrow">${m.kind === "final" ? "LEAGUE FINAL" : "CLUB DUEL"} · ${esc(LEAGUES[state.league].venue)}</span><strong>${esc(state.clubName)} <em>vs</em> ${esc(m.name)}</strong>`;
-    $("#sceneFoot").innerHTML = `<span class="ticker">${esc(beatText(presenter?.beat || m.last))}</span>`;
+    $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="help" aria-label="How to play">${ico("help")}</button>`;
     return;
   }
   const days = state.matchDay - state.day,
-    speed = view.playing ? state.settings.speed : 0;
-  $("#sceneLabel").innerHTML = `<span class="eyebrow">YOUR GROUNDS</span><strong>${esc(LEAGUES[state.league].venue)}</strong><span class="next">${state.phase === "seasonEnd" ? "Season complete" : days <= 0 ? "⚑ Meet day!" : "Next meet in " + days + (days === 1 ? " day" : " days")}</span>`;
-  $("#sceneFoot").innerHTML = `<div class="seg time">${["❚❚", "▶", "▶▶", "▶▶▶"].map((l, i) => `<button class="${speed === i ? "active" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${state.phase !== "season" || days <= 0 ? "disabled" : ""}>${l}</button>`).join("")}</div><span class="ticker ${state.log[0]?.kind || ""}">${esc(state.log[0]?.text || "")}</span>`;
+    speed = view.playing ? state.settings.speed : 0,
+    canPlay = state.phase === "season" && days > 0;
+  $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
+  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days")}</small></div>
+  <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
+  <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
+  <div class="res money">${ico("coin")}<b>${cash(state.money)}</b></div>
+  <button class="hud-btn" data-act="fullscreen" aria-label="Full screen">${ico("expand")}</button><button class="hud-btn" data-act="help" aria-label="How to play">${ico("help")}</button>`;
 }
-function beatText(b) {
-  if (!b) return "The crowd settles in…";
-  const m = state.match;
-  if (b.type === "throw") return (b.side === "home" ? "" : m.name + " · ") + b.name + (view.hide ? " is throwing…" : b.mark == null ? " fouls." : " throws " + b.mark.toFixed(2) + " m" + (b.newPb ? " · NEW PB!" : ""));
-  if (b.type === "eventStart") return EVENTS[b.event].name + " is up.";
-  if (b.type === "eventEnd") return EVENTS[b.event].name + ": " + (b.h === 3 ? "event to us!" : b.a === 3 ? "event to " + m.name + "." : "shared.") + " " + b.score + "–" + b.against;
-  if (b.type === "decide") return b.clutch ? "Clutch moment! Your call." : "Choose the approach.";
-  if (b.type === "complete") return b.win ? "Victory!" : b.draw ? "A draw." : "Defeat.";
-  return "Welcome to the meet!";
-}
-function panelHTML() {
-  if (state.match) return P.match(state, view);
-  switch (view.page) {
-    case "squad":
-      return P.squad(state, view);
-    case "recruit":
-      return P.recruit(state, view);
-    case "grounds":
-      return P.grounds(state, view);
-    case "shop":
-      return P.shop(state, view);
-    case "league":
-      return P.league(state, view);
-    case "club":
-      return P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() });
-    case "lobby":
-      return P.lobby(state, view);
-    default:
-      return P.home(state, view);
+function menu() {
+  if (state.match) {
+    $("#menu").hidden = true;
+    return;
   }
+  $("#menu").hidden = false;
+  const squadBadge = state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)));
+  const items = [
+    ["home", "home", "Club"],
+    ["squad", "squad", "Squad"],
+    ["build", "build", "Build"],
+    ["shop", "shop", "Shop"],
+    ["league", "league", "League"],
+    ["club", "office", "Office"],
+  ];
+  const ready = state.day >= state.matchDay && state.phase === "season";
+  const action =
+    state.phase === "seasonEnd"
+      ? `<button class="go" data-act="window" data-page="home">${ico("trophy")}<span>Season review</span></button>`
+      : ready
+        ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>To the meet</span></button>`
+        : view.playing
+          ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
+          : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
+  $("#menu").innerHTML = `<div class="menu-items">${items.map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${id === "squad" && squadBadge ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
+}
+function tools() {
+  $("#tools").innerHTML = state.match ? "" : `<button data-act="zoom" data-step="0.5" aria-label="Zoom in">${ico("plus")}</button><button data-act="zoom" data-step="-0.5" aria-label="Zoom out">${ico("minus")}</button><button data-act="recenter" aria-label="Centre on the stadium">${ico("stadium")}</button>`;
+}
+function windowHTML() {
+  const m = state.match;
+  if (m) {
+    if (m.phase === "complete") return ["Full time", P.meetComplete(state)];
+    if (m.phase === "decide") return [m.last?.clutch ? "Clutch moment" : "Your call, coach", P.decide(state, view)];
+    return null;
+  }
+  if (!view.window) return null;
+  const page = view.window;
+  const html = {
+    home: () => P.home(state, view),
+    squad: () => P.squad(state, view),
+    recruit: () => P.recruit(state, view),
+    build: () => P.build(state, view),
+    shop: () => P.shop(state, view),
+    league: () => P.league(state, view),
+    club: () => P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() }),
+    lobby: () => P.lobby(state, view),
+  }[page]?.();
+  if (html == null) return null;
+  const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete" : page === "lobby" ? "Meet lobby · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
+  return [title, html];
 }
 function render(preserve = true) {
   const panel = $("#panel"),
     scroll = preserve ? panel.scrollTop : 0;
-  header();
-  scene();
-  navigation();
-  panel.innerHTML = panelHTML();
-  panel.scrollTop = scroll;
+  hud();
+  menu();
+  tools();
+  const m = state.match;
+  $("#world").hidden = !!m;
+  $("#stadium").hidden = !m;
+  $("#app").classList.toggle("meeting", !!m);
+  $("#meetbar").hidden = !m || m.phase === "complete";
+  if (m && m.phase !== "complete") $("#meetbar").innerHTML = P.meetBar(state, view);
+  const win = windowHTML();
+  $("#window").hidden = !win;
+  $("#window").classList.toggle("center", !!m);
+  $("#window").classList.toggle("low", m?.phase === "decide");
+  if (win) {
+    $("#winTitle").textContent = win[0];
+    $(".win-close").innerHTML = ico("close");
+    $(".win-close").hidden = !!m;
+    panel.innerHTML = win[1];
+    panel.scrollTop = scroll;
+  } else panel.innerHTML = "";
   quickAction();
-  paint(panel);
+  paint(document.body);
   dirty = false;
 }
 // Re-render without closing a dropdown the player is using.
 function refresh() {
-  header();
-  scene();
+  hud();
+  menu();
   const focus = document.activeElement;
-  if (focus && $("#panel").contains(focus) && ["SELECT", "INPUT"].includes(focus.tagName)) {
+  if (focus && $("#window").contains(focus) && ["SELECT", "INPUT"].includes(focus.tagName)) {
     dirty = true;
     return;
   }
@@ -174,34 +180,22 @@ function refresh() {
 function quickAction() {
   const shell = $("#quickAction");
   shell.innerHTML = "";
-  const want = state.match
-    ? state.match.phase === "complete"
-      ? ["leave"]
-      : view.meter
-        ? ["release"]
-        : []
-    : view.page === "home"
-      ? state.phase === "seasonEnd"
-        ? ["season"]
-        : ["lobby", "play", "pause"]
-      : view.page === "lobby"
-        ? ["enter"]
-        : [];
+  const m = state.match;
+  const want = m ? (m.phase === "complete" ? ["leave"] : view.meter ? ["release"] : []) : view.window === "home" ? (state.phase === "seasonEnd" ? ["season"] : []) : view.window === "lobby" ? ["enter"] : [];
   for (const act of want) {
     const el = $("#panel").querySelector(`[data-act="${act}"]`);
     if (el) shell.append(el);
   }
   shell.hidden = !shell.children.length;
-  $("#panelShell").classList.toggle("has-actions", !shell.hidden);
 }
 const buildingCache = new Map();
 function buildingImage(key) {
-  if (buildingCache.has(key + state.colors.primary)) return buildingCache.get(key + state.colors.primary);
+  const k = key + state.colors.primary;
+  if (buildingCache.has(k)) return buildingCache.get(k);
   const [type, level] = key.split(":"),
-    c = makeCanvas(104, 66),
-    g = c.getContext("2d");
-  drawFacility(g, type, +level, 0, 6, { season: 1, colors: state.colors });
-  buildingCache.set(key + state.colors.primary, c);
+    c = makeCanvas(104, 66);
+  drawFacility(c.getContext("2d"), type, +level, 0, 6, { season: 1, colors: state.colors });
+  buildingCache.set(k, c);
   return c;
 }
 function athleteById(id) {
@@ -228,7 +222,27 @@ function paint(root) {
   root.querySelectorAll("canvas[data-helper]").forEach((c) => paintPortrait(c, { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, rank: 2 }, state.colors, { face: "happy" }));
 }
 
-// ── Dialogs ─────────────────────────────────────────────────────────────
+// ── Windows and dialogs ─────────────────────────────────────────────────
+function openWindow(page, opts = {}) {
+  if (state.match) return;
+  view.window = page;
+  if (page !== "squad") view.athlete = null;
+  if (page !== "build") view.moving = null;
+  if (opts.athlete != null) {
+    view.athlete = opts.athlete;
+    view.tab = "stats";
+  }
+  if (opts.selected !== undefined) view.selected = opts.selected;
+  else if (page !== "build") view.selected = view.athlete != null ? { kind: "athlete", id: view.athlete } : null;
+  render(false);
+}
+function closeWindow() {
+  view.window = null;
+  view.athlete = null;
+  view.selected = null;
+  view.moving = null;
+  render(false);
+}
 function dialog(title, body, choices, o = {}) {
   const dlg = $("#dialog");
   dlg.innerHTML = `<div class="dialog-head">${o.helper ? `<canvas width="64" height="64" data-helper class="portrait helper"></canvas>` : ""}<div><span class="eyebrow">${esc(o.eyebrow || HELPER + ", club secretary")}</span><h1>${esc(title)}</h1></div></div><div class="dialog-body">${body}</div><div class="dialog-actions">${choices.map((c, i) => `<button class="button ${c.secondary ? "subtle" : "primary"}" data-choice="${i}" ${c.disabled ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}</div>`;
@@ -256,7 +270,7 @@ function showEvent() {
     secret = v.id === "secret" && SECRETS[state.pendingEvent.data.key];
   dialog(
     v.title,
-    `${secret ? `<div class="event-athlete"><canvas class="portrait large" width="96" height="96" data-secret="${state.pendingEvent.data.key}"></canvas><span><strong>${esc(secret.name)}</strong><small>${EVENTS[secret.event].name} · ★ ${esc(SKILLS[secret.skill].name)}: ${esc(SKILLS[secret.skill].desc)}</small></span></div>` : ""}${a ? `<div class="event-athlete">${P.portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].name} · potential ${Math.round(a.potential * 10)}</small></span></div>` : ""}<p>${esc(v.text)}</p>`,
+    `${secret ? `<div class="event-athlete"><canvas class="portrait large" width="96" height="96" data-secret="${state.pendingEvent.data.key}"></canvas><span><strong>${esc(secret.name)}</strong><small>${EVENTS[secret.event].name} · ${esc(SKILLS[secret.skill].name)}: ${esc(SKILLS[secret.skill].desc)}</small></span></div>` : ""}${a ? `<div class="event-athlete">${P.portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].name} · potential ${Math.floor(a.potential)}</small></span></div>` : ""}<p>${esc(v.text)}</p>`,
     v.choices.map((c, i) => ({
       label: c.label,
       disabled: !c.ok,
@@ -264,21 +278,21 @@ function showEvent() {
       fn: () => {
         const before = snapshot();
         const msg = G.resolveEvent(state, i);
-        if (msg) toast(msg, state.pendingEvent ? "info" : "story");
-        if (state.pendingEvent?.id === "secret" || v.id === "secret") sfx("level");
+        if (msg) toast(msg, "story", "news");
+        if (v.id === "secret") sfx("level");
         announce(before);
         save();
         render();
       },
     })),
-    { helper: true, locked: true, eyebrow: v.id === "secret" ? "★ SECRET CHARACTER" : HELPER + " has news" },
+    { helper: true, locked: true, eyebrow: v.id === "secret" ? "SECRET CHARACTER" : HELPER + " has news" },
   );
 }
 function chooseAthlete(title, item, fn) {
   const d = ITEMS[item];
   dialog(
     title,
-    `<p>${esc(d.desc)}</p><div class="pick-list">${state.roster.map((a) => `<button class="pick" data-pick="${a.id}">${P.portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · ⚡${Math.round(a.stamina)} · ${G.MOODS[G.moodOf(a)]}${d.slot && a.gear[d.slot] ? " · wearing " + esc(ITEMS[a.gear[d.slot]].name) : ""}</small></span></button>`).join("")}</div>`,
+    `<p>${esc(d.desc)}</p><div class="pick-list">${state.roster.map((a) => `<button class="pick" data-pick="${a.id}">${P.portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · Stamina ${Math.round(a.stamina)} · ${G.MOODS[G.moodOf(a)]}${d.slot && a.gear[d.slot] ? " · wearing " + esc(ITEMS[a.gear[d.slot]].name) : ""}</small></span></button>`).join("")}</div>`,
     [{ label: "Cancel", secondary: true }],
     { eyebrow: d.name },
   );
@@ -295,11 +309,11 @@ function help(welcome = false) {
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
     `<p>${welcome ? "I'm " + HELPER + ", the club secretary. We're a tiny throwing club with four hopefuls and big dreams. Here's how it works:" : "A quick refresher:"}</p>
-    <ol><li><b>Train.</b> Press ▶ and the days roll by. Each athlete trains at the facility for their plan; watch the numbers pop.</li>
-    <li><b>Build.</b> Put facilities on the grounds. Neighbours can form <b>combos</b>. Cafés and merch stands earn money from visitors.</li>
-    <li><b>Grow.</b> Levels give skill points for skills. Rank up athletes to raise their caps. Items and gear help too.</li>
+    <ol><li><b>Train.</b> Press Train and the days roll by. Athletes head to the gym, the track or their own circle, cage or runway, and their stats tick up.</li>
+    <li><b>Build.</b> Upgrade the stadium (throwing areas, track, stands) and put buildings on the plots around it. Neighbouring buildings can form <b>combos</b>.</li>
+    <li><b>Grow.</b> Every stat runs from 1 to 100. Levels give skill points; rank-ups raise an athlete's limit. Items and gear help too.</li>
     <li><b>Compete.</b> Meets are four head-to-head events. Watch the drama, or coach every throw. Win the league final to move up.</li></ol>
-    <p>Goals, secret characters and surprise visitors are waiting along the way. Time only moves when you press play.</p>`,
+    <p>Drag the map to look around and tap anything: athletes, buildings, the stadium. Time only moves while you train.</p>`,
     [{ label: welcome ? "Let's go!" : "Got it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
@@ -320,24 +334,18 @@ function play(speed = state.settings.speed || 1) {
   render();
 }
 function doDay(now) {
-  if (state.pendingEvent) {
-    showEvent();
-    return;
-  }
+  if (state.pendingEvent) return showEvent();
   const before = snapshot();
   const r = G.advanceDay(state);
-  if (!r.ok) {
-    stopPlaying();
-    return;
-  }
+  if (!r.ok) return stopPlaying();
   lastDayAt = now;
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
   for (const l of r.levelUps) {
-    toast("⬆ " + l.name + " reached level " + l.level + "! Skill points to spend.", "level");
+    toast(l.name + " reached level " + l.level + "! Skill points to spend.", "level", "levelup");
     sfx("level");
   }
-  for (const id of r.injuries) toast("🩹 " + state.roster.find((a) => a.id === id)?.name + " is injured.", "warn");
+  for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " is injured.", "warn", "bandage");
   announce(before);
   save();
   if (state.day >= state.matchDay) {
@@ -369,8 +377,7 @@ function startBeat(beat) {
   else if (beat.type === "meetStart") sfx("cheer");
   else if (beat.type === "complete") {
     sfx(beat.win ? "win" : beat.draw ? "event" : "lose");
-    const r = state.match.rewards;
-    for (const id of r?.goals || []) toast("🎯 Goal complete: " + G.GOALS.find((g) => g.id === id)?.name, "goal");
+    for (const id of state.match.rewards?.goals || []) toast("Goal complete: " + G.GOALS.find((g) => g.id === id)?.name, "goal", "target");
   }
   render();
 }
@@ -403,14 +410,6 @@ const meterPos = (now) => {
 };
 
 // ── Input ───────────────────────────────────────────────────────────────
-function navigate(page) {
-  if (state.match) return;
-  view.page = page;
-  view.athlete = null;
-  view.moving = null;
-  if (page !== "grounds") view.plot = -1;
-  render(false);
-}
 $("#app").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-act]");
   if (!b || b.disabled) return;
@@ -421,8 +420,14 @@ $("#app").addEventListener("click", async (e) => {
   if (act !== "skip") view.skipConfirm = false;
   if (!["release", "tactic"].includes(act)) sfx("tap");
   switch (act) {
+    case "window":
     case "page":
-      return navigate(b.dataset.page);
+      return view.window === b.dataset.page && act === "window" ? closeWindow() : openWindow(b.dataset.page);
+    case "close":
+      return closeWindow();
+    case "deselect":
+      view.selected = null;
+      break;
     case "help":
       return help();
     case "fullscreen":
@@ -433,6 +438,10 @@ $("#app").addEventListener("click", async (e) => {
         toast("Full screen is unavailable here. The Android app opens full screen.");
       }
       return;
+    case "zoom":
+      return world.zoomBy(+b.dataset.step);
+    case "recenter":
+      return world.focus(360, 260);
     case "play":
       return play();
     case "pause":
@@ -441,12 +450,11 @@ $("#app").addEventListener("click", async (e) => {
       return +b.dataset.speed ? play(+b.dataset.speed) : (stopPlaying(), render());
     case "day":
       if (state.pendingEvent) return showEvent();
-      doDay(performance.now());
-      return;
+      return doDay(performance.now());
     case "lobby":
       stopPlaying();
       if (G.lineupProblem(state)) G.autoLineup(state);
-      return navigate("lobby");
+      return openWindow("lobby");
     case "autolineup":
       G.autoLineup(state);
       toast("Best available lineup selected.");
@@ -460,6 +468,7 @@ $("#app").addEventListener("click", async (e) => {
         toast(G.lineupProblem(state) || "The meet can't start yet.", "warn");
         break;
       }
+      view.window = null;
       presenter = null;
       view.hide = null;
       view.meter = null;
@@ -476,16 +485,13 @@ $("#app").addEventListener("click", async (e) => {
       if (state.settings.manualRelease) {
         view.meter = { tactic: b.dataset.value };
         meter.start = performance.now();
-        render();
-        return;
+        return render();
       }
       return decide(b.dataset.value);
     case "release": {
       if (!view.meter) return;
-      const p = meterPos(performance.now()),
-        a = G.homeAthlete(state),
-        half = G.effects(state, a).perfect ? 0.11 : 0.07;
-      const off = Math.abs(p - 0.62);
+      const half = G.effects(state, G.homeAthlete(state)).perfect ? 0.11 : 0.07,
+        off = Math.abs(meterPos(performance.now()) - 0.62);
       return decide(view.meter.tactic, off < half ? "perfect" : off < 0.2 ? "good" : "poor");
     }
     case "skip":
@@ -503,26 +509,24 @@ $("#app").addEventListener("click", async (e) => {
     case "leave":
       G.leaveMatch(state);
       presenter = null;
-      view.page = "home";
       world.reset();
+      view.window = state.phase === "seasonEnd" ? "home" : null;
       if (state.phase === "seasonEnd") sfx(state.champion ? "win" : "event");
       break;
     case "season":
     case "defend": {
       const promoted = state.champion && act === "season" && state.league < 4;
       G.nextSeason(state, act === "defend");
-      view.page = "home";
+      view.window = null;
       if (promoted) setTimeout(() => world.banner(LEAGUES[state.league].name.toUpperCase(), "NEW RIVALS · NEW PLOTS", "#f2c94c"), 300);
       break;
     }
     case "athlete":
       stopPlaying();
-      view.page = "squad";
-      view.athlete = id;
-      view.tab = "stats";
-      return render(false);
+      return openWindow("squad", { athlete: id });
     case "back-squad":
       view.athlete = null;
+      view.selected = null;
       return render(false);
     case "tab":
       view.tab = b.dataset.tab;
@@ -535,7 +539,7 @@ $("#app").addEventListener("click", async (e) => {
     }
     case "learn":
       if (G.learnSkill(state, id, b.dataset.skill)) {
-        toast("✦ Learned " + SKILLS[b.dataset.skill].name + "!", "level");
+        toast("Learned " + SKILLS[b.dataset.skill].name + "!", "level", "spark");
         sfx("level");
       }
       break;
@@ -546,7 +550,7 @@ $("#app").addEventListener("click", async (e) => {
       const a = state.roster.find((x) => x.id === id);
       if (G.promote(state, id)) {
         sfx("goal");
-        dialog("A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now a <b>${RANKS[a.rank].name}</b>. Stat cap raised, +10 to every stat${RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION" });
+        dialog("A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now a <b>${RANKS[a.rank].name}</b>. Their limit is higher, every stat gains a point${RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION" });
       }
       break;
     }
@@ -562,7 +566,7 @@ $("#app").addEventListener("click", async (e) => {
       const apply = (aid) => {
         const snap = snapshot();
         if (G.useItem(state, item, aid)) {
-          toast("Used " + d.name + (aid ? " on " + state.roster.find((x) => x.id === aid)?.name : "") + ".", "level");
+          toast("Used " + d.name + (aid ? " on " + state.roster.find((x) => x.id === aid)?.name : "") + ".", "level", "gift");
           sfx("level");
         } else toast("That item won't help right now.");
         announce(snap);
@@ -576,36 +580,42 @@ $("#app").addEventListener("click", async (e) => {
     }
     case "equip": {
       const item = b.dataset.item;
-      chooseAthlete("Equip " + ITEMS[item].name + "…", item, (aid) => {
+      return chooseAthlete("Equip " + ITEMS[item].name + "…", item, (aid) => {
         if (G.equipItem(state, aid, item)) toast(ITEMS[item].name + " equipped.");
         save();
         render();
       });
-      return;
     }
     case "buy":
       if (G.buyItem(state, b.dataset.item)) {
-        toast("Bought " + ITEMS[b.dataset.item].name + ". It's in the bag.");
+        toast("Bought " + ITEMS[b.dataset.item].name + ". It's in the bag.", "info", "shop");
         sfx("coin");
       }
       break;
     case "forge":
       if (G.forgeItem(state, b.dataset.item)) {
-        toast("🔨 " + ITEMS[b.dataset.item].name + " forged to +" + state.forge[b.dataset.item] + ".", "level");
+        toast(ITEMS[b.dataset.item].name + " forged to +" + state.forge[b.dataset.item] + ".", "level", "build");
         sfx("build");
       }
       break;
     case "shop-tab":
       view.shopTab = b.dataset.tab;
       return render(false);
-    case "plot": {
-      const i = +b.dataset.index;
-      if (view.moving != null) {
-        const moved = G.moveFacility(state, view.moving, i);
-        if (moved) world.flashPlot(i, "MOVED");
-        view.moving = null;
+    case "plot":
+      selectPlot(+b.dataset.index);
+      return glide();
+    case "spot":
+      view.selected = view.selected?.kind === "stadium" && view.selected.key === b.dataset.key ? null : { kind: "stadium", key: b.dataset.key };
+      glide();
+      break;
+    case "upgrade-spot": {
+      const key = b.dataset.key,
+        r = G.upgradeStadium(state, key);
+      if (r) {
+        world.flashSpot(key, r.level === 1 ? "BUILT!" : "LEVEL " + r.level + "!");
+        sfx("build");
+        toast(STADIUM[key].name + ": " + STADIUM[key].levels[r.level] + "!", "level", "stadium");
       }
-      view.plot = i;
       break;
     }
     case "build": {
@@ -614,7 +624,7 @@ $("#app").addEventListener("click", async (e) => {
       if (G.build(state, i, type)) {
         world.flashPlot(i, "BUILT!");
         sfx("build");
-        toast("The " + FACILITIES[type].name + " is open!");
+        toast("The " + FACILITIES[type].name + " is open!", "info", "build2");
       }
       break;
     }
@@ -628,39 +638,38 @@ $("#app").addEventListener("click", async (e) => {
     }
     case "move":
       view.moving = view.moving === +b.dataset.index ? null : +b.dataset.index;
+      if (view.moving != null) toast("Tap a plot on the map (or in the list) to move here.", "info", "build");
       break;
     case "sell": {
       const i = +b.dataset.index,
-        name = FACILITIES[state.plots[i].type].name;
-      dialog("Clear this plot?", `<p>Remove the ${esc(name)} for a ${cash(FACILITIES[state.plots[i].type].cost / 2)} refund? Its upgrades are lost.</p>`, [
+        d = FACILITIES[state.plots[i].type];
+      return dialog("Clear this plot?", `<p>Remove the ${esc(d.name)} for a ${cash(d.cost / 2)} refund? Its upgrades are lost.</p>`, [
         { label: "Clear it", fn: () => (G.sellFacility(state, i), save(), render()) },
         { label: "Keep it", secondary: true },
       ]);
-      return;
     }
     case "scout":
       if (G.scout(state)) sfx("coin");
       break;
     case "recruit":
       if (G.recruit(state, id)) {
-        toast("Welcome to the club!", "level");
+        toast("Welcome to the club!", "level", "squad");
         sfx("level");
       }
       break;
     case "sign-secret":
       if (G.signSecret(state, b.dataset.key)) {
-        toast("★ " + SECRETS[b.dataset.key].name + " joined the club!", "goal");
+        toast(SECRETS[b.dataset.key].name + " joined the club!", "goal", "star");
         sfx("goal");
       }
       break;
     case "release-contract": {
       const a = state.roster.find((x) => x.id === id);
       if (!a) return;
-      dialog("A new chapter?", `<p>Release ${esc(a.name)}? Their gear returns to the bag and their marks stay in club history.</p>`, [
+      return dialog("A new chapter?", `<p>Release ${esc(a.name)}? Their gear returns to the bag and their marks stay in club history.</p>`, [
         { label: "Release contract", fn: () => (G.releaseAthlete(state, a.id), (view.athlete = null), save(), render()) },
         { label: "Keep them", secondary: true },
       ]);
-      return;
     }
     case "rival":
       view.rival = view.rival === id ? null : id;
@@ -691,6 +700,24 @@ $("#app").addEventListener("click", async (e) => {
   save();
   render();
 });
+// Bring the selected thing into view beside the open window.
+function glide() {
+  const win = $("#window"),
+    cover = win.hidden || innerWidth < innerHeight ? 0 : win.offsetWidth + 20;
+  if (innerWidth < innerHeight && view.selected) world.focusOn(view.selected, 0);
+  else world.focusOn(view.selected, cover);
+}
+function selectPlot(i) {
+  const before = snapshot();
+  if (view.moving != null) {
+    if (G.moveFacility(state, view.moving, i)) world.flashPlot(i, "MOVED");
+    view.moving = null;
+    announce(before);
+    save();
+  }
+  view.selected = { kind: "plot", index: i };
+  openWindow("build", { selected: view.selected });
+}
 $("#app").addEventListener("change", (e) => {
   const el = e.target,
     kind = el.dataset.change,
@@ -710,7 +737,7 @@ $("#app").addEventListener("change", (e) => {
   el.blur();
   render();
 });
-$("#app").addEventListener("focusout", () => setTimeout(() => dirty && !$("#panel").contains(document.activeElement) && render(), 0));
+$("#app").addEventListener("focusout", () => setTimeout(() => dirty && !$("#window").contains(document.activeElement) && render(), 0));
 $("#app").addEventListener("submit", (e) => {
   if (e.target.id !== "clubNameForm") return;
   e.preventDefault();
@@ -734,7 +761,7 @@ function importSave() {
           fn: () => {
             state = incoming;
             presenter = null;
-            view.page = "home";
+            view.window = null;
             view.athlete = null;
             world.reset();
             save();
@@ -750,24 +777,53 @@ function importSave() {
   };
   input.click();
 }
-$("#world").addEventListener("pointerup", (e) => {
-  if (state.match) return;
-  const i = world.hit(e.clientX, e.clientY);
-  if (i < 0) return;
-  unlockAudio();
-  sfx("tap");
-  view.page = "grounds";
-  view.athlete = null;
-  if (view.moving != null) {
-    const before = snapshot();
-    if (G.moveFacility(state, view.moving, i)) world.flashPlot(i, "MOVED");
-    view.moving = null;
-    announce(before);
-    save();
-  }
-  view.plot = i;
-  render(false);
+// Map: drag to pan, pinch or wheel to zoom, tap to pick.
+const pointers = new Map();
+let drag = null;
+const worldCanvas = $("#world");
+worldCanvas.addEventListener("pointerdown", (e) => {
+  worldCanvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, [e.clientX, e.clientY]);
+  drag = { x: e.clientX, y: e.clientY, moved: 0, pinch: pointers.size === 2 ? pinchDistance() : null };
 });
+worldCanvas.addEventListener("pointermove", (e) => {
+  if (!pointers.has(e.pointerId) || !drag) return;
+  const [px, py] = pointers.get(e.pointerId);
+  pointers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pointers.size === 2) {
+    const d = pinchDistance();
+    if (drag.pinch && Math.abs(d - drag.pinch) > 40) {
+      world.zoomBy(d > drag.pinch ? 0.5 : -0.5);
+      drag.pinch = d;
+    }
+    drag.moved = 99;
+    return;
+  }
+  world.pan(e.clientX - px, e.clientY - py);
+  drag.moved += Math.abs(e.clientX - px) + Math.abs(e.clientY - py);
+});
+function pinchDistance() {
+  const [a, b] = [...pointers.values()];
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+worldCanvas.addEventListener("pointerup", (e) => {
+  pointers.delete(e.pointerId);
+  if (!drag || drag.moved > 8 || pointers.size) return;
+  drag = null;
+  unlockAudio();
+  const hit = world.pick(e.clientX, e.clientY);
+  if (state.match) return;
+  if (!hit) return view.window ? closeWindow() : null;
+  sfx("tap");
+  if (hit.kind === "athlete") return openWindow("squad", { athlete: hit.id });
+  if (hit.kind === "plot") return selectPlot(hit.index);
+  if (hit.kind === "stadium") return openWindow("build", { selected: { kind: "stadium", key: hit.key } });
+});
+worldCanvas.addEventListener("pointercancel", (e) => pointers.delete(e.pointerId));
+worldCanvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  world.zoomBy(e.deltaY < 0 ? 0.5 : -0.5, e.clientX, e.clientY);
+}, { passive: false });
 document.addEventListener("keydown", (e) => {
   if ($("#dialog").open || ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
   if (e.code === "Space") {
@@ -775,6 +831,7 @@ document.addEventListener("keydown", (e) => {
     if (view.meter) $('#app [data-act="release"]')?.click();
     else if (!state.match) view.playing ? (stopPlaying(), render()) : play();
   }
+  if (e.key === "Escape" && view.window && !state.match) closeWindow();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
@@ -801,12 +858,12 @@ initNative({
       toast("The meet is saved after every throw. Continue when you're ready.");
       return true;
     }
-    if (view.athlete) {
+    if (view.athlete != null && view.window === "squad") {
       view.athlete = null;
       render(false);
       return true;
     }
-    navigate("home");
+    if (view.window) closeWindow();
     return true;
   },
 }).catch(console.error);
@@ -817,7 +874,8 @@ function frame(now) {
   if (!document.hidden) {
     if (state.match) {
       pumpMeet(dt);
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced() });
+      const bar = $("#meetbar");
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced(), insetTop: $("#hud").offsetHeight + 8, insetBottom: bar.hidden ? 0 : bar.offsetHeight + 8 });
       if (view.meter) {
         const n = $("#needle");
         if (n) n.style.left = meterPos(now) * 100 + "%";
@@ -825,7 +883,7 @@ function frame(now) {
     } else {
       if (view.playing && now - lastDayAt >= DAY_MS[state.settings.speed]) doDay(now);
       const p = view.playing ? Math.min(1, (now - lastDayAt) / DAY_MS[state.settings.speed]) : 0.45;
-      world.draw(state, now, { selected: view.page === "grounds" ? view.plot : -1, moving: view.moving, dayProgress: p });
+      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: p });
     }
   }
   requestAnimationFrame(frame);

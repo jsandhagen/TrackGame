@@ -11,25 +11,22 @@
   <body>
     <div id="bootStatus" class="boot" role="status">Opening the clubhouse…</div>
     <main id="app">
-      <header id="topbar"></header>
-      <section id="playfield">
-        <div id="scene">
-          <div id="sceneLabel"></div>
-          <div class="canvas-wrap">
-            <canvas id="world" width="960" height="540" aria-label="Club grounds. Tap a plot to build or upgrade." tabindex="0"></canvas>
-            <canvas id="stadium" width="960" height="540" aria-label="Live throwing competition" hidden></canvas>
-          </div>
-          <div id="sceneFoot"></div>
-        </div>
-        <div id="panelShell">
-          <section id="panel" aria-label="Club controls"></section>
-          <div id="quickAction" hidden></div>
-        </div>
+      <div id="stage">
+        <canvas id="world" aria-label="Your club. Drag to look around, tap buildings, stadium parts or athletes." tabindex="0"></canvas>
+        <canvas id="stadium" aria-label="Live throwing competition" hidden></canvas>
+      </div>
+      <header id="hud"></header>
+      <div id="tools"></div>
+      <section id="window" hidden aria-modal="false" role="region" aria-labelledby="winTitle">
+        <header class="win-head"><h2 id="winTitle"></h2><button class="win-close" data-act="close" aria-label="Close"></button></header>
+        <div id="panel"></div>
+        <div id="quickAction" hidden></div>
       </section>
-      <footer id="navigation" aria-label="Game navigation"></footer>
+      <section id="meetbar" hidden></section>
+      <nav id="menu" aria-label="Game menu"></nav>
+      <div id="toasts" role="status" aria-live="polite"></div>
     </main>
     <dialog id="dialog"></dialog>
-    <div id="toasts" role="status" aria-live="polite"></div>
     <script type="module" src="/src/bootstrap.js"></script>
   </body>
 </html>

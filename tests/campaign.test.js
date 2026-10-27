@@ -108,7 +108,7 @@ test("a full campaign can promote through all five leagues and repeat the world 
   }
   assert.equal(s.trophies.length, 5);
   assert(s.goals.includes("worldtitle"));
-  assert(G.unlockedPlots(s).length === 12);
+  assert.equal(G.unlockedPlots(s).length, 13);
 });
 
 test("a losing season is repeatable with a rebuild camp and no lost progress", () => {
@@ -150,26 +150,48 @@ test("lineups cap double duty, auto-lineup fills every event and injuries can be
   assert(G.startMatch(s));
 });
 
-test("facilities build on unlocked plots, discover combos when moved together and unlock by league", () => {
+test("buildings fill the ring of plots, discover combos with neighbours and unlock by league", () => {
   const s = G.newGame(7);
-  assert.equal(s.discovered.length, 0);
-  assert(!G.canBuild(s, 3, "garden"), "plot 3 opens in the County League");
-  assert(!G.build(s, 2, "studio"), "studio needs County League");
-  const moved = G.moveFacility(s, 4, 2);
-  assert(moved.discoveries.some((c) => c.key === "power"));
-  assert(G.combos(s).some((c) => c.key === "power"));
-  G.moveFacility(s, 2, 4);
-  assert(!G.combos(s).some((c) => c.key === "power"));
-  assert(s.discovered.includes("power"));
+  assert.equal(s.plots[9].type, "club");
+  assert.equal(s.plots[10].type, "gym");
+  assert(!G.canBuild(s, 0, "garden"), "plot 0 opens in the County League");
+  assert(!G.build(s, 8, "scout"), "scout office needs County League");
   s.money = 5000;
-  assert(G.build(s, 5, "spa"));
-  assert(!G.build(s, 6, "spa"), "one of each facility");
-  assert(G.upgrade(s, 5));
-  assert.equal(s.plots[5].level, 2);
-  assert(G.sellFacility(s, 5) > 0);
-  assert(!G.moveFacility(s, 0, 2), "clubhouse is fixed");
+  const built = G.build(s, 11, "cafe");
+  assert(built.discoveries.some((c) => c.key === "fuel"), "café next to the gym");
+  assert(!G.build(s, 12, "cafe"), "one café");
+  assert(G.build(s, 12, "garden") && G.build(s, 7, "garden"), "decorations can repeat");
+  assert(G.combos(s).some((c) => c.key === "picnic"));
+  assert(!G.neighbours(8).includes(9), "the gate breaks the ring");
+  const moved = G.moveFacility(s, 11, 8);
+  assert(moved);
+  assert(!G.combos(s).some((c) => c.key === "fuel"));
+  assert(s.discovered.includes("fuel"));
+  assert(!G.moveFacility(s, 9, 8), "clubhouse is fixed");
+  assert(G.upgrade(s, 8));
+  assert(G.sellFacility(s, 8) > 0);
   s.league = 1;
-  assert(G.canBuild(s, 3, "garden"));
+  assert(G.canBuild(s, 0, "garden"));
+});
+
+test("the stadium's throwing areas train each event's technique and upgrade in place", () => {
+  const s = G.newGame(17);
+  const discus = s.roster.find((a) => a.event === "discus"),
+    shot = s.roster.find((a) => a.event === "shot");
+  discus.plan = shot.plan = "technique";
+  assert.equal(s.stadium.discus, 0);
+  const before = G.trainingGains(s, discus, "technique")[1];
+  assert(G.trainingGains(s, shot, "technique")[1] > before, "shot circle exists, discus cage does not");
+  s.money = 10000;
+  assert.equal(G.stadiumProblem(s, "studio"), "Unlocks in the County League");
+  assert(G.upgradeStadium(s, "discus"));
+  assert(G.trainingGains(s, discus, "technique")[1] > before);
+  for (const k of ["shot", "discus", "hammer", "jav"]) while (s.stadium[k] < 2) assert(G.upgradeStadium(s, k), k);
+  assert(s.discovered.includes("arena"));
+  assert(G.effects(s, discus).foul < 1);
+  assert(G.upgradeStadium(s, "stands"));
+  const r = G.advanceDay(s);
+  assert.equal(r.athletes.find((e) => e.id === discus.id).facility, "discus");
 });
 
 test("training sends athletes to facilities, grows the focused stat and spends stamina", () => {
@@ -186,7 +208,7 @@ test("training sends athletes to facilities, grows the focused stat and spends s
   assert(a.stats[0] > before[0]);
   assert(a.stamina < stamina);
   const withoutGym = G.newGame(11);
-  withoutGym.plots[1] = null;
+  withoutGym.plots[10] = null;
   withoutGym.roster[0].plan = "power";
   withoutGym.roster[0].autoTaper = false;
   const r2 = G.advanceDay(withoutGym);
@@ -212,7 +234,7 @@ test("items are bought, used, equipped and forged; gear changes the projection",
   assert(G.equipItem(s, a.id, "carbon"));
   assert(G.forecast(s, a, a.event) > before);
   assert.equal(s.bag.precision, 1);
-  s.plots[2] = { type: "workshop", level: 1 };
+  s.plots[8] = { type: "workshop", level: 1 };
   const forged = G.forecast(s, a, a.event);
   assert(G.forgeItem(s, "carbon"));
   assert(G.forecast(s, a, a.event) > forged);
@@ -310,7 +332,7 @@ test("goals pay out once, story events resolve, and secret characters arrive whe
 test("v3 careers migrate: athletes, gear, facilities and an interrupted meet are preserved safely", () => {
   const old = v3();
   const s = validateCampaign(old);
-  assert.equal(s.v, 4);
+  assert.equal(s.v, 5);
   assert.equal(s.roster.length, old.roster.length);
   assert.equal(s.roster[0].name, old.roster[0].name);
   assert.deepEqual(s.roster[0].skills, ["icevein"]);
@@ -324,6 +346,18 @@ test("v3 careers migrate: athletes, gear, facilities and an interrupted meet are
   validateCampaign(exportCampaign(s));
 });
 
+test("0.5 development saves (v4) move onto the stadium layout and keep an active meet", () => {
+  const old = JSON.parse(readFileSync(new URL("./fixtures/v4-career.json", import.meta.url)));
+  const s = validateCampaign(old);
+  assert.equal(s.v, 5);
+  assert.equal(s.plots[9].type, "club");
+  assert(s.plots.some((p) => p?.type === "cafe") && s.plots.some((p) => p?.type === "spa") && s.plots.some((p) => p?.type === "gym"));
+  assert.equal(s.stadium.shot, 2);
+  assert.equal(s.match.phase, "decide");
+  assert(G.decideThrow(s, "balanced"));
+  assert(G.simulateMatch(s));
+});
+
 test("bad imports are rejected and cannot replace a working club", () => {
   const s = G.newGame(30);
   const broken = structuredClone(s);
@@ -333,7 +367,7 @@ test("bad imports are rejected and cannot replace a working club", () => {
   dupe.roster.push(structuredClone(dupe.roster[0]));
   assert.throws(() => validateCampaign(dupe));
   const twice = structuredClone(s);
-  twice.plots[2] = { type: "gym", level: 1 };
+  twice.plots[8] = { type: "gym", level: 1 };
   assert.throws(() => validateCampaign(twice));
   const item = structuredClone(s);
   item.bag.hack = 3;

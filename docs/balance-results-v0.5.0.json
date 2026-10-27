@@ -1,36 +1,34 @@
 {
   "engaged": {
-    "worldTitleMedian": 9,
-    "worldTitleP90": 11,
+    "worldTitleMedian": 10,
+    "worldTitleP90": 12,
     "titledWithinCap": 1,
     "reachLeagueMedian": [
       2,
-      3,
-      5,
-      6
+      4,
+      6,
+      7
     ],
     "winRateByLeague": [
-      0.98,
-      0.76,
+      0.97,
+      0.61,
       0.54,
-      0.71,
-      0.36
+      0.5,
+      0.31
     ],
-    "medianFinalMoney": 7447,
-    "medianFans": 3524,
-    "lowestMoneySeen": -48,
+    "medianFinalMoney": 7419,
+    "medianFans": 3796,
+    "lowestMoneySeen": 104,
     "injuriesPerCareer": 0,
-    "goalsMedian": 29,
+    "goalsMedian": 34,
     "ranksSample": [
-      2,
-      2,
-      2,
       2,
       3,
       2,
       2,
       2,
-      1,
+      2,
+      2,
       1,
       0,
       0
@@ -49,15 +47,15 @@
     "winRateByLeague": [
       0.83,
       0.41,
-      0.3,
+      0.32,
       0.07,
       0
     ],
-    "medianFinalMoney": 54759,
-    "medianFans": 4425,
+    "medianFinalMoney": 54927,
+    "medianFans": 4419,
     "lowestMoneySeen": 1062,
     "injuriesPerCareer": 0,
-    "goalsMedian": 17,
+    "goalsMedian": 16,
     "ranksSample": [
       0,
       0,

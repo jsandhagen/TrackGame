@@ -8,31 +8,33 @@ Kairosoft's management games (Pocket League Story 2, Game Dev Story and their si
 
 | Genre quality | How it shows up in Ring & Sector |
 | --- | --- |
-| A tiny world that visibly works | The grounds scene: athletes walk to the facility for their plan and train there; stat gains, level-ups and visitor spending pop as numbers; flags wave, the fountain sprays, the seasons change. |
-| Numbers that go up constantly | Stats display ×10 (a good day reads "+14 POW"), daily visitor income, fans, XP bars, PBs, club records. |
-| Several progress tracks feeding each other | Training → levels → skill points → skills. Levels → ranks → higher caps and slots. Wins → money and fans → facilities and shop tiers → better training and gear. |
-| Discovery | 14 neighbour combos with a hint-driven notebook, six secret characters gated behind milestones, rare item drops, a travelling merchant. |
+| A tiny world that visibly works | The club's own stadium with a campus around it, filling the screen: athletes run laps, throw at their own circle or cage and lift in the gym according to their plan; stat gains, level-ups and visitor spending pop as numbers; spectators fill the stands, flags wave, the seasons change. |
+| Numbers that go up constantly | Whole-number stats on a 1–100 scale with letter grades (a good day reads "+1 POW"), an overall rating per athlete, daily visitor income, fans, XP bars, PBs, club records. |
+| Several progress tracks feeding each other | Training → levels → skill points → skills. Levels → ranks → higher caps and slots. Wins → money and fans → stadium upgrades, buildings and shop tiers → better training and gear. |
+| Discovery | 14 combos (12 from neighbouring buildings, 2 from stadium milestones) with a hint-driven notebook, six secret characters gated behind milestones, rare item drops, a travelling merchant. |
 | People you care about | Named athletes with backgrounds, rarity, mood faces, a rank-up ceremony with a new look, career moments, awards night, alumni and a hall of fame. |
 | Unique special moves | Skills that fire with a full-width cut-in: Clutch Gene, Second Wind, High Roller, and event signatures like Meteor Put that can't foul. Rivals have skills too. |
 | Short-, medium- and long-term goals on screen | The next three club goals sit on the home screen with rewards; the next meet countdown; the league journey; the World title. |
-| Surprises that ask for a decision | 16 story events with choices and trade-offs (paid masterclass, photo shoot that tires the squad, tryouts, an altitude camp). |
+| Surprises that ask for a decision | 17 story events with choices and trade-offs (paid masterclass, photo shoot that tires the squad, tryouts, an altitude camp). |
 | A match you watch and nudge | Beat-by-beat meets with animation for both sides, clutch pauses, a coach mode, and speed/skip controls. |
 
-What we deliberately did not take: premium currency, gacha, energy timers or anything that pressures attendance.
+| The club is the screen | The world map is the main view: pan, pinch-zoom and tap anything to open it. Menus are pop-up windows over the scene, so the club stays visible behind them. |
+
+What we deliberately did not take: premium currency, gacha, energy timers or anything that pressures attendance. Interface icons are hand-drawn pixel art in the same palette as the game; there are no emoji.
 
 ## Core loop
 
-1. **Play** (▶ / ▶▶ / ▶▶▶): each day every athlete performs their plan. Focused plans train one stat at its facility (+25% per facility level, −20% without one); All-round jogs laps; Sharpen lifts condition; Rest restores stamina (better with a Recovery Spa). Athletes rest automatically below 25 stamina and taper in the last two days before a meet.
-2. **Invest**: build or upgrade facilities, buy items, equip gear, learn skills, promote athletes, recruit.
-3. **Compete**: pick a lineup in the lobby (projected marks against each rival, ▲/▼ edge), then watch or coach the meet.
+1. **Play** (play, fast, fastest): each day every athlete performs their plan. Focused plans train one stat at its place: Power in the Strength Room, Technique at the athlete's own circle, cage or runway, Speed on the track, Focus in the video room (+25% per level, −20% without one); All-round jogs laps; Sharpen lifts condition; Rest restores stamina (better with a Recovery Spa). Athletes rest automatically below 25 stamina and taper in the last two days before a meet.
+2. **Invest**: upgrade the stadium, build or upgrade campus buildings, buy items, equip gear, learn skills, promote athletes, recruit.
+3. **Compete**: pick a lineup in the lobby (OVR and projected marks against each rival, with an up/down edge per event), then watch or coach the meet.
 4. **Reward**: prize money, fans, XP, PBs, an item chest on wins (two in finals), goals.
-5. **Climb**: three fixtures and a top-two final per season; the final winner moves up. Five leagues; each opens plots and facilities.
+5. **Climb**: three fixtures and a top-two final per season; the final winner moves up. Five leagues; each opens plots, buildings and stadium upgrades.
 
 Time stops for meet day and for story events. Nothing times out.
 
 ## Athletes
 
-- **Stats**: Power, Technique, Speed, Focus (stored 0–100, displayed ×10). Each event weights them differently.
+- **Stats**: Power, Technique, Speed, Focus on a 1–100 scale, shown as whole numbers with a letter grade: G (below 30), F (30), E (40), D (50), C (60), B (70), A (80), S (90+). Stat bars mark the athlete's cap. Each event weights the stats differently, and the **OVR** (overall rating) is the weighted rating for the athlete's main event, shown on squad cards, in the athlete window, the meet lobby and the meet bar.
 - **Cap** = potential (by rarity) + rank bonus. Growth slows as a stat approaches its cap.
 - **Stamina** (training load, performance −8% when empty) and **condition** (five moods, −5% to +4% distance and −20% to +20% training).
 - **Levels** come from training and meets and grant skill points (two on every fifth level).
@@ -52,10 +54,27 @@ Approaches: **Bank it** (short, ~3% fouls), **Controlled**, **All out** (wider s
 
 Equal-strength duels (`tests/progression.test.js`): no fixed approach dominates. Over 500 duels against an adaptive rival, always-Controlled wins 34%, always-All-out 31%, and the "bank, then chase" policy 34% (the remainder are draws); always-Bank-it rarely wins. The interesting decision is the first attempt and the clutch moment, which Watch mode surfaces automatically.
 
-## Grounds and economy
+## Stadium, campus and economy
 
-- 12 plots on a 4×3 grid: 6 open in Community, 8 County, 10 Regional, 12 National. Moving and swapping is free; clearing refunds half.
-- Facilities: four training buildings, Recovery Spa, Club Garden, Canteen Café, Merch Stand, Dormitory (squad cap 6 + 2 per level), Scout Office, Kit Workshop (forging), Grandstand, Sports Lab, Fountain and a title-gated Champion Statue.
+The club is laid out like a real athletics venue: a stadium bowl at the centre with buildings around it.
+
+**The stadium** never moves. Each installation upgrades in place, and higher levels need a higher league:
+
+| Installation | Levels | Purpose |
+| --- | --- | --- |
+| Track | Grass loop (start), Cinder, Synthetic, Championship | Speed training |
+| Shot put circle | Concrete circle (start), Twin circles, Competition circle | Shot technique |
+| Discus cage, Hammer cage | Practice, Full, Competition cage | Discus and hammer technique |
+| Javelin runway | Grass runway (start), Rubber, Competition runway | Javelin technique |
+| Grandstand | Grass banks (start), Main stand, Covered stands, Full bowl | Visitors, weekly gate income, home crowd |
+| Video room | Video room, Analysis suite, Press & data centre (in the press box) | Focus training |
+| Floodlights | Floodlights, Stadium lights | Extra fans from home wins |
+
+Stadium milestones are combos too: **Complete Arena** (all four throwing areas at level 2) and **Night Fever** (floodlights with a level-2 grandstand). Home meets are drawn in the club's own stadium, with its stands, track colour, lights and crowd.
+
+**The campus** is a ring of 13 plots around the stadium with the gate at the bottom: 7 open in Community, 9 County, 11 Regional and all 13 from National. The clubhouse sits by the gate. Neighbouring buildings form combos. Moving is free; clearing refunds half.
+
+- Buildings: Clubhouse, Strength Room, Recovery Spa, Canteen Café, Merch Stand, Dormitory (squad cap 6 + 2 per level), Scout Office, Kit Workshop (forging), Sports Lab, a title-gated Champion Statue, and Club Garden and Fountain as repeatable decorations.
 - Income: weekly sponsor + clubhouse + grandstand, minus wages (by rank, rarity and level); daily visitor spending at the café/merch stand; meet prizes; goals. Visitors grow with √fans and attractions.
 - Sponsors unlock with fans and trade money for perks (free drinks, fan boosts, win bonuses, or a big contract with a loss penalty).
 
@@ -63,6 +82,12 @@ Equal-strength duels (`tests/progression.test.js`): no fixed approach dominates.
 
 All tunable content is data in `src/game-content.js`. Story events, goals and secret-character conditions are in `src/domain/story.js` because they include small rules.
 
+## Screen and interface
+
+The world fills the screen. The HUD floats along the top (club, date, speed, fans, money); the menu (Club, Squad, Build, Shop, League, Office) and a context button (Train, Pause, To the meet, Season review) sit along the bottom. Windows pop up docked to the right on wide screens, centred for meet decisions and results, and as bottom sheets in portrait. Opening a building or athlete glides the camera so the thing you picked stays visible beside the window. Drag pans, pinch or the scroll wheel zooms, and a tap on an athlete, plot or stadium part opens it.
+
+During a meet the stadium fills the screen; the score strip sits at the top and the two duelists with the speed controls at the bottom.
+
 ## Art direction
 
-Everything is drawn in code at a low logical resolution (480×270) with integer rects and scanline polygons, then scaled with smoothing off so edges stay crisp. Characters are chibi (big heads) with a 1px warm-dark outline, cached per look/pose/frame. Buildings use a consistent oblique projection (depth up and to the right) with lit tops and shaded sides. A hand-made 5×7 bitmap font replaces blurry canvas text. Colours stay in the established warm green/cream palette with saturated accents for rewards and rarity.
+Everything is drawn in code at a low logical resolution (480×270) with integer rects and scanline polygons, then scaled with smoothing off so edges stay crisp. Characters are chibi: a large rounded head with big eyes, highlights and blush on a small body, with a 1px warm-dark outline, cached per look/pose/frame. Interface icons are 12×12 pixel drawings in the same outline style, scaled up crisply. The stadium, buildings and campus use a consistent oblique projection (depth up and to the right) with lit tops and shaded sides. A hand-made 5×7 bitmap font replaces blurry canvas text. Colours stay in the established warm green/cream palette with saturated accents for rewards and rarity.

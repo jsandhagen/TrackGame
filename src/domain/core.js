@@ -9,8 +9,11 @@ import {
   ITEMS,
   GEAR_SLOTS,
   FACILITIES,
+  STADIUM,
+  THROW_SPOTS,
   COMBOS,
-  GRID_COLS,
+  PLOT_COUNT,
+  GATE_GAP,
   PLOT_ORDER,
   PLOTS_BY_LEAGUE,
   FIRST,
@@ -125,20 +128,27 @@ export function learnFree(a, id) {
 // ── Grounds ───────────────────────────────────────────────────────────
 export const plotsOpen = (s) => PLOTS_BY_LEAGUE[s.league];
 export const plotUnlocked = (s, i) => PLOT_ORDER.indexOf(i) < plotsOpen(s);
+// Plots form a ring around the stadium, broken only at the main gate.
 export function neighbours(i) {
-  const c = i % GRID_COLS,
-    out = [i - GRID_COLS, i + GRID_COLS];
-  if (c > 0) out.push(i - 1);
-  if (c < GRID_COLS - 1) out.push(i + 1);
-  return out.filter((j) => j >= 0 && j < 12);
+  const out = [(i + PLOT_COUNT - 1) % PLOT_COUNT, (i + 1) % PLOT_COUNT];
+  return out.filter((j) => !(GATE_GAP.includes(i) && GATE_GAP.includes(j)));
 }
+const STADIUM_RULES = {
+  arena: (s) => THROW_SPOTS.every((k) => s.stadium[k] >= 2),
+  nightfever: (s) => s.stadium.lights >= 1 && s.stadium.stands >= 2,
+};
 export function combos(s) {
   return COMBOS.filter((c) =>
-    s.plots.some((p, i) => p?.type === c.a && neighbours(i).some((j) => s.plots[j]?.type === c.b)),
+    c.stadium ? STADIUM_RULES[c.key](s) : s.plots.some((p, i) => p?.type === c.a && neighbours(i).some((j) => s.plots[j]?.type === c.b)),
   );
 }
 export const hasCombo = (s, key) => combos(s).some((c) => c.key === key);
-export const facilityLevel = (s, type) => s.plots.reduce((n, p) => n + (p?.type === type ? p.level : 0), 0);
+export const facilityLevel = (s, type) =>
+  STADIUM[type] ? s.stadium?.[type] || 0 : s.plots.reduce((n, p) => n + (p?.type === type ? p.level : 0), 0);
+// The facility a training plan uses for this athlete.
+export function planFacility(plan, a) {
+  return plan.facility === "event" ? a.event : plan.facility;
+}
 export const rosterCap = (s) => 6 + 2 * facilityLevel(s, "dorm");
 
 // ── Effects ───────────────────────────────────────────────────────────
@@ -177,9 +187,8 @@ export function effects(s, a, club = true) {
   if (a.buff) e.mark *= a.buff;
   if (!club) return e;
   const has = (k) => hasCombo(s, k);
-  if (has("power")) (e.train[0] *= 1.1), (e.train[1] *= 1.1);
-  if (has("trackfield")) (e.train[2] *= 1.1), (e.train[1] *= 1.1);
-  if (has("release")) e.foul *= 0.88;
+  if (has("ironworks")) e.train[0] *= 1.1;
+  if (has("arena")) e.foul *= 0.88;
   if (has("fuel")) e.stamina *= 0.85;
   if (has("spaday")) e.rest += 10;
   if (has("dorms")) e.rest += 5;
@@ -259,3 +268,4 @@ export function isFacilityAvailable(s, type) {
   const d = FACILITIES[type];
   return d && s.league >= d.league && (!d.needsTitle || s.trophies.length > 0);
 }
+export const overall = (a) => Math.round(eventRating(a, a.event));
