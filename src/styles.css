@@ -2719,3 +2719,7 @@ dialog[open] {
 .coaching-drill h4 { margin: 4px 0; }
 .coaching-drill small { display:block; margin: 8px 0; }
 .coaching-drill .button { white-space: normal; }
+.facility-staff { padding: 12px 0; border-top: 1px solid #68745833; }
+.facility-staff label { display:block; }
+.facility-staff select { display:block; width:100%; max-width:100%; min-width:0; margin:8px 0; }
+.facility-staff small { display:block; line-height:1.5; }

@@ -88,13 +88,31 @@ function goalRow(s, g) {
 }
 function rosterRow(s, a) {
   const act = G.plannedActivity(s, a);
-  const label = { rest: "Resting", sharpen: "Tapering", injured: "Injured" }[act];
+  const label = { rest: "Resting", sharpen: "Tapering", injured: "Injured", facility:"Helping at facility" }[act];
   return `<div class="roster-row rarity-${a.rarity}">
     <button class="who" data-act="athlete" data-id="${a.id}">${portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · OVR ${G.overall(a)} ${mood(a)}</small></span></button>
     ${stamina(a)}
     <select data-change="plan" data-id="${a.id}" aria-label="Training plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s,a,id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.name}</option>`).join("")}</select>
     <span class="doing">${label && act !== a.plan ? chip(label, "#88b0d0") : ""}${alerts(s, a)}</span>
   </div>`;
+}
+
+function dutyReward(out) {
+  return [out.money ? cash(out.money) : "",out.insights ? out.insights+" Insights" : "",out.fans ? out.fans+" fans" : "",out.recovery ? "+"+out.recovery+" recovery for resting teammates" : ""].filter(Boolean).join(" · ");
+}
+function facilityStaffPicker(s,key) {
+  const site=G.dutySite(s,key);
+  if(!site) return "";
+  const d=G.DUTIES[site.type],out=G.dutyYield(s,key,G.visitorsPerDay(s));
+  return `<div class="facility-staff"><strong>${d.name}</strong><p>${d.desc}</p><label>Assigned athlete<select data-change="facility-staff" data-site="${key}" ${s.match ? "disabled" : ""}><option value="0">Unstaffed</option>${s.roster.map(a=>`<option value="${a.id}" ${s.facilityDuties?.[key]===a.id ? "selected" : ""} ${a.injury ? "disabled" : ""}>${esc(a.name)} · ${cash(G.wageOf(a))}/week${G.athleteDuty(s,a.id) && G.athleteDuty(s,a.id)!==key ? " · reassigned from another facility" : ""}</option>`).join("")}</select></label><small>At today's audience: ${dutyReward(out)} per working day · ${out.stamina} stamina. One athlete per facility.</small></div>`;
+}
+function athleteDutyPicker(s,a) {
+  const key=G.athleteDuty(s,a.id),site=key && G.dutySite(s,key);
+  return `<section class="card"><label>Daily role<select data-change="athlete-duty" data-id="${a.id}"><option value="">Train with assigned plan</option>${G.dutySites(s).map(site=>`<option value="${site.key}" ${key===site.key ? "selected" : ""}>${site.name} · ${G.DUTIES[site.type].name}</option>`).join("")}</select></label><small>${site ? "Facility duty replaces daily training. Your saved plan resumes when unassigned. " : "Bench athletes can help the club at facilities. "}Tired or injured athletes recover; meet entrants taper automatically.</small></section>`;
+}
+function facilityBoard(s) {
+  const assigned=Object.keys(s.facilityDuties||{}).length;
+  return `<details class="card"><summary>Facility roster · ${assigned} assigned</summary><p>Put squad depth to work: assign athletes to community services, coaching support or recovery. Duties replace daily training, consume stamina and still incur wages. Money can fund buildings and recruitment; Insights can develop the competition squad.</p><p>Earned through staff: ${cash(s.counters.facilityMoney||0)} · ${s.counters.facilityInsights||0} Insights · ${s.counters.facilityFans||0} fans.</p>${G.dutySites(s).map(site=>facilityStaffPicker(s,site.key)).join("")}</details>`;
 }
 
 // ── Squad ───────────────────────────────────────────────────────────────
@@ -104,6 +122,7 @@ export function squad(s, view) {
     if (a) return athletePage(s, a, view);
   }
   return `<div class="row-head"><p>${s.roster.length} / ${G.rosterCap(s)} athletes · a Dormitory makes room for more</p>${btn(ico("plus") + " Scout", "page", 'data-page="recruit"', "small")}</div>
+  ${facilityBoard(s)}
   <div class="squad-grid">${s.roster
     .map(
       (a) => `<button class="athlete-card rarity-${a.rarity}" data-act="athlete" data-id="${a.id}">
@@ -136,6 +155,7 @@ function athletePage(s, a, view) {
     const next = RANKS[a.rank + 1],
       problem = G.promoteProblem(s, a);
     body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>
+    ${athleteDutyPicker(s,a)}
     ${statRows(a)}
     <article class="card rank-card"><div class="card-title"><h2>${RANKS[a.rank].name}${next ? " to " + next.name : ""}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : "<p>The highest honour in the sport.</p>"}
@@ -146,7 +166,7 @@ function athletePage(s, a, view) {
   if (tab === "stats") body += developmentCard(a);
   if (tab === "train") {
     const perWeek = G.trainingGains(s, a, a.plan).map((g) => g * 5);
-    body = `<section class="card"><h3>Coaching Insights · ${s.coaching.insights}</h3><p>Earn Insights from productive training days and meet reviews. Spend them on a focused session or unlock a permanent training plan. Video facilities improve meet reviews; the Sports Lab adds Insights from practice.</p></section>
+    body = `${athleteDutyPicker(s,a)}<section class="card"><h3>Coaching Insights · ${s.coaching.insights}</h3><p>Earn Insights from productive training days and meet reviews. Spend them on a focused session or unlock a permanent training plan. Video facilities improve meet reviews; the Sports Lab adds Insights from practice.</p></section>
     <section class="card"><h3>Coached sessions</h3><p>One session per athlete per day, in addition to their daily plan. Sessions use stamina, so leave recovery time before a meet.</p>
     ${Object.entries(G.DRILLS).map(([id,d]) => {
       const problem = G.drillProblem(s,a,id);
@@ -247,7 +267,7 @@ function stadiumCard(s, key, open) {
     problem = G.stadiumProblem(s, key),
     cost = d.cost[lvl];
   return `<div class="stadium-row ${open ? "open" : ""}"><button class="stadium-head" data-act="spot" data-key="${key}">${ico(STADIUM_ICON[key])}<span><strong>${d.name}</strong><small>${esc(d.levels[lvl])}</small></span>${pips(lvl, d.max)}</button>
-  ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b></p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
+  ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b></p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
 }
 export function build(s, view) {
   const sel = view.selected;
@@ -261,6 +281,7 @@ export function build(s, view) {
         cost = G.upgradeCost(p.type, p.level),
         combos = G.combos(s).filter((c) => !c.stadium && (c.a === p.type || c.b === p.type) && G.neighbours(i).some((j) => [c.a, c.b].includes(s.plots[j]?.type)));
       focus = `<article class="card facility"><div class="facility-head"><canvas class="building" width="104" height="66" data-building="${p.type}:${p.level}"></canvas><div><span class="eyebrow">LEVEL ${p.level} / 3</span><h2>${d.name}</h2><p>${d.desc}</p></div></div>
+        ${facilityStaffPicker(s,"plot:"+i)}
         ${combos.length ? `<p class="combo-line">${combos.map((c) => ico("spark") + " " + c.name + ": " + c.desc).join("<br>")}</p>` : ""}
         <div class="inline">${btn(p.level >= 3 ? "Fully upgraded" : "Upgrade · " + cash(cost), "upgrade", `data-index="${i}" ${p.level >= 3 || s.money < cost ? "disabled" : ""}`)}${i !== CLUB_PLOT ? btn(view.moving === i ? "Cancel move" : "Move / swap", "move", `data-index="${i}"`, "subtle") : ""}${i !== CLUB_PLOT ? btn("Clear · +" + cash(d.cost / 2), "sell", `data-index="${i}"`, "subtle") : ""}</div></article>`;
     } else

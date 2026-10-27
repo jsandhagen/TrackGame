@@ -3,8 +3,8 @@ import { text } from "./font.js";
 import { figure, shadow, athleteLook } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, bush, bench } from "./buildings.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, roundRect, BOWL, TRACK, SPOTS, GATE } from "./arena.js";
-import { LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
-import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay } from "../domain/game.js";
+import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
+import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, athleteDuty, dutySite } from "../domain/game.js";
 
 export const MAP_W = 720,
   MAP_H = 480;
@@ -114,6 +114,15 @@ function flowerbed(g, x, y) {
 function targetFor(s, a, index, now, activity, counts) {
   const slot = (key) => (counts[key] = (counts[key] || 0) + 1) - 1;
   const plotOf = (type) => s.plots.findIndex((p) => p?.type === type);
+  if(activity === "facility") {
+    const site=dutySite(s,athleteDuty(s,a.id));
+    const [x,y]=site?.type === "studio" ? [336,154] : front(site?.index ?? CLUB_PLOT);
+    return {x:x+24,y,pose:"study"};
+  }
+  if(PLANS[activity]?.course) {
+    const site=PLANS[activity].facility;
+    activity=site==="gym" ? "power" : site==="track" ? "speed" : site==="studio" ? "focus" : "technique";
+  }
   if (activity === "balanced") {
     const [x, y, dir] = loopPoint(LANE, now / 50000 + index * 0.11);
     return { x, y: y + 2, pose: "run", flip: dir < 0, follow: true };
@@ -408,11 +417,15 @@ export function createWorld(cv) {
       // Whole-point gains only: the same numbers the stat screens show.
       const ups = a.stats.map((v, i) => Math.floor(v + 1e-6) - Math.floor(v - e.gains[i] + 1e-6));
       const labels = ups.map((u, i) => (u > 0 ? "+" + u + " " + STAT_SHORT[i] : null)).filter(Boolean);
-      const label = e.activity === "rest" ? "REST" : e.activity === "injured" ? "RECOVERING" : labels.join(" ");
+      const label = e.activity === "rest" ? "REST" : e.activity === "injured" ? "RECOVERING" : e.activity === "facility" ? "CLUB DUTY" : labels.join(" ");
       if (!label) return;
       const best = ups.indexOf(Math.max(...ups));
       popups.push({ follow: e.id, stack: 0, x: 0, y: 0, text: label, color: e.activity === "rest" || e.activity === "injured" ? "#bfe8ff" : STAT_COLORS[best], t0: now + dayMs * 0.35 + n * 70, dur: Math.min(1800, dayMs * 0.7) });
     });
+    for(const d of report.duties||[]) {
+      const label=[d.money ? "+$"+d.money : "",d.insights ? "+"+d.insights+" INSIGHT" : "",d.fans ? "+"+d.fans+" FANS" : ""].filter(Boolean).join(" ");
+      if(label) popups.push({follow:d.id,stack:1,x:0,y:0,text:label,color:"#f2d060",t0:now+dayMs*0.55,dur:1400});
+    }
     for (const l of report.levelUps) popups.push({ follow: l.id, stack: 1, x: 0, y: 0, text: "LV " + l.level + "!", color: "#f2c94c", t0: now + dayMs * 0.5, dur: 1600 });
     for (const sp of report.spend) popups.push({ x: CELLS[sp.plot][0] + 54, y: CELLS[sp.plot][1] + 30, text: "+$" + sp.amount, color: "#f2d060", t0: now + dayMs * 0.55, dur: 1400 });
     if (report.week) banner("PAYDAY", (report.week.net >= 0 ? "+" : "-") + "$" + Math.abs(report.week.net) + " AFTER WAGES", "#f2d060", now);
@@ -492,3 +505,4 @@ export function createWorld(cv) {
     replan: () => activities.clear(),
   };
 }
+

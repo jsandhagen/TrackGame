@@ -3,6 +3,7 @@ import { validateSave as validateLegacy } from "./savegame.js";
 import { EVENT_IDS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE } from "../game-content.js";
 import { syncMarks } from "./meet.js";
 import { statTotal, slotsOf } from "./core.js";
+import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
@@ -276,6 +277,10 @@ export function validateCampaign(input) {
   if (!Array.isArray(s.roster) || s.roster.length < 1 || s.roster.length > 12) bad();
   const ids = new Set();
   for (const a of s.roster) checkAthlete(a, ids);
+  s.facilityDuties ??= {};
+  if(typeof s.facilityDuties!=="object" || Array.isArray(s.facilityDuties)) bad();
+  const assigned=Object.values(s.facilityDuties);
+  if(new Set(assigned).size!==assigned.length || Object.entries(s.facilityDuties).some(([key,id])=>!dutySite(s,key)||!ids.has(id))) bad();
   for (const ev of EVENT_IDS) if (s.lineup?.[ev] != null && !ids.has(s.lineup[ev])) bad();
   if (s.entries != null) {
     for (const ev of EVENT_IDS) if (!Array.isArray(s.entries[ev]) || s.entries[ev].length > 3 || new Set(s.entries[ev]).size !== s.entries[ev].length || s.entries[ev].some((id) => !ids.has(id)) || (s.entries[ev][0] || null) !== (s.lineup[ev] || null)) bad();

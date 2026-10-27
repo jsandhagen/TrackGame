@@ -56,6 +56,8 @@ import { competitionTier, competitionName, circuitKey, TITLE_GIFTS } from "./com
 export * from "./competition.js";
 export * from "./development.js";
 export * from "./coaching.js";
+export * from "./facility-duties.js";
+import { athleteDuty, dutySite, workFacility, moveDuties } from "./facility-duties.js";
 import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
 export * from "./core.js";
 export * from "./meet.js";
@@ -66,6 +68,7 @@ export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutc
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
     v: 7,
+    facilityDuties: {},
     coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0 },
     rng: seed >>> 0 || 1,
     nextId: 1,
@@ -180,6 +183,12 @@ export function discover(s) {
 // ── Daily simulation ──────────────────────────────────────────────────
 export function plannedActivity(s, a) {
   if (a.injury) return "injured";
+  const duty=athleteDuty(s,a.id);
+  if(duty && dutySite(s,duty)) {
+    if(a.stamina<30) return "rest";
+    const competing=EVENT_IDS.some(ev=>entriesOf(s,ev).includes(a.id));
+    if(!(a.autoTaper && competing && s.matchDay!=null && s.matchDay-s.day<=1)) return "facility";
+  }
   const left = s.matchDay == null ? Infinity : s.matchDay - s.day;
   if (a.autoTaper && left <= 1) return a.stamina < 70 ? "rest" : "sharpen";
   if (a.autoRest && a.stamina < 25) return "rest";
@@ -225,7 +234,8 @@ export function advanceDay(s) {
   if (s.match || !["planning", "season"].includes(s.phase) || (s.matchDay != null && s.day >= s.matchDay) || s.pendingEvent) return { ok: false };
   s.day++;
   count(s, "days");
-  const report = { ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
+  const report = { duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
+  const dailyVisitors = visitorsPerDay(s);
   const clubCond = clubCondition(s),
     teamCond = s.roster.map((a) => effects(s, a).teamCond),
     injuryRisk = hasCombo(s, "dorms") ? 0.04 : 0.08;
@@ -238,6 +248,9 @@ export function advanceDay(s) {
       a.injury = Math.max(0, a.injury - 1 - (facilityLevel(s, "spa") && random(s) < 0.4 ? 1 : 0));
       a.stamina = clamp(a.stamina + 20, 0, 100);
       entry.facility = facilityLevel(s, "spa") ? "spa" : "club";
+    } else if(activity === "facility") {
+      const worked=workFacility(s,a,athleteDuty(s,a.id),dailyVisitors,report);
+      entry.facility=worked?.facility || "club";
     } else {
       const plan = PLANS[activity];
       entry.gains = trainingGains(s, a, activity, fx);
@@ -262,9 +275,13 @@ export function advanceDay(s) {
     a.condition = clamp(a.condition, fx.condFloor, 100);
     report.athletes.push(entry);
   }
+  const recovery=report.duties.reduce((n,d)=>n+d.recovery,0);
+  if(recovery) for(const entry of report.athletes) if(["rest","injured"].includes(entry.activity)) {
+    const a=s.roster.find(a=>a.id===entry.id);a.stamina=clamp(a.stamina+recovery,0,100);
+  }
   report.insights = practiceInsights(s,report.athletes.some((e) => e.gains.some((v) => v > 0)));
   // Visitors wander the grounds and spend at the café and merch stand.
-  const visitors = visitorsPerDay(s);
+  const visitors = dailyVisitors;
   report.visitors = visitors;
   s.plots.forEach((p, i) => {
     if (!p) return;
@@ -366,6 +383,7 @@ export function upgradeStadium(s, key) {
 export function moveFacility(s, from, to) {
   if (s.match || from === to || [from, to].some((i) => i < 0 || i >= PLOT_COUNT || i === CLUB_PLOT || !plotUnlocked(s, i)) || !s.plots[from]) return false;
   [s.plots[from], s.plots[to]] = [s.plots[to], s.plots[from]];
+  moveDuties(s,from,to);
   return { discoveries: discover(s) };
 }
 export function sellFacility(s, index) {
@@ -374,6 +392,7 @@ export function sellFacility(s, index) {
   const refund = Math.round(FACILITIES[p.type].cost * 0.5);
   s.money += refund;
   s.plots[index] = null;
+  if(s.facilityDuties) delete s.facilityDuties["plot:"+index];
   note(s, "Cleared the " + FACILITIES[p.type].name + " plot. +$" + refund + ".", "build");
   return refund;
 }
@@ -540,6 +559,7 @@ export function releaseAthlete(s, id) {
   s.alumni.unshift({ name: a.name, event: a.event, career: a.career, pb: a.pb, season: s.season, rank: a.rank });
   s.alumni = s.alumni.slice(0, 24);
   s.roster = s.roster.filter((x) => x.id !== id);
+  for(const [key,athlete] of Object.entries(s.facilityDuties||{})) if(athlete===id) delete s.facilityDuties[key];
   if (s.entries) for (const ev of EVENT_IDS) s.entries[ev] = s.entries[ev].filter((x) => x !== id);
   if (a.secret) s.secretsSigned = s.secretsSigned.filter((k) => k !== a.secret);
   if (EVENT_IDS.some((ev) => s.lineup[ev] === id)) autoLineup(s);
