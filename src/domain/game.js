@@ -56,6 +56,8 @@ import { competitionTier, competitionName, circuitKey, TITLE_GIFTS } from "./com
 export * from "./competition.js";
 export * from "./development.js";
 export * from "./coaching.js";
+export * from "./mastery.js";
+import { practiceMastery, masteryOf } from "./mastery.js";
 export * from "./facility-duties.js";
 export * from "./customize.js";
 import { ensureCustom } from "./customize.js";
@@ -65,11 +67,12 @@ export * from "./core.js";
 export * from "./meet.js";
 export * from "./story.js";
 
-export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false };
+export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
-    v: 7,
+    v: 8,
+    rivalClubs: {},
     facilityDuties: {},
     coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0 },
     rng: seed >>> 0 || 1,
@@ -135,6 +138,7 @@ export function newGame(seed = Date.now() >>> 0) {
     s.lineup[event] = a.id;
   }
   s.clubs = makeClubs(s, 0);
+  s.rivalClubs[0]=s.clubs;
   autoLineup(s);
   scout(s, true);
   note(s, "Welcome home, Coach! Choose a duel or enter a league from the Meets board.", "story");
@@ -151,19 +155,37 @@ export function makeClubs(s, league, stage = 0) {
     points: 0,
     diff: 0,
     played: 0,
-    athletes: EVENT_IDS.map((event, i) => {
-      const star = CLUB_BIASES[index][i] >= 2;
+    athletes: [...EVENT_IDS,...(league>=2?[EVENT_IDS[index%4],EVENT_IDS[(index+2)%4]]:[])].map((event, i) => {
+      const star = CLUB_BIASES[index][EVENT_IDS.indexOf(event)] >= 2;
       const a = createAthlete(s, event, {
-        base: LEAGUES[league].rating + stage * 3 + index * 1.4 - 1 + CLUB_BIASES[index][i],
+        base: LEAGUES[league].rating + stage * 3 + index * 1.4 - 1 + CLUB_BIASES[index][EVENT_IDS.indexOf(event)],
         rarity: star && league >= 2 ? "epic" : league >= 1 && star ? "rare" : "common",
         rank: Math.min(4, league),
         sp: 0,
+        potential: 100,
       });
       a.potential = 100;
+      a.mastery[event]=Math.min(100,[30,56,70,82,90][league]+stage*2+(star?5:0));
+      a.eventMeets[event]=Math.max(0,league*4);
+      const secondary=EVENT_IDS[(EVENT_IDS.indexOf(event)+3)%4];
+      a.mastery[secondary]=Math.min(90,12+league*15);
+      a.eventMeets[secondary]=league*3;
+      a.profile=star ? "explosive" : index===1 ? "consistent" : "durable";
+      if(league>=2 && star) a.stats=a.stats.map((v,j)=>Math.min(100,v+(EVENTS[event].weights[j]>=0.3?4:0)));
       a.skills = [];
       for (let n = 0; n < Math.min(league + (star ? 1 : 0), 3); n++) a.skills.push(pick(s, meetSkills));
       if (league >= 3 && i === 0) a.skills.push("captain");
       if (league >= 4 && star) a.skills.push({ shot: "meteor", discus: "cyclone", hammer: "tempest", jav: "skyspear" }[event]);
+      if(league>=1) {
+        const style=index===0?["opener","clutch",star?"highroller":"icevein"]:index===1?["metronome","icevein","clutch"]:["hunter","clutch","bigstage"];
+        a.skills=style.slice(0,Math.min(3,league+1));
+        if(league>=3&&i===0)a.skills.push("captain");
+        if(league>=4&&star)a.skills.push({shot:"meteor",discus:"cyclone",hammer:"tempest",jav:"skyspear"}[event]);
+        a.gear.implement=league>=3&&star?"carbon":star?"competition":"precision";
+        if(league>=2)a.gear.shoes=index===2?"thunder":"spikes";
+        if(league>=3)a.gear.charm=index===1?"chalk":"medal";
+        if(index===1)a.mastery[secondary]=Math.min(95,a.mastery[secondary]+8);
+      }
       a.skills = [...new Set(a.skills)];
       a.equipped = [...a.skills];
       return a;
@@ -260,6 +282,8 @@ export function advanceDay(s) {
       const plan = PLANS[activity];
       entry.gains = trainingGains(s, a, activity, fx);
       entry.gains.forEach((g, i) => (a.stats[i] += g));
+      const technical=plan.facility === "event";
+      entry.mastery=practiceMastery(a,technical?(plan.course?0.8:0.5):activity==="balanced"?0.12:activity==="focus"||activity==="filmblock"?0.2:0);
       const where = plan.facility && planFacility(plan, a);
       entry.facility = where && facilityLevel(s, where) ? where : activity === "rest" ? "club" : null;
       if (activity === "rest") a.stamina = clamp(a.stamina + restAmount(s, a, fx), 0, 100);
@@ -284,7 +308,7 @@ export function advanceDay(s) {
   if(recovery) for(const entry of report.athletes) if(["rest","injured"].includes(entry.activity)) {
     const a=s.roster.find(a=>a.id===entry.id);a.stamina=clamp(a.stamina+recovery,0,100);
   }
-  report.insights = practiceInsights(s,report.athletes.some((e) => e.gains.some((v) => v > 0)));
+  report.insights = practiceInsights(s,report.athletes.some((e) => e.mastery>0 || e.gains.some((v) => v > 0)));
   // Visitors wander the grounds and spend at the café and merch stand.
   const visitors = dailyVisitors;
   report.visitors = visitors;
@@ -482,7 +506,7 @@ export function skillAvailable(a, id) {
   const k = SKILLS[id];
   if (!k || a.skills.includes(id)) return false;
   if (k.cat === "unique") return false;
-  if (k.event && k.event !== a.event) return false;
+  if (k.event && masteryOf(a,k.event)<60) return false;
   return true;
 }
 export function learnSkill(s, athleteId, id) {
@@ -684,4 +708,3 @@ export function nextSeason(s) {
 }
 
 export const unlockedPlots = (s) => PLOT_ORDER.slice(0, plotsOpen(s));
-

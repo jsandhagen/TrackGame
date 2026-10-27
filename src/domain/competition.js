@@ -28,7 +28,19 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   if (entryProblem(s, kind, tier, stage, rival) || ![3, 5, 7, 10].includes(preparation) || ![4, 7, 10].includes(spacing)) return false;
   // Keep the same named athletes when repeating a competition at the same level.
   const strength = kind === "duel" ? 0 : stage;
-  if (s.clubTier !== tier || s.clubStage !== strength) s.clubs = makeClubs(s, tier, strength);
+  s.rivalClubs ??= {};
+  s.rivalClubs[s.clubTier]=s.clubs;
+  s.clubs=s.rivalClubs[tier] || makeClubs(s,tier,strength);
+  s.rivalClubs[tier]=s.clubs;
+  // A club keeps its people. New stages develop their existing strengths.
+  for(const c of s.clubs) {
+    const previous=c.developedStage??(s.clubTier===tier?s.clubStage:strength);
+    if(strength>previous) for(const a of c.athletes) {
+      a.mastery[a.event]=Math.min(100,a.mastery[a.event]+(strength-previous)*2);
+      a.stats=a.stats.map((v,i)=>Math.min(100,v+(strength-previous)*(i===0?2:1.5)));
+    }
+    c.developedStage=Math.max(previous,strength);
+  }
   s.clubTier = tier;
   s.clubStage = strength;
   s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });

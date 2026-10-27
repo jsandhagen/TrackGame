@@ -1,7 +1,7 @@
 // Scripted careers for pacing and economy checks. Run: AUDIT_SEEDS=40 node scripts/balance-audit.mjs
 // These are bots, not people: they measure whether progress is possible and roughly paced, not fun.
 import * as G from "../src/domain/game.js";
-import { EVENTS, SKILLS, FACILITIES } from "../src/game-content.js";
+import { EVENTS, SKILLS, FACILITIES, ITEMS } from "../src/game-content.js";
 
 const N = Number(process.env.AUDIT_SEEDS || 30),
   MAX = Number(process.env.AUDIT_SEASONS || 60);
@@ -44,11 +44,12 @@ export function engaged(s) {
     if (best && s.money > G.signCost(s, best) + 1500) G.recruit(s, best.id);
   }
   for (const id of ["competition", "spikes", "chalk", "carbon", "thunder", "clover"])
-    if (G.shopStock(s).includes(id) && s.money > 2500) G.buyItem(s, id);
+    if (G.shopStock(s).includes(id) && G.ownedCount(s,id)<s.roster.length && s.money > 2500) G.buyItem(s, id);
   for (const id of Object.keys(s.bag)) {
     const slot = { competition: "implement", carbon: "implement", comet: "implement", spikes: "shoes", thunder: "shoes", hermes: "shoes", chalk: "charm", clover: "charm", medal: "charm", headband: "charm" }[id];
     if (!slot) continue;
-    const a = s.roster.find((x) => !x.gear[slot]);
+    const quality=k=>(ITEMS[k]?.mark||1)+(ITEMS[k]?.final||1)*0.15-(ITEMS[k]?.foul||1)*0.03;
+    const a = s.roster.find((x) => !x.gear[slot] || quality(id)>quality(x.gear[slot])+0.001);
     if (a) G.equipItem(s, a.id, id);
   }
   // Reuse intentional training and competition setups instead of clicking through swaps.
@@ -58,6 +59,22 @@ export function engaged(s) {
     a.loadouts = { enabled: true, training, meet };
   }
   G.autoLineup(s);
+}
+export function fullyManaged(s) {
+  engaged(s);
+  const active=new Set(Object.values(s.entries||{}).flat());
+  for(const a of s.roster) {
+    if(!active.has(a.id)){a.plan="facilities";a.facilityFocus="money";continue;}
+    const events=Object.entries(s.entries).filter(([,ids])=>ids.includes(a.id)).map(([ev])=>ev);
+    a.trainingEvent=events.sort((x,y)=>G.masteryOf(a,x)-G.masteryOf(a,y))[0]||a.event;
+    const room=G.masteryCap(a,a.trainingEvent)-G.masteryOf(a,a.trainingEvent);
+    if(room>4 && G.facilityLevel(s,a.trainingEvent)>0) {
+      if(G.planProblem(s,a,"technicalblock"))G.unlockPlan(s,a.id,"technicalblock");
+      a.plan=G.planProblem(s,a,"technicalblock")?"technique":"technicalblock";
+    }
+    if(room>0.5 && a.stamina>65 && (s.matchDay==null||s.matchDay-s.day>1)) G.coachSession(s,a.id,"delivery");
+    for(const ev of events) a.approaches[ev]=G.approachProblem(a,ev,"developed")?"familiar":"developed";
+  }
 }
 function idle(s) {
   G.autoLineup(s);
@@ -91,7 +108,7 @@ export function career(seed, policy) {
       }
       if (!G.startMatch(s)) break;
       G.simulateMatch(s);
-      winsByLeague[s.league].push(s.match.score > s.match.against ? 1 : 0);
+      winsByLeague[s.league].push(G.meetOutcome(s.match) > 0 ? 1 : 0);
       G.leaveMatch(s);
     }
     if (s.champion && s.competition?.tier === 4 && s.competition?.stage === 2) title = s.season;
@@ -107,7 +124,8 @@ const out = {};
 for (const [name, policy] of [
   ["engaged", engaged],
   ["idle", idle],
-]) {
+  ["managed", fullyManaged],
+].filter(([name])=>!process.env.AUDIT_POLICIES||process.env.AUDIT_POLICIES.split(",").includes(name))) {
   const runs = Array.from({ length: N }, (_, i) => career(i + 1, policy));
   const titles = runs.map((r) => r.title ?? MAX + 1);
   out[name] = {
@@ -129,4 +147,3 @@ for (const [name, policy] of [
 }
 console.log(JSON.stringify(out, null, 2));
 }
-

@@ -2799,3 +2799,7 @@ dialog[open] {
 .facility-staff label { display:block; }
 .facility-staff select { display:block; width:100%; max-width:100%; min-width:0; margin:8px 0; }
 .facility-staff small { display:block; line-height:1.5; }
+
+.live-field { grid-column: 1 / -1; display:flex; gap:12px; overflow-x:auto; max-width:100%; padding:8px; font-size:12px; background:#14211be8; color:#f8f2de; }
+.live-field span { white-space:nowrap; }
+.scoring-target { padding:10px; border-left:3px solid #e2b04a; }

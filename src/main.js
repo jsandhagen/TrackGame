@@ -371,10 +371,10 @@ function startBeat(beat) {
     cue(cut + 1900, () => {
       view.hide = null;
       sfx(beat.mark == null ? "foul" : "land");
-      if (beat.side === "home" && beat.mark != null && (beat.newPb || beat.leading)) sfx("cheer");
+      if (beat.side === "home" && beat.mark != null && (beat.newPb || beat.leading || beat.scoringSwing>0)) sfx("cheer");
       render();
     });
-  } else if (beat.type === "eventEnd") sfx(beat.h === 3 ? "cheer" : "event");
+  } else if (beat.type === "eventEnd") sfx(beat.h > beat.a ? "cheer" : "event");
   else if (beat.type === "eventStart") sfx("event");
   else if (beat.type === "meetStart") sfx("cheer");
   else if (beat.type === "complete") {
@@ -387,7 +387,9 @@ function pumpMeet(dt) {
   const m = state.match;
   if (!m) return;
   if (presenter) {
-    presenter.el += dt * view.meetSpeed;
+    const b=presenter.beat;
+    const routine=state.settings.highlights && b.athleteId!==state.settings.followAthlete && b.type === "throw" && b.attempt>0 && !b.newPb && !b.signature && !b.scoringSwing && !b.target?.qualification;
+    presenter.el += dt * view.meetSpeed * (routine?5:1);
     for (const c of presenter.cues) if (!c.done && presenter.el >= c.at) (c.done = true), c.fn();
     if (presenter.el < presenter.base) return;
   }
@@ -479,6 +481,12 @@ $("#app").addEventListener("click", async (e) => {
     case "meet-mode":
       state.settings.meetMode = b.dataset.value;
       break;
+    case "follow-athlete":
+      state.settings.followAthlete=state.settings.followAthlete===id?null:id;
+      break;
+    case "highlights":
+      state.settings.highlights=!state.settings.highlights;
+      break;
     case "meet-speed":
       view.meetSpeed = +b.dataset.speed;
       break;
@@ -556,7 +564,7 @@ $("#app").addEventListener("click", async (e) => {
       stopPlaying();
       const result = G.coachSession(state,id,b.dataset.drill);
       if (result) {
-        toast("Session complete · " + result.gains.map((n,i) => n > 0 ? "+" + n.toFixed(1) + " " + ["Power","Technique","Speed","Focus"][i] : "").filter(Boolean).join(" · "), "level");
+        toast("Session complete · " + result.gains.map((n,i) => n > 0 ? "+" + n.toFixed(1) + " " + ["Power","Technique","Speed","Focus"][i] : "").filter(Boolean).join(" · ") + (result.mastery>0 ? " · +"+result.mastery.toFixed(1)+" event mastery" : ""), "level");
         sfx("level"); world.replan();
       } else toast("That session isn't available right now.","warn");
       break;
@@ -774,6 +782,8 @@ $("#app").addEventListener("change", (e) => {
   }
   if(kind === "facility-focus" && a && ["balanced","money","insights"].includes(el.value)) a.facilityFocus=el.value;
   if (["facility-staff","athlete-duty","facility-focus"].includes(kind)) world.replan();
+  if(kind === "training-event" && a && EVENTS[el.value] && !state.match) a.trainingEvent=el.value;
+  if(kind === "approach" && a && !G.approachProblem(a,el.dataset.event,el.value)) a.approaches[el.dataset.event]=el.value;
   if (kind === "bulk") state.roster.forEach((x) => G.setTrainingPlan(state,x.id,el.value));
   if (kind === "plan" && a) G.setTrainingPlan(state,a.id,el.value);
   if (kind === "plan" || kind === "bulk") world.replan();
@@ -963,4 +973,3 @@ if (!state.welcomed) help(true);
 else if (state.pendingEvent) showEvent();
 save();
 checkForUpdates().catch(console.error);
-

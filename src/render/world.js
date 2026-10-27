@@ -303,7 +303,7 @@ function targetFor(s, a, index, now, activity, counts) {
     return { x: TRACK.x + TRACK.r - 20 + t * (TRACK.w - 2 * TRACK.r + 40), y: TRACK.y + TRACK.h - 4 - (n % 4) * 3, pose: "run", flip: false, follow: true };
   }
   if (activity === "technique" || activity === "sharpen") {
-    const ev = a.event,
+    const ev = a.trainingEvent || a.event,
       sp = SPOTS[ev],
       n = slot(ev),
       built = s.stadium[ev] > 0,
@@ -608,6 +608,7 @@ export function createWorld(cv) {
       // Whole-point gains only: the same numbers the stat screens show.
       const ups = a.stats.map((v, i) => Math.floor(v + 1e-6) - Math.floor(v - e.gains[i] + 1e-6));
       const labels = ups.map((u, i) => (u > 0 ? "+" + u + " " + STAT_SHORT[i] : null)).filter(Boolean);
+      if(e.mastery>0) labels.push("+"+e.mastery.toFixed(1)+" MASTERY");
       const label = e.activity === "rest" ? "REST" : e.activity === "injured" ? "RECOVERING" : e.activity === "facility" ? "CLUB DUTY" : labels.join(" ");
       if (!label) return;
       const best = ups.indexOf(Math.max(...ups));

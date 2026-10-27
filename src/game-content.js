@@ -7,10 +7,10 @@ export const STAT_COLORS = ["#e07a4f", "#5aa4c8", "#8cc152", "#b48ad8"];
 export const showStat = (v) => Math.floor(v + 1e-6);
 
 export const EVENTS = {
-  shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.45, 0.32, 0.1, 0.13], min: 6, max: 24, hint: "Drive through the ring. Power first, technique close behind." },
-  discus: { name: "Discus", short: "DISC", color: "#8ac4d0", weights: [0.22, 0.43, 0.22, 0.13], min: 16, max: 77, hint: "Rhythm and release. Technicians shine here." },
-  hammer: { name: "Hammer", short: "HAM", color: "#d8a1ae", weights: [0.32, 0.32, 0.27, 0.09], min: 18, max: 89, hint: "Build speed through the turns. Everything matters." },
-  jav: { name: "Javelin", short: "JAV", color: "#aac57d", weights: [0.2, 0.36, 0.33, 0.11], min: 18, max: 99, hint: "Turn approach speed into a clean release." },
+  shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.56, 0.29, 0.07, 0.08], min: 6, max: 24, hint: "Drive through the ring. Power first, technique close behind." },
+  discus: { name: "Discus", short: "DISC", color: "#8ac4d0", weights: [0.22, 0.49, 0.18, 0.11], min: 16, max: 77, hint: "Rhythm and release. Technicians shine here." },
+  hammer: { name: "Hammer", short: "HAM", color: "#d8a1ae", weights: [0.34, 0.36, 0.24, 0.06], min: 18, max: 89, hint: "Build speed through the turns. Everything matters." },
+  jav: { name: "Javelin", short: "JAV", color: "#aac57d", weights: [0.16, 0.38, 0.38, 0.08], min: 18, max: 99, hint: "Turn approach speed into a clean release." },
 };
 export const EVENT_IDS = ["shot", "discus", "hammer", "jav"];
 
@@ -20,7 +20,7 @@ export const RANKS = [
   { name: "Pro", level: 6, cost: 400, cap: 6, slots: 2, wage: 65 },
   { name: "Ace", level: 12, cost: 1200, cap: 12, slots: 2, wage: 100 },
   { name: "Star", level: 20, cost: 3000, cap: 20, slots: 3, wage: 150 },
-  { name: "Legend", level: 30, cost: 6500, cap: 28, slots: 3, wage: 220, title: true },
+  { name: "Legend", level: 26, cost: 6500, cap: 28, slots: 3, wage: 220, title: true },
 ];
 
 export const RARITY = {
@@ -406,4 +406,3 @@ export function towerColorsOf(s) {
 export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 
 export const HELPER = "Juno";
-

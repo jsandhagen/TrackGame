@@ -1,3 +1,5 @@
+> Historical design/balance notes. See [current event development](EVENT_MASTERY.md) and [current balance](BALANCE_CURRENT.md) for 0.9.0.
+
 # Progression and game feel: 0.4.0
 
 Target: early victories teach the club loop; later leagues reward investment, preparation and athlete identity. Repeating a league should yield visible growth. A strong club should dominate an earlier league. Competition decisions wait indefinitely.

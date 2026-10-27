@@ -1,3 +1,4 @@
+import { masteryOf, competeMastery, disciplineModel } from "./mastery.js";
 import { EVENTS, EVENT_IDS, TACTICS, SKILLS, BACKGROUNDS, ITEMS, GEAR_SLOTS, SPONSORS } from "../game-content.js";
 import {
   clamp,
@@ -85,23 +86,39 @@ export function autoLineup(s) {
   }
   s.lineup = lineup;
   s.entries = Object.fromEntries(EVENT_IDS.map((ev) => [ev, lineup[ev] ? [lineup[ev]] : []]));
-  // Fill a second scoring entry using spare event capacity; manual entries can
-  // concentrate up to three athletes in an event or leave another event empty.
-  for (const ev of EVENT_IDS) {
-    const candidates = healthy.filter((a) => !entriesOf(s,ev).includes(a.id) && EVENT_IDS.filter((e) => entriesOf(s,e).includes(a.id)).length < 2)
-      .sort((a,b) => forecast(s,b,ev)-forecast(s,a,ev));
-    if (candidates[0]) assignEntry(s,ev,1,candidates[0].id);
+  // Match second-entry slots as a group, so an early choice cannot strand
+  // an athlete's spare event capacity and leave the last event short-handed.
+  const slots=healthy.flatMap(a=>Array.from({length:2-EVENT_IDS.filter(ev=>lineup[ev]===a.id).length},()=>a.id));
+  const matched=new Map();
+  function fill(ev,seen) {
+    const choices=slots.map((id,index)=>({id,index,a:healthy.find(a=>a.id===id)})).filter(x=>x.id!==lineup[ev]).sort((a,b)=>forecast(s,b.a,ev)-forecast(s,a.a,ev));
+    for(const slot of choices) {
+      if(seen.has(slot.index))continue;seen.add(slot.index);
+      if(!matched.has(slot.index)||fill(matched.get(slot.index),seen)){matched.set(slot.index,ev);return true;}
+    }
+    return false;
   }
+  for(const ev of EVENT_IDS)fill(ev,new Set());
+  for(const [slot,ev] of matched)assignEntry(s,ev,1,slots[slot]);
   return true;
 }
 
+function rivalEntries(s,rival) {
+  const out=Object.fromEntries(EVENT_IDS.map(ev=>[ev,[rival.athletes.find(a=>a.event===ev).id]]));
+  for(let pass=0;pass<2;pass++) for(const ev of EVENT_IDS) {
+    const candidates=rival.athletes.filter(a=>!out[ev].includes(a.id)&&EVENT_IDS.filter(e=>out[e].includes(a.id)).length<2).sort((a,b)=>forecast(s,b,ev,{club:false})-forecast(s,a,ev,{club:false}));
+    if(candidates[0])out[ev].push(candidates[0].id);
+  }
+  return out;
+}
 export function startMatch(s) {
   if (s.match || !s.competition || s.phase !== "season" || s.day < s.matchDay || s.pendingEvent || lineupProblem(s)) return false;
   const rival = opponent(s);
   if (!rival) return false;
+  const awayEntries=rivalEntries(s,rival);
   s.sponsorLocked = true;
   const kind = s.competition.kind === "duel" ? "duel" : s.fixture < 3 ? "league" : "final";
-  for (const r of rival.athletes) r.condition = 35 + Math.round(random(s) * 45);
+  for (const r of rival.athletes) { r.condition = 35 + Math.round(random(s) * 45); r.stamina=100; }
   s.match = {
     id: s.season + "-" + s.day + "-" + competitionTier(s) + "-" + s.fixture,
     kind,
@@ -110,13 +127,15 @@ export function startMatch(s) {
     name: rival.name,
     color: rival.color,
     eventIndex: 0,
+    rotation: true,
+    wind: ["calm","headwind","crosswind"][Math.floor(random(s)*3)],
     attempts: 3,
     championship: kind === "final",
     entryIndex: 0,
     finalRound: false,
     fields: EVENT_IDS.map((ev, i) => ({
       home: entriesOf(s, ev).map((id) => ({ id, marks: [], finalist: false })),
-      away: [rival.athletes[i], rival.athletes[(i + 1) % 4]].map((a) => ({ id: a.id, marks: [], finalist: false })),
+      away: awayEntries[ev].map((id) => ({ id, marks: [], finalist: false })),
     })),
     phase: "intro",
     homeMarks: EVENT_IDS.map(() => []),
@@ -155,30 +174,26 @@ const ranking = (field) => [...field.home.map((e) => ({ ...e, side: "home" })), 
     for (let i = 0; i < Math.max(x.length,y.length); i++) if ((y[i] ?? -1) !== (x[i] ?? -1)) return (y[i] ?? -1) - (x[i] ?? -1);
     return 0;
   });
+function scoreField(field,done=true) {
+  const rows=ranking(field),table=[5,3,1],out=[];
+  for(let i=0;i<rows.length;) {
+    const row=rows[i],mark=best(row.marks);
+    if(mark==null){out.push({...row,mark:null,place:null,points:0});i++;continue;}
+    const key=r=>JSON.stringify(r.marks.filter(v=>v!=null).sort((a,b)=>b-a));
+    let end=i+1;while(end<rows.length&&key(rows[end])===key(row))end++;
+    let points=0;for(let j=i;j<end;j++)points+=table[j]||0;
+    for(let j=i;j<end;j++)out.push({...rows[j],mark:best(rows[j].marks),place:i+1,points:done?points/(end-i):0});
+    i=end;
+  }
+  return out;
+}
 export function eventScores(m) {
-  return EVENT_IDS.map((event, i) => {
-    if (!m.fields) {
-      const home = best(m.homeMarks[i]), away = best(m.awayMarks[i]);
-      const done = m.homeMarks[i].length === m.attempts && m.awayMarks[i].length === m.attempts;
-      return { event, home, away, done, h: done && home != null && (away == null || home > away) ? 3 : 0, a: done && away != null && (home == null || away > home) ? 3 : 0, placings: [] };
-    }
-    const f = m.fields[i], done = !!m.closed[i];
-    const rows = ranking(f), table = [5,3,1];
-    let place = 0;
-    const placings = rows.map((e, index) => {
-      const mark = best(e.marks);
-      if (mark == null) return { ...e, mark, place: null, points: 0 };
-      // Compare the complete series for countback; share points only for an exact tie.
-      const key = (x) => JSON.stringify(x.marks.filter((v) => v != null).sort((a,b) => b-a));
-      const tied = rows.filter((x) => best(x.marks) != null && key(x) === key(e));
-      const first = rows.findIndex((x) => x === tied[0]);
-      place = first + 1;
-      const points = tied.reduce((n, _, k) => n + (table[first + k] || 0), 0) / tied.length;
-      return { ...e, mark, place, points: done ? points : 0 };
-    });
-    return { event, home: best(f.home.flatMap((e) => e.marks)), away: best(f.away.flatMap((e) => e.marks)), done, placings,
-      h: placings.filter((e) => e.side === "home").reduce((n,e) => n+e.points,0),
-      a: placings.filter((e) => e.side === "away").reduce((n,e) => n+e.points,0) };
+  return EVENT_IDS.map((event,i)=>{
+    if(!m.fields){const home=best(m.homeMarks[i]),away=best(m.awayMarks[i]),done=m.homeMarks[i].length===m.attempts&&m.awayMarks[i].length===m.attempts;
+      return {event,home,away,done,h:done&&home!=null&&(away==null||home>away)?3:0,a:done&&away!=null&&(home==null||away>home)?3:0,placings:[]};}
+    const f=m.fields[i],done=!!m.closed[i],placings=scoreField(f,done);
+    return {event,home:best(f.home.flatMap(e=>e.marks)),away:best(f.away.flatMap(e=>e.marks)),done,placings,
+      h:placings.filter(e=>e.side==="home").reduce((n,e)=>n+e.points,0),a:placings.filter(e=>e.side==="away").reduce((n,e)=>n+e.points,0)};
   });
 }
 function rescore(m) {
@@ -187,6 +202,31 @@ function rescore(m) {
   m.against = sc.reduce((n, e) => n + e.a, 0);
 }
 
+// Meaningful next scoring target across the entire field, including teammates.
+export function fieldLeaderboard(s,i=s.match?.eventIndex,hide) {
+  if(!s.match?.fields)return [];
+  let field=s.match.fields[i];
+  if(hide && hide.eventIndex===i) field={home:field.home.map((e,n)=>({...e,marks:hide.side==="home"&&n===s.match.entryIndex?e.marks.slice(0,hide.attempt):e.marks})),away:field.away.map((e,n)=>({...e,marks:hide.side==="away"&&n===s.match.entryIndex?e.marks.slice(0,hide.attempt):e.marks}))};
+  return scoreField(field,true);
+}
+export function fieldTarget(s,side="home") {
+  const m=s.match;
+  if(!m?.fields)return null;
+  const i=m.eventIndex,athlete=side==="home"?homeAthlete(s):rivalAthlete(s),rows=fieldLeaderboard(s,i),own=rows.find(r=>r.side===side&&r.id===athlete.id);
+  if(!own)return null;
+  const margin=rows.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0);
+  const candidates=[...new Set(rows.filter(r=>r.mark!=null&&(own.mark==null||r.mark>=own.mark)).map(r=>r.mark))].sort((a,b)=>a-b);
+  for(const mark of candidates){
+    const source=m.fields[i],f={home:source.home.map(e=>({...e,marks:[...e.marks]})),away:source.away.map(e=>({...e,marks:[...e.marks]}))};
+    f[side].find(e=>e.id===athlete.id).marks.push(+(mark+0.01).toFixed(2));
+    const after=scoreField(f,true);
+    const gain=after.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0)-margin;
+    const placing=after.find(r=>r.side===side&&r.id===athlete.id)?.place;
+    const qualification=m.championship&&!m.finalRound&&(own.place==null||own.place>4)&&placing<=4;
+    if(gain>0||qualification)return {mark:+(mark+0.01).toFixed(2),place:placing,swing:gain,qualification,delta:own.mark==null?null:mark+0.01-own.mark};
+  }
+  return own.mark==null?{mark:null,place:null,swing:0,legal:true}:null;
+}
 // Situational context for one side's next attempt.
 function context(s, side) {
   syncMarks(s);
@@ -195,7 +235,10 @@ function context(s, side) {
     own = (side === "home" ? m.homeMarks : m.awayMarks)[i],
     opp = (side === "home" ? m.awayMarks : m.homeMarks)[i],
     athlete = side === "home" ? homeAthlete(s) : rivalAthlete(s);
-  return { m, i, ev: EVENT_IDS[i], own, opp, athlete, k: own.length, ownBest: best(own), oppBest: best(opp), left: m.attempts - own.length };
+  const target=m.rotation?fieldTarget(s,side):null;
+  const board=m.rotation?fieldLeaderboard(s,i):[];
+  const fieldBest=board.find(r=>!(r.side===side&&r.id===athlete.id)&&r.mark!=null)?.mark;
+  return { m, i, ev: EVENT_IDS[i], own, opp, athlete, target, fieldBest, k: own.length, ownBest: best(own), oppBest: m.rotation?(target?.mark??fieldBest??null):best(opp), left: m.attempts - own.length };
 }
 function sourceName(a, key) {
   for (const k of equippedSkills(a, "meet")) if (SKILLS[k][key]) return SKILLS[k].name;
@@ -209,14 +252,42 @@ export function canSignature(s, side = "home") {
   const c = context(s, side),
     fx = effects(s, c.athlete, side === "home");
   if (!entrant(s, side) && m.fields) return false;
-  if (!fx.sig || c.left <= 0) return false;
+  if (!fx.sig || c.left <= 0 || !equippedSkills(c.athlete,"meet").some(k=>SKILLS[k].sig && (!SKILLS[k].event || SKILLS[k].event===c.ev))) return false;
   return side === "home" ? !m.sigUsed.includes(c.athlete.id) : !m.rivalSig.includes(c.athlete.id);
 }
 export function projected(s, side = "home") {
   const c = context(s, side);
   return forecast(s, c.athlete, c.ev, { club: side === "home", doubleDuty: side === "home" ? usesOf(s, c.athlete.id, s.match.lineup) > 1 : (s.match.fields?.filter((f) => f.away.some((e) => e.id === c.athlete.id)).length || 0) > 1 });
 }
-export function autoTactic(s, side = "home") {
+export function autoTactic(s,side="home") {
+  if(s.match?.rotation) {
+    const c=context(s,side),actual=c.m.fields[c.i];
+    // Build a sound series before optimising the final attempt for team points.
+    if(c.left>1)return "balanced";
+    const field={home:actual.home.map(e=>({...e,marks:[...e.marks]})),away:actual.away.map(e=>({...e,marks:[...e.marks]}))};
+    for(const team of ["home","away"]) for(const e of field[team]) if(!(team===side&&e.id===c.athlete.id)) {
+      const a=(team==="home"?s.roster:s.clubs.find(r=>r.id===c.m.opponentId).athletes).find(a=>a.id===e.id);
+      const estimate=forecast(s,a,c.ev,{club:team==="home",doubleDuty:team==="home"?usesOf(s,a.id,c.m.lineup)>1:c.m.fields.filter(f=>f.away.some(r=>r.id===a.id)).length>1});
+      if(e.marks.length<c.m.attempts)e.marks.push(estimate*0.995);
+    }
+    const samples=[[-1.6,0.08],[-0.8,0.24],[0,0.36],[0.8,0.24],[1.6,0.08]];
+    const margin=rows=>rows.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0);
+    const base=margin(scoreField(field));
+    let winner="balanced",bestValue=-Infinity;
+    for(const tactic of ["balanced","safe","attack"]) {
+      const risk=riskModel(s,c,side,tactic,"good",false);
+      let expected=base*risk.foul;
+      for(const [z,w] of samples) {
+        const f={home:field.home.map(e=>({...e,marks:[...e.marks]})),away:field.away.map(e=>({...e,marks:[...e.marks]}))};
+        f[side].find(e=>e.id===c.athlete.id).marks.push(risk.center*(1+z*risk.sd));
+        expected+=(1-risk.foul)*w*margin(scoreField(f));
+      }
+      // Preserve readiness and confidence when extra risk cannot buy team points.
+      const value=expected-risk.foul*0.03-TACTICS[tactic].stamina*0.002;
+      if(value>bestValue+1e-8){bestValue=value;winner=tactic;}
+    }
+    return winner;
+  }
   const c = context(s, side),
     P = projected(s, side);
   // Bank a mark first; once one is on the board a foul only costs confidence, so chase.
@@ -231,6 +302,7 @@ export function autoTactic(s, side = "home") {
 }
 export function isClutch(s) {
   const c = context(s, "home");
+  if(c.m.rotation) return c.left===1 && c.target && (c.target.legal || c.target.mark<=projected(s)*1.1);
   return c.left === 1 && c.opp.length > c.own.length && (c.ownBest == null || (c.oppBest != null && c.oppBest >= c.ownBest));
 }
 export function needsDecision(s) {
@@ -238,7 +310,7 @@ export function needsDecision(s) {
   if (!m || m.phase !== "live") return false;
   const c = context(s, "home");
   if (m.fields && (!entrant(s, "home") || (m.finalRound && !entrant(s, "home").finalist))) return false;
-  if (c.own.length >= m.attempts || c.opp.length <= c.own.length) return false;
+  if (c.own.length >= m.attempts || (m.rotation ? m.turnSide!=="home" : c.opp.length <= c.own.length)) return false;
   return s.settings.meetMode === "coach" || (s.settings.clutch !== false && isClutch(s));
 }
 
@@ -255,7 +327,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
     last = c.left === 1,
     afterFoul = c.k > 0 && c.own[c.k - 1] == null,
     trailing = c.oppBest != null && (c.ownBest == null || c.ownBest < c.oppBest),
-    leading = c.ownBest != null && (c.oppBest == null || c.ownBest > c.oppBest);
+    leading = c.ownBest != null && ((c.m.rotation?c.fieldBest:c.oppBest) == null || c.ownBest > (c.m.rotation?c.fieldBest:c.oppBest));
   const acts = [];
   let mult = 1;
   const on = (cond, key, label) => {
@@ -294,17 +366,18 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= fx.sig;
     acts.unshift(sourceName(a, "sig"));
   }
-  const focus = a.stats[3];
-  let foul = (0.11 - focus * 0.0007) * T.foul * fx.foul * (leading && fx.leading !== 1 ? 0.5 : 1) * (afterFoul && fx.afterFoul !== 1 ? 0.7 : 1);
+  const focus = a.stats[3], mastery=masteryOf(a,c.ev),discipline=disciplineModel(a,c.ev,c.m.wind);
+  const baseFoul={shot:0.075,discus:0.14,hammer:0.125,jav:0.12}[c.ev];
+  let foul = Math.max(0.015,baseFoul-mastery*0.00065-focus*0.0002) * discipline.foul * T.foul * fx.foul * (leading && fx.leading !== 1 ? 0.5 : 1) * (afterFoul && fx.afterFoul !== 1 ? 0.7 : 1);
   foul *= quality === "perfect" ? 0.6 : quality === "poor" ? 1.5 : 1;
   foul = clamp(foul, 0.01, 0.5);
   if (sig || (first && fx.safeFirst)) foul = 0;
-  const sd = T.sd * fx.variance * (1.25 - focus / 200),
+  const sd = T.sd * fx.variance * discipline.spread * (1.4 - mastery / 200) * (1.1-focus/500),
     mean = T.mean + (tactic === "attack" ? fx.attackBoost : 0),
     qm = quality === "perfect" ? 1.02 + (fx.perfect ? 0.01 : 0) : quality === "poor" ? 0.95 : 1;
   const P = forecast(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
-  const center = P * mean * qm * mult;
-  return { foul, sd, center, low: center * (1 - sd * 1.6), high: center * (1 + sd * 1.6), acts, fx, P };
+  const center = P * mean * qm * mult * discipline.mark;
+  return { foul, sd, center, low: center * (1 - sd * 1.6), high: center * (1 + sd * 1.6), acts, fx, P, discipline, target:c.target };
 }
 
 function throwFor(s, side, tactic, quality, sig) {
@@ -317,10 +390,12 @@ function throwFor(s, side, tactic, quality, sig) {
     z = clamp(gauss(s), -2.4, 2.4),
     mark = foul ? null : +(r.center * (1 + z * r.sd)).toFixed(2);
   if (sig) (side === "home" ? m.sigUsed : m.rivalSig).push(a.id);
-  if (side === "home") a.stamina = clamp(a.stamina - TACTICS[tactic].stamina, 0, 100);
+  a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina, 0, 100);
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.
   a.condition = clamp(a.condition + (foul ? -8 : 2), 0, 100);
+  const beforeMargin=c.m.rotation?fieldLeaderboard(s,c.i).reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0):0;
   c.own.push(mark);
+  const swing=c.m.rotation?fieldLeaderboard(s,c.i).reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0)-beforeMargin:0;
   const previousPb = side === "home" ? Math.max(a.pb[c.ev] || 0, c.ownBest || 0) : 0;
   const newPb = side === "home" && mark != null && mark > previousPb && mark > (a.pb[c.ev] || 0);
   const ownBest = best(c.own),
@@ -344,8 +419,11 @@ function throwFor(s, side, tactic, quality, sig) {
     pbDelta: newPb && previousPb ? mark - previousPb : 0,
     ownBest,
     oppBest,
-    leading: ownBest != null && (oppBest == null || ownBest > oppBest),
+    leading: ownBest != null && ((m.rotation?c.fieldBest:oppBest) == null || ownBest > (m.rotation?c.fieldBest:oppBest)),
     risk: r.foul,
+    target: c.target,
+    approach: r.discipline.approach,
+    scoringSwing: c.m.rotation ? swing : 0,
   };
 }
 function autoQuality(s, a) {
@@ -353,12 +431,19 @@ function autoQuality(s, a) {
 }
 function shouldAutoSig(s, side) {
   const c = context(s, side);
-  return canSignature(s, side) && (c.left === 1 || (c.oppBest != null && (c.ownBest == null || c.ownBest < c.oppBest) && c.left <= 2));
+  if(!canSignature(s,side))return false;
+  if(c.m.rotation) {
+    if(c.target?.legal)return c.left===1;
+    if(c.target?.mark!=null && c.left<=2 && c.target.mark<=projected(s,side)*effects(s,c.athlete,side==="home").sig*1.08)return true;
+    return false;
+  }
+  return c.left === 1 || (c.oppBest != null && (c.ownBest == null || c.ownBest < c.oppBest) && c.left <= 2);
 }
 
 // Advance one presentable beat. Returns null while waiting for the coach.
 export function advanceMatch(s) {
   const m = s.match;
+  if(m?.rotation)return advanceFieldMatch(s);
   syncMarks(s);
   if (!m || m.phase === "decide" || m.phase === "complete") return null;
   let beat;
@@ -415,6 +500,38 @@ export function advanceMatch(s) {
   m.last = beat;
   return beat;
 }
+function selectFieldTurn(s) {
+  const m=s.match,f=m.fields[m.eventIndex],queue=[];
+  for(let index=0;index<Math.max(f.home.length,f.away.length);index++) for(const side of ["away","home"]) {
+    const e=f[side][index];if(e&&(!m.finalRound||e.finalist)&&e.marks.length<m.attempts) queue.push({side,index,attempt:e.marks.length});
+  }
+  if(!queue.length)return null;
+  const round=Math.min(...queue.map(t=>t.attempt));return queue.find(t=>t.attempt===round);
+}
+function advanceFieldMatch(s) {
+  const m=s.match;
+  if(["decide","complete"].includes(m.phase))return null;
+  if(m.phase==="intro"){m.phase="live";return m.last={type:"meetStart"};}
+  if(m.closed[m.eventIndex]) {
+    if(m.eventIndex===3){settleMatch(s);return m.last={type:"complete",win:meetOutcome(m)>0,draw:meetOutcome(m)===0,score:m.score,against:m.against};}
+    m.eventIndex++;m.entryIndex=0;m.finalRound=false;m.attempts=3;
+  }
+  let turn=selectFieldTurn(s);
+  if(!turn) {
+    if(m.championship&&!m.finalRound) {
+      const f=m.fields[m.eventIndex],ranked=ranking(f).filter(e=>best(e.marks)!=null),finalists=ranked.slice(0,4);
+      for(const side of ["home","away"]) for(const e of f[side]) e.finalist=finalists.some(r=>r.side===side&&r.id===e.id);
+      m.finalRound=true;m.attempts=6;turn=selectFieldTurn(s);
+      if(turn){m.entryIndex=turn.index;m.turnSide=turn.side;syncMarks(s);return m.last={type:"eventStart",event:EVENT_IDS[m.eventIndex],eventIndex:m.eventIndex,home:homeAthlete(s).id,away:rivalAthlete(s).id,finals:true};}
+    }
+    return closeEvent(s,m.eventIndex);
+  }
+  m.entryIndex=turn.index;m.turnSide=turn.side;syncMarks(s);
+  if(!m.started[m.eventIndex]){m.started[m.eventIndex]=true;return m.last={type:"eventStart",event:EVENT_IDS[m.eventIndex],eventIndex:m.eventIndex,home:homeAthlete(s).id,away:rivalAthlete(s).id};}
+  if(turn.side==="home"&&needsDecision(s)){m.phase="decide";return m.last={type:"decide",clutch:isClutch(s),eventIndex:m.eventIndex,recommended:autoTactic(s),target:fieldTarget(s)};}
+  const a=turn.side==="home"?homeAthlete(s):rivalAthlete(s);
+  return m.last=throwFor(s,turn.side,autoTactic(s,turn.side),turn.side==="home"?autoQuality(s,a):"good",shouldAutoSig(s,turn.side));
+}
 function closeEvent(s, i) {
   const m = s.match;
       m.closed[i] = true;
@@ -424,6 +541,13 @@ function closeEvent(s, i) {
         const athlete = s.roster.find((x) => x.id === row.id);
         athlete.seasonPoints += row.points;
         if (row.place === 1) count(s, "eventWins");
+      }
+      for(const side of ["home","away"]) {
+        const squad=side==="home"?s.roster:s.clubs.find(c=>c.id===m.opponentId).athletes;
+        for(const row of e.placings||[]) if(row.side===side&&row.place===1) {
+          const winner=squad.find(a=>a.id===row.id);
+          if(effects(s,winner,side==="home").hype) for(const a of squad) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
+        }
       }
       const beat = { type: "eventEnd", event: e.event, eventIndex:i, h:e.h, a:e.a, home:e.home, away:e.away, score:m.score, against:m.against };
       m.last = beat;
@@ -469,7 +593,7 @@ export function settleMatch(s) {
   s.money += money;
   let fans = win ? 15 + 10 * L : draw ? 6 + 4 * L : 3 + 2 * L;
   fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue")) * (win && m.home ? 1 + 0.2 * facilityLevel(s, "lights") : 1);
-  const rewards = { money, fans: 0, items: [], levelUps: [], pbs: [], mvp: null, goals: [], development: [] };
+  const rewards = { mastery: [], money, fans: 0, items: [], levelUps: [], pbs: [], mvp: null, goals: [], development: [] };
   const duelKey = L + ":" + m.opponentId;
   if (m.kind === "duel" && win && !s.circuit.duels.includes(duelKey)) {
     s.circuit.duels.push(duelKey);
@@ -489,6 +613,8 @@ export function settleMatch(s) {
       const a = s.roster.find((x) => x.id === entry.id);
       if (!a) continue;
       participants.add(a.id);
+      const masteryGain=competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
+      rewards.mastery.push({id:a.id,name:a.name,event:ev,gain:masteryGain,mastery:masteryOf(a,ev)});
       const mark = best(entry.marks), old = a.pb[ev] || 0;
       if (mark != null && mark > old) {
         a.pb[ev] = mark; a.seasonPbs++; a.development.pbs++; count(s,"pbs"); fans += 2;
@@ -508,6 +634,10 @@ export function settleMatch(s) {
     a.meets++; a.stamina = clamp(a.stamina-15,0,100); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
     grantXp(s,a,30*(m.kind === "duel" ? 0.7:1),rewards.levelUps);
     rewards.development.push(...checkDevelopment(s,a));
+  }
+  if(m.fields) for(const [i,ev] of EVENT_IDS.entries()) for(const entry of m.fields[i].away) {
+    const a=s.clubs.find(c=>c.id===m.opponentId).athletes.find(a=>a.id===entry.id);
+    competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
   }
   rewards.insights = meetInsights(s,rewards.pbs.length);
   rewards.fans = Math.round(fans);
@@ -532,6 +662,12 @@ export function settleMatch(s) {
     club.points += win ? 0 : draw ? 1 : 3;
     club.diff += m.against - m.score;
     club.played++;
+    if(win) {
+      // A beaten club works on its weakest event rather than replacing its roster.
+      const weak=eventScores(m).reduce((a,b)=>a.a<b.a?a:b);
+      const specialist=club.athletes.find(a=>a.event===weak.event);
+      if(specialist) specialist.mastery[weak.event]=Math.min(100,specialist.mastery[weak.event]+0.8);
+    }
     const others = s.clubs.filter((c) => c.id !== m.opponentId);
     const strength = (c) => c.athletes.reduce((n, a) => n + a.stats.reduce((x, v) => x + v, 0), 0);
     const delta = strength(others[0]) - strength(others[1]) + (random(s) - 0.5) * 60;

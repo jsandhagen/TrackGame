@@ -1,3 +1,4 @@
+import { initMastery, masteryOf, PROFILES } from "./mastery.js";
 import {
   EVENTS,
   EVENT_IDS,
@@ -84,7 +85,7 @@ export function createAthlete(s, event, o = {}) {
     id: s.nextId++,
     name: o.name || pick(s, FIRST) + " " + pick(s, LAST),
     event,
-    stats: stats.map((v) => clamp(v, 1, 100)),
+    stats: stats.map((v) => clamp(v, 1, Math.min(100,potential+RANKS[o.rank||0].cap))),
     stamina: 100,
     condition: 55 + Math.round(random(s) * 20),
     level: 1,
@@ -122,7 +123,7 @@ export function createAthlete(s, event, o = {}) {
     const pool = Object.keys(SKILLS).filter((k) => ["train", "meet"].includes(SKILLS[k].cat) && SKILLS[k].rank === 0);
     learnFree(a, pick(s, pool));
   }
-  return a;
+  return initMastery(a);
 }
 export function learnFree(a, id) {
   if (!a.skills.includes(id)) a.skills.push(id);
@@ -148,7 +149,7 @@ export const facilityLevel = (s, type) =>
   STADIUM[type] ? s.stadium?.[type] || 0 : s.plots.reduce((n, p) => n + (p?.type === type ? p.level : 0), 0);
 // The facility a training plan uses for this athlete.
 export function planFacility(plan, a) {
-  return plan.facility === "event" ? a.event : plan.facility;
+  return plan.facility === "event" ? (a.trainingEvent || a.event) : plan.facility;
 }
 export const rosterCap = (s) => 6 + 2 * facilityLevel(s, "dorm");
 
@@ -178,6 +179,7 @@ export const equippedSkills = (a, mode = "training") =>
 export function effects(s, a, club = true, mode = s.match ? "meet" : "training") {
   const e = blank();
   apply(e, BACKGROUNDS[a.background]);
+  apply(e,PROFILES[a.profile]);
   for (const k of equippedSkills(a, mode)) apply(e, SKILLS[k], SKILLS[k].name);
   for (const slot of GEAR_SLOTS) {
     const id = a.gear?.[slot],
@@ -201,7 +203,7 @@ export function effects(s, a, club = true, mode = s.match ? "meet" : "training")
 
 // ── Performance ───────────────────────────────────────────────────────
 export function eventRating(a, event) {
-  return a.stats.reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (a.event === event ? 1 : 0.9);
+  return a.stats.reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (0.60 + 0.40 * masteryOf(a,event)/100);
 }
 export function rawMark(a, event) {
   const e = EVENTS[event];
@@ -271,4 +273,3 @@ export function isFacilityAvailable(s, type) {
   return d && s.league >= d.league && (!d.needsTitle || s.trophies.length > 0);
 }
 export const overall = (a) => Math.round(eventRating(a, a.event));
-

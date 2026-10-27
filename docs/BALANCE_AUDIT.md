@@ -1,3 +1,5 @@
+> Historical design/balance notes. See [current event development](EVENT_MASTERY.md) and [current balance](BALANCE_CURRENT.md) for 0.9.0.
+
 # Balance and game-feel audit — v0.3.0
 
 Game source evaluated: `7cca97a67dc549814d5f3fa1b465ec617c779dca`.

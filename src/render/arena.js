@@ -933,3 +933,4 @@ export function animateArena(g, s, now, crowd = 0.15) {
     rect(g, fx + 1, gy - 20 + wave, 7, 2, s.colors.secondary);
   }
 }
+
