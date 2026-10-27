@@ -47,7 +47,7 @@ export const SPOTS = {
   stands: { x: CENTER.x - 70, y: BOWL.y + 10, hit: [MX0, BOWL.y - 54, MX1 - MX0, 104] },
   lights: { x: BOWL.x + 8, y: BOWL.y + 20, hit: [BOWL.x - 6, BOWL.y - 70, 28, 94] },
 };
-const MASTS = [
+export const MASTS = [
   [BOWL.x + 6, BOWL.y + 20, false],
   [BOWL.x + BOWL.w - 8, BOWL.y + 20, false],
   [BOWL.x + 4, BOWL.y + BOWL.h - 18, true],
@@ -782,7 +782,7 @@ function rail(g) {
     if (i % 8 === 0) rect(g, x, y - 2, 1, 3, "#c8c4b8");
   }
 }
-const masts = (s) => s.stadium.lights > 0 && s.stadium.stands < 4;
+export const masts = (s) => s.stadium.lights > 0 && s.stadium.stands < 4;
 
 // The Olympic level's landmark (after the tower at Hayward Field), standing beside the east end.
 // Its design and colours are customisable: a spiral of panels, a steel lattice, or a clock tower.

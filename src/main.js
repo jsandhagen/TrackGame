@@ -27,8 +27,10 @@ const store = await createPersistence("ring-sector-leagues-v3");
 let state = store.read() ? validateCampaign(JSON.parse(store.read())) : G.newGame();
 let saveEnabled = false;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
-const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: 1, sig: false, meter: null, skipConfirm: false, hide: null };
+const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
 const DAY_MS = [0, 2600, 1400, 700];
+// How dark night gets at each speed, so the fastest speed doesn't strobe.
+const NIGHT_AT_SPEED = [1, 1, 0.75, 0.4];
 const world = createWorld($("#world")),
   stadium = createStadium($("#stadium"));
 let shownInsights = null,
@@ -93,7 +95,7 @@ function hud() {
   const since = performance.now() - insightBump.at,
     bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
-  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></div>
+  <div class="hud-date" title="${G.longDate(state.day)} · Season ${state.season}"><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></div>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
   <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
@@ -411,7 +413,8 @@ function play(speed = state.settings.speed || 1) {
   if (state.pendingEvent) return showEvent();
   state.settings.speed = speed;
   view.playing = true;
-  lastDayAt = performance.now() - DAY_MS[speed] * 0.6;
+  // Carry on from the time already on the clock.
+  lastDayAt = performance.now() - DAY_MS[speed] * view.dayP;
   render();
 }
 function doDay(now) {
@@ -420,6 +423,7 @@ function doDay(now) {
   const r = G.advanceDay(state);
   if (!r.ok) return stopPlaying();
   lastDayAt = now;
+  if (!view.playing) view.dayP = 0.25;
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
   for (const l of r.levelUps) {
@@ -1043,8 +1047,12 @@ function frame(now) {
       }
     } else {
       if (view.playing && now - lastDayAt >= DAY_MS[state.settings.speed]) doDay(now);
-      const p = view.playing ? Math.min(1, (now - lastDayAt) / DAY_MS[state.settings.speed]) : 0.45;
-      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: p });
+      // The clock runs from 06:00 to 22:00 across each day and holds while paused.
+      if (view.playing) view.dayP = Math.min(1, (now - lastDayAt) / DAY_MS[state.settings.speed]);
+      const clock = $("#clock"),
+        label = G.clockLabel(view.dayP);
+      if (clock && clock.textContent !== label) clock.textContent = label;
+      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: view.dayP, nightScale: (reduced() ? 0.5 : 1) * NIGHT_AT_SPEED[view.playing ? state.settings.speed : 0] });
     }
   }
   requestAnimationFrame(frame);
