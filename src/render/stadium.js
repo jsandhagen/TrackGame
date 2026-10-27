@@ -2,7 +2,7 @@ import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel
 import { text } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard } from "../domain/game.js";
 
 // The scene keeps a fixed 270px-tall layout; its width follows the screen.
 let W = 480;
@@ -376,26 +376,41 @@ export function createStadium(cv) {
     const home = homeAthlete(s, bi),
       rival = rivalAthlete(s, bi),
       rivalColors = { primary: m.color, secondary: "#f4efe2" };
-    // Best-mark flags, hiding the mark still in the air.
-    const hidden = (side) => beat?.type === "throw" && !landed && beat.side === side && beat.eventIndex === bi;
-    const marksFor = (side) => {
-      const list = (side === "home" ? m.homeMarks : m.awayMarks)[bi];
-      return hidden(side) ? list.slice(0, beat.attempt) : list;
-    };
-    const hb = best(marksFor("home")),
-      ab = best(marksFor("away"));
-    if (ab != null) flag(g, O.x + ab * ppm, centreY(O.x + ab * ppm) + 5, m.color, ab.toFixed(2), true);
-    if (hb != null) flag(g, O.x + hb * ppm, centreY(O.x + hb * ppm) - 3, s.colors.primary, hb.toFixed(2));
-    if (home?.pb[ev]) {
-      const x = O.x + home.pb[ev] * ppm;
-      line(g, x, upperY(x) + 2, x, lowerY(x) - 2, "rgba(242,201,76,0.55)");
-      text(g, "PB", x, lowerY(x) + 1, { color: "#f2c94c", align: "center" });
+    // Field markers, hiding the mark still in the air: a peg at every entrant's best, a gold
+    // flag for the leader, and lines for the thrower's PB, the club record and the target.
+    const inAir = beat?.type === "throw" && !landed && beat.eventIndex === bi ? { side: beat.side, eventIndex: bi, attempt: beat.attempt } : null;
+    const upSide = beat?.type === "throw" ? beat.side : beat?.type === "decide" ? "home" : m.turnSide || "home",
+      upAthlete = upSide === "away" ? rival : home;
+    const board = m.fields ? fieldLeaderboard(s, bi, inAir) : [];
+    const atX = (mark) => Math.min(W - 6, O.x + mark * ppm);
+    board.filter((r) => r.mark != null && !(r.side === upSide && r.id === upAthlete?.id)).forEach((r, n) => {
+      const x = atX(r.mark),
+        y = centreY(x) + ((n % 3) - 1) * 6 + 4,
+        c = r.side === "home" ? s.colors.primary : m.color;
+      rect(g, x, y - 6, 1, 6, "#f4f4f0");
+      rect(g, x - 1, y - 7, 3, 2, c);
+      if (r.place) text(g, String(r.place), x, y + 1, { color: r.side === "home" ? "#fff6dc" : shade(c, 0.6), align: "center" });
+    });
+    const lines = [];
+    const leader = board.find((r) => r.place === 1 && r.mark != null);
+    if (leader) lines.push({ mark: leader.mark, label: "LEAD " + leader.mark.toFixed(2), color: "#f2c94c" });
+    if (upSide === "home" && upAthlete?.pb[ev]) lines.push({ mark: upAthlete.pb[ev], label: "PB " + upAthlete.pb[ev].toFixed(2), color: "#9fe0ff", dash: true });
+    if (upSide === "home" && s.records[ev] && s.records[ev].mark !== upAthlete?.pb[ev]) lines.push({ mark: s.records[ev].mark, label: "CLUB REC", color: "#d8b0ff", dash: true });
+    if (beat?.target?.mark != null) lines.push({ mark: beat.target.mark, label: "TARGET " + beat.target.mark.toFixed(2), color: "#ffe69a" });
+    // Stack labels in rows so close marks don't overprint each other.
+    const rowsEnd = [];
+    for (const l of lines.sort((a, b) => a.mark - b.mark)) {
+      const x = atX(l.mark);
+      for (let y = upperY(x) + 2; y < lowerY(x) - 2; y += l.dash ? 4 : 1) rect(g, x, y, 1, l.dash ? 2 : 1, l.color);
+      const half = l.label.length * 2.4 + 2;
+      let row = 0;
+      while (rowsEnd[row] != null && rowsEnd[row] > x - half) row++;
+      rowsEnd[row] = x + half;
+      text(g, l.label, x, upperY(x) - 9 - row * 10, { color: l.color, align: "center" });
     }
-    if(beat?.target?.mark!=null) {
-      const x=Math.min(W-12,O.x+beat.target.mark*ppm);
-      line(g,x,upperY(x)+2,x,lowerY(x)-2,"#ffe69a");
-      text(g,"TARGET "+beat.target.mark.toFixed(2),x,upperY(x)-7,{color:"#ffe69a",align:"center"});
-    }
+    // The thrower's own best so far, flagged in their colours.
+    const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
+    if (own != null) flag(g, atX(own), centreY(atX(own)) - 3, upSide === "home" ? s.colors.primary : m.color, own.toFixed(2));
     // Who is in the circle?
     const throwing = beat?.type === "throw" ? beat.side : beat?.type === "decide" ? "home" : null;
     const active = throwing === "away" ? rival : home,
