@@ -214,6 +214,12 @@ function stands(g, s, season) {
   // Vertical faces we can see: risers facing the field, the pitch-side boards and outer walls.
   const boards = [colors.primary, "#f4f0e4", "#c84a40", "#2c4a7a", colors.secondary];
   function face(x, c, k, len, below) {
+    if (below === "outside" && lvl >= 4) {
+      // Timber slats over a steel frame, in the spirit of modern athletics venues.
+      if (k === 0) return "#3a4046";
+      if (k === len - 1 || k % 9 === 4) return "#4a5056";
+      return x % 3 === 0 ? "#8a5a34" : x % 3 === 1 ? "#b47a48" : "#a06c3e";
+    }
     if (below === "outside") {
       if (k === 0) return "#d8d0c0";
       if (k === 2) return colors.primary;
@@ -518,9 +524,11 @@ function sectorLines(g, x, y, dir, len, spread, o = {}) {
     const rr = (len * k) / ((o.arcs ?? 3) + 0.4);
     for (let t = -spread; t <= spread; t += 0.04) px(g, ...at(x, y, dir + t, rr), soft);
   }
-  // Distance boards along the sector edge, and flags at its far corners.
+  // Distance boards just outside one sector line (o.side picks which), and small flags at the
+  // far corners.
+  const side = o.side || 1;
   for (let k = 1; k <= (o.marks || 0); k++) {
-    const [mx, my] = at(x, y, dir + spread + 0.05, (len * k) / (o.marks + 0.6));
+    const [mx, my] = at(x, y, dir + side * (spread + 0.07), (len * k) / (o.marks + 0.6));
     rect(g, mx - 1, my - 5, 1, 5, "#5a5e66");
     rect(g, mx - 2, my - 8, 5, 4, "#f2c94c");
     px(g, mx, my - 7, "#3a3e46");
@@ -528,8 +536,8 @@ function sectorLines(g, x, y, dir, len, spread, o = {}) {
   if (o.flags)
     for (const a of [-spread, spread]) {
       const [fx, fy] = at(x, y, dir + a, len);
-      rect(g, fx, fy - 7, 1, 7, "#e8e4dc");
-      rect(g, fx + 1, fy - 7, 3, 2, "#e85a4a");
+      rect(g, fx, fy - 4, 1, 4, "#e8e4dc");
+      rect(g, fx + 1, fy - 4, 3, 2, "#e85a4a");
     }
 }
 // A throwing circle. Level 1 is bare concrete in the grass; level 3 sits on a synthetic pad.
@@ -549,13 +557,14 @@ function circle(g, x, y, lvl, o = {}) {
     for (let i = -3; i <= 3; i++) rect(g, x + 8 - Math.round(Math.abs(i) * 0.5), y + i * 0.8, 2, 1, c);
   }
 }
-// A C-shaped safety cage round the back of a circle, open towards the sector.
+// A C-shaped safety cage round the back of a circle, open towards the sector. Nets are light
+// enough to see the thrower through, and the panels nearest the viewer are almost clear.
 function cage(g, x, y, dir, lvl, extra = 0) {
   const h = [0, 14, 22, 30][lvl] + extra,
     n = [0, 6, 9, 11][lvl],
     rx = lvl >= 2 ? 16 : 14,
     ry = lvl >= 2 ? 8 : 7;
-  const net = ["", "rgba(230,230,220,0.18)", "rgba(40,60,52,0.24)", "rgba(24,28,30,0.3)"][lvl];
+  const net = ["", [230, 230, 220, 0.16], [40, 56, 50, 0.16], [22, 26, 30, 0.15]][lvl];
   const pts = Array.from({ length: n }, (_, i) => {
     const a = dir + Math.PI * (0.38 + (1.24 * i) / (n - 1));
     return [Math.round(x + Math.cos(a) * rx), Math.round(y + Math.sin(a) * ry)];
@@ -569,21 +578,42 @@ function cage(g, x, y, dir, lvl, extra = 0) {
     }
   for (let i = 1; i < pts.length; i++) {
     const [x1, y1] = pts[i - 1],
-      [x2, y2] = pts[i];
-    poly(g, [[x1, y1 - h], [x2, y2 - h], [x2, y2], [x1, y1]], net);
-    if (lvl >= 2) for (let k = 4; k < h; k += 5) line(g, x1, y1 - k, x2, y2 - k, "rgba(40,48,46,0.12)");
+      [x2, y2] = pts[i],
+      near = (y1 + y2) / 2 > y + 1,
+      a = near ? net[3] * 0.45 : net[3];
+    poly(g, [[x1, y1 - h], [x2, y2 - h], [x2, y2], [x1, y1]], `rgba(${net[0]},${net[1]},${net[2]},${a})`);
+    if (lvl >= 2 && !near) for (let k = 6; k < h; k += 6) line(g, x1, y1 - k, x2, y2 - k, "rgba(40,48,46,0.07)");
   }
   pts.forEach(([px_, py], i) => {
-    if (lvl === 1) rect(g, px_, py - h, 1, h + 1, "#8a6038");
-    else if (lvl === 2) rect(g, px_, py - h, 1, h + 1, "#7a8288");
-    else {
-      for (let k = 0; k <= h; k += 4) rect(g, px_, py - h + k, 1, 2, k % 8 ? "#e8e4dc" : "#d84a3a");
-      rect(g, px_ - 1, py - 1, 3, 2, "#3a3e46");
+    const post = lvl === 1 ? "#8a6038" : "#4a5056";
+    rect(g, px_, py - h, 1, h + 1, post);
+    if (lvl >= 3) {
+      rect(g, px_, py - h, 1, 2, "#d84a3a");
+      rect(g, px_ - 1, py - 1, 3, 2, "#2a2e32");
     }
-    if (lvl >= 2 && (i === 0 || i === pts.length - 1)) rect(g, px_, py - h - 3, 1, 3, lvl >= 3 ? "#e8e4dc" : "#7a8288");
+    if (lvl >= 2 && (i === 0 || i === pts.length - 1)) rect(g, px_, py - h - 3, 1, 3, post);
   });
-  const top = lvl === 1 ? "#a07a50" : lvl === 2 ? "#5a6268" : "#2a2e32";
+  const top = lvl === 1 ? "#a07a50" : "#3a4046";
   for (let i = 1; i < pts.length; i++) line(g, pts[i - 1][0], pts[i - 1][1] - h, pts[i][0], pts[i][1] - h, top);
+}
+// Competition dressing: a TV camera on a tripod, and a digital board showing the last mark.
+function tvCamera(g, x, y, facing = 1) {
+  ellipse(g, x, y + 1, 4, 1, "rgba(30,40,30,0.25)");
+  line(g, x, y - 6, x - 3, y, "#4a4e52");
+  line(g, x, y - 6, x + 3, y, "#4a4e52");
+  rect(g, x, y - 6, 1, 6, "#3a3e42");
+  rect(g, x - 3, y - 10, 6, 4, "#2a2e32");
+  rect(g, x - 3, y - 10, 6, 1, "#4a4e56");
+  rect(g, facing > 0 ? x + 3 : x - 5, y - 9, 2, 2, "#5a6a7a");
+  px(g, facing > 0 ? x - 3 : x + 2, y - 11, "#e85a4a");
+}
+function distanceBoard(g, x, y, mark) {
+  const w = mark.length * 6 + 3;
+  rect(g, x + 2, y - 4, 1, 4, "#5a5e60");
+  rect(g, x + w - 3, y - 4, 1, 4, "#5a5e60");
+  rect(g, x - 1, y - 13, w + 2, 10, "#2a2e32");
+  rect(g, x, y - 12, w, 8, "#101418");
+  text(g, mark, x + Math.floor(w / 2), y - 12, { color: "#f2c94c", outline: null, align: "center" });
 }
 // A planned installation: chalk outline and corner stakes in the grass, waiting for the build.
 function stakedOut(g, x, y, w, h, snow) {
@@ -606,7 +636,7 @@ function shotArea(g, s, snow, pad) {
     if (L >= 3) for (let r = 14; r < len; r += 3) for (let t = -spread + 0.02; t < spread; t += 0.03) px(g, ...at(x, y, dir + t, r), shade(clay, -0.12));
     wedge(g, x - 4, y + 13, dir, 9, len - 12, spread * 0.8, shade(clay, 0.06));
   }
-  sectorLines(g, x, y, dir, len, spread, { snow, chalk: L === 1, arcs: L >= 3 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3 });
+  sectorLines(g, x, y, dir, len, spread, { snow, chalk: L === 1, arcs: L >= 3 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3, side: -1 });
   circle(g, x, y, L, { board: true, pad });
   if (L >= 2) circle(g, x - 4, y + 13, L, { board: true, pad });
   if (L >= 3) {
@@ -615,6 +645,7 @@ function shotArea(g, s, snow, pad) {
     rect(g, x - 24, y - 2, 1, 3, "#5a5e66");
     rect(g, x - 16, y - 2, 1, 3, "#5a5e66");
     for (let i = 0; i < 3; i++) ellipse(g, x - 22 + i * 3, y - 4, 1, 1, ["#3a3e46", "#7a6a5a", "#3a3e46"][i]);
+    distanceBoard(g, x + 34, y + 30, "18.4");
   }
 }
 function cageArea(g, s, ev, snow, pad) {
@@ -623,8 +654,10 @@ function cageArea(g, s, ev, snow, pad) {
     dir = ev === "hammer" ? Math.PI - 0.12 : 0.12,
     len = (ev === "hammer" ? 80 : 74) + L * 8;
   if (!L) return stakedOut(g, x - 12, y - 7, 24, 14, snow);
-  sectorLines(g, x, y, dir, len, 0.3, { snow, chalk: L === 1, arcs: L >= 2 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3 });
+  const east = ev === "hammer";
+  sectorLines(g, x, y, dir, len, 0.3, { snow, chalk: L === 1, arcs: L >= 2 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3, side: east ? 1 : -1 });
   circle(g, x, y, L, { pad });
+  if (L >= 3) distanceBoard(g, east ? x - 58 : x + 42, y + 30, east ? "71.2" : "60.8");
 }
 function javelinArea(g, s, snow, pad) {
   const L = s.stadium.jav,
@@ -646,10 +679,13 @@ function javelinArea(g, s, snow, pad) {
     for (let i = x0 + 10; i < x1; i += 10) rect(g, i, y - 2, 1, 1, "#f4f0e4");
   }
   // The scratch arc: a wooden board at first, then a painted line with foul-line extensions.
+  // The scratch arc bulges towards the sector; a wooden board at first, then a painted line
+  // with foul-line extensions either side.
   const arcC = L === 1 ? "#a8743e" : "#f4f0e4";
-  for (let i = -3; i <= 3; i++) rect(g, x0 - 1 - Math.round((3 - Math.abs(i)) * 0.7), y + i, L === 1 ? 2 : 1, 1, arcC);
-  if (L >= 2) rect(g, x0 - 3, y - 5, 1, 2, "#f4f0e4"), rect(g, x0 - 3, y + 4, 1, 2, "#f4f0e4");
-  sectorLines(g, x0 - 2, y, Math.PI - 0.08, 120 + L * 10, 0.22, { snow, chalk: L === 1, arcs: L >= 2 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3 });
+  for (let i = -4; i <= 4; i++) rect(g, x0 - Math.round(Math.sqrt(16 - i * i) * 0.6), y + i * 0.75, L === 1 ? 2 : 1, 1, arcC);
+  if (L >= 2) rect(g, x0 - 1, y - 5, 1, 2, "#f4f0e4"), rect(g, x0 - 1, y + 4, 1, 2, "#f4f0e4");
+  sectorLines(g, x0 - 3, y, Math.PI - 0.06, 112 + L * 10, 0.2, { snow, chalk: L === 1, arcs: L >= 2 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3, side: 1 });
+  if (L >= 3) distanceBoard(g, x0 - 64, y + 30, "84.9");
   if (L >= 3) {
     // Wind sock on a pole by the runway.
     rect(g, x1 - 6, y - 26, 1, 22, "#c8ccd0");
@@ -717,6 +753,37 @@ function rail(g) {
 }
 const masts = (s) => s.stadium.lights > 0 && s.stadium.stands < 4;
 
+// The Olympic level's landmark: a slim tower at the north-east corner, faced with tall panels of
+// athletes in action and crowned with light (after the tower at Hayward Field).
+function tower(g, s) {
+  if (s.stadium.stands < 4) return;
+  const x = BOWL.x + BOWL.w - 26,
+    y = BOWL.y + 26,
+    w = 12,
+    h = 86,
+    d = 4;
+  ellipse(g, x + w / 2 + 3, y + 1, 10, 3, "rgba(20,30,20,0.3)");
+  poly(g, [[x + w, y], [x + w, y - h], [x + w + d, y - h - 2], [x + w + d, y - 2]], "#2a2e34");
+  rect(g, x, y - h, w, h, "#3a4048");
+  for (let k = 0; k < 4; k++) {
+    const py = y - h + 10 + k * 18;
+    rect(g, x + 1, py, w - 2, 15, ["#c8563e", "#3d6cae", s.colors.primary, "#e2a43a"][k]);
+    // A pixel athlete on each panel: head, body, a throwing arm.
+    const fx = x + 5,
+      fy = py + 3;
+    rect(g, fx, fy, 2, 2, "#f4efe2");
+    rect(g, fx, fy + 2, 2, 5, "#f4efe2");
+    line(g, fx + 1, fy + 3, fx + 4 - (k % 2) * 6, fy + 1 - (k % 2), "#f4efe2");
+    line(g, fx, fy + 7, fx - 2 + (k % 2) * 4, fy + 10, "#f4efe2");
+    line(g, fx + 1, fy + 7, fx + 3 - (k % 2) * 4, fy + 10, "#f4efe2");
+  }
+  rect(g, x - 1, y - h - 6, w + 2, 6, "#fff4cb");
+  rect(g, x - 1, y - h - 6, w + 2, 1, "#ffffff");
+  rect(g, x - 1, y - h - 1, w + 2, 1, s.colors.primary);
+  rect(g, x + w / 2, y - h - 14, 1, 8, "#c8ccd0");
+  rect(g, x + w / 2 + 1, y - h - 14, 5, 2, s.colors.primary);
+  rect(g, x + w / 2 + 1, y - h - 12, 5, 2, s.colors.secondary);
+}
 export function drawArena(g, s, season = 1) {
   if (s.stadium.stands >= 3) roundRect(g, { ...BOWL, x: BOWL.x + 3, y: BOWL.y + 4 }, "rgba(20,40,20,0.25)");
   else rail(g);
@@ -728,6 +795,7 @@ export function drawArena(g, s, season = 1) {
   stands(g, s, season);
   mainRoof(g, s, season);
   ringRoof(g, s, season);
+  tower(g, s);
   gatehouse(g, s);
   scoreboard(g, s);
   pressBox(g, s);
@@ -737,6 +805,12 @@ export function drawArenaFront(g, s) {
   const st = s.stadium;
   if (st.discus) cage(g, SPOTS.discus.x, SPOTS.discus.y, 0.12, st.discus);
   if (st.hammer) cage(g, SPOTS.hammer.x, SPOTS.hammer.y, Math.PI - 0.12, st.hammer, 4);
+  // TV cameras cover every competition-standard area.
+  const sp = SPOTS;
+  if (st.discus >= 3) tvCamera(g, sp.discus.x + 12, sp.discus.y + 22, 1);
+  if (st.shot >= 3) tvCamera(g, sp.shot.x - 20, sp.shot.y + 24, 1);
+  if (st.hammer >= 3) tvCamera(g, sp.hammer.x - 12, sp.hammer.y + 22, -1);
+  if (st.jav >= 3) tvCamera(g, sp.jav.x - 30, sp.jav.y + 16, -1);
   if (masts(s)) for (const [x, y, near] of MASTS) if (near) floodlight(g, x, y, st.lights);
 }
 // Spectators and flags move on top of the cached stadium.
