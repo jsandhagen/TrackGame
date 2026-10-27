@@ -4353,3 +4353,16 @@ ol.howto li::marker {
 .saved-club > b { display: block; color: #356643; margin-bottom: 8px; }
 .saved-club .button { width: 100%; margin-top: 14px; }
 .meet-result-tabs .report-menu { order: 3; flex: 0 0 auto; margin-left: auto; background: #ede8cf; color: #435c46; }
+/* Preparation controls stay above optional paid sessions. */
+.prep-controls .toggle { margin: 0 0 6px; }
+.prep-controls .card-title { margin-bottom: 6px; }
+.prep-active { padding: 7px 9px; margin: 7px 0; border-left: 3px solid #749d59; background: #e8eed6; font-size: 11px; }
+.group-plans { margin-top: 8px; border-top: 1px solid #d6dcc5; }
+.group-plans > summary { padding: 8px 0; font: 700 13px var(--display); cursor: pointer; }
+.group-plan-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.group-plan-fields label { font-size: 11px; font-weight: 700; }
+.group-plan-fields select { width: 100%; display: block; min-height: 36px; margin: 3px 0 6px; }
+.group-plans > .button { width: 100%; margin: 7px 0; }
+.group-plans > small { display: block; }
+.plan-skips { font-size: 10px; color: #8a613b; margin: 5px 0; }
+.individual-plans > summary { font: 700 14px var(--display); cursor: pointer; }
