@@ -487,83 +487,184 @@ function jumps(g, s) {
     px(g, lx + 52, ly, "#c8b080");
   }
 }
-function sectorLines(g, x, y, dir, len, spread, snow, marks = 0) {
-  const c = snow ? "rgba(120,130,130,0.8)" : "rgba(250,250,240,0.8)",
-    soft = snow ? "rgba(120,130,130,0.4)" : "rgba(250,250,240,0.38)";
-  for (const a of [-spread, spread]) line(g, x, y, x + Math.cos(dir + a) * len, y + Math.sin(dir + a) * len * 0.6, c);
-  for (let k = 1; k <= 3; k++) {
-    const rr = (len * k) / 3.4;
-    for (let t = -spread; t <= spread; t += 0.05) px(g, x + Math.cos(dir + t) * rr, y + Math.sin(dir + t) * rr * 0.6, soft);
+// ── The throws ─────────────────────────────────────────────────────────
+// Each area grows from bare grass to a competition installation:
+//  shot     1 concrete circle, wooden stop board, chalk lines on grass
+//           2 twin circles, white boards, a clay landing sector
+//           3 competition circle on a synthetic pad, raked clay, distance markers, a shot rack
+//  discus/  1 practice net on wooden poles round a concrete circle
+//  hammer   2 a taller steel cage, crisp sector lines and distance arcs
+//           3 a tall competition cage with weighted feet, gate panels and marker boards
+//  javelin  1 a mown grass strip with a wooden arc
+//           2 a rubber runway with white edges and check marks
+//           3 a full competition runway, foul-line extensions, flags and a wind sock
+const SQ = 0.6; // sectors are drawn slightly foreshortened
+const at = (x, y, dir, r) => [x + Math.cos(dir) * r, y + Math.sin(dir) * r * SQ];
+// A filled landing sector (a convex wedge) between two radii.
+function wedge(g, x, y, dir, r0, r1, spread, color) {
+  const pts = [at(x, y, dir - spread, r0)];
+  for (let k = 0; k <= 10; k++) pts.push(at(x, y, dir - spread + (2 * spread * k) / 10, r1));
+  pts.push(at(x, y, dir + spread, r0));
+  poly(g, pts, color);
+}
+function sectorLines(g, x, y, dir, len, spread, o = {}) {
+  const c = o.snow ? "rgba(120,130,130,0.8)" : o.chalk ? "rgba(250,250,240,0.55)" : "rgba(252,252,246,0.92)",
+    soft = o.snow ? "rgba(120,130,130,0.4)" : o.chalk ? "rgba(250,250,240,0.25)" : "rgba(252,252,246,0.45)";
+  for (const a of [-spread, spread]) {
+    const [ex, ey] = at(x, y, dir + a, len);
+    line(g, x, y, ex, ey, c);
   }
-  for (let k = 1; k <= marks; k++) {
-    const rr = (len * k) / (marks + 0.6);
-    rect(g, x + Math.cos(dir + spread) * rr - 1, y + Math.sin(dir + spread) * rr * 0.6 - 3, 3, 3, "#f2c94c");
+  for (let k = 1; k <= (o.arcs ?? 3); k++) {
+    const rr = (len * k) / ((o.arcs ?? 3) + 0.4);
+    for (let t = -spread; t <= spread; t += 0.04) px(g, ...at(x, y, dir + t, rr), soft);
+  }
+  // Distance boards along the sector edge, and flags at its far corners.
+  for (let k = 1; k <= (o.marks || 0); k++) {
+    const [mx, my] = at(x, y, dir + spread + 0.05, (len * k) / (o.marks + 0.6));
+    rect(g, mx - 1, my - 5, 1, 5, "#5a5e66");
+    rect(g, mx - 2, my - 8, 5, 4, "#f2c94c");
+    px(g, mx, my - 7, "#3a3e46");
+  }
+  if (o.flags)
+    for (const a of [-spread, spread]) {
+      const [fx, fy] = at(x, y, dir + a, len);
+      rect(g, fx, fy - 7, 1, 7, "#e8e4dc");
+      rect(g, fx + 1, fy - 7, 3, 2, "#e85a4a");
+    }
+}
+// A throwing circle. Level 1 is bare concrete in the grass; level 3 sits on a synthetic pad.
+function circle(g, x, y, lvl, o = {}) {
+  if (lvl >= 3) {
+    ellipse(g, x, y + 1, 15, 7, shade(o.pad, -0.25));
+    ellipse(g, x, y, 14, 6, o.pad);
+  } else if (lvl === 2) ellipse(g, x, y, 12, 5, "#cfc8b8");
+  ellipse(g, x, y + 1, 9, 4, "rgba(40,50,40,0.3)");
+  ellipse(g, x, y, 8, 4, lvl >= 3 ? "#e8ecee" : "#c8c0b0");
+  ellipse(g, x, y, 7, 3, lvl >= 2 ? "#6a6e74" : "#9a968c");
+  if (lvl === 1) for (let i = 0; i < 5; i++) px(g, x - 5 + Math.round(hash(x + i) * 10), y - 2 + Math.round(hash(y + i) * 4), "#86827a");
+  if (lvl >= 3) ellipse(g, x - 2, y - 1, 3, 1, "#7a7e84");
+  // Stop board (shot put): curved, on the throwing side; wooden at first, then painted white.
+  if (o.board) {
+    const c = lvl >= 2 ? "#f4f0e4" : "#a8743e";
+    for (let i = -3; i <= 3; i++) rect(g, x + 8 - Math.round(Math.abs(i) * 0.5), y + i * 0.8, 2, 1, c);
   }
 }
-// A concrete circle; `board` puts a stop board on the throwing side (shot put).
-function circle(g, x, y, lvl, board = 0) {
-  ellipse(g, x, y + 1, 10, 5, "rgba(40,50,40,0.25)");
-  ellipse(g, x, y, 9, 4, lvl >= 3 ? "#b8b8bc" : "#c8c0b0");
-  ellipse(g, x, y, 7, 3, "#f4f0e4");
-  ellipse(g, x, y, 6, 3, lvl >= 3 ? "#5a5e66" : "#8a8a84");
-  if (board) for (let i = -2; i <= 2; i++) rect(g, x + 7 * board - Math.abs(i) * board * 0.5, y + i, 1, 1, "#f4f0e4");
-}
-// A C-shaped safety cage: posts round the back of the circle, translucent net panels between them.
-function cage(g, x, y, dir, lvl) {
-  const h = 16 + lvl * 4,
-    n = 6 + lvl * 2,
-    net = lvl >= 3 ? "rgba(200,60,50,0.2)" : "rgba(40,60,52,0.22)",
-    post = lvl >= 3 ? "#e8e4dc" : "#5a6a62";
+// A C-shaped safety cage round the back of a circle, open towards the sector.
+function cage(g, x, y, dir, lvl, extra = 0) {
+  const h = [0, 14, 22, 30][lvl] + extra,
+    n = [0, 6, 9, 11][lvl],
+    rx = lvl >= 2 ? 16 : 14,
+    ry = lvl >= 2 ? 8 : 7;
+  const net = ["", "rgba(230,230,220,0.18)", "rgba(40,60,52,0.24)", "rgba(24,28,30,0.3)"][lvl];
   const pts = Array.from({ length: n }, (_, i) => {
-    const a = dir + Math.PI * (0.32 + (1.36 * i) / (n - 1));
-    return [Math.round(x + Math.cos(a) * 15), Math.round(y + Math.sin(a) * 8)];
+    const a = dir + Math.PI * (0.38 + (1.24 * i) / (n - 1));
+    return [Math.round(x + Math.cos(a) * rx), Math.round(y + Math.sin(a) * ry)];
   });
-  for (let i = 1; i < n; i++) {
+  // Competition cages add two hinged gate panels that narrow the mouth.
+  if (lvl >= 3)
+    for (const side of [-1, 1]) {
+      const base = side < 0 ? pts[0] : pts[n - 1],
+        a = dir + side * 0.55;
+      pts[side < 0 ? "unshift" : "push"]([Math.round(base[0] + Math.cos(a) * 10), Math.round(base[1] + Math.sin(a) * 5)]);
+    }
+  for (let i = 1; i < pts.length; i++) {
     const [x1, y1] = pts[i - 1],
       [x2, y2] = pts[i];
     poly(g, [[x1, y1 - h], [x2, y2 - h], [x2, y2], [x1, y1]], net);
+    if (lvl >= 2) for (let k = 4; k < h; k += 5) line(g, x1, y1 - k, x2, y2 - k, "rgba(40,48,46,0.12)");
   }
-  for (const [px_, py] of pts) rect(g, px_, py - h, 1, h + 1, post);
-  for (let i = 1; i < n; i++) line(g, pts[i - 1][0], pts[i - 1][1] - h, pts[i][0], pts[i][1] - h, post);
-  if (lvl >= 2) for (const [px_, py] of [pts[0], pts[n - 1]]) rect(g, px_, py - h - 4, 1, 4, post);
+  pts.forEach(([px_, py], i) => {
+    if (lvl === 1) rect(g, px_, py - h, 1, h + 1, "#8a6038");
+    else if (lvl === 2) rect(g, px_, py - h, 1, h + 1, "#7a8288");
+    else {
+      for (let k = 0; k <= h; k += 4) rect(g, px_, py - h + k, 1, 2, k % 8 ? "#e8e4dc" : "#d84a3a");
+      rect(g, px_ - 1, py - 1, 3, 2, "#3a3e46");
+    }
+    if (lvl >= 2 && (i === 0 || i === pts.length - 1)) rect(g, px_, py - h - 3, 1, 3, lvl >= 3 ? "#e8e4dc" : "#7a8288");
+  });
+  const top = lvl === 1 ? "#a07a50" : lvl === 2 ? "#5a6268" : "#2a2e32";
+  for (let i = 1; i < pts.length; i++) line(g, pts[i - 1][0], pts[i - 1][1] - h, pts[i][0], pts[i][1] - h, top);
 }
-// A planned installation: chalk outline and corner stakes, waiting for the build.
+// A planned installation: chalk outline and corner stakes in the grass, waiting for the build.
 function stakedOut(g, x, y, w, h, snow) {
   const c = snow ? "#9aa4a4" : "#e8f0d0";
   for (let i = 0; i < w; i += 3) px(g, x + i, y, c), px(g, x + i, y + h, c);
   for (let i = 0; i < h; i += 3) px(g, x, y + i, c), px(g, x + w, y + i, c);
   for (const [sx, sy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) rect(g, sx, sy - 3, 1, 4, "#b08050");
 }
+function shotArea(g, s, snow, pad) {
+  const L = s.stadium.shot,
+    { x, y } = SPOTS.shot,
+    dir = 0.05,
+    spread = 0.3,
+    len = [0, 30, 38, 46][L];
+  if (!L) return stakedOut(g, x - 10, y - 6, 20, 12, snow);
+  if (L >= 2) {
+    // Clay landing sector; raked into arcs at competition level.
+    const clay = snow ? "#d8ccc4" : L >= 3 ? "#c4703e" : "#b87a50";
+    wedge(g, x, y, dir, 9, len, spread, clay);
+    if (L >= 3) for (let r = 14; r < len; r += 3) for (let t = -spread + 0.02; t < spread; t += 0.03) px(g, ...at(x, y, dir + t, r), shade(clay, -0.12));
+    wedge(g, x - 4, y + 13, dir, 9, len - 12, spread * 0.8, shade(clay, 0.06));
+  }
+  sectorLines(g, x, y, dir, len, spread, { snow, chalk: L === 1, arcs: L >= 3 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3 });
+  circle(g, x, y, L, { board: true, pad });
+  if (L >= 2) circle(g, x - 4, y + 13, L, { board: true, pad });
+  if (L >= 3) {
+    // A rack of shots beside the circle.
+    rect(g, x - 24, y - 3, 9, 1, "#5a5e66");
+    rect(g, x - 24, y - 2, 1, 3, "#5a5e66");
+    rect(g, x - 16, y - 2, 1, 3, "#5a5e66");
+    for (let i = 0; i < 3; i++) ellipse(g, x - 22 + i * 3, y - 4, 1, 1, ["#3a3e46", "#7a6a5a", "#3a3e46"][i]);
+  }
+}
+function cageArea(g, s, ev, snow, pad) {
+  const L = s.stadium[ev],
+    { x, y } = SPOTS[ev],
+    dir = ev === "hammer" ? Math.PI - 0.12 : 0.12,
+    len = (ev === "hammer" ? 80 : 74) + L * 8;
+  if (!L) return stakedOut(g, x - 12, y - 7, 24, 14, snow);
+  sectorLines(g, x, y, dir, len, 0.3, { snow, chalk: L === 1, arcs: L >= 2 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3 });
+  circle(g, x, y, L, { pad });
+}
+function javelinArea(g, s, snow, pad) {
+  const L = s.stadium.jav,
+    { x, y } = SPOTS.jav;
+  if (!L) return stakedOut(g, x - 26, y - 4, 54, 8, snow);
+  const len = [0, 46, 56, 66][L],
+    x1 = x + 30,
+    x0 = x1 - len;
+  if (L === 1) {
+    rect(g, x0, y - 3, len, 6, snow ? "#e8ece8" : "#8cc068");
+    for (let i = x0; i < x1; i += 6) rect(g, i, y - 3, 3, 6, snow ? "#eef2ee" : "#96c872");
+    for (let i = x0; i < x1; i += 2) px(g, i, y - 3, "rgba(250,250,240,0.6)"), px(g, i, y + 2, "rgba(250,250,240,0.6)");
+  } else {
+    const surface = snow ? "#d8d4d0" : pad;
+    rect(g, x0, y - 3, len, 6, surface);
+    rect(g, x0, y - 3, len, 1, "#f4f0e4");
+    rect(g, x0, y + 2, len, 1, "#f4f0e4");
+    // Check marks for the approach.
+    for (let i = x0 + 10; i < x1; i += 10) rect(g, i, y - 2, 1, 1, "#f4f0e4");
+  }
+  // The scratch arc: a wooden board at first, then a painted line with foul-line extensions.
+  const arcC = L === 1 ? "#a8743e" : "#f4f0e4";
+  for (let i = -3; i <= 3; i++) rect(g, x0 - 1 - Math.round((3 - Math.abs(i)) * 0.7), y + i, L === 1 ? 2 : 1, 1, arcC);
+  if (L >= 2) rect(g, x0 - 3, y - 5, 1, 2, "#f4f0e4"), rect(g, x0 - 3, y + 4, 1, 2, "#f4f0e4");
+  sectorLines(g, x0 - 2, y, Math.PI - 0.08, 120 + L * 10, 0.22, { snow, chalk: L === 1, arcs: L >= 2 ? 4 : 2, marks: L >= 3 ? 3 : 0, flags: L >= 3 });
+  if (L >= 3) {
+    // Wind sock on a pole by the runway.
+    rect(g, x1 - 6, y - 26, 1, 22, "#c8ccd0");
+    for (let i = 0; i < 4; i++) rect(g, x1 - 5 + i * 2, y - 26 + Math.floor(i / 2), 2, 3, i % 2 ? "#f4f0e4" : "#f08a3a");
+  }
+}
 function throws(g, s, season) {
-  const st = s.stadium,
-    snow = season === 3,
-    sp = SPOTS;
-  // West D: discus cage throwing into the infield, shot put circle below it.
-  if (st.discus) {
-    sectorLines(g, sp.discus.x, sp.discus.y, 0.12, 74 + st.discus * 8, 0.3, snow, st.discus >= 3 ? 3 : 0);
-    circle(g, sp.discus.x, sp.discus.y, st.discus);
-  } else stakedOut(g, sp.discus.x - 12, sp.discus.y - 7, 24, 14, snow);
-  if (st.shot) {
-    sectorLines(g, sp.shot.x, sp.shot.y, 0.05, 30 + st.shot * 6, 0.32, snow, st.shot >= 3 ? 2 : 0);
-    circle(g, sp.shot.x, sp.shot.y, st.shot, 1);
-    if (st.shot >= 2) circle(g, sp.shot.x - 4, sp.shot.y + 13, st.shot, 1);
-  } else stakedOut(g, sp.shot.x - 10, sp.shot.y - 6, 20, 12, snow);
-  // East D: hammer cage, and the javelin runway with its arc and a long narrow sector.
-  if (st.hammer) {
-    sectorLines(g, sp.hammer.x, sp.hammer.y, Math.PI - 0.12, 80 + st.hammer * 8, 0.3, snow, st.hammer >= 3 ? 3 : 0);
-    circle(g, sp.hammer.x, sp.hammer.y, st.hammer);
-  } else stakedOut(g, sp.hammer.x - 12, sp.hammer.y - 7, 24, 14, snow);
-  if (st.jav) {
-    const surface = snow ? "#d8d4d0" : ["", "#9cc070", "#c0604a", "#3d6cae"][st.jav],
-      x0 = sp.jav.x - 26,
-      x1 = sp.jav.x + 28,
-      y = sp.jav.y;
-    rect(g, x0, y - 3, x1 - x0, 6, surface);
-    rect(g, x0, y - 3, x1 - x0, 1, "#f4f0e4");
-    rect(g, x0, y + 2, x1 - x0, 1, "#f4f0e4");
-    for (let i = -3; i <= 3; i++) px(g, x0 - 1 - Math.round((3 - Math.abs(i)) * 0.7), y + i, "#f4f0e4");
-    sectorLines(g, x0 - 2, y, Math.PI - 0.08, 120 + st.jav * 10, 0.22, snow, st.jav >= 3 ? 3 : 0);
-  } else stakedOut(g, sp.jav.x - 26, sp.jav.y - 4, 54, 8, snow);
+  const snow = season === 3,
+    pad = trackColorOf(Math.max(2, s.stadium.track), styleOf(s).track);
+  // West D: the discus cage throwing into the infield, the shot put circle below it.
+  cageArea(g, s, "discus", snow, pad);
+  shotArea(g, s, snow, pad);
+  // East D: the hammer cage, and the javelin runway with its arc and long narrow sector.
+  cageArea(g, s, "hammer", snow, pad);
+  javelinArea(g, s, snow, pad);
 }
 // A team bench in front of the main stand, kit bags by the finish, a hurdle stack.
 function props(g, s) {
@@ -635,7 +736,7 @@ export function drawArena(g, s, season = 1) {
 export function drawArenaFront(g, s) {
   const st = s.stadium;
   if (st.discus) cage(g, SPOTS.discus.x, SPOTS.discus.y, 0.12, st.discus);
-  if (st.hammer) cage(g, SPOTS.hammer.x, SPOTS.hammer.y, Math.PI - 0.12, st.hammer);
+  if (st.hammer) cage(g, SPOTS.hammer.x, SPOTS.hammer.y, Math.PI - 0.12, st.hammer, 4);
   if (masts(s)) for (const [x, y, near] of MASTS) if (near) floodlight(g, x, y, st.lights);
 }
 // Spectators and flags move on top of the cached stadium.
