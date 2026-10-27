@@ -103,6 +103,13 @@ function render(text, color, outline, shadow) {
   cache.set(key, c);
   return c;
 }
+// Shorten a sign to n characters at a word boundary, dropping a dangling "&" or "·".
+export function fit(str, n) {
+  str = String(str).trim();
+  if (str.length <= n) return str;
+  const words = str.slice(0, n + 1).split(/\s+/).slice(0, -1).join(" ").replace(/[\s&·,.-]+$/, "");
+  return words || str.slice(0, n);
+}
 // align: left | center | right. y is the top of the glyphs.
 export function text(g, str, x, y, { color = "#fff6dc", outline = OUTLINE, shadow = null, scale = 1, align = "left" } = {}) {
   const img = render(String(str), color, outline, shadow);

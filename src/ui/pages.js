@@ -25,6 +25,7 @@ import {
   SLOT_NAMES,
   CLUB_PALETTES,
   CLUB_PLOT,
+  PLOT_ORDER,
   showStat,
   gradeOf,
   CUSTOMISE,
@@ -474,9 +475,10 @@ export function build(s, view) {
   <div class="card-title"><h2>${ico("stadium")} The stadium</h2><span class="hint-inline">Tap a part to upgrade</span></div>
   <div class="stadium-list">${STADIUM_IDS.map((k) => stadiumCard(s, k, k === openKey)).join("")}</div>
   <div class="card-title"><h2>${ico("build2")} Around the stadium</h2><span class="hint-inline">${G.unlockedPlots(s).length} of 13 plots open</span></div>
-  <div class="plot-list">${s.plots
-    .map((q, n) => {
-      const open = G.plotUnlocked(s, n);
+  <div class="plot-list">${PLOT_ORDER
+    .map((n) => {
+      const q = s.plots[n],
+        open = G.plotUnlocked(s, n);
       return `<button class="plot ${sel?.kind === "plot" && sel.index === n ? "selected" : ""} ${q ? "built" : ""} ${open ? "" : "locked"}" data-act="plot" data-index="${n}">${q ? `<canvas class="building tiny" width="104" height="66" data-building="${q.type}:${q.level}"></canvas><small>${FACILITIES[q.type].name}${q.level > 1 ? " Lv" + q.level : ""}</small>` : open ? ico("plus") + "<small>Build</small>" : ico("lock") + "<small>Locked</small>"}</button>`;
     })
     .join("")}</div>

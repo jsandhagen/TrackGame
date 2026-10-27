@@ -1,5 +1,5 @@
 import { rect, poly, ellipse, line, shade, hash, px } from "./pixel.js";
-import { text } from "./font.js";
+import { text, fit } from "./font.js";
 import { styleOf, trackColorOf, roofColorOf, stadiumNameOf, towerColorsOf } from "../game-content.js";
 
 // The club stadium. The ground is drawn top-down and everything built on it has height:
@@ -439,7 +439,7 @@ function gatehouse(g, s) {
     for (const fx of [gx - 16, gx + 15]) rect(g, fx, gy - 18, 2, 20, "#7a5a3a");
     rect(g, gx - 20, gy - 24, 40, 8, "#8a6a44");
     rect(g, gx - 19, gy - 23, 38, 6, "#e8d8b0");
-    text(g, stadiumNameOf(s).slice(0, 6).toUpperCase(), gx, gy - 23, { color: "#5a3a20", outline: null, align: "center" });
+    text(g, fit(stadiumNameOf(s), 6).toUpperCase(), gx, gy - 23, { color: "#5a3a20", outline: null, align: "center" });
     return;
   }
   rect(g, gx - 9, FIELD.y + FIELD.h, 18, gy - FIELD.y - FIELD.h, "#4a4038");
@@ -451,7 +451,7 @@ function gatehouse(g, s) {
   for (let i = -6; i <= 6; i += 3) rect(g, gx + i, gy - 5, 1, 7, "#8a8e96");
   rect(g, gx - 28, gy - h - 8, 56, 9, s.colors.primary);
   rect(g, gx - 28, gy - h - 8, 56, 1, shade(s.colors.primary, 0.3));
-  text(g, stadiumNameOf(s).slice(0, 9).toUpperCase(), gx, gy - h - 7, { color: s.colors.secondary, outline: null, align: "center" });
+  text(g, fit(stadiumNameOf(s), 9).toUpperCase(), gx, gy - h - 7, { color: s.colors.secondary, outline: null, align: "center" });
   for (const fx of [gx - 31, gx + 30]) rect(g, fx, gy - h - 22, 1, h + 24, "#8a8e90");
 }
 

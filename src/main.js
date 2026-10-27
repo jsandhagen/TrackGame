@@ -122,9 +122,9 @@ function menu() {
   const ready = state.matchDay != null && state.day >= state.matchDay && state.phase === "season";
   const action =
     state.phase === "seasonEnd"
-      ? `<button class="go" data-act="window" data-page="home">${ico("trophy")}<span>Season review</span></button>`
+      ? `<button class="go" data-act="page" data-page="home">${ico("trophy")}<span>Season review</span></button>`
       : state.phase === "planning"
-        ? `<button class="go" data-act="window" data-page="league">${ico("league")}<span>Book a meet</span></button>`
+        ? `<button class="go" data-act="page" data-page="league">${ico("league")}<span>Book a meet</span></button>`
       : ready
         ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>Call room</span></button>`
         : view.playing
@@ -159,9 +159,13 @@ function windowHTML() {
   const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete file" : page === "lobby" ? "Call room · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
   return [title, html];
 }
+// A different window (or athlete file) always opens at the top.
+let shownPage = null;
 function render(preserve = true) {
   const panel = $("#panel"),
-    scroll = preserve ? panel.scrollTop : 0;
+    page = state.match ? "meet:" + state.match.phase : view.window + ":" + view.athlete,
+    scroll = preserve && page === shownPage ? panel.scrollTop : 0;
+  shownPage = page;
   hud();
   menu();
   tools();
@@ -170,6 +174,7 @@ function render(preserve = true) {
   $("#world").hidden = !!m;
   $("#stadium").hidden = !m;
   $("#app").classList.toggle("meeting", !!m);
+  $("#app").classList.toggle("results", m?.phase === "complete");
   $("#meetbar").hidden = !m || m.phase === "complete";
   if (m && m.phase !== "complete") $("#meetbar").innerHTML = P.meetBar(state, view);
   const win = windowHTML();
@@ -882,6 +887,8 @@ $("#app").addEventListener("change", (e) => {
   const el = e.target,
     kind = el.dataset.change,
     a = state.roster.find((x) => x.id === +el.dataset.id);
+  // Plain form fields (the club name) commit on submit; re-rendering here would detach the form first.
+  if (!kind) return;
   if (kind === "facility-staff") G.assignDuty(state,el.dataset.site,+el.value);
   if (kind === "athlete-duty" && a) {
     if(el.value === "auto") {

@@ -1,5 +1,5 @@
 import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel.js";
-import { text } from "./font.js";
+import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best } from "../domain/game.js";
@@ -63,12 +63,12 @@ function stadiumBase(s, ev, venue) {
   }
   // Ad boards.
   rect(g, 0, 94, W, 12, "#2a3a34");
-  const ads = ["RING & SECTOR", "FIZZ DRINKS", "RADIO 98.4", LEAGUES[L].venue.toUpperCase(), "EVERY MARK MATTERS", "CHANNEL 9"];
+  const ads = [s.clubName.toUpperCase(), "FIZZ DRINKS", "RADIO 98.4", LEAGUES[L].venue.toUpperCase(), "EVERY MARK MATTERS", "CHANNEL 9"];
   for (let i = 0; i * 80 < W; i++) {
     const a = ads[i % ads.length],
       x = i * 80;
     rect(g, x + 1, 95, 78, 10, i % 2 ? "#b0503a" : s.colors.primary);
-    text(g, a.slice(0, 13), x + 40, 97, { color: "#fff6dc", outline: null, align: "center" });
+    text(g, fit(a, 13), x + 40, 97, { color: "#fff6dc", outline: null, align: "center" });
   }
   // Field.
   rect(g, 0, 106, W, H - 106, "#6aa04e");

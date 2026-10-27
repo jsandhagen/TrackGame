@@ -4115,3 +4115,12 @@ ol.howto li::marker {
 .growth-pb { color: #856125; }
 .growth-milestone { color: #3b6847; background: #eaf0df; margin-top: 3px; }
 @media (max-width: 650px) { .growth-grid { grid-template-columns: 1fr; } .meet-result-tabs > button { flex: 1; justify-content: center; padding: 5px 8px; } }
+/* Landscape: toasts stay clear of the docked window's title bar. */
+@media (min-aspect-ratio: 1/1) {
+  #toasts { width: min(420px, calc(100vw - min(500px, 46vw) - 40px)); }
+}
+@media (min-aspect-ratio: 1/1) and (max-height: 520px) {
+  #toasts { width: min(420px, calc(100vw - min(460px, 52vw) - 40px)); }
+}
+/* Meet results start at the top of the screen, so toasts drop below the verdict and score. */
+#app.results #toasts { top: auto; bottom: calc(84px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
