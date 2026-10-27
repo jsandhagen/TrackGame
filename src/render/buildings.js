@@ -5,7 +5,8 @@ import { figure } from "./sprites.js";
 // 2.5D oblique projection: depth runs up and to the right.
 export const DX = 0.4,
   DY = 0.5;
-let SNOW = false;
+let SNOW = false,
+  GROUND = -999;
 const WALL = "#efe2c0",
   GLASS = "#8fc4d0",
   FRAME = "#5a5a48",
@@ -14,6 +15,11 @@ const WALL = "#efe2c0",
 export function box(g, x, y, w, h, d, front, opts = {}) {
   const dx = Math.round(d * DX),
     dy = Math.round(d * DY);
+  // Boxes standing on the ground cast a soft shadow away from the light (upper left).
+  if (Math.abs(y - GROUND) <= 2 && opts.shadow !== false) {
+    const len = Math.round(h * 0.6) + 4;
+    poly(g, [[x + 2, y + 1], [x + w + len, y + 1], [x + w + dx + len, y - dy], [x + w + dx, y - dy]], "rgba(24,40,24,0.22)");
+  }
   poly(g, [[x + w, y], [x + w, y - h], [x + w + dx, y - h - dy], [x + w + dx, y - dy]], opts.side || shade(front, -0.22));
   rect(g, x, y - h, w, h, front);
   poly(g, [[x, y - h], [x + w, y - h], [x + w + dx, y - h - dy], [x + dx, y - h - dy]], SNOW && !opts.noSnow ? "#f6f8fa" : opts.top || shade(front, 0.14));
@@ -63,6 +69,29 @@ export function tree(g, x, y, s = 1, season = 1, seed = 0) {
   ellipse(g, x - 3, y - Math.round(19 * s), Math.round(3 * s), Math.round(2 * s), leaf[2]);
   if (leaf[3]) for (let i = 0; i < 5; i++) px(g, x - 6 + Math.round(hash(seed + i) * 12), y - 20 + Math.round(hash(seed + i + 9) * 10), leaf[3]);
 }
+export function pine(g, x, y, s = 1, season = 1) {
+  const c = ["#3e6e48", "#2e6a40", "#4a6e40", "#5a7a66"][season],
+    hi = shade(c, 0.22);
+  ellipse(g, x + 3, y, Math.round(7 * s), Math.round(2 * s), "rgba(30,50,30,0.25)");
+  rect(g, x - 1, y - Math.round(5 * s), 2, Math.round(5 * s), "#6a4a30");
+  for (let k = 0; k < 3; k++) {
+    const w = Math.round((9 - k * 2.5) * s),
+      top = y - Math.round((8 + k * 7) * s),
+      h = Math.round(10 * s);
+    for (let r = 0; r < h; r++) {
+      const half = Math.max(1, Math.round((w * r) / h));
+      rect(g, x - half, top + r, half * 2, 1, r === h - 1 ? shade(c, -0.25) : c);
+      px(g, x - half, top + r, hi);
+    }
+    if (season === 3) rect(g, x - Math.round(w * 0.4), top + 1, Math.round(w * 0.8), 2, "#f4f6f8");
+  }
+}
+export function lamp(g, x, y) {
+  rect(g, x, y - 16, 1, 16, "#4a4e52");
+  rect(g, x - 1, y - 1, 3, 1, "#4a4e52");
+  rect(g, x - 1, y - 18, 3, 3, "#4a4e52");
+  rect(g, x, y - 17, 1, 1, "#fff0b0");
+}
 export function bush(g, x, y, season = 1) {
   const c = ["#6a9a50", "#4e8a48", "#c07a3a", "#8a9a8a"][season];
   ellipse(g, x, y - 2, 5, 3, c);
@@ -108,6 +137,7 @@ function pad(g, x, y, w, h, c) {
 // Cell top-left is (x, y); cells are 104×64. Buildings stand on the line y + 52.
 export function drawFacility(g, type, level, x, y, o = {}) {
   SNOW = o.season === 3;
+  GROUND = y + 52;
   const b = y + 52,
     season = o.season ?? 1,
     colors = o.colors || { primary: "#2f6b52", secondary: "#e2b04a" },
@@ -290,6 +320,7 @@ export function drawFacility(g, type, level, x, y, o = {}) {
   };
   (drawers[type] || drawers.club)();
   SNOW = false;
+  GROUND = -999;
 }
 
 // Small animated details layered on top of the cached ground.
@@ -316,19 +347,24 @@ export function animateFacility(g, type, level, x, y, t) {
   if (type === "lab" && Math.floor(t / 500) % 2) px(g, x + 42, b - 32 - level, "#e85a50");
   if (type === "studio") px(g, x + 54, b - 33 - (level > 2 ? 6 : 0), Math.floor(t / 600) % 2 ? "#e85a50" : "#6a2a2a");
 }
-export function lockedPlot(g, x, y, label) {
-  const b = y + 52;
-  pad(g, x + 10, b - 26, 84, 28, "#8aa070");
-  for (let i = 0; i < 14; i++) px(g, x + 14 + Math.round(hash(x + i) * 76), b - 22 + Math.round(hash(y + i) * 22), "#6a8a50");
-  for (let i = 0; i <= 84; i += 6) {
-    rect(g, x + 10 + i, b - 30, 1, 6, "#a08060");
-    rect(g, x + 10 + i, b - 2, 1, 4, "#a08060");
+// A plot the club doesn't own yet: rough meadow, a few shrubs and a sign naming the league it opens in.
+export function lockedPlot(g, x, y, label, season = 1) {
+  const b = y + 52,
+    rough = ["#6e9a50", "#5e8e46", "#8e9648", "#d0d8d0"][season];
+  for (let i = 0; i < 46; i++) {
+    const tx = x + 10 + Math.round(hash(x + i * 3) * 84),
+      ty = b - 28 + Math.round(hash(y + i * 5) * 30);
+    rect(g, tx, ty, 1, 2, rough);
+    px(g, tx + 1, ty, shade(rough, 0.2));
   }
-  rect(g, x + 10, b - 28, 85, 1, "#c0a070");
-  rect(g, x + 10, b, 85, 1, "#c0a070");
-  rect(g, x + 38, b - 18, 28, 11, "#e8dcc0");
-  rect(g, x + 38, b - 18, 28, 1, "#fff6dc");
-  text(g, label, x + 52, b - 16, { color: "#7a5a3a", outline: null, align: "center" });
+  bush(g, x + 20, b - 12, season);
+  bush(g, x + 84, b - 4, season);
+  for (const [px_, py] of [[x + 10, b - 26], [x + 94, b - 26], [x + 10, b + 2], [x + 94, b + 2]]) rect(g, px_, py - 4, 1, 5, "#a08060");
+  const w = label.length * 6 + 6;
+  rect(g, x + 52, b - 10, 1, 10, "#7a5a3a");
+  rect(g, x + 52 - w / 2 - 1, b - 22, w + 2, 12, "#7a5a3a");
+  rect(g, x + 52 - w / 2, b - 21, w, 10, "#e8d8b0");
+  text(g, label, x + 52, b - 20, { color: "#7a5a3a", outline: null, align: "center" });
 }
 export function emptyPlot(g, x, y, highlight = false) {
   const b = y + 52;

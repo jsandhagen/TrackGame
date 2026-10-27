@@ -13,7 +13,7 @@ import {
   THROW_SPOTS,
   COMBOS,
   PLOT_COUNT,
-  GATE_GAP,
+  NEIGHBOURS,
   PLOT_ORDER,
   PLOTS_BY_LEAGUE,
   FIRST,
@@ -128,11 +128,8 @@ export function learnFree(a, id) {
 // ── Grounds ───────────────────────────────────────────────────────────
 export const plotsOpen = (s) => PLOTS_BY_LEAGUE[s.league];
 export const plotUnlocked = (s, i) => PLOT_ORDER.indexOf(i) < plotsOpen(s);
-// Plots form a ring around the stadium, broken only at the main gate.
-export function neighbours(i) {
-  const out = [(i + PLOT_COUNT - 1) % PLOT_COUNT, (i + 1) % PLOT_COUNT];
-  return out.filter((j) => !(GATE_GAP.includes(i) && GATE_GAP.includes(j)));
-}
+// Plots side by side on the same street are neighbours.
+export const neighbours = (i) => NEIGHBOURS[i] || [];
 const STADIUM_RULES = {
   arena: (s) => THROW_SPOTS.every((k) => s.stadium[k] >= 2),
   nightfever: (s) => s.stadium.lights >= 1 && s.stadium.stands >= 2,

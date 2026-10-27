@@ -150,7 +150,7 @@ test("lineups cap double duty, auto-lineup fills every event and injuries can be
   assert(G.startMatch(s));
 });
 
-test("buildings fill the ring of plots, discover combos with neighbours and unlock by league", () => {
+test("buildings line the streets, discover combos with neighbours and unlock by league", () => {
   const s = G.newGame(7);
   assert.equal(s.plots[9].type, "club");
   assert.equal(s.plots[10].type, "gym");
@@ -162,7 +162,9 @@ test("buildings fill the ring of plots, discover combos with neighbours and unlo
   assert(!G.build(s, 12, "cafe"), "one café");
   assert(G.build(s, 12, "garden") && G.build(s, 7, "garden"), "decorations can repeat");
   assert(G.combos(s).some((c) => c.key === "picnic"));
-  assert(!G.neighbours(8).includes(9), "the gate breaks the ring");
+  assert(!G.neighbours(8).includes(9), "different streets");
+  assert(!G.neighbours(9).includes(10), "the main road splits Club Row");
+  for (let i = 0; i < 13; i++) for (const j of G.neighbours(i)) assert(G.neighbours(j).includes(i), "neighbours are mutual");
   const moved = G.moveFacility(s, 11, 8);
   assert(moved);
   assert(!G.combos(s).some((c) => c.key === "fuel"));

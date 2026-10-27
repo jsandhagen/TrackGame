@@ -441,7 +441,7 @@ $("#app").addEventListener("click", async (e) => {
     case "zoom":
       return world.zoomBy(+b.dataset.step);
     case "recenter":
-      return world.focus(360, 260);
+      return world.home();
     case "play":
       return play();
     case "pause":

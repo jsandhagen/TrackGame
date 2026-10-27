@@ -228,29 +228,26 @@ function drawFigure(g, o) {
     H(0, 3, 12, 1, rank >= 3 ? GOLD : collar);
     H(-2, 3, 2, 2, rank >= 3 ? GOLD : collar);
   }
-  // Face: big glossy eyes, rosy cheeks.
+  // Face: small dot eyes and rosy cheeks.
   const face = p.face || o.face,
-    eyes = [4, 8];
+    eyes = [5, 9];
   if (metal) {
     H(3, 5, 9, 2, "#4ad0e8");
     H(4, 5, 3, 1, "#c8f8ff");
   } else {
     for (const x of eyes) {
-      if (face === "blink" || face === "sleep") H(x, 7, 2, 1, EYE);
+      if (face === "blink" || face === "sleep") H(x - 1, 7, 2, 1, EYE);
       else if (face === "happy") {
+        H(x - 1, 7, 1, 1, EYE);
         H(x, 6, 1, 1, EYE);
-        H(x + 1, 5, 1, 1, EYE);
-        H(x + 2, 6, 1, 1, EYE);
+        H(x + 1, 7, 1, 1, EYE);
       } else if (face === "strain") {
-        H(x, 6, 2, 1, EYE);
-        H(x + (x === 4 ? 1 : 0), 5, 1, 1, EYE);
-      } else {
-        H(x, 5, 2, 3, EYE);
-        H(x, 5, 1, 1, "#ffffff");
-      }
+        H(x - 1, 7, 2, 1, EYE);
+        H(x, 6, 1, 1, EYE);
+      } else H(x, 6, 1, 2, EYE);
     }
     H(2, 8, 2, 1, BLUSH);
-    if (!fur) H(10, 8, 2, 1, BLUSH);
+    if (!fur) H(10, 8, 1, 1, BLUSH);
     if (special !== "beard") {
       if (face === "happy") H(6, 9, 3, 1, "#8a3a30"), H(7, 10, 1, 1, "#e07070");
       else if (face === "sad") H(6, 9, 3, 1, shade(skin, -0.35));
@@ -258,9 +255,8 @@ function drawFigure(g, o) {
       else H(7, 9, 1, 1, "#a05040");
     }
     if (special === "granny") {
-      H(3, 4, 9, 1, "#9a8a80");
-      H(3, 5, 1, 2, "#9a8a80");
-      H(7, 5, 1, 2, "#9a8a80");
+      H(3, 5, 9, 1, "#9a8a80");
+      for (const x of [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
     }
   }
   // Near arm last, in front of the body.

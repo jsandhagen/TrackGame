@@ -181,15 +181,18 @@ export const FACILITIES = {
   statue: { name: "Champion Statue", cost: 900, league: 0, needsTitle: true, color: "#c8b078", desc: "Needs a title. +2 fans a day per level; fans from wins +10%." },
 };
 export const FACILITY_IDS = Object.keys(FACILITIES);
-// 13 plots in a ring around the stadium: top 0–4, right 5–6, bottom 7–8 | gate | 9–10, left 11–12.
+// 13 building plots on the streets around the stadium (positions in src/render/world.js):
+// Club Row across the forecourt (7, 9 | main road | 10, 11 · 12, 6, 0), the north lane (1, 2, 3)
+// and the boulevard (8, 5, 4). The clubhouse is fixed at plot 9.
 export const PLOT_COUNT = 13;
 export const CLUB_PLOT = 9;
-export const GATE_GAP = [8, 9];
+// Buildings side by side on the same street are neighbours; the main road splits Club Row.
+export const NEIGHBOURS = [[6], [2], [1, 3], [2], [5], [8, 4], [12, 0], [9], [5], [7], [11], [10, 12], [11, 6]];
 // Plots open in this order as the club climbs leagues.
 export const PLOT_ORDER = [9, 10, 8, 11, 7, 12, 6, 0, 5, 1, 4, 2, 3];
 export const PLOTS_BY_LEAGUE = [7, 9, 11, 13, 13];
 
-// Neighbouring plots (around the ring) form combos; stadium milestones have a rule instead.
+// Neighbouring plots (side by side on a street) form combos; stadium milestones have a rule instead.
 export const COMBOS = [
   { a: "cafe", b: "gym", key: "fuel", name: "Fuel Station", desc: "Training uses 15% less stamina." },
   { a: "gym", b: "workshop", key: "ironworks", name: "Iron Works", desc: "Power training +10%." },

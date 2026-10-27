@@ -17,7 +17,7 @@ const OLD_KIT = { control: "precision", distance: "competition", development: "w
 const OLD_SKILLS = { student: "quickstudy", steady: "icevein", closer: "clutch", rhythm: "metronome", explosive: "gymrat", chain: "highroller", comeback: "secondwind", captain: "captain", limitbreak: null };
 const OLD_FACILITY = { analysis: "studio", recovery: "spa" };
 
-// Pre-0.5 grounds → a stadium plus a ring of building plots.
+// Pre-0.5 grounds → a stadium plus building plots on the streets around it.
 function relayout(s, oldPlots, league) {
   s.plots = Array(PLOT_COUNT).fill(null);
   s.stadium = Object.fromEntries(Object.entries(STADIUM).map(([k, d]) => [k, d.start]));
