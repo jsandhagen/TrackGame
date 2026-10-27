@@ -23,6 +23,7 @@ import { competitionTier } from "./competition.js";
 import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
 import { WEATHER, weatherToday } from "./calendar.js";
+import { venueFor } from "./venues.js";
 
 export const best = (marks) => {
   const valid = marks.filter((x) => x != null);
@@ -113,18 +114,32 @@ function rivalEntries(s,rival) {
   }
   return out;
 }
+// The kind of the next meet on the books, and whether it's in your own stadium.
+// League fixtures alternate grounds; finals are neutral; duels come to you.
+export function bookedMeet(s) {
+  const c = s.competition;
+  if (!c) return null;
+  const kind = c.kind === "duel" ? "duel" : c.kind === "cup" ? "cup" : s.fixture < 3 ? "league" : "final";
+  return { kind, home: kind === "duel" || (kind === "league" && (c.stage === 2 ? s.fixture === 2 : s.fixture !== 1)) };
+}
+export function meetVenue(s) {
+  const m = s.match, booked = m ? { kind: m.kind, home: m.home } : bookedMeet(s);
+  if (!booked) return null;
+  return venueFor(s, { ...booked, tier: competitionTier(s), club: m ? matchClub(s) : opponent(s), invitation: s.invitations?.offer });
+}
+export const matchClub = (s) => s.match?.kind === "cup" ? s.invitations?.offer?.club : s.clubs.find((c) => c.id === s.match?.opponentId);
 export function startMatch(s) {
   if (s.match || !s.competition || s.phase !== "season" || s.day < s.matchDay || s.pendingEvent || lineupProblem(s)) return false;
   const rival = opponent(s);
   if (!rival) return false;
   const awayEntries=rivalEntries(s,rival);
   s.sponsorLocked = true;
-  const kind = s.competition.kind === "duel" ? "duel" : s.fixture < 3 ? "league" : "final";
+  const { kind, home } = bookedMeet(s);
   for (const r of rival.athletes) { r.condition = 35 + Math.round(random(s) * 45); r.stamina=100; }
   s.match = {
     id: s.season + "-" + s.day + "-" + competitionTier(s) + "-" + s.fixture,
     kind,
-    home: kind === "duel" || (kind === "league" && (s.competition.stage === 2 ? s.fixture === 2 : s.fixture !== 1)),
+    home,
     opponentId: rival.id,
     name: rival.name,
     color: rival.color,
@@ -160,7 +175,7 @@ export function startMatch(s) {
 export const entrant = (s, side, i = s.match?.eventIndex) => s.match?.fields?.[i]?.[side]?.[s.match.entryIndex || 0];
 export const homeAthlete = (s, i = s.match?.eventIndex) => s.roster.find((a) => a.id === (entrant(s, "home", i)?.id ?? s.match?.lineup[EVENT_IDS[i]])) || s.roster[0];
 export const rivalAthlete = (s, i = s.match?.eventIndex) => {
-  const club = s.clubs.find((c) => c.id === s.match?.opponentId);
+  const club = matchClub(s);
   return club?.athletes.find((a) => a.id === entrant(s, "away", i)?.id) || club?.athletes[i];
 };
 export const currentAthlete = (s) => homeAthlete(s);
@@ -270,7 +285,7 @@ export function autoTactic(s,side="home") {
     if(c.left>1)return "balanced";
     const field={home:actual.home.map(e=>({...e,marks:[...e.marks]})),away:actual.away.map(e=>({...e,marks:[...e.marks]}))};
     for(const team of ["home","away"]) for(const e of field[team]) if(!(team===side&&e.id===c.athlete.id)) {
-      const a=(team==="home"?s.roster:s.clubs.find(r=>r.id===c.m.opponentId).athletes).find(a=>a.id===e.id);
+      const a=(team==="home"?s.roster:matchClub(s).athletes).find(a=>a.id===e.id);
       const estimate=forecast(s,a,c.ev,{club:team==="home",doubleDuty:team==="home"?usesOf(s,a.id,c.m.lineup)>1:c.m.fields.filter(f=>f.away.some(r=>r.id===a.id)).length>1});
       if(e.marks.length<c.m.attempts)e.marks.push(estimate*0.995);
     }
@@ -359,7 +374,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= 1 + fx.crowd * Math.max(0.25, fansFactor(s));
     acts.push(sourceName(a, "crowd") || "Showtime");
   }
-  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : s.clubs.find((x) => x.id === c.m.opponentId).athletes;
+  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : matchClub(s).athletes;
   const captain = squad.find((x) => x && equippedSkills(x, "meet").includes("captain"));
   if (captain) {
     mult *= SKILLS.captain.captain;
@@ -549,7 +564,7 @@ function closeEvent(s, i) {
         if (row.place === 1) count(s, "eventWins");
       }
       for(const side of ["home","away"]) {
-        const squad=side==="home"?s.roster:s.clubs.find(c=>c.id===m.opponentId).athletes;
+        const squad=side==="home"?s.roster:matchClub(s).athletes;
         for(const row of e.placings||[]) if(row.side===side&&row.place===1) {
           const winner=squad.find(a=>a.id===row.id);
           if(effects(s,winner,side==="home").hype) for(const a of squad) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
@@ -648,7 +663,7 @@ export function settleMatch(s) {
     rewards.athleteProgress.push({ id: a.id, name: a.name, before, after, xpGained });
   }
   if(m.fields) for(const [i,ev] of EVENT_IDS.entries()) for(const entry of m.fields[i].away) {
-    const a=s.clubs.find(c=>c.id===m.opponentId).athletes.find(a=>a.id===entry.id);
+    const a=matchClub(s).athletes.find(a=>a.id===entry.id);
     competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
   }
   rewards.insights = meetInsights(s,rewards.pbs.length);

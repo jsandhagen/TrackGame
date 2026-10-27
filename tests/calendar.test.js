@@ -69,3 +69,25 @@ test('older saves gain a weather seed on load', async () => {
   assert(Number.isInteger(loaded.weatherSeed));
   assert.equal(loaded.weatherSeed, validateCampaign(JSON.parse(JSON.stringify(s))).weatherSeed);
 });
+
+test('away grounds grow with the level; finals go to the neutral showpiece', () => {
+  const grand = [];
+  for (let tier = 0; tier < 5; tier++) {
+    const s = G.newGame(30 + tier);
+    s.league = 4;
+    for (let t = 0; t < tier; t++) for (let st = 0; st < 3; st++) s.circuit.cleared.push(t + ':' + st);
+    assert(G.enterCompetition(s, { kind: 'league', tier, stage: 0, preparation: 3 }));
+    assert.equal(G.meetVenue(s).home, true);
+    s.fixture = 1;
+    const v = G.meetVenue(s);
+    assert.equal(v.home, false);
+    assert.match(v.name, new RegExp('^' + G.opponent(s).name.split(' ')[0]));
+    grand.push(v.grand);
+    s.fixture = 3; s.finalOpponent = s.clubs[0].id;
+    assert.equal(G.meetVenue(s).neutral, true);
+    assert.equal(G.meetVenue(s).name, G.LEAGUES?.[tier]?.venue ?? G.meetVenue(s).name);
+  }
+  assert.deepEqual(grand, [0, 1, 2, 3, 4]);
+  assert.equal(G.backdropOf('Harbor Throws'), 'sea');
+  assert.equal(G.backdropOf('Highland Union'), 'mountains');
+});

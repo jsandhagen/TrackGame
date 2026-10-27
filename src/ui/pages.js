@@ -76,7 +76,7 @@ export function home(s, view) {
   <article class="fixture-card ${ready ? "ready" : ""}" style="--rival:${opp?.color || "#888"}">
     <div class="fixture-top"><span>${s.competition?.kind === "duel" ? "DUEL MEET" : s.fixture === 3 ? "LEAGUE FINAL" : "FIXTURE " + (s.fixture + 1) + " / 3"} · ${esc(G.competitionName(s))}</span><b>${ready ? "MEET DAY" : days + (days === 1 ? " DAY" : " DAYS") + " TO GO"}</b></div>
     <div class="versus"><span class="crest home">${esc(s.clubName.slice(0, 1))}</span><div><small>NEXT UP · ${esc(G.shortDate(s.matchDay))}</small><h2>${esc(opp?.name)}</h2><p>${esc(opp?.style || "")}</p></div><span class="crest away">${esc(opp?.name.slice(0, 1))}</span></div>
-    <p class="meet-forecast">${weatherChip(G.weatherOn(s, s.matchDay))} <span>Meet-day forecast${days > 6 ? " (a week out)" : ""}</span></p>
+    <p class="meet-forecast">${weatherChip(G.weatherOn(s, s.matchDay))} <span>Meet-day forecast · ${esc(G.venueLabel(G.meetVenue(s)))}</span></p>
     ${ready ? btn(ico("stadium") + " Report to the call room", "lobby") : btn(view.playing ? ico("pause") + " Pause" : ico("play") + " Train · " + days + (days === 1 ? " day" : " days") + " to the meet", view.playing ? "pause" : "play")}
     <div class="split">${btn("Next day", "day", ready || view.playing ? "disabled" : "", "subtle")}${btn(ico("league") + " Meets", "page", 'data-page="league"', "subtle")}</div>
   </article>`}
@@ -697,7 +697,7 @@ export function club(s, meta) {
 export function lobby(s) {
   const m = G.opponent(s),
     problem = G.lineupProblem(s);
-  return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${s.fixture === 3 ? "neutral venue" : s.competition?.kind === "duel" ? "at home" : (s.competition?.stage === 2 ? s.fixture !== 2 : s.fixture === 1) ? "away" : "at home"}</p>
+  return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
   <p class="meet-forecast">${weatherChip(G.weatherToday(s))} <span>${esc(G.WEATHER[G.weatherToday(s)].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
     const a = s.roster.find((x) => x.id === s.lineup[ev]),

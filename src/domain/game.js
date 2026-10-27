@@ -62,6 +62,7 @@ import { practiceMastery, masteryOf } from "./mastery.js";
 export * from "./facility-duties.js";
 export * from "./customize.js";
 export * from "./calendar.js";
+export * from "./venues.js";
 import { ensureCustom } from "./customize.js";
 import { WEATHER, weatherToday, weatherTrainFactor, weatherSeedFrom } from "./calendar.js";
 import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
