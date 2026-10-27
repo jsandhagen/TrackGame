@@ -399,7 +399,7 @@ function match() {
       intro +
       `<div class="throw-result ${result.mark == null ? "foul" : result.newPb ? "personal-best" : ""}"><span class="eyebrow">${result.mark == null ? "NO MARK THIS TIME" : result.newPb ? (result.previousPb ? "NEW PERSONAL BEST · +" + result.pbDelta.toFixed(2) + " M" : "FIRST OFFICIAL MARK") : result.quality === "perfect" ? "A BEAUTIFUL RELEASE" : "MARK RECORDED"}</span><strong>${mark(result.mark)}</strong><span>Rival: ${mark(result.away)}</span></div>` +
       marks +
-      `<div class="throw-feedback">${result.reasons.length ? result.reasons.map((x) => `<p>✦ ${esc(x)}</p>`).join("") : "<p>A controlled, workmanlike attempt. Every mark contributes.</p>"}${result.mark == null ? "<p>A safe approach lowers foul risk on your next attempt.</p>" : ""}</div>${button(animation ? "Skip flight →" : final ? (m.eventIndex === 3 ? "Finish the meet →" : "Next event →") : "Plan the next throw →", "next-attempt", "")}`
+      `<div class="throw-feedback">${result.reasons.length ? result.reasons.map((x) => `<p>✦ ${esc(x)}</p>`).join("") : result.mark == null ? "<p>The attempt did not count. Your earlier marks still stand.</p>" : "<p>A controlled, workmanlike attempt. Every mark contributes.</p>"}${result.mark == null ? "<p>A safe approach lowers foul risk on your next attempt.</p>" : ""}</div>${button(animation ? "Skip flight →" : final ? (m.eventIndex === 3 ? "Finish the meet →" : "Next event →") : "Plan the next throw →", "next-attempt", "")}`
     );
   }
   const projection = G.forecast(state, a, ev);
@@ -951,7 +951,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 render();
-requestAnimationFrame(frame);
+await new Promise((resolve,reject)=>requestAnimationFrame(now=>{
+  try { frame(now); resolve(); } catch(error) { reject(error); }
+}));
 $("#bootStatus").hidden = true;
 await markGameHealthy();
 saveEnabled = true;
