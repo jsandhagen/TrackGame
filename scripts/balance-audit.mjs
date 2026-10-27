@@ -4,7 +4,7 @@ import * as G from "../src/domain/game.js";
 import { EVENTS, SKILLS, FACILITIES } from "../src/game-content.js";
 
 const N = Number(process.env.AUDIT_SEEDS || 30),
-  MAX = Number(process.env.AUDIT_SEASONS || 40);
+  MAX = Number(process.env.AUDIT_SEASONS || 60);
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) / 2)];
 const pct = (a, q) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) * q)];
 const BUILD = ["cafe", "spa", "garden", "shop", "dorm", "workshop", "scout", "lab", "fountain"];
@@ -51,6 +51,12 @@ export function engaged(s) {
     const a = s.roster.find((x) => !x.gear[slot]);
     if (a) G.equipItem(s, a.id, id);
   }
+  // Reuse intentional training and competition setups instead of clicking through swaps.
+  for (const a of s.roster) {
+    const training = a.skills.filter((k) => ["train", "team", "unique"].includes(SKILLS[k].cat)).slice(0, G.slotsOf(a));
+    const meet = a.skills.filter((k) => ["meet", "team", "unique"].includes(SKILLS[k].cat)).slice(0, G.slotsOf(a));
+    a.loadouts = { enabled: true, training, meet };
+  }
   G.autoLineup(s);
 }
 function idle(s) {
@@ -65,6 +71,7 @@ export function career(seed, policy) {
     injuries = 0,
     minMoney = s.money;
   for (let season = 0; season < MAX && !title; season++) {
+    if (s.phase === "planning") G.enterCompetition(s, G.nextCircuitEntry(s));
     for (let guard = 0; guard < 400 && s.phase === "season"; guard++) {
       if (s.pendingEvent) {
         G.resolveEvent(s, Math.max(0, G.eventView(s).choices.findIndex((c) => c.ok)));
@@ -87,7 +94,7 @@ export function career(seed, policy) {
       winsByLeague[s.league].push(s.match.score > s.match.against ? 1 : 0);
       G.leaveMatch(s);
     }
-    if (s.champion && s.league === 4) title = s.season;
+    if (s.champion && s.competition?.tier === 4 && s.competition?.stage === 2) title = s.season;
     const before = s.league;
     G.nextSeason(s);
     if (s.league > before) reached[s.league] = s.season;
@@ -122,3 +129,4 @@ for (const [name, policy] of [
 }
 console.log(JSON.stringify(out, null, 2));
 }
+

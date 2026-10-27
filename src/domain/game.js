@@ -50,17 +50,26 @@ import {
   planFacility,
 } from "./core.js";
 import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
-import { autoLineup } from "./meet.js";
+import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 
+import { competitionTier, competitionName, circuitKey, TITLE_GIFTS } from "./competition.js";
+export * from "./competition.js";
+export * from "./development.js";
+export * from "./coaching.js";
+export * from "./facility-duties.js";
+import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
+import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
 export * from "./core.js";
 export * from "./meet.js";
 export * from "./story.js";
 
-export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutch: true, speed: 1, sound: true, reducedMotion: false };
+export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
-    v: 5,
+    v: 7,
+    facilityDuties: {},
+    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0 },
     rng: seed >>> 0 || 1,
     nextId: 1,
     clubName: "Ring & Sector",
@@ -71,8 +80,13 @@ export function newGame(seed = Date.now() >>> 0) {
     season: 1,
     league: 0,
     fixture: 0,
-    matchDay: 4,
-    phase: "season",
+    entries: null,
+    matchDay: null,
+    phase: "planning",
+    competition: null,
+    circuit: { cleared: [], duels: [] },
+    clubTier: 0,
+    clubStage: 0,
     results: [],
     history: [],
     trophies: [],
@@ -119,12 +133,13 @@ export function newGame(seed = Date.now() >>> 0) {
     s.lineup[event] = a.id;
   }
   s.clubs = makeClubs(s, 0);
+  autoLineup(s);
   scout(s, true);
-  note(s, "Welcome home, Coach! Our first meet is in three days.", "story");
+  note(s, "Welcome home, Coach! Choose a duel or enter a league from the Meets board.", "story");
   return s;
 }
 
-export function makeClubs(s, league) {
+export function makeClubs(s, league, stage = 0) {
   const meetSkills = Object.keys(SKILLS).filter((k) => SKILLS[k].cat === "meet" && SKILLS[k].rank <= Math.min(2, league));
   return CLUBS[league].map((club, index) => ({
     id: index,
@@ -137,7 +152,7 @@ export function makeClubs(s, league) {
     athletes: EVENT_IDS.map((event, i) => {
       const star = CLUB_BIASES[index][i] >= 2;
       const a = createAthlete(s, event, {
-        base: LEAGUES[league].rating + index * 1.4 - 1 + CLUB_BIASES[index][i],
+        base: LEAGUES[league].rating + stage * 3 + index * 1.4 - 1 + CLUB_BIASES[index][i],
         rarity: star && league >= 2 ? "epic" : league >= 1 && star ? "rare" : "common",
         rank: Math.min(4, league),
         sp: 0,
@@ -166,12 +181,20 @@ export function discover(s) {
 }
 
 // ── Daily simulation ──────────────────────────────────────────────────
-export function plannedActivity(s, a) {
+export function plannedActivity(s, a, assignments) {
   if (a.injury) return "injured";
-  const left = s.matchDay - s.day;
-  if (a.autoTaper && left <= 1) return a.stamina < 70 ? "rest" : "sharpen";
+  if((athleteDuty(s,a.id) || a.plan === "facilities") && a.stamina<30) return "rest";
+  const duty=effectiveDuty(s,a.id,assignments || automaticDuties(s,visitorsPerDay(s)));
+  if(duty && dutySite(s,duty)) {
+    if(a.stamina<30) return "rest";
+    const competing=EVENT_IDS.some(ev=>entriesOf(s,ev).includes(a.id));
+    if(!(a.autoTaper && competing && s.matchDay!=null && s.matchDay-s.day<=1)) return "facility";
+  }
+  const left = s.matchDay == null ? Infinity : s.matchDay - s.day;
+  if (a.autoTaper && left <= 1 && (a.plan !== "facilities" || EVENT_IDS.some(ev=>entriesOf(s,ev).includes(a.id)))) return a.stamina < 70 ? "rest" : "sharpen";
   if (a.autoRest && a.stamina < 25) return "rest";
-  return a.plan;
+  if(a.plan === "facilities") return "rest";
+  return planProblem(s,a,a.plan) ? "balanced" : a.plan;
 }
 export function visitorsPerDay(s) {
   const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.15 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);
@@ -190,7 +213,7 @@ export function clubCondition(s) {
 export function trainingGains(s, a, planId, fx = effects(s, a)) {
   const plan = PLANS[planId],
     gains = [0, 0, 0, 0];
-  if (!plan || planId === "rest") return gains;
+  if (!plan || planId === "rest" || plan.facilityRole || planProblem(s,a,planId)) return gains;
   const base = 0.38,
     cap = capOf(a),
     mood = MOOD_TRAIN[moodOf(a)];
@@ -198,7 +221,7 @@ export function trainingGains(s, a, planId, fx = effects(s, a)) {
     let g;
     if (plan.stat != null) {
       const lvl = facilityLevel(s, planFacility(plan, a));
-      g = plan.stat === i ? base * 2 * (lvl ? 1 + 0.25 * lvl : 0.8) : base * 0.22;
+      g = plan.stat === i ? base * 2 * (plan.rate || 1) * (lvl ? 1 + 0.25 * lvl : 0.8) : base * (plan.secondary?.[0] === i ? plan.secondary[1] : 0.22);
     } else g = base * (planId === "sharpen" ? 0.15 : 0.62);
     const room = clamp((cap - a.stats[i]) / (cap * 0.55), 0.06, 1);
     g *= fx.gain * fx.train[i] * mood * room;
@@ -210,22 +233,27 @@ export function restAmount(s, a, fx = effects(s, a)) {
   return Math.round((30 + 12 * facilityLevel(s, "spa") + fx.rest) * fx.restMult);
 }
 export function advanceDay(s) {
-  if (s.match || s.phase !== "season" || s.day >= s.matchDay || s.pendingEvent) return { ok: false };
+  if (s.match || !["planning", "season"].includes(s.phase) || (s.matchDay != null && s.day >= s.matchDay) || s.pendingEvent) return { ok: false };
   s.day++;
   count(s, "days");
-  const report = { ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
+  const report = { duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
+  const dailyVisitors = visitorsPerDay(s);
+  const autoDuties = automaticDuties(s,dailyVisitors);
   const clubCond = clubCondition(s),
     teamCond = s.roster.map((a) => effects(s, a).teamCond),
     injuryRisk = hasCombo(s, "dorms") ? 0.04 : 0.08;
   for (const [index, a] of s.roster.entries()) {
     const fx = effects(s, a),
-      activity = plannedActivity(s, a),
+      activity = plannedActivity(s, a, autoDuties),
       entry = { id: a.id, activity, gains: [0, 0, 0, 0], facility: null };
     const fromOthers = teamCond.reduce((n, v, j) => n + (j === index ? 0 : v), 0);
     if (activity === "injured") {
       a.injury = Math.max(0, a.injury - 1 - (facilityLevel(s, "spa") && random(s) < 0.4 ? 1 : 0));
       a.stamina = clamp(a.stamina + 20, 0, 100);
       entry.facility = facilityLevel(s, "spa") ? "spa" : "club";
+    } else if(activity === "facility") {
+      const worked=workFacility(s,a,effectiveDuty(s,a.id,autoDuties),dailyVisitors,report);
+      entry.facility=worked?.facility || "club";
     } else {
       const plan = PLANS[activity];
       entry.gains = trainingGains(s, a, activity, fx);
@@ -250,8 +278,13 @@ export function advanceDay(s) {
     a.condition = clamp(a.condition, fx.condFloor, 100);
     report.athletes.push(entry);
   }
+  const recovery=report.duties.reduce((n,d)=>n+d.recovery,0);
+  if(recovery) for(const entry of report.athletes) if(["rest","injured"].includes(entry.activity)) {
+    const a=s.roster.find(a=>a.id===entry.id);a.stamina=clamp(a.stamina+recovery,0,100);
+  }
+  report.insights = practiceInsights(s,report.athletes.some((e) => e.gains.some((v) => v > 0)));
   // Visitors wander the grounds and spend at the café and merch stand.
-  const visitors = visitorsPerDay(s);
+  const visitors = dailyVisitors;
   report.visitors = visitors;
   s.plots.forEach((p, i) => {
     if (!p) return;
@@ -353,6 +386,7 @@ export function upgradeStadium(s, key) {
 export function moveFacility(s, from, to) {
   if (s.match || from === to || [from, to].some((i) => i < 0 || i >= PLOT_COUNT || i === CLUB_PLOT || !plotUnlocked(s, i)) || !s.plots[from]) return false;
   [s.plots[from], s.plots[to]] = [s.plots[to], s.plots[from]];
+  moveDuties(s,from,to);
   return { discoveries: discover(s) };
 }
 export function sellFacility(s, index) {
@@ -361,6 +395,7 @@ export function sellFacility(s, index) {
   const refund = Math.round(FACILITIES[p.type].cost * 0.5);
   s.money += refund;
   s.plots[index] = null;
+  if(s.facilityDuties) delete s.facilityDuties["plot:"+index];
   note(s, "Cleared the " + FACILITIES[p.type].name + " plot. +$" + refund + ".", "build");
   return refund;
 }
@@ -402,7 +437,7 @@ export function useItem(s, id, athleteId) {
     if (d.xp) grantXp(s, a, d.xp, out);
     if (d.sp) a.sp += d.sp;
     if (d.buff) a.buff = d.buff;
-    if (d.potential) a.potential = Math.min(95, a.potential + d.potential);
+    if (d.potential) a.potential = Math.min(100, a.potential + d.potential);
     if (d.promote) a.promoteFree = true;
   }
   checkGoals(s);
@@ -527,6 +562,8 @@ export function releaseAthlete(s, id) {
   s.alumni.unshift({ name: a.name, event: a.event, career: a.career, pb: a.pb, season: s.season, rank: a.rank });
   s.alumni = s.alumni.slice(0, 24);
   s.roster = s.roster.filter((x) => x.id !== id);
+  for(const [key,athlete] of Object.entries(s.facilityDuties||{})) if(athlete===id) delete s.facilityDuties[key];
+  if (s.entries) for (const ev of EVENT_IDS) s.entries[ev] = s.entries[ev].filter((x) => x !== id);
   if (a.secret) s.secretsSigned = s.secretsSigned.filter((k) => k !== a.secret);
   if (EVENT_IDS.some((ev) => s.lineup[ev] === id)) autoLineup(s);
   note(s, a.name + " begins a new chapter. Their marks stay in the club’s history.", "story");
@@ -538,7 +575,7 @@ export function chooseSponsor(s, id) {
   return true;
 }
 export function medicalDay(s) {
-  if (s.match || s.pendingEvent || s.phase !== "season" || s.day < s.matchDay || !EVENT_IDS.some((ev) => s.roster.find((a) => a.id === s.lineup[ev])?.injury)) return false;
+  if (s.match || s.pendingEvent || s.phase !== "season" || s.day < s.matchDay || !EVENT_IDS.some((ev) => entriesOf(s, ev).some((id) => s.roster.find((a) => a.id === id)?.injury))) return false;
   s.matchDay++;
   const r = advanceDay(s);
   note(s, "A medical postponement gives the squad a recovery day.", "warn");
@@ -559,20 +596,36 @@ export function table(s) {
 export function leaveMatch(s) {
   const m = s.match;
   if (!m?.settled) return false;
+  if (m.kind === "duel") {
+    s.match = null;
+    s.competition = null;
+    s.phase = "planning";
+    s.matchDay = null;
+    s.results = [];
+    s.sponsorLocked = false;
+    checkGoals(s);
+    return true;
+  }
   if (m.kind === "final") {
-    s.champion = m.score > m.against;
+    s.champion = meetOutcome(m) > 0;
     s.phase = "seasonEnd";
     if (s.champion) {
-      const prize = LEAGUES[s.league].prize;
+      const tier = competitionTier(s), stage = s.competition?.stage ?? 2;
+      const key = circuitKey(tier, stage), first = !s.circuit.cleared.includes(key);
+      const prize = Math.round(LEAGUES[tier].prize * (0.5 + stage * 0.25) * (first ? 1 : 0.5));
+      if (first) s.circuit.cleared.push(key);
       s.money += prize;
-      s.fans += 100 * (s.league + 1);
-      s.trophies.push({ league: s.league, season: s.season });
+      s.fans += (first ? 100 : 30) * (tier + 1);
+      s.trophies.push({ league: tier, stage, season: s.season });
+      s.lastTitlePrize = prize;
+      s.lastTitleGift = first ? TITLE_GIFTS[stage] : null;
+      if (s.lastTitleGift) addItem(s, s.lastTitleGift);
       count(s, "titles");
-      note(s, LEAGUES[s.league].name + " champions! +$" + prize + " and " + 100 * (s.league + 1) + " new fans.", "win");
+      note(s, competitionName(s) + " champions! +$" + prize + (first ? ". A new invitation earned!" : ". Title defended!"), "win");
     }
   } else {
     s.fixture++;
-    s.matchDay = s.day + 7;
+    s.matchDay = s.day + (s.competition?.spacing || 7);
     if (s.fixture === 3) {
       const ranking = table(s),
         rank = ranking.findIndex((c) => c.id === "us");
@@ -591,27 +644,20 @@ export function leaveMatch(s) {
   checkGoals(s);
   return true;
 }
-export function nextSeason(s, stay = false) {
+export function nextSeason(s) {
   if (s.phase !== "seasonEnd") return false;
-  const wasChampion = s.champion,
-    promoted = wasChampion && !stay && s.league < 4;
-  if (promoted) s.league++;
+  const wasChampion = s.champion, tier = competitionTier(s), stage = s.competition?.stage ?? 2;
+  const previousLeague = s.league;
+  if (wasChampion && stage === 2) s.league = Math.max(s.league, Math.min(4, tier + 1));
   s.season++;
   s.fixture = 0;
   s.results = [];
-  s.phase = "season";
+  s.phase = "planning";
   s.champion = false;
-  s.matchDay = s.day + 5;
+  s.matchDay = null;
+  s.competition = null;
   s.sponsorLocked = false;
-  s.freeScout = true;
-  if (promoted) s.clubs = makeClubs(s, s.league);
-  else
-    s.clubs.forEach((c) => {
-      c.points = 0;
-      c.diff = 0;
-      c.played = 0;
-      if (wasChampion) c.athletes.forEach((a) => (a.stats = a.stats.map((n) => Math.min(95, n + 0.8))));
-    });
+  s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });
   s.money += 150;
   s.rebuildStreak = wasChampion ? 0 : (s.rebuildStreak || 0) + 1;
   const boost = 1 + 0.5 * Math.min(3, s.rebuildStreak);
@@ -628,18 +674,12 @@ export function nextSeason(s, stay = false) {
     a.seasonPbs = 0;
   }
   scout(s, true);
-  s.freeScout = false;
-  note(
-    s,
-    promoted
-      ? "Welcome to the " + LEAGUES[s.league].name + "! " + (plotsOpen(s) > 6 ? "New plots are open on the grounds." : "")
-      : wasChampion
-        ? "Title defence begins. The rivals have been training too."
-        : "Rebuild camp: +" + boost + " to key and weakest stats. Let's go again.",
-    "story",
-  );
+  note(s, s.league > previousLeague ? "Invited to the " + LEAGUES[s.league].name + "! New grounds and rivals await."
+    : wasChampion ? "The trophy stays. Choose your next challenge on the Meets board."
+    : "Rebuild camp: key stats improved. Try a duel, keep developing, or enter again.", "story");
   checkGoals(s);
   return true;
 }
 
 export const unlockedPlots = (s) => PLOT_ORDER.slice(0, plotsOpen(s));
+

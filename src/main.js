@@ -77,11 +77,11 @@ function hud() {
     $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="help" aria-label="How to play">${ico("help")}</button>`;
     return;
   }
-  const days = state.matchDay - state.day,
+  const days = state.matchDay == null ? null : state.matchDay - state.day,
     speed = view.playing ? state.settings.speed : 0,
-    canPlay = state.phase === "season" && days > 0;
+    canPlay = state.phase === "planning" || (state.phase === "season" && days > 0);
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
-  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days")}</small></div>
+  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Open calendar · choose a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days")}</small></div>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
   <div class="res money">${ico("coin")}<b>${cash(state.money)}</b></div>
@@ -99,13 +99,15 @@ function menu() {
     ["squad", "squad", "Squad"],
     ["build", "build", "Build"],
     ["shop", "shop", "Shop"],
-    ["league", "league", "League"],
+    ["league", "league", "Meets"],
     ["club", "office", "Office"],
   ];
-  const ready = state.day >= state.matchDay && state.phase === "season";
+  const ready = state.matchDay != null && state.day >= state.matchDay && state.phase === "season";
   const action =
     state.phase === "seasonEnd"
       ? `<button class="go" data-act="window" data-page="home">${ico("trophy")}<span>Season review</span></button>`
+      : state.phase === "planning"
+        ? `<button class="go" data-act="window" data-page="league">${ico("league")}<span>Choose a meet</span></button>`
       : ready
         ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>To the meet</span></button>`
         : view.playing
@@ -312,7 +314,7 @@ function help(welcome = false) {
     <ol><li><b>Train.</b> Press Train and the days roll by. Athletes head to the gym, the track or their own circle, cage or runway, and their stats tick up.</li>
     <li><b>Build.</b> Upgrade the stadium (throwing areas, track, stands) and put buildings on the plots around it. Neighbouring buildings can form <b>combos</b>.</li>
     <li><b>Grow.</b> Every stat runs from 1 to 100. Levels give skill points; rank-ups raise an athlete's limit. Items and gear help too.</li>
-    <li><b>Compete.</b> Meets are four head-to-head events. Watch the drama, or coach every throw. Win the league final to move up.</li></ol>
+    <li><b>Choose your calendar.</b> Open Meets to book a duel or enter a league. Choose preparation days and the gap between fixtures. Win Open, Challenger and Championship trophies to reach the next level.</li><li><b>Compete.</b> Watch your four-event team perform, or coach every throw. Career milestones reward development automatically. Save training and meet skill setups in an athlete’s Skills tab to automate the swaps.</li></ol>
     <p>Drag the map to look around and tap anything: athletes, buildings, the stadium. Time only moves while you train.</p>`,
     [{ label: welcome ? "Let's go!" : "Got it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
@@ -326,7 +328,7 @@ function stopPlaying() {
   refresh();
 }
 function play(speed = state.settings.speed || 1) {
-  if (state.match || state.phase !== "season" || state.day >= state.matchDay) return;
+  if (state.match || !["planning", "season"].includes(state.phase) || (state.matchDay != null && state.day >= state.matchDay)) return;
   if (state.pendingEvent) return showEvent();
   state.settings.speed = speed;
   view.playing = true;
@@ -348,7 +350,7 @@ function doDay(now) {
   for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " is injured.", "warn", "bandage");
   announce(before);
   save();
-  if (state.day >= state.matchDay) {
+  if (state.matchDay != null && state.day >= state.matchDay) {
     view.playing = false;
     world.banner("MEET DAY!", "VS " + G.opponent(state)?.name.toUpperCase(), "#f2c94c", now);
     sfx("event");
@@ -452,6 +454,7 @@ $("#app").addEventListener("click", async (e) => {
       if (state.pendingEvent) return showEvent();
       return doDay(performance.now());
     case "lobby":
+      if (!state.competition || state.phase !== "season") return openWindow("league");
       stopPlaying();
       if (G.lineupProblem(state)) G.autoLineup(state);
       return openWindow("lobby");
@@ -504,7 +507,7 @@ $("#app").addEventListener("click", async (e) => {
       view.hide = null;
       view.meter = null;
       view.skipConfirm = false;
-      sfx(state.match.score > state.match.against ? "win" : "event");
+      sfx(G.meetOutcome(state.match) > 0 ? "win" : "event");
       break;
     case "leave":
       G.leaveMatch(state);
@@ -513,12 +516,30 @@ $("#app").addEventListener("click", async (e) => {
       view.window = state.phase === "seasonEnd" ? "home" : null;
       if (state.phase === "seasonEnd") sfx(state.champion ? "win" : "event");
       break;
+    case "book-league":
+    case "book-duel": {
+      stopPlaying();
+      if (state.pendingEvent) return showEvent();
+      const booked = G.enterCompetition(state, { kind: act === "book-duel" ? "duel" : "league", tier: +b.dataset.tier,
+        stage: +(b.dataset.stage || 0), rival: +(b.dataset.rival || 0), preparation: view.preparation || 5, spacing: view.spacing || 7 });
+      if (booked) { view.window = "home"; view.rival = null; world.replan(); toast("Booked for day " + state.matchDay + ". Time to prepare."); }
+      else toast("That competition isn't available right now.", "warn");
+      break;
+    }
+    case "cancel-booking":
+      stopPlaying();
+      if (G.cancelCompetition(state)) { world.replan(); toast("Booking cancelled. Choose another whenever you're ready."); }
+      break;
+    case "save-loadout":
+      if (G.saveLoadout(state, id, b.dataset.mode)) toast("Saved " + b.dataset.mode + " skill setup.");
+      break;
     case "season":
     case "defend": {
-      const promoted = state.champion && act === "season" && state.league < 4;
-      G.nextSeason(state, act === "defend");
-      view.window = null;
-      if (promoted) setTimeout(() => world.banner(LEAGUES[state.league].name.toUpperCase(), "NEW RIVALS · NEW PLOTS", "#f2c94c"), 300);
+      const before = state.league;
+      G.nextSeason(state);
+      view.window = "league";
+      world.replan();
+      if (state.league > before) setTimeout(() => world.banner(LEAGUES[state.league].name.toUpperCase(), "NEW INVITATIONS · NEW GROUNDS", "#f2c94c"), 300);
       break;
     }
     case "athlete":
@@ -531,9 +552,21 @@ $("#app").addEventListener("click", async (e) => {
     case "tab":
       view.tab = b.dataset.tab;
       return render(false);
+    case "coach-session": {
+      stopPlaying();
+      const result = G.coachSession(state,id,b.dataset.drill);
+      if (result) {
+        toast("Session complete · " + result.gains.map((n,i) => n > 0 ? "+" + n.toFixed(1) + " " + ["Power","Technique","Speed","Focus"][i] : "").filter(Boolean).join(" · "), "level");
+        sfx("level"); world.replan();
+      } else toast("That session isn't available right now.","warn");
+      break;
+    }
+    case "unlock-plan":
+      if (G.unlockPlan(state,id,b.dataset.value)) toast("Unlocked " + PLANS[b.dataset.value].name + " for the club. Select it to begin.","level");
+      break;
     case "plan": {
       const a = state.roster.find((x) => x.id === id);
-      if (a && PLANS[b.dataset.value]) a.plan = b.dataset.value;
+      if (a) G.setTrainingPlan(state,a.id,b.dataset.value);
       world.replan();
       break;
     }
@@ -722,11 +755,25 @@ $("#app").addEventListener("change", (e) => {
   const el = e.target,
     kind = el.dataset.change,
     a = state.roster.find((x) => x.id === +el.dataset.id);
-  if (kind === "bulk" && PLANS[el.value]) state.roster.forEach((x) => (x.plan = el.value));
-  if (kind === "plan" && a && PLANS[el.value]) a.plan = el.value;
+  if (kind === "facility-staff") G.assignDuty(state,el.dataset.site,+el.value);
+  if (kind === "athlete-duty" && a) {
+    if(el.value === "auto") {
+      const previous=G.athleteDuty(state,a.id);if(previous) G.assignDuty(state,previous,0);
+      G.setTrainingPlan(state,a.id,"facilities");
+    } else if(el.value) G.assignDuty(state,el.value,a.id);
+    else { const previous=G.athleteDuty(state,a.id); if(previous) G.assignDuty(state,previous,0); }
+  }
+  if(kind === "facility-focus" && a && ["balanced","money","insights"].includes(el.value)) a.facilityFocus=el.value;
+  if (["facility-staff","athlete-duty","facility-focus"].includes(kind)) world.replan();
+  if (kind === "bulk") state.roster.forEach((x) => G.setTrainingPlan(state,x.id,el.value));
+  if (kind === "plan" && a) G.setTrainingPlan(state,a.id,el.value);
   if (kind === "plan" || kind === "bulk") world.replan();
+  if (kind === "booking-preparation") view.preparation = +el.value;
+  if (kind === "booking-spacing") view.spacing = +el.value;
+  if (kind === "loadouts" && a) G.enableLoadouts(state, a.id, el.checked);
   if (kind === "autorest" && a) a.autoRest = el.checked;
   if (kind === "autotaper" && a) a.autoTaper = el.checked;
+  if (kind === "entry" && !G.assignEntry(state, el.dataset.event, +el.dataset.slot, +el.value)) toast("Choose different athletes; each athlete can enter two events.", "warn");
   if (kind === "lineup" && !G.assign(state, el.dataset.event, +el.value)) toast("An athlete can cover at most two events and must be healthy.", "warn");
   if (kind === "setting") {
     state.settings[el.dataset.key] = el.checked;
@@ -906,3 +953,4 @@ if (!state.welcomed) help(true);
 else if (state.pendingEvent) showEvent();
 save();
 checkForUpdates().catch(console.error);
+

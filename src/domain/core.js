@@ -84,7 +84,7 @@ export function createAthlete(s, event, o = {}) {
     id: s.nextId++,
     name: o.name || pick(s, FIRST) + " " + pick(s, LAST),
     event,
-    stats: stats.map((v) => clamp(v, 1, Math.max(potential, v))),
+    stats: stats.map((v) => clamp(v, 1, 100)),
     stamina: 100,
     condition: 55 + Math.round(random(s) * 20),
     level: 1,
@@ -97,9 +97,13 @@ export function createAthlete(s, event, o = {}) {
     skills: [],
     equipped: [],
     gear: { implement: null, shoes: null, charm: null },
+    development: { clean: 0, pbs: 0, wins: 0, claimed: [] },
+    loadouts: { enabled: false, training: null, meet: null },
     plan: "balanced",
     autoRest: true,
     autoTaper: true,
+    facilityFocus: "balanced",
+    coachedDay: 0,
     sessions: 0,
     meets: 0,
     pb: {},
@@ -169,11 +173,12 @@ function apply(e, d, label) {
   if (d.safeFirst) e.safeFirst = true;
   if (label) e.sources.push(label);
 }
-export const equippedSkills = (a) => (a.equipped || []).filter((k) => a.skills.includes(k) && SKILLS[k]);
-export function effects(s, a, club = true) {
+export const equippedSkills = (a, mode = "training") =>
+  (a.loadouts?.enabled && Array.isArray(a.loadouts[mode]) ? a.loadouts[mode] : a.equipped || []).filter((k) => a.skills.includes(k) && SKILLS[k]);
+export function effects(s, a, club = true, mode = s.match ? "meet" : "training") {
   const e = blank();
   apply(e, BACKGROUNDS[a.background]);
-  for (const k of equippedSkills(a)) apply(e, SKILLS[k], SKILLS[k].name);
+  for (const k of equippedSkills(a, mode)) apply(e, SKILLS[k], SKILLS[k].name);
   for (const slot of GEAR_SLOTS) {
     const id = a.gear?.[slot],
       d = ITEMS[id];
@@ -203,7 +208,7 @@ export function rawMark(a, event) {
   return e.min + (e.max - e.min) * Math.pow(clamp(eventRating(a, event), 0, 100) / 100, 1.12);
 }
 export function forecast(s, a, event, o = {}) {
-  const fx = o.fx || effects(s, a, o.club !== false);
+  const fx = o.fx || effects(s, a, o.club !== false, "meet");
   return (
     rawMark(a, event) *
     MOOD_MARK[moodOf(a)] *
@@ -216,7 +221,7 @@ export function forecast(s, a, event, o = {}) {
 export function xpMultiplier(s, a) {
   let m = effects(s, a).xp;
   const mentor = s.roster.some(
-    (b) => b.id !== a.id && b.level > a.level && equippedSkills(b).includes("mentor"),
+    (b) => b.id !== a.id && b.level > a.level && equippedSkills(b, s.match ? "meet" : "training").includes("mentor"),
   );
   return m * (mentor ? 1.15 : 1);
 }
@@ -266,3 +271,4 @@ export function isFacilityAvailable(s, type) {
   return d && s.league >= d.league && (!d.needsTitle || s.trophies.length > 0);
 }
 export const overall = (a) => Math.round(eventRating(a, a.event));
+

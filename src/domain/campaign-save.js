@@ -1,7 +1,10 @@
 import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
 import { EVENT_IDS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE } from "../game-content.js";
-import { statTotal } from "./core.js";
+import { syncMarks } from "./meet.js";
+import { statTotal, slotsOf } from "./core.js";
+import { dutySite } from "./facility-duties.js";
+import { DEVELOPMENT } from "./development.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
 const int = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
@@ -44,6 +47,7 @@ function relayout(s, oldPlots, league) {
 function fromV3(o) {
   const s = newGame(o.rng);
   Object.assign(s, {
+    v: 5,
     rng: o.rng >>> 0 || 1,
     nextId: o.nextId,
     clubName: o.clubName,
@@ -155,6 +159,25 @@ function fromV2(input) {
   return s;
 }
 
+// Existing careers keep their league, trophies and active fixtures. Their current
+// league is treated as a Championship so an update never makes them start over.
+function fromV5(s) {
+  const cleared = new Set();
+  for (let tier = 0; tier < s.league; tier++) for (let stage = 0; stage < 3; stage++) cleared.add(`${tier}:${stage}`);
+  for (const t of s.trophies || []) for (let stage = 0; stage < 3; stage++) cleared.add(`${t.league}:${stage}`);
+  for (let stage = 0; stage < 2; stage++) cleared.add(`${s.league}:${stage}`);
+  s.circuit = { cleared: [...cleared], duels: [] };
+  s.competition = { kind: "league", tier: s.league, stage: 2, rival: 0, spacing: 7, startDay: s.matchDay };
+  s.clubTier = s.league;
+  s.clubStage = 2;
+  for (const a of [...(s.roster || []), ...(s.prospects || []), ...(s.clubs || []).flatMap((c) => c.athletes || [])]) {
+    a.development = { clean: 0, pbs: 0, wins: 0, claimed: [] };
+    a.loadouts = { enabled: false, training: null, meet: null };
+  }
+  s.v = 6;
+  return s;
+}
+
 function checkAthlete(a, ids, rival = false) {
   if (!a || !int(a.id, 1, 1e9) || ids.has(a.id) || !word(a.name) || !EVENT_IDS.includes(a.event)) bad();
   if (!Array.isArray(a.stats) || a.stats.length !== 4 || a.stats.some((v) => !num(v, 0, 100))) bad();
@@ -168,6 +191,20 @@ function checkAthlete(a, ids, rival = false) {
   if (a.secret != null && !SECRETS[a.secret]) bad();
   if (a.buff != null && !num(a.buff, 1, 1.2)) bad();
   if (!rival && !num(a.sessions, 0, 1e9)) bad();
+  if (!a.development || !["clean", "pbs", "wins"].every((k) => int(a.development[k], 0, 1e9)) ||
+      !Array.isArray(a.development.claimed) || a.development.claimed.some((k) => !DEVELOPMENT.some((d) => d.id === k)) ||
+      new Set(a.development.claimed).size !== a.development.claimed.length) bad();
+  const presets = a.loadouts;
+  if (!presets || typeof presets.enabled !== "boolean") bad();
+  for (const mode of ["training", "meet"]) {
+    const list = presets[mode];
+    if (list !== null && (!Array.isArray(list) || list.length > slotsOf(a) || new Set(list).size !== list.length || list.some((k) => !a.skills.includes(k)))) bad();
+    if (presets.enabled && !Array.isArray(list)) bad();
+  }
+  a.facilityFocus ??= "balanced";
+  if(!["balanced","money","insights"].includes(a.facilityFocus)) bad();
+  a.coachedDay ??= 0;
+  if (!int(a.coachedDay,0,1e7)) bad();
   a.seasonStart ??= statTotal(a);
   a.seasonPoints ??= 0;
   a.seasonPbs ??= 0;
@@ -175,14 +212,24 @@ function checkAthlete(a, ids, rival = false) {
 }
 function checkMatch(s, ids) {
   const m = s.match;
-  if (!["intro", "live", "decide", "complete"].includes(m.phase) || !int(m.eventIndex, 0, 3) || ![2, 3].includes(m.attempts)) bad();
-  if (!s.clubs.some((c) => c.id === m.opponentId) || !["league", "final"].includes(m.kind)) bad();
+  if (!["intro", "live", "decide", "complete"].includes(m.phase) || !int(m.eventIndex, 0, 3) || ![2, 3, 6].includes(m.attempts)) bad();
+  if (!s.clubs.some((c) => c.id === m.opponentId) || !["league", "final", "duel"].includes(m.kind)) bad();
+  if ((m.kind === "duel") !== (s.competition?.kind === "duel")) bad();
   for (const key of ["homeMarks", "awayMarks"]) {
     if (!Array.isArray(m[key]) || m[key].length !== 4) bad();
-    for (const list of m[key]) if (!Array.isArray(list) || list.length > m.attempts || list.some((n) => n != null && !num(n, 0, 200))) bad();
+    for (const list of m[key]) if (!Array.isArray(list) || list.length > 6 || list.some((n) => n != null && !num(n, 0, 200))) bad();
   }
   for (const key of ["started", "closed"]) if (!Array.isArray(m[key]) || m[key].length !== 4) bad();
-  for (const ev of EVENT_IDS) if (!ids.has(m.lineup?.[ev])) bad();
+  for (const ev of EVENT_IDS) if (m.lineup?.[ev] != null && !ids.has(m.lineup[ev])) bad();
+  if (m.fields) {
+    if (!Array.isArray(m.fields) || m.fields.length !== 4 || !int(m.entryIndex,0,2) || typeof m.finalRound !== "boolean") bad();
+    const rival = s.clubs.find((c) => c.id === m.opponentId);
+    for (const f of m.fields) for (const side of ["home","away"]) {
+      if (!Array.isArray(f[side]) || f[side].length > 3 || new Set(f[side].map((e) => e.id)).size !== f[side].length) bad();
+      for (const e of f[side]) if (!(side === "home" ? ids.has(e.id) : rival.athletes.some((a) => a.id === e.id)) || !Array.isArray(e.marks) || e.marks.length > 6 || e.marks.some((n) => n != null && !num(n,0,200)) || typeof e.finalist !== "boolean") bad();
+    }
+    syncMarks(s);
+  }
   if (!Array.isArray(m.sigUsed) || !Array.isArray(m.rivalSig)) bad();
 }
 
@@ -199,9 +246,30 @@ export function validateCampaign(input) {
     if (!Array.isArray(data.roster) || !data.roster.length || !Array.isArray(data.plots) || !int(data.league, 0, 4)) bad();
     data = fromV3(data);
   }
+  if (data?.v === 5) { if (!int(data.league,0,4)) bad(); data = fromV5(data); }
+  if (data?.v === 6) {
+    data.coaching = { insights: 8, unlocked: [], practiceDays: 0 };
+    data.v = 7;
+  }
   const s = data;
-  if (!s || s.v !== 5 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7) || !int(s.matchDay, s.day, s.day + 30)) bad();
-  if (!num(s.money, -1e9, 1e12) || !num(s.fans, 0, 1e12) || !["season", "seasonEnd"].includes(s.phase) || !int(s.fixture, 0, 3)) bad();
+  if (!s || s.v !== 7 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7)) bad();
+  if (!num(s.money, -1e9, 1e12) || !num(s.fans, 0, 1e12) || !["planning", "season", "seasonEnd"].includes(s.phase) || !int(s.fixture, 0, 3)) bad();
+  if (s.phase === "planning") {
+    if (s.competition !== null || s.matchDay !== null || s.match) bad();
+  } else {
+    const c = s.competition;
+    if (!c || !["duel", "league"].includes(c.kind) || !int(c.tier, 0, s.league) || !int(c.stage, 0, 2) ||
+        !int(c.rival, 0, 2) || ![4, 7, 10].includes(c.spacing) || !int(c.startDay, 1, s.day + 30) || !int(s.matchDay, s.day, s.day + 30)) bad();
+    if (c.kind === "duel" && (s.fixture !== 0 || s.phase === "seasonEnd")) bad();
+  }
+  if (!int(s.clubTier, 0, 4) || !int(s.clubStage, 0, 2)) bad();
+  if (s.competition && (s.clubTier !== s.competition.tier || s.clubStage !== s.competition.stage)) bad();
+  if (!s.circuit || !Array.isArray(s.circuit.cleared) || !Array.isArray(s.circuit.duels)) bad();
+  for (const list of [s.circuit.cleared, s.circuit.duels]) {
+    if (list.length > 15 || new Set(list).size !== list.length || list.some((k) => typeof k !== "string" || !/^[0-4]:[0-2]$/.test(k))) bad();
+  }
+  if (!s.coaching || !int(s.coaching.insights,0,1e9) || !int(s.coaching.practiceDays,0,1e9) || !Array.isArray(s.coaching.unlocked) || new Set(s.coaching.unlocked).size !== s.coaching.unlocked.length || s.coaching.unlocked.some((id) => !PLANS[id]?.course)) bad();
+  for (const a of s.roster || []) if (PLANS[a.plan]?.course && !s.coaching.unlocked.includes(a.plan)) bad();
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
   if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
   for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, 3))) bad();
@@ -211,11 +279,20 @@ export function validateCampaign(input) {
   if (!Array.isArray(s.roster) || s.roster.length < 1 || s.roster.length > 12) bad();
   const ids = new Set();
   for (const a of s.roster) checkAthlete(a, ids);
-  for (const ev of EVENT_IDS) if (!ids.has(s.lineup?.[ev])) bad();
+  s.facilityDuties ??= {};
+  if(typeof s.facilityDuties!=="object" || Array.isArray(s.facilityDuties)) bad();
+  const assigned=Object.values(s.facilityDuties);
+  if(new Set(assigned).size!==assigned.length || Object.entries(s.facilityDuties).some(([key,id])=>!dutySite(s,key)||!ids.has(id))) bad();
+  for (const ev of EVENT_IDS) if (s.lineup?.[ev] != null && !ids.has(s.lineup[ev])) bad();
+  if (s.entries != null) {
+    for (const ev of EVENT_IDS) if (!Array.isArray(s.entries[ev]) || s.entries[ev].length > 3 || new Set(s.entries[ev]).size !== s.entries[ev].length || s.entries[ev].some((id) => !ids.has(id)) || (s.entries[ev][0] || null) !== (s.lineup[ev] || null)) bad();
+    const all = EVENT_IDS.flatMap((ev) => s.entries[ev]);
+    if (all.some((id) => all.filter((n) => n === id).length > 2)) bad();
+  }
   if (!Array.isArray(s.clubs) || s.clubs.length !== 3) bad();
   const rivalIds = new Set();
   for (const c of s.clubs) {
-    if (!word(c.name) || !color(c.color) || !Array.isArray(c.athletes) || c.athletes.length !== 4 || !num(c.points, 0, 100) || !num(c.diff, -100, 100)) bad();
+    if (!word(c.name) || !color(c.color) || !Array.isArray(c.athletes) || c.athletes.length !== 4 || !num(c.points, 0, 100) || !num(c.diff, -1000, 1000)) bad();
     for (const a of c.athletes) checkAthlete(a, rivalIds, true);
   }
   const prospectIds = new Set();
@@ -235,7 +312,8 @@ export function validateCampaign(input) {
 }
 export const exportCampaign = (state) => ({
   format: "ring-sector-save",
-  version: 5,
+  version: 7,
   exportedAt: new Date().toISOString(),
   state: validateCampaign(state),
 });
+

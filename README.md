@@ -1,5 +1,10 @@
 # Ring & Sector — Club Athletics
 
+[**Download the Android APK**](https://github.com/jsandhagen/TrackGame/releases/download/android-latest/ring-sector.apk) · [Android releases](https://github.com/jsandhagen/TrackGame/releases/tag/android-latest)
+
+The APK is refreshed after a successful Android build on `main`.
+
+
 A cosy, offline club-management game about a tiny throwing club that grows into a world champion, in the spirit of Kairosoft's management games such as Pocket League Story 2 and Game Dev Story. Original characters, art and names; no premium currency, ads, energy or login streaks.
 
 ## The loop
@@ -79,3 +84,4 @@ The native package ID is `io.github.jsandhagen.ringsector`. A web production bun
 A rebuild of the game around the Kairosoft loop: a club stadium with a campus around it, a full-screen world with pop-up menus, hand-drawn pixel icons, graded 1–100 stats, characters with skills and ranks, items and rarities, secret characters, story events, goals, sponsors and watchable meets, with all-new outlined pixel art and sound. See [game design](docs/GAME_DESIGN.md) and [balance notes](docs/BALANCE_V0.5.md).
 
 The Android shell from 0.4.0 can receive this version as an automatic game update (no reinstall); see [update behavior](docs/AUTO_UPDATES.md). Export your career before uninstalling or switching devices.
+

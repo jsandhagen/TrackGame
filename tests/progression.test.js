@@ -6,6 +6,7 @@ import { EVENT_IDS } from "../src/game-content.js";
 // Head-to-head duel between identical squads using a fixed home policy.
 function duel(seed, policy) {
   const s = G.newGame(seed);
+  G.enterCompetition(s, { kind: "duel", tier: 0 });
   s.day = s.matchDay;
   s.settings.meetMode = "coach";
   for (const a of [...s.roster, ...s.clubs[0].athletes]) Object.assign(a, { stats: [45, 45, 45, 45], condition: 50, stamina: 100, background: "bloomer", skills: [], equipped: [], gear: { implement: null, shoes: null, charm: null }, potential: 100 });
@@ -86,3 +87,4 @@ test("the grounds earn money from visitors and visitors grow with fans", () => {
   assert(r.spend.length === 1 && r.spend[0].plot === 8);
   assert(s.money > before);
 });
+
