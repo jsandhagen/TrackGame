@@ -215,10 +215,13 @@ function stands(g, s, season) {
   const boards = [colors.primary, "#f4f0e4", "#c84a40", "#2c4a7a", colors.secondary];
   function face(x, c, k, len, below) {
     if (below === "outside" && lvl >= 4) {
-      // Timber slats over a steel frame, in the spirit of modern athletics venues.
-      if (k === 0) return "#3a4046";
-      if (k === len - 1 || k % 9 === 4) return "#4a5056";
-      return x % 3 === 0 ? "#8a5a34" : x % 3 === 1 ? "#b47a48" : "#a06c3e";
+      // A light steel diagrid over pale cladding, with a club-colour band and glazed entrances.
+      if (k === 0) return "#eef0f0";
+      if (k === 1) return "#6a7076";
+      if (k === 3) return colors.primary;
+      if (k === len - 1) return "#8a8e92";
+      if (len >= 10 && x % 32 >= 13 && x % 32 <= 18 && k >= len - 7) return k === len - 7 ? "#3a4652" : "#6a8aa8";
+      return (x + k) % 10 === 0 || (x - k + 100) % 10 === 0 ? "#a8aeb4" : "#dcdcd6";
     }
     if (below === "outside") {
       if (k === 0) return "#d8d0c0";
@@ -753,36 +756,44 @@ function rail(g) {
 }
 const masts = (s) => s.stadium.lights > 0 && s.stadium.stands < 4;
 
-// The Olympic level's landmark: a slim tower at the north-east corner, faced with tall panels of
-// athletes in action and crowned with light (after the tower at Hayward Field).
+// The Olympic level's landmark (after the tower at Hayward Field): a slim round tower standing
+// beside the east end, wrapped in a spiral of coloured panels and crowned with a lit ring.
+export const TOWER = { x: BOWL.x + BOWL.w + 20, y: BOWL.y + 96, r: 7, h: 92 };
 function tower(g, s) {
   if (s.stadium.stands < 4) return;
-  const x = BOWL.x + BOWL.w - 26,
-    y = BOWL.y + 26,
-    w = 12,
-    h = 86,
-    d = 4;
-  ellipse(g, x + w / 2 + 3, y + 1, 10, 3, "rgba(20,30,20,0.3)");
-  poly(g, [[x + w, y], [x + w, y - h], [x + w + d, y - h - 2], [x + w + d, y - 2]], "#2a2e34");
-  rect(g, x, y - h, w, h, "#3a4048");
-  for (let k = 0; k < 4; k++) {
-    const py = y - h + 10 + k * 18;
-    rect(g, x + 1, py, w - 2, 15, ["#c8563e", "#3d6cae", s.colors.primary, "#e2a43a"][k]);
-    // A pixel athlete on each panel: head, body, a throwing arm.
-    const fx = x + 5,
-      fy = py + 3;
-    rect(g, fx, fy, 2, 2, "#f4efe2");
-    rect(g, fx, fy + 2, 2, 5, "#f4efe2");
-    line(g, fx + 1, fy + 3, fx + 4 - (k % 2) * 6, fy + 1 - (k % 2), "#f4efe2");
-    line(g, fx, fy + 7, fx - 2 + (k % 2) * 4, fy + 10, "#f4efe2");
-    line(g, fx + 1, fy + 7, fx + 3 - (k % 2) * 4, fy + 10, "#f4efe2");
+  const { x, y, r, h } = TOWER,
+    panels = ["#c8563e", "#3d6cae", s.colors.primary, "#e2a43a"];
+  ellipse(g, x + 4, y + 1, 12, 3, "rgba(20,30,20,0.3)");
+  ellipse(g, x, y, r + 2, 3, "#8a8e92");
+  for (let yy = 0; yy < h; yy++) {
+    const sy = y - yy,
+      rr = r + (yy < h * 0.3 ? 1 : 0);
+    for (let dx = -rr; dx <= rr; dx++) {
+      const t = dx / (rr + 0.5),
+        ang = Math.asin(t),
+        light = Math.cos(ang) * 0.5 + (t < 0 ? 0.25 : -0.15);
+      // Two helical bands climb the tower, each led by a bright fin; between them is dark glass.
+      const turn = ang + yy * 0.1,
+        phase = ((turn % Math.PI) + Math.PI) % Math.PI,
+        band = phase < 1.2,
+        fin = phase < 0.16;
+      let c = fin ? "#f4f0e4" : band ? panels[Math.floor(turn / Math.PI) & 1 ? 0 : 2] : yy % 6 === 0 ? "#46525e" : "#2e3640";
+      c = shade(c, Math.max(-0.45, Math.min(0.3, light - 0.35)));
+      px(g, x + dx, sy, c);
+      // Fins stand proud of the silhouette where they wrap round the edge.
+      if (fin && Math.abs(dx) === rr) px(g, x + dx + Math.sign(dx), sy, shade("#f4f0e4", -0.15));
+    }
   }
-  rect(g, x - 1, y - h - 6, w + 2, 6, "#fff4cb");
-  rect(g, x - 1, y - h - 6, w + 2, 1, "#ffffff");
-  rect(g, x - 1, y - h - 1, w + 2, 1, s.colors.primary);
-  rect(g, x + w / 2, y - h - 14, 1, 8, "#c8ccd0");
-  rect(g, x + w / 2 + 1, y - h - 14, 5, 2, s.colors.primary);
-  rect(g, x + w / 2 + 1, y - h - 12, 5, 2, s.colors.secondary);
+  // Observation ring and crown of light.
+  const top = y - h;
+  ellipse(g, x, top, r + 3, 3, "#3a4046");
+  ellipse(g, x, top - 1, r + 3, 2, "#c8ccd0");
+  rect(g, x - r - 1, top - 7, 2 * r + 3, 6, "#fff4cb");
+  rect(g, x - r - 1, top - 7, 2 * r + 3, 1, "#ffffff");
+  ellipse(g, x, top - 7, r + 1, 2, "#f4f0e0");
+  rect(g, x, top - 16, 1, 9, "#c8ccd0");
+  rect(g, x + 1, top - 16, 5, 2, s.colors.primary);
+  rect(g, x + 1, top - 14, 5, 2, s.colors.secondary);
 }
 export function drawArena(g, s, season = 1) {
   if (s.stadium.stands >= 3) roundRect(g, { ...BOWL, x: BOWL.x + 3, y: BOWL.y + 4 }, "rgba(20,40,20,0.25)");

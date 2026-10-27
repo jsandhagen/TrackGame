@@ -2,7 +2,7 @@ import { canvas, rect, ellipse, shade, hash, px } from "./pixel.js";
 import { text } from "./font.js";
 import { figure, shadow, athleteLook } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, lamp, box } from "./buildings.js";
-import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER } from "./arena.js";
+import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
 import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite } from "../domain/game.js";
 
@@ -262,7 +262,7 @@ function baseWorld(s) {
   hedge(g, ROAD + 16, MAP_H - 18, MAP_W - ROAD - 16, season);
   // Woods frame the club; the stadium and lots are kept clear.
   const lotRects = LOTS.map(([x, top]) => [x - 6, top + 10, LOT_W + 12, 80]);
-  const clear = [[BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [AVENUE + 24, NORTH + 20, 392, 122], [0, ROW - 12, MAP_W, 24], [0, BLVD - 12, MAP_W, 24], [AVENUE - 12, NORTH - 12, 24, ROW - NORTH + 12], [ROAD - 90, ROW, 180, MAP_H - ROW], [AVENUE - 12, NORTH - 12, MAP_W, 24], [40, 590, 110, 40], ...lotRects];
+  const clear = [[BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [TOWER.x - 26, TOWER.y - 70, 52, 100], [AVENUE + 24, NORTH + 20, 392, 122], [0, ROW - 12, MAP_W, 24], [0, BLVD - 12, MAP_W, 24], [AVENUE - 12, NORTH - 12, 24, ROW - NORTH + 12], [ROAD - 90, ROW, 180, MAP_H - ROW], [AVENUE - 12, NORTH - 12, MAP_W, 24], [40, 590, 110, 40], ...lotRects];
   grove(items, 0, 8, MAP_W, 64, 46, 101, season, clear, 0.5);
   grove(items, 0, 64, BOWL.x - 6, ROW - 40, 9, 211, season, clear, 0.4);
   grove(items, BOWL.x + BOWL.w + 6, 60, AVENUE - 14, ROW - 40, 8, 307, season, clear, 0.3);
