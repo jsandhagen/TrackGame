@@ -4,7 +4,7 @@
 
 The APK is refreshed after a successful Android build on `main`.
 
-Current design: [implements, rival variety and campus improvements](docs/CLUB_VARIETY.md) · [event mastery and throwing development](docs/EVENT_MASTERY.md) · [balance and validation](docs/BALANCE_CURRENT.md).
+Current design: [calendar, weather, away grounds and invitationals](docs/CALENDAR_WEATHER.md) · [implements, rival variety and campus improvements](docs/CLUB_VARIETY.md) · [event mastery and throwing development](docs/EVENT_MASTERY.md) · [balance and validation](docs/BALANCE_CURRENT.md).
 
 
 A cosy, offline club-management game about a tiny throwing club that grows into a world champion, in the spirit of Kairosoft's management games such as Pocket League Story 2 and Game Dev Story. Original characters, art and names; no premium currency, ads, energy or login streaks.
@@ -17,6 +17,9 @@ A cosy, offline club-management game about a tiny throwing club that grows into 
 - **Kit and stadium customisation.** Kit patterns (stripes, hoops, sash, halves), shorts, seat colours, roof and track colours, the stadium facade and the Olympic tower's design and colours unlock through fans, leagues, trophies and stadium upgrades. You buy each one once with club money, then switch freely. You can also name your stadium.
 - **A campus around it.** The club's buildings line three streets outside the stadium: Club Row across the forecourt, a north lane past the practice field, and the boulevard by the car parks. Thirteen plots hold the clubhouse, Strength Room, Recovery Spa, café, merch stand, dorms, scouting, workshop, lab and decorations. More plots open as you climb leagues. **14 combos**: twelve come from buildings side by side on the same street (Fuel Station, Spa Day, Tech Hub…) and two from stadium milestones (Complete Arena, Night Fever). Moving a building is free.
 - **A full-screen club.** The world fills the screen. Drag to pan, pinch or scroll to zoom, and tap an athlete, building or part of the stadium to open it. Menus pop up as windows over the scene, docked to the side on wide screens and as bottom sheets in portrait. Athletes walk to the right place for their training plan (laps on the track, throws at their own circle, weights in the gym) and gains pop above their heads. Visitors arrive by bus, fill the stands and spend at the café. A clock in the HUD runs each training day from 06:00 to 22:00: warm dawns, golden evenings, then night with the floodlights and windows glowing. Days follow a calendar (Monday 1 March, Year 1; paydays on Sundays), and the scenery follows its seasons, snow included.
+- **Weather and a calendar.** Every day has a forecast you can see a week ahead: rain and snow slow outdoor work but not the gym, heat costs stamina, sunshine brings visitors, and meet-day weather sets the conditions in the circle (wet circles, cold implements, gusts). Tap the date for the club calendar.
+- **Away grounds that grow with the league.** Each rival club has its own ground, from a park with a grass bank in the Community League to an Olympic bowl in the World League. Finals go to neutral showpiece venues, and the big ones hold evening meets under the lights. Pegs, flags and lines across the sector mark every best, the leader, the PB, the club record and the scoring target.
+- **Rare Invitationals.** Every month or two an invitation arrives for a one-day meet against the All-Star Select at a seasonal showpiece venue. Win it for a prize you can't buy.
 - **A clear stat scale.** Power, Technique, Speed and Focus run from 1 to 100 with letter grades (G below 30, then F, E, D, C, B, A, and S at 90+), and each athlete shows an overall rating (OVR) for their event, also in the meet lobby against each rival.
 - **Characters worth keeping.** Rarity (Common → Legend), 12 backgrounds (Farm Kid, Chess Prodigy, Class Clown…), levels that grant **skill points**, **ranks** (Rookie → Pro → Ace → Star → Legend) that raise stat caps, add skill slots and change their look, mood and stamina, career moments and season awards.
 - **34 skills**: 28 to learn across training, meet, team and event-specific signature moves (Meteor Put, Sky Spear…), each shown with a cut-in when it fires. **Six secret characters** with unique skills arrive when you hit milestones.
@@ -39,7 +42,7 @@ Open the printed local URL. Use `npm run dev -- --host 0.0.0.0` to expose the de
 
 ## Android app
 
-The `android/` project packages the game locally with Capacitor. It opens in landscape, requests immersive presentation with swipe access to system controls, pauses on backgrounding, uses native Preferences for saves and the system share sheet for backup export.
+The `android/` project packages the game locally with Capacitor. It follows the device orientation by default (with portrait and landscape preferences in Settings), requests immersive presentation with swipe access to system controls, pauses on backgrounding, uses native Preferences for saves and the system share sheet for backup export.
 
 Local native development requires Java 21, Android Studio 2025.2.1+ and Android SDK 36:
 

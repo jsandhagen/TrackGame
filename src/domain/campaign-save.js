@@ -8,6 +8,8 @@ import { statTotal, slotsOf } from "./core.js";
 import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
 import { DRILLS } from "./coaching.js";
+import { WEATHER, weatherSeedFrom } from "./calendar.js";
+import { ALL_STAR_ID, ensureInvitations, clubById } from "./invitational.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
 const int = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
@@ -218,8 +220,8 @@ function checkAthlete(a, ids, rival = false) {
 function checkMatch(s, ids) {
   const m = s.match;
   if (!["intro", "live", "decide", "complete"].includes(m.phase) || !int(m.eventIndex, 0, 3) || ![2, 3, 6].includes(m.attempts)) bad();
-  if (!s.clubs.some((c) => c.id === m.opponentId) || !["league", "final", "duel"].includes(m.kind)) bad();
-  if ((m.kind === "duel") !== (s.competition?.kind === "duel")) bad();
+  if (!clubById(s, m.opponentId) || !["league", "final", "duel", "cup"].includes(m.kind)) bad();
+  if ((m.kind === "duel") !== (s.competition?.kind === "duel") || (m.kind === "cup") !== (s.competition?.kind === "cup")) bad();
   for (const key of ["homeMarks", "awayMarks"]) {
     if (!Array.isArray(m[key]) || m[key].length !== 4) bad();
     for (const list of m[key]) if (!Array.isArray(list) || list.length > 6 || list.some((n) => n != null && !num(n, 0, 200))) bad();
@@ -228,7 +230,7 @@ function checkMatch(s, ids) {
   for (const ev of EVENT_IDS) if (m.lineup?.[ev] != null && !ids.has(m.lineup[ev])) bad();
   if (m.fields) {
     if (!Array.isArray(m.fields) || m.fields.length !== 4 || !int(m.entryIndex,0,2) || typeof m.finalRound !== "boolean") bad();
-    const rival = s.clubs.find((c) => c.id === m.opponentId);
+    const rival = clubById(s, m.opponentId);
     for (const f of m.fields) for (const side of ["home","away"]) {
       if (!Array.isArray(f[side]) || f[side].length > 3 || new Set(f[side].map((e) => e.id)).size !== f[side].length) bad();
       for (const e of f[side]) if (!(side === "home" ? ids.has(e.id) : rival.athletes.some((a) => a.id === e.id)) || !Array.isArray(e.marks) || e.marks.length > 6 || e.marks.some((n) => n != null && !num(n,0,200)) || typeof e.finalist !== "boolean") bad();
@@ -236,6 +238,7 @@ function checkMatch(s, ids) {
     syncMarks(s);
   }
   if (!Array.isArray(m.sigUsed) || !Array.isArray(m.rivalSig)) bad();
+  if (m.weather != null && !WEATHER[m.weather]) bad();
 }
 
 export function validateCampaign(input) {
@@ -272,9 +275,10 @@ export function validateCampaign(input) {
     if (s.competition !== null || s.matchDay !== null || s.match) bad();
   } else {
     const c = s.competition;
-    if (!c || !["duel", "league"].includes(c.kind) || !int(c.tier, 0, s.league) || !int(c.stage, 0, 2) ||
+    if (!c || !["duel", "league", "cup"].includes(c.kind) || !int(c.tier, 0, s.league) || !int(c.stage, 0, 2) ||
         !int(c.rival, 0, CLUBS[c.tier].length - 1) || ![4, 7, 10].includes(c.spacing) || !int(c.startDay, 1, s.day + 30) || !int(s.matchDay, s.day, s.day + 30)) bad();
-    if (c.kind === "duel" && (s.fixture !== 0 || s.phase === "seasonEnd")) bad();
+    if (c.kind !== "league" && (s.fixture !== 0 || s.phase === "seasonEnd")) bad();
+    if (c.kind === "cup" && (!s.invitations?.offer?.club || s.invitations.offer.tier !== c.tier)) bad();
   }
   if (!int(s.clubTier, 0, 4) || !int(s.clubStage, 0, 2)) bad();
   if (s.competition && (s.clubTier !== s.competition.tier || s.clubStage !== s.competition.stage)) bad();
@@ -287,6 +291,8 @@ export function validateCampaign(input) {
   s.coaching.drills ??= {};
   if (typeof s.coaching.drills !== "object" || Array.isArray(s.coaching.drills) || Object.entries(s.coaching.drills).some(([k, n]) => !DRILLS[k] || !int(n, 0, 1e7))) bad();
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
+  s.weatherSeed ??= weatherSeedFrom(s.rng);
+  if (!int(s.weatherSeed, 0, 2 ** 32 - 1)) bad();
   if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
   for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, 3))) bad();
   const types = s.plots.filter(Boolean).map((p) => p.type).filter((k) => !FACILITIES[k].decor);
@@ -324,6 +330,18 @@ export function validateCampaign(input) {
       cacheClubs.add(c.id);
       if(!word(c.name)||!color(c.color)||!Array.isArray(c.athletes)||c.athletes.length<4||c.athletes.length>6) bad();
       for(const a of c.athletes)checkAthlete(a,cacheIds,true);
+    }
+  }
+  // Invitationals: the next one due, a pending offer with its All-Star Select, and wins.
+  const inv = ensureInvitations(s);
+  if (!int(inv.next, 1, 1e7) || !int(inv.offered, 0, 1e6) || !Array.isArray(inv.won)) bad();
+  if (inv.offer) {
+    const o = inv.offer;
+    if (!word(o.name) || !word(o.venue) || !word(o.backdrop) || !int(o.day, 1, 1e7) || !int(o.tier, 0, s.league) || !ITEMS[o.prize]) bad();
+    if (o.club != null) {
+      if (o.club.id !== ALL_STAR_ID || !word(o.club.name) || !color(o.club.color) || !Array.isArray(o.club.athletes) || o.club.athletes.length < 4 || o.club.athletes.length > 6) bad();
+      const starIds = new Set();
+      for (const a of o.club.athletes) checkAthlete(a, starIds, true);
     }
   }
   const prospectIds = new Set();

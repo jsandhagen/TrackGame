@@ -17,7 +17,7 @@ import { canvas as makeCanvas } from "./render/pixel.js";
 import { sfx, unlockAudio, setSound } from "./render/audio.js";
 import { createPersistence } from "./platform/persistence.js";
 import { exportBackup } from "./platform/backups.js";
-import { initNative } from "./platform/native.js";
+import { initNative, isNativeApp, setOrientation, exitApp } from "./platform/native.js";
 import { validateCampaign, exportCampaign } from "./domain/campaign-save.js";
 
 installIcons();
@@ -42,11 +42,13 @@ let presenter = null,
 setSound(state.settings.sound);
 
 function save() {
-  if (!saveEnabled) return;
+  if (!saveEnabled) return false;
   try {
     store.write(JSON.stringify(state));
+    return true;
   } catch {
     toast("Could not save. Export a backup from the Office.", "warn");
+    return false;
   }
 }
 const reduced = () => state.settings.reducedMotion || matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -81,7 +83,7 @@ const snapshot = () => ({ goals: state.goals.length, discovered: state.discovere
 function hud() {
   const m = state.match;
   if (m) {
-    $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="help" aria-label="How to play">${ico("help")}</button>`;
+    $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
     return;
   }
   const days = state.matchDay == null ? null : state.matchDay - state.day,
@@ -95,12 +97,12 @@ function hud() {
   const since = performance.now() - insightBump.at,
     bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
-  <div class="hud-date" title="${G.longDate(state.day)} · Season ${state.season}"><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></div>
+  <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
   <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
   <div class="res money">${ico("coin")}<b>${cash(state.money)}</b></div>
-  <button class="hud-btn" data-act="fullscreen" aria-label="Full screen">${ico("expand")}</button><button class="hud-btn" data-act="help" aria-label="How to play">${ico("help")}</button>`;
+  <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
 }
 function menu() {
   if (state.match) {
@@ -154,6 +156,7 @@ function windowHTML() {
     league: () => P.league(state, view),
     club: () => P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() }),
     lobby: () => P.lobby(state, view),
+    calendar: () => P.calendar(state, view),
   }[page]?.();
   if (html == null) return null;
   const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete file" : page === "lobby" ? "Call room · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
@@ -235,7 +238,7 @@ function paint(root) {
   });
   root.querySelectorAll("canvas[data-rival]").forEach((c) => {
     const [club, i] = c.dataset.rival.split(":").map(Number),
-      cl = state.clubs.find((x) => x.id === club);
+      cl = G.clubById(state, club);
     if (cl) paintPortrait(c, cl.athletes[i], { primary: cl.color, secondary: "#f4efe2" });
   });
   root.querySelectorAll("canvas[data-icon]").forEach((c) => paintIcon(c, c.dataset.icon));
@@ -270,6 +273,34 @@ function closeWindow() {
   view.moving = null;
   render(false);
 }
+function openGameMenu(page = "main") {
+  stopPlaying();
+  const menu = $("#gameMenu");
+  menu.innerHTML = P.gameMenu(state, {page, native: isNativeApp()});
+  if (!menu.open) menu.showModal();
+}
+function closeGameMenu() { $("#gameMenu").close(); }
+let saving = false;
+async function saveFromMenu(exit = false) {
+  if (saving) return;
+  saving = true;
+  const controls = [...$("#gameMenu").querySelectorAll("button, input, select")].map(el => [el, el.disabled]);
+  controls.forEach(([el]) => el.disabled = true);
+  const status = $("#menuSaveStatus");
+  status.textContent = "Saving…";
+  try {
+    if (!save()) throw Error("Could not save your club. Try again or export a backup before leaving.");
+    await store.flush();
+    status.textContent = "All progress saved.";
+    if (exit && !(await exitApp())) openGameMenu("saved");
+  } catch (error) {
+    status.textContent = (exit ? "Save & exit could not finish. " : "Save failed. ") + error.message;
+  } finally {
+    controls.forEach(([el, disabled]) => { if (el.isConnected) el.disabled = disabled; });
+    saving = false;
+  }
+}
+$("#gameMenu").addEventListener("cancel", e => { if (saving) e.preventDefault(); });
 function dialog(title, body, choices, o = {}) {
   const dlg = $("#dialog");
   // Every pop-up shares the window frame; tone picks the header band (news, celebration, warning).
@@ -437,6 +468,11 @@ function doDay(now) {
     toast(l.name + " hits level " + l.level + "! Skill points to spend.", "level", "levelup");
     sfx("level");
   }
+  if (r.invitation) {
+    world.banner("INVITATION!", r.invitation.name.toUpperCase() + " · " + G.shortDate(r.invitation.day).toUpperCase(), "#f2c94c", now, 3200);
+    toast("Invitation to the " + r.invitation.name + " on " + G.shortDate(r.invitation.day) + ". Open Meets to accept.", "goal", "star");
+    sfx("goal");
+  }
   for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " pulled up hurt. Recovery first.", "warn", "bandage");
   announce(before);
   save();
@@ -524,14 +560,12 @@ $("#app").addEventListener("click", async (e) => {
       break;
     case "help":
       return help();
-    case "fullscreen":
-      try {
-        if (document.fullscreenElement) await document.exitFullscreen();
-        else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
-      } catch {
-        toast("Full screen is unavailable here. The Android app opens full screen.");
-      }
-      return;
+    case "game-menu": return openGameMenu();
+    case "menu-settings": return openGameMenu("settings");
+    case "menu-close": if (!saving) closeGameMenu(); return;
+    case "menu-help": closeGameMenu(); return help();
+    case "save-game": return saveFromMenu();
+    case "save-exit": return saveFromMenu(true);
     case "zoom":
       return world.zoomBy(+b.dataset.step);
     case "recenter":
@@ -626,6 +660,12 @@ $("#app").addEventListener("click", async (e) => {
       else toast("That competition isn't available right now.", "warn");
       break;
     }
+    case "accept-invite":
+      stopPlaying();
+      if (state.pendingEvent) return showEvent();
+      if (G.acceptInvitation(state)) { view.window = "home"; world.replan(); toast("Invitation accepted. See you on " + G.shortDate(state.matchDay) + ".", "goal", "star"); }
+      else toast(G.invitationProblem(state), "warn");
+      break;
     case "cancel-booking":
       stopPlaying();
       if (G.cancelCompetition(state)) { world.replan(); toast("Booking scratched. Pick another meet whenever you're ready."); }
@@ -883,7 +923,7 @@ function selectPlot(i) {
   view.selected = { kind: "plot", index: i };
   openWindow("build", { selected: view.selected });
 }
-$("#app").addEventListener("change", (e) => {
+$("#app").addEventListener("change", async (e) => {
   const el = e.target,
     kind = el.dataset.change,
     a = state.roster.find((x) => x.id === +el.dataset.id);
@@ -912,6 +952,12 @@ $("#app").addEventListener("change", (e) => {
   if (kind === "autotaper" && a) a.autoTaper = el.checked;
   if (kind === "entry" && !G.assignEntry(state, el.dataset.event, +el.dataset.slot, +el.value)) toast("Choose different athletes; each athlete can enter two events.", "warn");
   if (kind === "lineup" && !G.assign(state, el.dataset.event, +el.value)) toast("An athlete can cover at most two events and must be healthy.", "warn");
+  if (kind === "orientation" && ["auto","portrait","landscape"].includes(el.value)) {
+    const previous = state.settings.orientation || "auto";
+    try { await setOrientation(el.value); state.settings.orientation = el.value; }
+    catch { el.value = previous; $("#menuSaveStatus").textContent = "Could not change screen orientation. Please try again."; }
+  }
+  if (kind === "menu-meet-mode" && ["watch","coach"].includes(el.value)) state.settings.meetMode = el.value;
   if (kind === "setting") {
     state.settings[el.dataset.key] = el.checked;
     setSound(state.settings.sound);
@@ -1010,6 +1056,7 @@ worldCanvas.addEventListener("wheel", (e) => {
   world.zoomBy(e.deltaY < 0 ? 0.5 : -0.5, e.clientX, e.clientY);
 }, { passive: false });
 document.addEventListener("keydown", (e) => {
+  if ($("#gameMenu").open) return;
   if ($("#dialog").open || ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
   if (e.code === "Space") {
     e.preventDefault();
@@ -1028,6 +1075,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("save-error", () => toast("Save failed. Export your club before leaving.", "warn"));
 window.addEventListener("pagehide", save);
 initNative({
+  orientation: state.settings.orientation || "auto",
   pause: () => {
     view.playing = false;
     view.meter = null;
@@ -1035,6 +1083,7 @@ initNative({
     render();
   },
   back: () => {
+    if ($("#gameMenu").open) { if (!saving) closeGameMenu(); return true; }
     if ($("#dialog").open) {
       if (!$("#dialog").dataset.locked) $("#dialog").close();
       return true;
@@ -1049,6 +1098,7 @@ initNative({
       return true;
     }
     if (view.window) closeWindow();
+    else openGameMenu();
     return true;
   },
 }).catch(console.error);
@@ -1056,7 +1106,7 @@ initNative({
 function frame(now) {
   const dt = Math.min(100, now - (lastFrame || now));
   lastFrame = now;
-  if (!document.hidden) {
+  if (!document.hidden && !$("#gameMenu").open) {
     if (state.match) {
       pumpMeet(dt);
       const bar = $("#meetbar");
@@ -1072,7 +1122,7 @@ function frame(now) {
       const clock = $("#clock"),
         label = G.clockLabel(view.dayP);
       if (clock && clock.textContent !== label) clock.textContent = label;
-      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: view.dayP, nightScale: (reduced() ? 0.5 : 1) * NIGHT_AT_SPEED[view.playing ? state.settings.speed : 0] });
+      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: view.dayP, nightScale: (reduced() ? 0.5 : 1) * NIGHT_AT_SPEED[view.playing ? state.settings.speed : 0], calm: reduced() });
     }
   }
   requestAnimationFrame(frame);
