@@ -10,6 +10,7 @@ import {
   forecast,
   equippedSkills,
   grantXp,
+  xpNeeded,
   addItem,
   rollRarity,
   randomItem,
@@ -593,7 +594,7 @@ export function settleMatch(s) {
   s.money += money;
   let fans = win ? 15 + 10 * L : draw ? 6 + 4 * L : 3 + 2 * L;
   fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue")) * (win && m.home ? 1 + 0.2 * facilityLevel(s, "lights") : 1);
-  const rewards = { mastery: [], money, fans: 0, items: [], levelUps: [], pbs: [], mvp: null, goals: [], development: [] };
+  const rewards = { athleteProgress: [], mastery: [], money, fans: 0, items: [], levelUps: [], pbs: [], mvp: null, goals: [], development: [] };
   const duelKey = L + ":" + m.opponentId;
   if (m.kind === "duel" && win && !s.circuit.duels.includes(duelKey)) {
     s.circuit.duels.push(duelKey);
@@ -631,9 +632,15 @@ export function settleMatch(s) {
   }
   for (const id of participants) {
     const a = s.roster.find((x) => x.id === id);
+    const before = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
     a.meets++; a.stamina = clamp(a.stamina-15,0,100); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
     grantXp(s,a,30*(m.kind === "duel" ? 0.7:1),rewards.levelUps);
     rewards.development.push(...checkDevelopment(s,a));
+    const after = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
+    // Include the XP spent crossing level thresholds, and reward each entrant once.
+    let xpGained = after.xp - before.xp;
+    for (let level = before.level; level < after.level; level++) xpGained += xpNeeded(level);
+    rewards.athleteProgress.push({ id: a.id, name: a.name, before, after, xpGained });
   }
   if(m.fields) for(const [i,ev] of EVENT_IDS.entries()) for(const entry of m.fields[i].away) {
     const a=s.clubs.find(c=>c.id===m.opponentId).athletes.find(a=>a.id===entry.id);

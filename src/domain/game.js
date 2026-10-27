@@ -69,6 +69,16 @@ export * from "./core.js";
 export * from "./meet.js";
 export * from "./story.js";
 
+// Changing the primary event keeps earned mastery, marks and meet entries intact.
+export function setAthleteEvent(s, id, event) {
+  const a = s.roster.find(a => a.id === id);
+  if (!a || !EVENTS[event] || s.match) return false;
+  a.event = event;
+  a.trainingEvent = event;
+  if (planProblem(s, a, a.plan)) a.plan = "balanced";
+  return true;
+}
+
 export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
