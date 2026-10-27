@@ -375,3 +375,23 @@ test("bad imports are rejected and cannot replace a working club", () => {
   assert.throws(() => validateCampaign({ v: 9 }));
   for (const ev of EVENT_IDS) assert(s.lineup[ev]);
 });
+
+test("consumables explain wasted uses and preview their effect", () => {
+  const s = G.newGame(31),
+    a = s.roster[0];
+  a.stamina = 100;
+  assert.equal(G.itemProblem(s, "drink", a.id), "Stamina is already full");
+  assert(!G.useItem(s, "drink", a.id), "a full athlete keeps the drink");
+  assert.equal(s.bag.drink, 2);
+  a.stamina = 30;
+  assert.equal(G.itemProblem(s, "drink", a.id), null);
+  assert.deepEqual(G.itemPreview(s, "drink", a.id), [{ label: "Stamina", from: 30, to: 70 }]);
+  assert(G.useItem(s, "drink", a.id));
+  const cap = G.capOf(a);
+  a.stats[0] = cap;
+  assert.match(G.itemProblem(s, "shake", a.id), /limit/);
+  a.stats[0] = cap - 1;
+  assert.equal(G.itemPreview(s, "shake", a.id)[0].to, cap, "stat items stop at the athlete's limit");
+  for (const b of s.roster) (b.stamina = 100), (b.condition = 100);
+  assert(G.itemProblem(s, "feast"));
+});

@@ -1,11 +1,14 @@
 import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
+import "@fontsource/oswald/latin-500.css";
+import "@fontsource/oswald/latin-700.css";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
+import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium, beatDuration, CUTIN_MS } from "./render/stadium.js";
+import { playTraining } from "./render/training.js";
 import { portrait as paintPortrait } from "./render/sprites.js";
 import { paintIcon } from "./render/icons.js";
 import { installIcons, ico } from "./render/uiicons.js";
@@ -28,6 +31,8 @@ const view = { window: null, athlete: null, tab: "stats", selected: null, moving
 const DAY_MS = [0, 2600, 1400, 700];
 const world = createWorld($("#world")),
   stadium = createStadium($("#stadium"));
+let shownInsights = null,
+  insightBump = { n: 0, at: -1e9 };
 let presenter = null,
   lastDayAt = 0,
   lastFrame = 0,
@@ -80,10 +85,18 @@ function hud() {
   const days = state.matchDay == null ? null : state.matchDay - state.day,
     speed = view.playing ? state.settings.speed : 0,
     canPlay = state.phase === "planning" || (state.phase === "season" && days > 0);
+  // Insights earned since the last frame float up from the counter. A negative delay keeps the
+  // animation smooth when the HUD is redrawn mid-bump.
+  const insights = state.coaching.insights;
+  if (shownInsights != null && insights > shownInsights) insightBump = { n: insights - shownInsights, at: performance.now() };
+  shownInsights = insights;
+  const since = performance.now() - insightBump.at,
+    bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
-  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Open calendar · choose a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days")}</small></div>
+  <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></div>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
+  <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
   <div class="res money">${ico("coin")}<b>${cash(state.money)}</b></div>
   <button class="hud-btn" data-act="fullscreen" aria-label="Full screen">${ico("expand")}</button><button class="hud-btn" data-act="help" aria-label="How to play">${ico("help")}</button>`;
 }
@@ -94,9 +107,11 @@ function menu() {
   }
   $("#menu").hidden = false;
   const squadBadge = state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)));
+  const trainBadge = state.roster.some((a) => Object.keys(G.DRILLS).some((d) => !G.drillProblem(state, a, d)));
   const items = [
     ["home", "home", "Club"],
     ["squad", "squad", "Squad"],
+    ["train", "dumbbell", "Train"],
     ["build", "build", "Build"],
     ["shop", "shop", "Shop"],
     ["league", "league", "Meets"],
@@ -107,13 +122,13 @@ function menu() {
     state.phase === "seasonEnd"
       ? `<button class="go" data-act="window" data-page="home">${ico("trophy")}<span>Season review</span></button>`
       : state.phase === "planning"
-        ? `<button class="go" data-act="window" data-page="league">${ico("league")}<span>Choose a meet</span></button>`
+        ? `<button class="go" data-act="window" data-page="league">${ico("league")}<span>Book a meet</span></button>`
       : ready
-        ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>To the meet</span></button>`
+        ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>Call room</span></button>`
         : view.playing
           ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
           : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
-  $("#menu").innerHTML = `<div class="menu-items">${items.map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${id === "squad" && squadBadge ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
+  $("#menu").innerHTML = `<div class="menu-items">${items.map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
 }
 function tools() {
   $("#tools").innerHTML = state.match ? "" : `<button data-act="zoom" data-step="0.5" aria-label="Zoom in">${ico("plus")}</button><button data-act="zoom" data-step="-0.5" aria-label="Zoom out">${ico("minus")}</button><button data-act="recenter" aria-label="Centre on the stadium">${ico("stadium")}</button>`;
@@ -130,6 +145,7 @@ function windowHTML() {
   const html = {
     home: () => P.home(state, view),
     squad: () => P.squad(state, view),
+    train: () => P.train(state, view),
     recruit: () => P.recruit(state, view),
     build: () => P.build(state, view),
     shop: () => P.shop(state, view),
@@ -138,7 +154,7 @@ function windowHTML() {
     lobby: () => P.lobby(state, view),
   }[page]?.();
   if (html == null) return null;
-  const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete" : page === "lobby" ? "Meet lobby · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
+  const title = page === "home" && state.phase === "seasonEnd" ? "Season review" : page === "squad" && view.athlete ? "Athlete file" : page === "lobby" ? "Call room · " + (G.opponent(state)?.name || "") : P.WINDOW_TITLES[page];
   return [title, html];
 }
 function render(preserve = true) {
@@ -247,7 +263,9 @@ function closeWindow() {
 }
 function dialog(title, body, choices, o = {}) {
   const dlg = $("#dialog");
-  dlg.innerHTML = `<div class="dialog-head">${o.helper ? `<canvas width="64" height="64" data-helper class="portrait helper"></canvas>` : ""}<div><span class="eyebrow">${esc(o.eyebrow || HELPER + ", club secretary")}</span><h1>${esc(title)}</h1></div></div><div class="dialog-body">${body}</div><div class="dialog-actions">${choices.map((c, i) => `<button class="button ${c.secondary ? "subtle" : "primary"}" data-choice="${i}" ${c.disabled ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}</div>`;
+  // Every pop-up shares the window frame; tone picks the header band (news, celebration, warning).
+  dlg.className = "tone-" + (o.tone || "news") + (o.cls ? " " + o.cls : "");
+  dlg.innerHTML = `<div class="dialog-head">${o.helper ? `<span class="medallion"><canvas width="64" height="64" data-helper class="portrait helper"></canvas></span>` : ""}<div><span class="eyebrow">${esc(o.eyebrow || HELPER + ", club secretary")}</span><h1>${esc(title)}</h1></div></div><div class="dialog-body">${body}</div><div class="dialog-actions">${choices.map((c, i) => `<button class="button ${c.secondary ? "subtle" : "primary"}" data-choice="${i}" ${c.disabled ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}</div>`;
   paint(dlg);
   dlg.querySelectorAll("[data-choice]").forEach(
     (b) =>
@@ -287,17 +305,11 @@ function showEvent() {
         render();
       },
     })),
-    { helper: true, locked: true, eyebrow: v.id === "secret" ? "SECRET CHARACTER" : HELPER + " has news" },
+    { helper: true, locked: true, eyebrow: v.id === "secret" ? "SECRET CHARACTER" : HELPER + " has news", tone: v.id === "secret" ? "gold" : "news" },
   );
 }
-function chooseAthlete(title, item, fn) {
-  const d = ITEMS[item];
-  dialog(
-    title,
-    `<p>${esc(d.desc)}</p><div class="pick-list">${state.roster.map((a) => `<button class="pick" data-pick="${a.id}">${P.portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · Stamina ${Math.round(a.stamina)} · ${G.MOODS[G.moodOf(a)]}${d.slot && a.gear[d.slot] ? " · wearing " + esc(ITEMS[a.gear[d.slot]].name) : ""}</small></span></button>`).join("")}</div>`,
-    [{ label: "Cancel", secondary: true }],
-    { eyebrow: d.name },
-  );
+function chooseAthlete(title, item, fn, cancel = "Cancel") {
+  dialog(title, P.itemTargets(state, item), [{ label: cancel, secondary: true }], { eyebrow: ITEMS[item].name, tone: "shop" });
   $("#dialog").querySelectorAll("[data-pick]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -306,17 +318,84 @@ function chooseAthlete(title, item, fn) {
       }),
   );
 }
+const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, condition: a.condition, level: a.level, sp: a.sp, injury: a.injury });
+// The payoff moment: a card with the athlete and their bars filling up.
+function showGrowth(a, before, eyebrow, extra = []) {
+  const ups = a.stats.map((v, i) => v - before.stats[i]),
+    best = ups.indexOf(Math.max(...ups));
+  const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : a.stamina > before.stamina + 0.5 ? "Legs are back!" : a.condition > before.condition + 0.5 ? "Head in the game!" : "Done!";
+  sfx("level");
+  dialog(title, P.growth(a, before, extra), [{ label: "Back to the infield" }], { eyebrow, tone: "gold" });
+}
+// Special training: run the session, then play it out on a little stage with ratings and results.
+function runTraining(ids, drill) {
+  stopPlaying();
+  const athletes = ids.map((id) => state.roster.find((a) => a.id === id));
+  const befores = new Map(athletes.filter(Boolean).map((a) => [a.id, { ...growthBefore(a), ovr: G.overall(a) }]));
+  const problem = G.groupProblem(state, ids, drill),
+    snap = snapshot(),
+    session = G.coachGroup(state, ids, drill);
+  if (!session) return toast(problem || "That session isn't available right now.", "warn");
+  view.trainees = [];
+  announce(snap);
+  save();
+  render();
+  world.replan();
+  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · session Lv " + session.level, tone: "gold", cls: "training" });
+  const dlg = $("#dialog"),
+    results = dlg.querySelector(".stage-results"),
+    cv = dlg.querySelector(".stage-canvas");
+  sfx("whistle");
+  const player = playTraining(cv, {
+    drill,
+    athletes: session.results.map((r) => {
+      const a = state.roster.find((x) => x.id === r.id);
+      return { a, quality: r.quality, gains: r.gains, event: a.trainingEvent || a.event };
+    }),
+    colors: state.colors,
+    ctx: { gymLevel: G.facilityLevel(state, "gym"), trackColor: trackColorOf(Math.max(2, state.stadium.track), styleOf(state).track) },
+    reduced: reduced(),
+    onReveal() {
+      results.classList.add("show");
+      dlg.querySelector(".stage-tap")?.remove();
+      sfx(session.results.some((r) => r.quality === "excellent") ? "goal" : "stamp");
+      if (session.levelUp) setTimeout(() => sfx("combo"), 700);
+    },
+  });
+  cv.onclick = () => player.skip();
+  dlg.addEventListener("close", () => player.stop(), { once: true });
+}
+// Use a consumable and show what it did.
+function applyItem(item, aid) {
+  const d = ITEMS[item],
+    snap = snapshot(),
+    a = state.roster.find((x) => x.id === aid),
+    before = a && growthBefore(a);
+  const problem = G.itemProblem(state, item, aid);
+  if (G.useItem(state, item, aid)) {
+    if (a) showGrowth(a, before, d.name);
+    else {
+      toast(d.name + ": the whole squad feels great.", "level", "gift");
+      sfx("level");
+    }
+  } else toast(problem || "That item won't help right now.", "warn");
+  announce(snap);
+  save();
+  render();
+}
+
 function help(welcome = false) {
   stopPlaying();
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
-    `<p>${welcome ? "I'm " + HELPER + ", the club secretary. We're a tiny throwing club with four hopefuls and big dreams. Here's how it works:" : "A quick refresher:"}</p>
-    <ol><li><b>Train.</b> Press Train and the days roll by. Athletes head to the gym, the track or their own circle, cage or runway, and their stats tick up.</li>
-    <li><b>Build.</b> Upgrade the stadium (throwing areas, track, stands) and put buildings on the plots around it. Neighbouring buildings can form <b>combos</b>.</li>
-    <li><b>Grow.</b> Every stat runs from 1 to 100. Levels give skill points; rank-ups raise an athlete's limit. Items and gear help too.</li>
-    <li><b>Choose your calendar.</b> Open Meets to book a duel or enter a league. Choose preparation days and the gap between fixtures. Win Open, Challenger and Championship trophies to reach the next level.</li><li><b>Compete.</b> Watch your four-event team perform, or coach every throw. Career milestones reward development automatically. Save training and meet skill setups in an athlete’s Skills tab to automate the swaps.</li></ol>
-    <p>Drag the map to look around and tap anything: athletes, buildings, the stadium. Time only moves while you train.</p>`,
-    [{ label: welcome ? "Let's go!" : "Got it", fn: () => ((state.welcomed = true), save()) }],
+    `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams. Here's the drill:" : "The drill, one more time:"}</p>
+    <ol class="howto"><li><b>Train.</b> Hit Train and the days roll. Everyone heads to the gym, the track or their own ring, and the stats tick up.</li>
+    <li><b>Run sessions.</b> Spend Coaching Insights (the lightbulb) in <b>Train</b>: up to three athletes per session, and sessions level up with reps.</li>
+    <li><b>Build.</b> Upgrade the rings, cages, runway, track and stands, then fill the plots outside. Good neighbours make <b>combos</b>.</li>
+    <li><b>Book meets.</b> Duels to test yourselves, leagues for trophies. Win Open, Challenger and Championship to move up a level.</li>
+    <li><b>Compete.</b> Watch your throwers go, or call every attempt from the infield.</li></ol>
+    <p class="hint">Drag to look around, tap anything. The clock only runs while you train.</p>`,
+    [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
 }
@@ -344,10 +423,10 @@ function doDay(now) {
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
   for (const l of r.levelUps) {
-    toast(l.name + " reached level " + l.level + "! Skill points to spend.", "level", "levelup");
+    toast(l.name + " hits level " + l.level + "! Skill points to spend.", "level", "levelup");
     sfx("level");
   }
-  for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " is injured.", "warn", "bandage");
+  for (const id of r.injuries) toast(state.roster.find((a) => a.id === id)?.name + " pulled up hurt. Recovery first.", "warn", "bandage");
   announce(before);
   save();
   if (state.matchDay != null && state.day >= state.matchDay) {
@@ -462,7 +541,7 @@ $("#app").addEventListener("click", async (e) => {
       return openWindow("lobby");
     case "autolineup":
       G.autoLineup(state);
-      toast("Best available lineup selected.");
+      toast("Strongest lineup entered.");
       break;
     case "medical":
       if (!G.medicalDay(state)) toast("Only available when an injured athlete is in the lineup.");
@@ -530,13 +609,13 @@ $("#app").addEventListener("click", async (e) => {
       if (state.pendingEvent) return showEvent();
       const booked = G.enterCompetition(state, { kind: act === "book-duel" ? "duel" : "league", tier: +b.dataset.tier,
         stage: +(b.dataset.stage || 0), rival: +(b.dataset.rival || 0), preparation: view.preparation || 5, spacing: view.spacing || 7 });
-      if (booked) { view.window = "home"; view.rival = null; world.replan(); toast("Booked for day " + state.matchDay + ". Time to prepare."); }
+      if (booked) { view.window = "home"; view.rival = null; world.replan(); toast("Booked for day " + state.matchDay + ". The countdown starts now."); }
       else toast("That competition isn't available right now.", "warn");
       break;
     }
     case "cancel-booking":
       stopPlaying();
-      if (G.cancelCompetition(state)) { world.replan(); toast("Booking cancelled. Choose another whenever you're ready."); }
+      if (G.cancelCompetition(state)) { world.replan(); toast("Booking scratched. Pick another meet whenever you're ready."); }
       break;
     case "save-loadout":
       if (G.saveLoadout(state, id, b.dataset.mode)) toast("Saved " + b.dataset.mode + " skill setup.");
@@ -560,13 +639,12 @@ $("#app").addEventListener("click", async (e) => {
     case "tab":
       view.tab = b.dataset.tab;
       return render(false);
-    case "coach-session": {
-      stopPlaying();
-      const result = G.coachSession(state,id,b.dataset.drill);
-      if (result) {
-        toast("Session complete · " + result.gains.map((n,i) => n > 0 ? "+" + n.toFixed(1) + " " + ["Power","Technique","Speed","Focus"][i] : "").filter(Boolean).join(" · ") + (result.mastery>0 ? " · +"+result.mastery.toFixed(1)+" event mastery" : ""), "level");
-        sfx("level"); world.replan();
-      } else toast("That session isn't available right now.","warn");
+    case "coach-session":
+      return runTraining((b.dataset.ids || String(id)).split(",").filter(Boolean).map(Number), b.dataset.drill);
+    case "trainee": {
+      const list = P.trainees(state, view).filter((x) => x !== id);
+      if (list.length === P.trainees(state, view).length) list.push(id);
+      view.trainees = list.slice(-G.MAX_GROUP);
       break;
     }
     case "unlock-plan":
@@ -585,13 +663,13 @@ $("#app").addEventListener("click", async (e) => {
       }
       break;
     case "skill-toggle":
-      if (!G.toggleSkill(state, id, b.dataset.skill)) toast("All skill slots are full. Unequip one first.");
+      if (!G.toggleSkill(state, id, b.dataset.skill)) toast("Skill slots are full. Bench one first.");
       break;
     case "promote": {
       const a = state.roster.find((x) => x.id === id);
       if (G.promote(state, id)) {
         sfx("goal");
-        dialog("A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now a <b>${RANKS[a.rank].name}</b>. Their limit is higher, every stat gains a point${RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION" });
+        dialog("A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now a <b>${RANKS[a.rank].name}</b>. Their limit is higher, every stat gains a point${RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
       }
       break;
     }
@@ -604,20 +682,36 @@ $("#app").addEventListener("click", async (e) => {
     case "use": {
       const item = b.dataset.item,
         d = ITEMS[item];
-      const apply = (aid) => {
-        const snap = snapshot();
-        if (G.useItem(state, item, aid)) {
-          toast("Used " + d.name + (aid ? " on " + state.roster.find((x) => x.id === aid)?.name : "") + ".", "level", "gift");
-          sfx("level");
-        } else toast("That item won't help right now.");
-        announce(snap);
+      if (d.team) applyItem(item);
+      else if (b.dataset.id) applyItem(item, +b.dataset.id);
+      else chooseAthlete("Use " + d.name + " on…", item, (aid) => applyItem(item, aid));
+      return;
+    }
+    case "buy-use": {
+      const item = b.dataset.item,
+        d = ITEMS[item];
+      const buyThenUse = (aid) => {
+        if (!G.buyItem(state, item)) return toast("Not enough money.", "warn");
+        sfx("coin");
+        applyItem(item, aid);
+      };
+      if (!d.team) return chooseAthlete("Who gets the " + d.name + "?", item, buyThenUse);
+      const problem = G.itemProblem(state, item);
+      if (problem) toast(problem + ".", "warn");
+      else buyThenUse();
+      return;
+    }
+    case "buy-gear": {
+      const item = b.dataset.item;
+      if (!G.buyItem(state, item)) break;
+      sfx("coin");
+      save();
+      render();
+      return chooseAthlete("Equip the " + ITEMS[item].name + " now?", item, (aid) => {
+        if (G.equipItem(state, aid, item)) toast(ITEMS[item].name + " equipped on " + state.roster.find((x) => x.id === aid)?.name + ".", "level", "shop");
         save();
         render();
-      };
-      if (d.team) apply();
-      else if (b.dataset.id) apply(+b.dataset.id);
-      else chooseAthlete("Use " + d.name + " on…", item, apply);
-      return;
+      }, "Keep in the bag");
     }
     case "equip": {
       const item = b.dataset.item;
@@ -629,7 +723,7 @@ $("#app").addEventListener("click", async (e) => {
     }
     case "buy":
       if (G.buyItem(state, b.dataset.item)) {
-        toast("Bought " + ITEMS[b.dataset.item].name + ". It's in the bag.", "info", "shop");
+        toast(ITEMS[b.dataset.item].name + " packed in the kit bag.", "info", "shop");
         sfx("coin");
       }
       break;
@@ -687,14 +781,14 @@ $("#app").addEventListener("click", async (e) => {
       return dialog("Clear this plot?", `<p>Remove the ${esc(d.name)} for a ${cash(d.cost / 2)} refund? Its upgrades are lost.</p>`, [
         { label: "Clear it", fn: () => (G.sellFacility(state, i), save(), render()) },
         { label: "Keep it", secondary: true },
-      ]);
+      ], { tone: "warn", eyebrow: "Build" });
     }
     case "scout":
       if (G.scout(state)) sfx("coin");
       break;
     case "recruit":
       if (G.recruit(state, id)) {
-        toast("Welcome to the club!", "level", "squad");
+        toast("Signed! New bib, new beginnings.", "level", "squad");
         sfx("level");
       }
       break;
@@ -710,7 +804,7 @@ $("#app").addEventListener("click", async (e) => {
       return dialog("A new chapter?", `<p>Release ${esc(a.name)}? Their gear returns to the bag and their marks stay in club history.</p>`, [
         { label: "Release contract", fn: () => (G.releaseAthlete(state, a.id), (view.athlete = null), save(), render()) },
         { label: "Keep them", secondary: true },
-      ]);
+      ], { tone: "warn", eyebrow: "Contract" });
     }
     case "rival":
       view.rival = view.rival === id ? null : id;
@@ -837,7 +931,7 @@ function importSave() {
           },
         },
         { label: "Cancel", secondary: true },
-      ]);
+      ], { tone: "warn", eyebrow: "Backup" });
     } catch (error) {
       toast(error.message, "warn");
     }

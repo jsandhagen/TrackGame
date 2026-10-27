@@ -40,6 +40,8 @@ function noise(start, dur, vol = 0.04, filter = 900) {
 }
 const SFX = {
   tap: () => tone(660, 0, 0.05, "square", 0.025),
+  whistle: () => (tone(2093, 0, 0.09, "square", 0.022), tone(2093, 0.13, 0.26, "square", 0.022, 2350)),
+  stamp: () => (noise(0, 0.08, 0.05, 500), tone(784, 0.02, 0.1, "square", 0.03)),
   coin: () => (tone(988, 0, 0.06, "square", 0.03), tone(1319, 0.06, 0.12, "square", 0.03)),
   level: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.07, 0.12, "square", 0.035)),
   goal: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, i * 0.08, 0.16, "triangle", 0.05)),

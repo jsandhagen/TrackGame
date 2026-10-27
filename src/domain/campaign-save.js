@@ -7,6 +7,7 @@ import { syncMarks } from "./meet.js";
 import { statTotal, slotsOf } from "./core.js";
 import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
+import { DRILLS } from "./coaching.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
 const int = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
@@ -283,6 +284,8 @@ export function validateCampaign(input) {
   }
   if (!s.coaching || !int(s.coaching.insights,0,1e9) || !int(s.coaching.practiceDays,0,1e9) || !Array.isArray(s.coaching.unlocked) || new Set(s.coaching.unlocked).size !== s.coaching.unlocked.length || s.coaching.unlocked.some((id) => !PLANS[id]?.course)) bad();
   for (const a of s.roster || []) if (PLANS[a.plan]?.course && !s.coaching.unlocked.includes(a.plan)) bad();
+  s.coaching.drills ??= {};
+  if (typeof s.coaching.drills !== "object" || Array.isArray(s.coaching.drills) || Object.entries(s.coaching.drills).some(([k, n]) => !DRILLS[k] || !int(n, 0, 1e7))) bad();
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
   if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
   for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, 3))) bad();
