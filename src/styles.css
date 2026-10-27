@@ -2803,3 +2803,399 @@ dialog[open] {
 .live-field { grid-column: 1 / -1; display:flex; gap:12px; overflow-x:auto; max-width:100%; padding:8px; font-size:12px; background:#14211be8; color:#f8f2de; }
 .live-field span { white-space:nowrap; }
 .scoring-target { padding:10px; border-left:3px solid #e2b04a; }
+
+/* ── Coaching Insights, training ground and shop feel ──────────────── */
+#hud .res.insight {
+  position: relative;
+  cursor: pointer;
+}
+#hud .res.insight b {
+  color: #f6e07a;
+}
+#hud .res.insight.bump {
+  animation: insight-bump 0.6s var(--since, 0ms) ease-out;
+}
+#hud .res.insight em {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  font: 800 13px "Trebuchet MS", sans-serif;
+  font-style: normal;
+  color: #f6e07a;
+  text-shadow: 0 2px 0 #0b1d16;
+  pointer-events: none;
+  opacity: 0;
+  animation: insight-float 1.4s var(--since, 0ms) ease-out;
+}
+@keyframes insight-bump {
+  30% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 3px #f6d86088, 0 3px 0 #0006;
+  }
+}
+@keyframes insight-float {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 18px);
+  }
+}
+.insight-banner,
+.wallet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(#fff6c8, #f6e6a6);
+  border: 2px solid #d9bd62;
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 3px 0 #0000000d;
+}
+.insight-banner > .ico {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.insight-banner b {
+  font: 700 22px Georgia;
+}
+.insight-banner small {
+  display: block;
+  font-size: 11px;
+  color: #6f5a22;
+}
+.wallet {
+  justify-content: space-around;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.wallet b {
+  font: 700 16px Georgia;
+}
+.trainee-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scrollbar-width: thin;
+}
+.trainee {
+  position: relative;
+  flex: none;
+  width: 70px;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 5px 4px 6px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-bottom-width: 3px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.trainee .bar {
+  width: 100%;
+  min-width: 0;
+  height: 5px;
+}
+.trainee.on {
+  border-color: var(--gold);
+  background: #fff4cf;
+  box-shadow: 0 0 0 2px #e2b04a55;
+}
+.trainee .done {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+.trainee .done .ico {
+  width: 16px;
+  height: 16px;
+}
+.trainee-card {
+  margin-top: 6px;
+}
+.trainee-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.trainee-head > div {
+  flex: 1;
+  min-width: 0;
+}
+.trainee-head strong {
+  display: block;
+  font: 700 16px Georgia;
+}
+.trainee-head small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.trainee-card .vitals {
+  margin-bottom: 7px;
+}
+.drill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+.drill {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-bottom-width: 4px;
+  border-radius: 10px;
+  padding: 8px;
+}
+.drill.locked {
+  background: #f1ecdc;
+}
+.drill.locked .drill-top,
+.drill.locked .gains {
+  opacity: 0.6;
+}
+.drill-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.drill-top strong {
+  font-size: 13px;
+  line-height: 1.15;
+}
+.drill-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #22503e;
+  box-shadow: inset 0 -3px 0 #0003;
+}
+.gains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.gain {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--c);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  text-shadow: 0 1px 0 #0004;
+  box-shadow: inset 0 -2px 0 #0002;
+  white-space: nowrap;
+}
+.drill-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+}
+.drill-foot .button {
+  margin-left: auto;
+  min-width: 70px;
+}
+.cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: 700 14px Georgia;
+}
+.cost .ico {
+  width: 18px;
+  height: 18px;
+}
+.cost.short {
+  color: var(--red);
+}
+.drill .why {
+  font-size: 10.5px;
+  color: var(--red);
+  line-height: 1.25;
+}
+select.wide {
+  width: 100%;
+  padding: 7px;
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  background: var(--card);
+}
+.use-item:disabled,
+.pick:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.use-item {
+  border-left: 5px solid var(--rar, var(--line));
+}
+.shop-item {
+  flex-wrap: wrap;
+}
+.shop-item .icon {
+  width: 40px;
+  height: 40px;
+}
+.shop-item .owned {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.buy-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.buy-actions s {
+  opacity: 0.7;
+  font-weight: 400;
+}
+/* Training / item result card */
+.growth {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.growth .portrait.large {
+  flex: none;
+  width: 80px;
+  height: 80px;
+  animation: hop 0.5s 0.2s ease-out;
+}
+@keyframes hop {
+  40% {
+    transform: translateY(-10px);
+  }
+}
+.grows {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.grow {
+  display: grid;
+  grid-template-columns: 70px 1fr 26px 36px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.grow.up {
+  color: var(--ink);
+  font-weight: 700;
+}
+.grow .track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: #00000014;
+  overflow: hidden;
+}
+.grow .track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--c);
+  opacity: 0.75;
+  box-shadow: inset 0 -3px 0 #0002;
+}
+.grow .track em {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 4px;
+  width: var(--w);
+  background: #fff6a8;
+  box-shadow: 0 0 8px 2px #fff3, inset 0 -3px 0 #0001;
+  transform-origin: left;
+  animation: grow-fill 0.7s calc(0.25s + var(--n) * 0.12s) ease-out both;
+}
+@keyframes grow-fill {
+  from {
+    transform: scaleX(0);
+    background: #fff;
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.grow b {
+  font: 700 15px Georgia;
+  text-align: right;
+}
+.grow .delta {
+  font-weight: 800;
+  color: #3a9a5a;
+  animation: pop-in 0.4s 0.6s ease-out both;
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.6);
+  }
+}
+.growth-notes {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.growth-notes .ico {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .grow .track em,
+  .grow .delta,
+  .growth .portrait.large,
+  #hud .res.insight.bump,
+  #hud .res.insight em {
+    animation: none;
+  }
+}
+.drill-ico .ico {
+  width: 24px;
+  height: 24px;
+}
+.trainee-card .vitals > div {
+  grid-template-columns: 82px 1fr 30px 22px;
+}
+@media (max-aspect-ratio: 1/1) {
+  #hud .res {
+    padding: 5px 7px;
+    gap: 4px;
+    font-size: 13px;
+  }
+  #hud .brand {
+    max-width: 40vw;
+  }
+}
+@media (max-height: 520px) {
+  .insight-banner small {
+    display: none;
+  }
+  .insight-banner {
+    padding: 5px 10px;
+  }
+}

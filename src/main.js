@@ -2,7 +2,7 @@ import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
+import { STAT_NAMES, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium, beatDuration, CUTIN_MS } from "./render/stadium.js";
@@ -28,6 +28,8 @@ const view = { window: null, athlete: null, tab: "stats", selected: null, moving
 const DAY_MS = [0, 2600, 1400, 700];
 const world = createWorld($("#world")),
   stadium = createStadium($("#stadium"));
+let shownInsights = null,
+  insightBump = { n: 0, at: -1e9 };
 let presenter = null,
   lastDayAt = 0,
   lastFrame = 0,
@@ -80,10 +82,18 @@ function hud() {
   const days = state.matchDay == null ? null : state.matchDay - state.day,
     speed = view.playing ? state.settings.speed : 0,
     canPlay = state.phase === "planning" || (state.phase === "season" && days > 0);
+  // Insights earned since the last frame float up from the counter. A negative delay keeps the
+  // animation smooth when the HUD is redrawn mid-bump.
+  const insights = state.coaching.insights;
+  if (shownInsights != null && insights > shownInsights) insightBump = { n: insights - shownInsights, at: performance.now() };
+  shownInsights = insights;
+  const since = performance.now() - insightBump.at,
+    bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
   <div class="hud-date"><b>Season ${state.season} · Day ${state.day}</b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Open calendar · choose a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days")}</small></div>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
+  <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
   <div class="res money">${ico("coin")}<b>${cash(state.money)}</b></div>
   <button class="hud-btn" data-act="fullscreen" aria-label="Full screen">${ico("expand")}</button><button class="hud-btn" data-act="help" aria-label="How to play">${ico("help")}</button>`;
 }
@@ -94,9 +104,11 @@ function menu() {
   }
   $("#menu").hidden = false;
   const squadBadge = state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)));
+  const trainBadge = state.roster.some((a) => Object.keys(G.DRILLS).some((d) => !G.drillProblem(state, a, d)));
   const items = [
     ["home", "home", "Club"],
     ["squad", "squad", "Squad"],
+    ["train", "dumbbell", "Train"],
     ["build", "build", "Build"],
     ["shop", "shop", "Shop"],
     ["league", "league", "Meets"],
@@ -113,7 +125,7 @@ function menu() {
         : view.playing
           ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
           : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
-  $("#menu").innerHTML = `<div class="menu-items">${items.map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${id === "squad" && squadBadge ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
+  $("#menu").innerHTML = `<div class="menu-items">${items.map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
 }
 function tools() {
   $("#tools").innerHTML = state.match ? "" : `<button data-act="zoom" data-step="0.5" aria-label="Zoom in">${ico("plus")}</button><button data-act="zoom" data-step="-0.5" aria-label="Zoom out">${ico("minus")}</button><button data-act="recenter" aria-label="Centre on the stadium">${ico("stadium")}</button>`;
@@ -130,6 +142,7 @@ function windowHTML() {
   const html = {
     home: () => P.home(state, view),
     squad: () => P.squad(state, view),
+    train: () => P.train(state, view),
     recruit: () => P.recruit(state, view),
     build: () => P.build(state, view),
     shop: () => P.shop(state, view),
@@ -290,14 +303,8 @@ function showEvent() {
     { helper: true, locked: true, eyebrow: v.id === "secret" ? "SECRET CHARACTER" : HELPER + " has news" },
   );
 }
-function chooseAthlete(title, item, fn) {
-  const d = ITEMS[item];
-  dialog(
-    title,
-    `<p>${esc(d.desc)}</p><div class="pick-list">${state.roster.map((a) => `<button class="pick" data-pick="${a.id}">${P.portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · Stamina ${Math.round(a.stamina)} · ${G.MOODS[G.moodOf(a)]}${d.slot && a.gear[d.slot] ? " · wearing " + esc(ITEMS[a.gear[d.slot]].name) : ""}</small></span></button>`).join("")}</div>`,
-    [{ label: "Cancel", secondary: true }],
-    { eyebrow: d.name },
-  );
+function chooseAthlete(title, item, fn, cancel = "Cancel") {
+  dialog(title, P.itemTargets(state, item), [{ label: cancel, secondary: true }], { eyebrow: ITEMS[item].name });
   $("#dialog").querySelectorAll("[data-pick]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -306,6 +313,34 @@ function chooseAthlete(title, item, fn) {
       }),
   );
 }
+const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, condition: a.condition, level: a.level, sp: a.sp, injury: a.injury });
+// The payoff moment: a card with the athlete and their bars filling up.
+function showGrowth(a, before, eyebrow, extra = []) {
+  const ups = a.stats.map((v, i) => v - before.stats[i]),
+    best = ups.indexOf(Math.max(...ups));
+  const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : a.stamina > before.stamina + 0.5 ? "Recharged!" : a.condition > before.condition + 0.5 ? "Feeling great!" : "Done!";
+  sfx("level");
+  dialog(title, P.growth(a, before, extra), [{ label: "Nice!" }], { eyebrow });
+}
+// Use a consumable and show what it did.
+function applyItem(item, aid) {
+  const d = ITEMS[item],
+    snap = snapshot(),
+    a = state.roster.find((x) => x.id === aid),
+    before = a && growthBefore(a);
+  const problem = G.itemProblem(state, item, aid);
+  if (G.useItem(state, item, aid)) {
+    if (a) showGrowth(a, before, d.name);
+    else {
+      toast(d.name + ": the whole squad feels great.", "level", "gift");
+      sfx("level");
+    }
+  } else toast(problem || "That item won't help right now.", "warn");
+  announce(snap);
+  save();
+  render();
+}
+
 function help(welcome = false) {
   stopPlaying();
   dialog(
@@ -562,13 +597,19 @@ $("#app").addEventListener("click", async (e) => {
       return render(false);
     case "coach-session": {
       stopPlaying();
+      const a = state.roster.find((x) => x.id === id),
+        before = a && growthBefore(a),
+        problem = a && G.drillProblem(state, a, b.dataset.drill);
       const result = G.coachSession(state,id,b.dataset.drill);
       if (result) {
-        toast("Session complete · " + result.gains.map((n,i) => n > 0 ? "+" + n.toFixed(1) + " " + ["Power","Technique","Speed","Focus"][i] : "").filter(Boolean).join(" · ") + (result.mastery>0 ? " · +"+result.mastery.toFixed(1)+" event mastery" : ""), "level");
-        sfx("level"); world.replan();
-      } else toast("That session isn't available right now.","warn");
+        showGrowth(a, before, G.DRILLS[b.dataset.drill].name, [`${ico("idea")} −${result.insights} Insights`, result.mastery > 0 ? `${ico("target")} +${result.mastery.toFixed(1)} ${EVENTS[a.trainingEvent || a.event].name} mastery` : ""]);
+        world.replan();
+      } else toast(problem || "That session isn't available right now.","warn");
       break;
     }
+    case "trainee":
+      view.trainee = id;
+      break;
     case "unlock-plan":
       if (G.unlockPlan(state,id,b.dataset.value)) toast("Unlocked " + PLANS[b.dataset.value].name + " for the club. Select it to begin.","level");
       break;
@@ -604,20 +645,36 @@ $("#app").addEventListener("click", async (e) => {
     case "use": {
       const item = b.dataset.item,
         d = ITEMS[item];
-      const apply = (aid) => {
-        const snap = snapshot();
-        if (G.useItem(state, item, aid)) {
-          toast("Used " + d.name + (aid ? " on " + state.roster.find((x) => x.id === aid)?.name : "") + ".", "level", "gift");
-          sfx("level");
-        } else toast("That item won't help right now.");
-        announce(snap);
+      if (d.team) applyItem(item);
+      else if (b.dataset.id) applyItem(item, +b.dataset.id);
+      else chooseAthlete("Use " + d.name + " on…", item, (aid) => applyItem(item, aid));
+      return;
+    }
+    case "buy-use": {
+      const item = b.dataset.item,
+        d = ITEMS[item];
+      const buyThenUse = (aid) => {
+        if (!G.buyItem(state, item)) return toast("Not enough money.", "warn");
+        sfx("coin");
+        applyItem(item, aid);
+      };
+      if (!d.team) return chooseAthlete("Who gets the " + d.name + "?", item, buyThenUse);
+      const problem = G.itemProblem(state, item);
+      if (problem) toast(problem + ".", "warn");
+      else buyThenUse();
+      return;
+    }
+    case "buy-gear": {
+      const item = b.dataset.item;
+      if (!G.buyItem(state, item)) break;
+      sfx("coin");
+      save();
+      render();
+      return chooseAthlete("Equip the " + ITEMS[item].name + " now?", item, (aid) => {
+        if (G.equipItem(state, aid, item)) toast(ITEMS[item].name + " equipped on " + state.roster.find((x) => x.id === aid)?.name + ".", "level", "shop");
         save();
         render();
-      };
-      if (d.team) apply();
-      else if (b.dataset.id) apply(+b.dataset.id);
-      else chooseAthlete("Use " + d.name + " on…", item, apply);
-      return;
+      }, "Keep in the bag");
     }
     case "equip": {
       const item = b.dataset.item;

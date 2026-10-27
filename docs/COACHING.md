@@ -11,3 +11,9 @@ Six permanent daily plans unlock by spending Insights after developing the appro
 Facility levels improve coached gains. Recovery Spa levels reduce coached stamina costs up to 18%. Facility descriptions explain training connections. Basic daily plans remain available. The roster and bulk selectors enforce the same unlock requirements as the athlete screen.
 
 Save schema 7 migrates earlier careers without replacing their active meet, roster or progression. Coaching balances, plan unlocks and completed daily sessions persist. Deterministic tests cover atomic costs, duplicate prevention, facilities, stat limits, recovery, meet-day restrictions and migration. Device playtesting remains needed for pacing and feel.
+
+## Training ground and items (0.9.x)
+
+Coaching Insights sit in the top bar next to fans and money; the counter pulses and shows +N whenever Insights arrive, and tapping it opens the **Train** window. The Train window works like a sports-sim training menu: pick an athlete from the strip (a tick marks today's completed session), see their stats, and choose a session card. Each card lists the stats it raises *for that athlete* (coloured pills with the expected gain), its Insight and stamina cost, and the reason it is locked if it is. Finishing a session opens a result card where the bars fill from the old value to the new one.
+
+Consumables are previewed on each athlete before use (Power 29 → 31, Stamina 40 → 80) and athletes they would not help are greyed out with the reason (stamina already full, stat at its limit…), so items are never wasted. The shop offers **Buy & use** for consumables (pick the athlete, pay, apply), **+1 bag** to stock up, and for gear **Buy** followed by an optional immediate equip. The same result card shows what the item did.

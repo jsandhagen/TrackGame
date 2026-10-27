@@ -18,6 +18,7 @@ import {
   CLUB_PALETTES,
   PLOT_ORDER,
   GEAR_SLOTS,
+  STAT_NAMES,
 } from "../game-content.js";
 import {
   clamp,
@@ -439,13 +440,43 @@ export function buyItem(s, id) {
   count(s, "bought");
   return true;
 }
+// Why a consumable would be wasted on this athlete (or squad), checked before buying or using it.
+export function itemProblem(s, id, athleteId) {
+  const d = ITEMS[id];
+  if (!d || d.kind !== "use") return "Not a consumable";
+  if (s.match) return "Not during a meet";
+  if (d.team) return s.roster.every((b) => b.condition >= 100 && b.stamina >= 100) ? "The squad is already fresh" : null;
+  const a = s.roster.find((x) => x.id === athleteId);
+  if (!a) return "Choose an athlete";
+  if (d.promote) return a.rank >= 4 ? "Already a Legend" : a.promoteFree ? "Already holds a letter" : null;
+  if (d.stat) return a.stats[d.stat[0]] >= capOf(a) - 1e-6 ? STAT_NAMES[d.stat[0]] + " is at the current limit" : null;
+  if (d.potential) return a.potential >= 100 ? "Potential is maxed" : null;
+  if (d.buff) return (a.buff || 1) >= d.buff ? "Already boosted for the next meet" : null;
+  const useful = (d.stamina && a.stamina < 100) || (d.heal && a.injury) || (d.cond && a.condition < 100) || d.xp || d.sp;
+  if (!useful) return d.heal ? "Fresh and healthy already" : d.stamina ? "Stamina is already full" : d.cond ? "Already in top condition" : "No effect";
+  return null;
+}
+// What a consumable would change, for previews in the shop and pickers.
+export function itemPreview(s, id, athleteId) {
+  const d = ITEMS[id],
+    a = s.roster.find((x) => x.id === athleteId),
+    out = [];
+  if (!d || !a) return out;
+  if (d.stamina) out.push({ label: "Stamina", from: a.stamina, to: Math.min(100, a.stamina + d.stamina) });
+  if (d.heal && a.injury) out.push({ label: "Injury healed" });
+  if (d.cond) out.push({ label: "Condition", from: a.condition, to: Math.min(100, a.condition + d.cond) });
+  if (d.stat) out.push({ label: STAT_NAMES[d.stat[0]], stat: d.stat[0], from: a.stats[d.stat[0]], to: Math.min(capOf(a), a.stats[d.stat[0]] + d.stat[1]) });
+  if (d.xp) out.push({ label: "+" + d.xp + " XP" });
+  if (d.sp) out.push({ label: "+" + d.sp + " skill point" });
+  if (d.potential) out.push({ label: "Potential", from: a.potential, to: Math.min(100, a.potential + d.potential) });
+  if (d.buff) out.push({ label: "+" + Math.round((d.buff - 1) * 100) + "% next meet" });
+  if (d.promote) out.push({ label: "Free next rank-up" });
+  return out;
+}
 export function useItem(s, id, athleteId) {
   const d = ITEMS[id];
-  if (!d || d.kind !== "use" || !s.bag[id] || s.match) return false;
+  if (!d || d.kind !== "use" || !s.bag[id] || itemProblem(s, id, athleteId)) return false;
   const a = s.roster.find((x) => x.id === athleteId);
-  if (!d.team && !a) return false;
-  if (d.promote && (!a || a.rank >= 4)) return false;
-  if (d.stat && a.stats[d.stat[0]] >= capOf(a)) return false;
   takeItem(s, id);
   count(s, "itemsUsed");
   const out = [];
