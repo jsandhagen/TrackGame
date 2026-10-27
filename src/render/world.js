@@ -442,7 +442,7 @@ export function createWorld(cv) {
 
   function draw(s, now, o = {}) {
     resize();
-    const k = s.plots.map((p) => (p ? p.type + p.level : "-")).join("|") + JSON.stringify(s.stadium) + plotsOpen(s) + seasonOf(s) + s.colors.primary + s.colors.secondary + s.clubName;
+    const k = s.plots.map((p) => (p ? p.type + p.level : "-")).join("|") + JSON.stringify(s.stadium) + JSON.stringify(s.stadiumStyle) + plotsOpen(s) + seasonOf(s) + s.colors.primary + s.colors.secondary + s.clubName;
     if (k !== key) {
       base = baseWorld(s);
       key = k;

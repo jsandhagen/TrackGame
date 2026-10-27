@@ -62,15 +62,19 @@ The club is laid out like a real athletics venue: a stadium, with the club's bui
 
 | Installation | Levels | Purpose |
 | --- | --- | --- |
-| Track | Cinder (start), Synthetic, Championship | Speed training |
+| Track | Gravel (start), Synthetic, Championship | Speed training |
 | Shot put circle | Concrete circle (start), Twin circles, Competition circle | Shot technique |
 | Discus cage, Hammer cage | Practice, Full, Competition cage | Discus and hammer technique |
 | Javelin runway | Grass runway (start), Rubber, Competition runway | Javelin technique |
-| Grandstand | Grass banks (start), Main stand, Covered stands, Full bowl | Visitors, weekly gate income, home crowd |
+| Grandstand | Grass banks (start), Bleachers, Covered main stand, Stands all round, Olympic stadium | Visitors, weekly gate income, home crowd |
 | Video room | Video room, Analysis suite, Press & data centre (in the press box) | Focus training |
 | Floodlights | Floodlights, Stadium lights | Extra fans from home wins |
 
-Stadium milestones are combos too: **Complete Arena** (all four throwing areas at level 2) and **Night Fever** (floodlights with a level-2 grandstand). Home meets are drawn in the club's own stadium, with its stands, track colour, lights and crowd.
+The grandstand is the stadium's growth path: a gravel track in a field with grass banks, then metal bleachers on the home straight, then a covered main stand with bleachers opposite, then seated stands all round, and finally (World League) a two-tier Olympic bowl under a ring roof that is translucent over the near side so the track stays visible.
+
+**Customisation** (`CUSTOMISE` in `src/game-content.js`, rules in `src/domain/customize.js`) covers kit pattern, shorts, seat colours, roof and track surface. Each option has a requirement (fans, league, trophies, grandstand or track level) and a price; once bought it is owned for good and can be switched for free. The stadium name is free to change. Kit choices are stored with the club colours so every sprite picks them up; the stadium look is in `stadiumStyle`.
+
+Stadium milestones are combos too: **Complete Arena** (all four throwing areas at level 2) and **Night Fever** (floodlights with a covered main stand). Home meets are drawn in the club's own stadium, with its stands, track colour, lights and crowd.
 
 **The campus** sits outside the stadium like a real club site: a forecourt with ticket kiosks in front of the main gate, then 13 plots along three streets. Club Row runs across the forecourt (split by the main road), a footpath climbs past the practice field to the north lane, and the road runs south past the car parks to the boulevard. 7 plots are open in Community, 9 in County, 11 in Regional and all 13 from National; the later ones are the north lane and the far end of the boulevard. The clubhouse is fixed on Club Row. Buildings side by side on the same street are neighbours and form combos; the main road splits Club Row, but the footpath does not. Moving is free; clearing refunds half.
 
@@ -90,4 +94,4 @@ During a meet the stadium fills the screen; the score strip sits at the top and 
 
 ## Art direction
 
-Everything is drawn in code at a low logical resolution (480×270) with integer rects and scanline polygons, then scaled with smoothing off so edges stay crisp. Characters are chibi: a large rounded head with small dot eyes and blush on a small body, with a 1px warm-dark outline, cached per look/pose/frame. Interface icons are 12×12 pixel drawings in the same outline style, scaled up crisply. The ground is drawn top-down and buildings show their front and an oblique side (depth up and to the right), with lit tops, shaded sides and soft shadows. The stadium is built like a real athletics venue: a covered main stand with a press box, terraces with gangways, a facade with entrances, a track with semicircular ends around a marked pitch, the throwing cages and runway in the two D's, and corner floodlight masts. A hand-made 5×7 bitmap font replaces blurry canvas text. Colours stay in the established warm green/cream palette with saturated accents for rewards and rarity.
+Everything is drawn in code at a low logical resolution (480×270) with integer rects and scanline polygons, then scaled with smoothing off so edges stay crisp. Characters are chibi: a large rounded head with small dot eyes and blush on a small body, with a 1px warm-dark outline, cached per look/pose/frame. Interface icons are 12×12 pixel drawings in the same outline style, scaled up crisply. The ground is drawn top-down and buildings show their front and an oblique side (depth up and to the right), with lit tops, shaded sides and soft shadows. The stadium is a height field: every point of the stands has an elevation, a point at ground (x, y) and height z is drawn at (x, y − z), and the stands are rendered back to front. Rows therefore rise as real tiers with visible risers, the near stand shows its outer wall, wing walls close the ends of the main stand, and roofs float above the seats. Like a real athletics venue it has the main stand on the home straight (with the finish line and press box), the throwing cages and javelin runway in the two D's, pole vault and long jump areas on the infield, and corner floodlight masts. A hand-made 5×7 bitmap font replaces blurry canvas text. Colours stay in the established warm green/cream palette with saturated accents for rewards and rarity.

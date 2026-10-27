@@ -1,3 +1,4 @@
+import { ensureCustom } from "./customize.js";
 import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
 import { EVENT_IDS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE } from "../game-content.js";
@@ -304,6 +305,7 @@ export function validateCampaign(input) {
   if (!s.counters || Object.values(s.counters).some((n) => !num(n, 0, 1e9))) bad();
   if (!s.records || typeof s.records !== "object") bad();
   if (!SPONSORS[s.sponsor] || !s.colors || !color(s.colors.primary) || !color(s.colors.secondary)) bad();
+  ensureCustom(s);
   s.secretsOffered = s.secretsOffered.filter((k) => SECRETS[k]);
   s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
   if (s.pendingEvent && typeof s.pendingEvent.id !== "string") s.pendingEvent = null;

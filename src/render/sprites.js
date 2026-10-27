@@ -1,4 +1,5 @@
 import { canvas, outlined, flipped, shade, line, ellipse } from "./pixel.js";
+import { SHORTS_COLORS } from "../game-content.js";
 
 // Chibi figures: a big head, a small body, a crisp outline. Drawn facing right on a
 // 44×40 canvas with the feet at (22, 36); cached per look/pose/frame.
@@ -162,6 +163,12 @@ function drawFigure(g, o) {
   P(-3 + lean, ttop, 6, 4, shirt);
   P(-3 + lean, ttop, 1, 4, shade(shirt, 0.2));
   P(2 + lean, ttop, 1, 4, shade(shirt, -0.22));
+  // Kit patterns use the trim colour over the shirt.
+  const trim = (x, y, w, h) => P(x + lean, ttop + y, w, h, collar);
+  if (o.kit === "stripes") trim(-2, 1, 1, 3), trim(0, 1, 1, 3), P(2 + lean, ttop + 1, 1, 3, shade(collar, -0.22));
+  else if (o.kit === "hoops") trim(-3, 2, 6, 1);
+  else if (o.kit === "sash") trim(-3, 1, 2, 1), trim(-2, 2, 2, 1), trim(-1, 3, 2, 1);
+  else if (o.kit === "halves") trim(0, 1, 2, 3), P(2 + lean, ttop + 1, 1, 3, shade(collar, -0.22));
   P(-1 + lean, ttop, 3, 1, collar);
   if (rank >= 3) P(0 + lean, ttop + 2, 1, 1, GOLD);
   if (special === "scarf") P(-3 + lean, ttop, 6, 2, collar);
@@ -296,7 +303,7 @@ function drawFigure(g, o) {
 
 const cache = new Map();
 export function sprite(o) {
-  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.rank, o.pose, o.frame, o.event, o.flip, o.face]);
+  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.kit, o.rank, o.pose, o.frame, o.event, o.flip, o.face]);
   let c = cache.get(key);
   if (c) return c;
   const base = canvas(SPRITE_W, SPRITE_H);
@@ -319,7 +326,8 @@ export function shadow(g, x, y, w = 6) {
 }
 // Athlete → sprite options.
 export function athleteLook(a, colors, extra = {}) {
-  return { look: a.look, shirt: colors.primary, collar: colors.secondary, rank: a.rank || 0, ...extra };
+  const shorts = colors.shorts === "trim" ? shade(colors.secondary, -0.1) : SHORTS_COLORS[colors.shorts];
+  return { look: a.look, shirt: colors.primary, collar: colors.secondary, kit: colors.kit, ...(shorts ? { shorts } : {}), rank: a.rank || 0, ...extra };
 }
 // Portrait: head and shoulders cropped from the idle figure.
 export function portrait(cv, a, colors, opts = {}) {

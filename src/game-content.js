@@ -160,12 +160,12 @@ export const SLOT_NAMES = { implement: "Implement", shoes: "Shoes", charm: "Char
 // The stadium: fixed installations that are upgraded in place.
 // cost[k] / league[k] = price and league needed to go from level k to k + 1.
 export const STADIUM = {
-  track: { name: "Track", levels: ["Grass loop", "Cinder track", "Synthetic track", "Championship track"], cost: [0, 650, 1600], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level. Enables acceleration drills; level 2 supports elastic-strength blocks." },
+  track: { name: "Track", levels: ["Grass loop", "Gravel track", "Synthetic track", "Championship track"], cost: [0, 650, 1600], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level. Enables acceleration drills; level 2 supports elastic-strength blocks." },
   shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
   discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1000], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
   hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 1050], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
   jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  stands: { name: "Grandstand", levels: ["Grass banks", "Main stand", "Covered stands", "Full bowl"], cost: [500, 1200, 2600], league: [0, 1, 3], start: 0, max: 3, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level." },
+  stands: { name: "Grandstand", levels: ["Grass banks", "Bleachers", "Covered main stand", "Stands all round", "Olympic stadium"], cost: [450, 1100, 2400, 5200], league: [0, 1, 3, 4], start: 0, max: 4, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level. From grass banks to metal bleachers, a covered main stand, stands all round and finally an Olympic bowl with a ring roof." },
   studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 800, 1500], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +25% per level. Enables video sessions and feedback plans; meet reviews generate extra Insights." },
   lights: { name: "Floodlights", levels: ["None", "Floodlights", "Stadium lights"], cost: [900, 1800], league: [2, 3], start: 0, max: 2, desc: "Evening meets: +20% fans from home wins per level and a brighter crowd." },
 };
@@ -303,5 +303,75 @@ export const CLUB_PALETTES = [
   { name: "Teal & coral", primary: "#1f7a78", secondary: "#f07860" },
   { name: "Charcoal & lime", primary: "#3a3f44", secondary: "#b8e050" },
 ];
+// Customisation: the kit and the look of the stadium. Purely cosmetic, unlocked by progress
+// (fans, league, trophies, stadium upgrades) and then bought with club money.
+// req keys: fans, league, trophies, stands (grandstand level), track (track level).
+export const CUSTOMISE = {
+  kit: {
+    name: "Kit pattern",
+    options: {
+      plain: { name: "Plain", cost: 0 },
+      stripes: { name: "Stripes", cost: 300, req: { fans: 120 } },
+      hoops: { name: "Hoops", cost: 300, req: { fans: 300 } },
+      sash: { name: "Sash", cost: 600, req: { trophies: 1 } },
+      halves: { name: "Halves", cost: 800, req: { league: 2 } },
+    },
+  },
+  shorts: {
+    name: "Shorts",
+    options: {
+      dark: { name: "Dark", cost: 0 },
+      black: { name: "Black", cost: 100 },
+      white: { name: "White", cost: 150, req: { fans: 80 } },
+      navy: { name: "Navy", cost: 150, req: { fans: 200 } },
+      trim: { name: "Trim colour", cost: 250, req: { league: 1 } },
+    },
+  },
+  seats: {
+    name: "Seat colours",
+    options: {
+      solid: { name: "Solid", cost: 0 },
+      stripes: { name: "Striped rows", cost: 400, req: { stands: 2 } },
+      twotone: { name: "Two-tone", cost: 500, req: { stands: 2, fans: 600 } },
+      blocks: { name: "Alternating blocks", cost: 700, req: { stands: 3 } },
+    },
+  },
+  roof: {
+    name: "Roof",
+    options: {
+      steel: { name: "Steel", cost: 0 },
+      white: { name: "White", cost: 400, req: { stands: 2 } },
+      slate: { name: "Slate", cost: 400, req: { stands: 2 } },
+      club: { name: "Club colour", cost: 900, req: { stands: 2, trophies: 2 } },
+    },
+  },
+  track: {
+    name: "Track surface",
+    options: {
+      auto: { name: "Classic", cost: 0 },
+      red: { name: "Red", cost: 300, req: { track: 2 } },
+      blue: { name: "Blue", cost: 300, req: { track: 2 } },
+      green: { name: "Green", cost: 700, req: { track: 2, fans: 1000 } },
+      purple: { name: "Purple", cost: 1000, req: { track: 3 } },
+      black: { name: "Black", cost: 1200, req: { track: 3, trophies: 3 } },
+    },
+  },
+};
+export const CUSTOM_IDS = Object.keys(CUSTOMISE);
+const SURFACE_COLORS = { red: "#c0604a", blue: "#3d6cae", green: "#4a8a5a", purple: "#7a5aa8", black: "#4a4a52" };
+export const SHORTS_COLORS = { black: "#2a2a30", white: "#f0ece4", navy: "#2c3a5a" };
+export const STYLE_DEFAULT = { seats: "solid", roof: "steel", track: "auto", name: "" };
+export const styleOf = (s) => ({ ...STYLE_DEFAULT, ...(s.stadiumStyle || {}) });
+export function trackColorOf(level, surface = "auto") {
+  if (level <= 0) return "#7aa858";
+  if (level === 1) return "#a88a68";
+  if (surface !== "auto" && SURFACE_COLORS[surface]) return SURFACE_COLORS[surface];
+  return level >= 3 ? SURFACE_COLORS.blue : SURFACE_COLORS.red;
+}
+export function roofColorOf(s) {
+  return { steel: "#b8c0c6", club: s.colors.primary, white: "#e8ecee", slate: "#5a646c" }[styleOf(s).roof] || "#b8c0c6";
+}
+export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
+
 export const HELPER = "Juno";
 

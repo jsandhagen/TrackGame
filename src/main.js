@@ -2,7 +2,7 @@ import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, EVENTS, COMBOS, HELPER } from "./game-content.js";
+import { ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium, beatDuration, CUTIN_MS } from "./render/stadium.js";
@@ -710,8 +710,17 @@ $("#app").addEventListener("click", async (e) => {
     case "sponsor":
       if (G.chooseSponsor(state, b.dataset.value)) toast("Signed with " + b.querySelector("strong").textContent + ".");
       break;
+    case "buy-look": {
+      const name = CUSTOMISE[b.dataset.cat]?.options[b.dataset.key]?.name;
+      if (G.buyCustom(state, b.dataset.cat, b.dataset.key)) toast(name + " bought and in use.", "info", "star");
+      else toast(G.customProblem(state, b.dataset.cat, b.dataset.key) || "Not available.", "warn");
+      break;
+    }
+    case "use-look":
+      G.useCustom(state, b.dataset.cat, b.dataset.key);
+      break;
     case "palette":
-      state.colors = { primary: CLUB_PALETTES[+b.dataset.index].primary, secondary: CLUB_PALETTES[+b.dataset.index].secondary };
+      state.colors = { ...state.colors, primary: CLUB_PALETTES[+b.dataset.index].primary, secondary: CLUB_PALETTES[+b.dataset.index].secondary };
       break;
     case "check-update":
       await checkForUpdates();
@@ -780,6 +789,7 @@ $("#app").addEventListener("change", (e) => {
     setSound(state.settings.sound);
   }
   if (kind === "sig") view.sig = el.checked;
+  if (kind === "stadium-name") G.renameStadium(state, el.value);
   save();
   el.blur();
   render();

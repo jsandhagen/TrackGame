@@ -27,6 +27,11 @@ import {
   CLUB_PLOT,
   showStat,
   gradeOf,
+  CUSTOMISE,
+  CUSTOM_IDS,
+  SHORTS_COLORS,
+  trackColorOf,
+  roofColorOf,
 } from "../game-content.js";
 import { ico, moodIco } from "../render/uiicons.js";
 
@@ -392,12 +397,38 @@ export function league(s, view) {
 }
 
 // ── Office ──────────────────────────────────────────────────────────────
+// Kit and stadium customisation: a swatch per option, its unlock or price, and a name for the ground.
+function swatch(s, cat, key) {
+  const p = s.colors.primary,
+    t = s.colors.secondary;
+  if (cat === "kit")
+    return { plain: p, stripes: `repeating-linear-gradient(90deg, ${p} 0 4px, ${t} 4px 8px)`, hoops: `repeating-linear-gradient(0deg, ${p} 0 5px, ${t} 5px 10px)`, sash: `linear-gradient(135deg, ${p} 38%, ${t} 38% 62%, ${p} 62%)`, halves: `linear-gradient(90deg, ${p} 50%, ${t} 50%)` }[key];
+  if (cat === "shorts") return key === "dark" ? "#2a3a32" : key === "trim" ? t : SHORTS_COLORS[key];
+  if (cat === "seats") return { solid: p, stripes: `repeating-linear-gradient(0deg, ${p} 0 4px, ${t} 4px 8px)`, twotone: `linear-gradient(0deg, ${p} 50%, ${t} 50%)`, blocks: `repeating-linear-gradient(90deg, ${p} 0 8px, ${t} 8px 16px)` }[key];
+  if (cat === "roof") return roofColorOf({ ...s, stadiumStyle: { ...s.stadiumStyle, roof: key } });
+  return key === "auto" ? `linear-gradient(90deg, ${trackColorOf(2)} 50%, ${trackColorOf(3)} 50%)` : trackColorOf(2, key);
+}
+function lookCard(s) {
+  const face = s.roster[0];
+  return `<div class="card-title"><h2>${ico("star")} Kit & stadium</h2></div>
+  <p class="hint">New looks unlock as the club grows. Buy one once, then switch between your looks for free.</p>
+  ${face ? `<div class="look-preview">${portrait(face, "large")}<span><strong>${esc(face.name)}</strong><small>Home kit</small></span></div>` : ""}
+  ${CUSTOM_IDS.map((cat) => `<h3 class="look-title">${CUSTOMISE[cat].name}</h3><div class="look-row">${Object.entries(CUSTOMISE[cat].options).map(([key, o]) => {
+    const owned = G.ownsCustom(s, cat, key),
+      used = G.selectedCustom(s, cat) === key,
+      lock = G.customLock(s, cat, key),
+      problem = G.customProblem(s, cat, key);
+    return `<button class="look-opt ${used ? "selected" : ""} ${lock ? "locked" : ""}" data-act="${owned ? "use-look" : "buy-look"}" data-cat="${cat}" data-key="${key}" ${!owned && problem ? "disabled" : ""}><i class="sw" style="background:${swatch(s, cat, key)}"></i><strong>${esc(o.name)}</strong><small>${owned ? (used ? "In use" : "Owned") : lock ? ico("lock") + " " + esc(lock) : cash(o.cost)}</small></button>`;
+  }).join("")}</div>`).join("")}
+  <label class="stadium-name">Stadium name<input data-change="stadium-name" maxlength="24" placeholder="${esc(s.clubName)}" value="${esc(s.stadiumStyle.name)}"></label>`;
+}
 export function club(s, meta) {
   const set = s.settings;
   const toggle = (key, label, help) => `<label class="toggle"><input type="checkbox" data-change="setting" data-key="${key}" ${set[key] ? "checked" : ""}> ${label}${help ? `<small>${help}</small>` : ""}</label>`;
   const done = G.GOALS.filter((g) => s.goals.includes(g.id)).length;
   return `<form id="clubNameForm" class="name-form"><label>Club name<input maxlength="24" name="name" value="${esc(s.clubName)}" required></label><button class="button subtle" type="submit">Save</button></form>
   <div class="card-title"><h2>Club colours</h2></div><div class="palettes">${CLUB_PALETTES.map((p, i) => `<button class="palette ${s.colors.primary === p.primary && s.colors.secondary === p.secondary ? "selected" : ""}" data-act="palette" data-index="${i}" title="${p.name}"><i style="background:${p.primary}"></i><i style="background:${p.secondary}"></i></button>`).join("")}</div>
+  ${lookCard(s)}
   <div class="card-title"><h2>Sponsor</h2>${s.sponsorLocked ? chip("Locked this season", "#9aa58f") : chip("Choose before the first meet", "#e2b04a")}</div>
   <div class="sponsors">${Object.entries(SPONSORS).map(([id, d]) => `<button class="sponsor ${s.sponsor === id ? "selected" : ""}" data-act="sponsor" data-value="${id}" ${s.sponsorLocked || s.fans < d.fans ? "disabled" : ""}><strong>${d.name}</strong><small>${d.desc}</small>${s.fans < d.fans ? `<em>${d.fans.toLocaleString()} fans</em>` : ""}</button>`).join("")}</div>
   <p class="hint">Weekly: income ${cash(G.weeklyIncome(s))}, wages ${cash(G.wages(s))}. Visitors spend at the café and merch stand every day.</p>

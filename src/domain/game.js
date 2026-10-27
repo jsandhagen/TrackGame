@@ -57,6 +57,8 @@ export * from "./competition.js";
 export * from "./development.js";
 export * from "./coaching.js";
 export * from "./facility-duties.js";
+export * from "./customize.js";
+import { ensureCustom } from "./customize.js";
 import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
 import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
 export * from "./core.js";
@@ -136,7 +138,7 @@ export function newGame(seed = Date.now() >>> 0) {
   autoLineup(s);
   scout(s, true);
   note(s, "Welcome home, Coach! Choose a duel or enter a league from the Meets board.", "story");
-  return s;
+  return ensureCustom(s);
 }
 
 export function makeClubs(s, league, stage = 0) {

@@ -11,6 +11,8 @@
 - [x] Six secret characters with unique skills, unlocked by milestones.
 - [x] 33 items: consumables, gear with rarities, a fan-tiered shop, meet prize chests, a travelling merchant and forging.
 - [x] Beat-by-beat meets with both sides animated, skill cut-ins, Watch/Coach modes, clutch pauses, manual release, speed and skip.
+- [x] A stadium that grows from a gravel track in a field to an Olympic bowl, drawn with real height.
+- [x] Unlockable kit and stadium customisation bought with club money; stadium naming.
 - [x] 39 club goals, 17 story events, sponsors, awards night, club records, hall of fame, club colours.
 - [x] New outlined chibi pixel art, 2.5D buildings, pixel font, stadium that grows with the league, synthesized sound.
 - [x] v5 saves with v4/v3/v2 migration; balance harness for pacing and tactics.

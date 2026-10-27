@@ -1,7 +1,7 @@
 import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel.js";
 import { text } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
-import { EVENTS, EVENT_IDS, LEAGUES } from "../game-content.js";
+import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best } from "../domain/game.js";
 
 // The scene keeps a fixed 270px-tall layout; its width follows the screen.
@@ -10,7 +10,7 @@ export const H = 270;
 const TRACK_COLORS = ["#7aa858", "#b07850", "#c46a4e", "#3a6ab0"];
 // Home meets use your own stadium; away venues grow with the league.
 function venueOf(s, m) {
-  if (m.home) return { stands: s.stadium.stands, lights: s.stadium.lights > 0, track: TRACK_COLORS[s.stadium.track], crowd: Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) };
+  if (m.home) return { stands: s.stadium.stands, lights: s.stadium.lights > 0, track: trackColorOf(s.stadium.track, styleOf(s).track), crowd: Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) };
   const L = s.league;
   return { stands: Math.min(3, L + 1), lights: L >= 2, track: TRACK_COLORS[L >= 3 ? 3 : 2], crowd: LEAGUES[L].crowd };
 }

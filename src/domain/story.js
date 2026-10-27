@@ -37,7 +37,7 @@ export const GOALS = [
   { id: "learn6", name: "Bag of Tricks", desc: "Learn 6 skills", target: 6, progress: (s) => s.counters.skillsLearned || 0, reward: { items: { scroll: 1 } } },
   { id: "rare", name: "Rare Find", desc: "Sign a Rare-or-better athlete", target: 1, progress: (s) => s.counters.rareSigned || 0, reward: { money: 500 } },
   { id: "fans500", name: "Town Talk", desc: "Reach 500 fans", target: 500, progress: (s) => s.fans, reward: { items: { scroll: 1 } } },
-  { id: "stand", name: "Take a Seat", desc: "Build the main stand", target: 1, progress: (s) => s.stadium.stands, reward: { fans: 60 } },
+  { id: "stand", name: "Take a Seat", desc: "Put up some bleachers", target: 1, progress: (s) => s.stadium.stands, reward: { fans: 60 } },
   { id: "upgrade3", name: "Top Floor", desc: "Take any facility to level 3", target: 3, progress: (s) => Math.max(...s.plots.map((p) => (p && p.type !== "club" ? p.level : 0)), s.stadium.shot, s.stadium.discus, s.stadium.hammer, s.stadium.jav, s.stadium.stands, s.stadium.studio), reward: { money: 400 } },
   { id: "title1", name: "Silverware", desc: "Win a league title", target: 1, progress: (s) => s.trophies.length, reward: { items: { medal: 1 } } },
   { id: "shot15", name: "Fifteen Metres", desc: "Club shot put record of 15 m", target: 15, progress: (s) => bestMark(s, "shot"), reward: { money: 600 } },
