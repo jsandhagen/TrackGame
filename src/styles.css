@@ -4328,3 +4328,28 @@ ol.howto li::marker {
 .invite-trophy strong {
   color: #9a7420;
 }
+/* One pause menu replaces permanent utility buttons in the HUD. */
+#gameMenu { width: min(420px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 3px solid #163a2c; border-radius: 9px; background: var(--paper); color: var(--ink); overflow: hidden; box-shadow: 0 6px 0 #0b1d16, 0 18px 40px #0007; }
+#gameMenu[open] { display: flex; flex-direction: column; }
+#gameMenu::backdrop { background: #0a1f19aa; }
+.game-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; background: #163a2c; color: #fff0c4; }
+.game-menu-head small { font: 700 9px var(--display); letter-spacing: 1.5px; color: #b4c8a2; }
+.game-menu-head h1 { font-size: 23px; }
+.game-menu-head > button { width: 34px; height: 34px; flex-shrink: 0; background: #ffffff15; color: #fff0c4; border: 1px solid #ffffff30; border-radius: 5px; font-size: 25px; }
+.game-menu-body { overflow-y: auto; min-height: 0; padding: 12px 14px; }
+.menu-club { font-weight: 700; margin-bottom: 10px; }
+.menu-club > span { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+.game-menu-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.game-menu-actions .button { margin: 0; min-height: 44px; }
+.game-menu-actions .button:first-child { grid-column: 1 / -1; }
+.game-menu-actions .button:last-child { grid-column: 1 / -1; background: #e7d49c; border-color: #ad975e; }
+.game-menu-links { display: flex; justify-content: space-between; gap: 8px; padding-top: 5px; }
+.game-menu-body > label:not(.toggle) { display: grid; gap: 4px; margin-bottom: 12px; font-size: 12px; font-weight: 700; }
+.game-menu-body > label:not(.toggle) small { font-size: 10px; font-weight: 400; color: var(--muted); }
+.game-menu-body select { width: 100%; min-height: 36px; }
+.game-menu-body .toggle { margin: 4px 0; font-size: 12px; padding: 8px; }
+#menuSaveStatus { font-size: 12px; color: #356643; margin-top: 8px; }
+#menuSaveStatus:empty { display: none; }
+.saved-club > b { display: block; color: #356643; margin-bottom: 8px; }
+.saved-club .button { width: 100%; margin-top: 14px; }
+.meet-result-tabs .report-menu { order: 3; flex: 0 0 auto; margin-left: auto; background: #ede8cf; color: #435c46; }

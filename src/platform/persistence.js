@@ -5,6 +5,7 @@ import { Preferences } from "@capacitor/preferences";
 export async function createPersistence(key) {
   let snapshot = null;
   let queue = Promise.resolve();
+  let writeError = null;
   const native = Capacitor.isNativePlatform();
   if (native) {
     try {
@@ -25,7 +26,10 @@ export async function createPersistence(key) {
   }
   return {
     read: () => snapshot,
-    flush: () => queue,
+    async flush() {
+      await queue;
+      if (writeError) throw writeError;
+    },
     write(value) {
       snapshot = value;
       try {
@@ -35,8 +39,12 @@ export async function createPersistence(key) {
       }
       if (native)
         queue = queue
-          .then(() => Preferences.set({ key, value }))
+          .then(async () => {
+            await Preferences.set({ key, value });
+            writeError = null;
+          })
           .catch((error) => {
+            writeError = error;
             console.error("Native save failed", error);
             window.dispatchEvent(new Event("save-error"));
           });

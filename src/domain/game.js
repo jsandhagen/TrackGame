@@ -83,7 +83,7 @@ export function setAthleteEvent(s, id, event) {
   return true;
 }
 
-export const DEFAULT_SETTINGS = { meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false, highlights: true };
+export const DEFAULT_SETTINGS = { orientation: "auto", meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
