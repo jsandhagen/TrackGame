@@ -42,7 +42,7 @@ Open the printed local URL. Use `npm run dev -- --host 0.0.0.0` to expose the de
 
 ## Android app
 
-The `android/` project packages the game locally with Capacitor. It opens in landscape, requests immersive presentation with swipe access to system controls, pauses on backgrounding, uses native Preferences for saves and the system share sheet for backup export.
+The `android/` project packages the game locally with Capacitor. It follows the device orientation by default (with portrait and landscape preferences in Settings), requests immersive presentation with swipe access to system controls, pauses on backgrounding, uses native Preferences for saves and the system share sheet for backup export.
 
 Local native development requires Java 21, Android Studio 2025.2.1+ and Android SDK 36:
 

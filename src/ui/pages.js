@@ -685,9 +685,19 @@ function lookCard(s) {
   }).join("")}</div>`).join("")}
   <label class="stadium-name">Stadium name<input data-change="stadium-name" maxlength="24" placeholder="${esc(s.clubName)}" value="${esc(s.stadiumStyle.name)}"></label>`;
 }
+export function gameMenu(s, {page = "main", native = false} = {}) {
+  const toggle = (key, label, help = "") => `<label class="toggle"><input type="checkbox" data-change="setting" data-key="${key}" ${s.settings[key] ? "checked" : ""}> ${label}${help ? `<small>${help}</small>` : ""}</label>`;
+  const title = page === "saved" ? "Club saved" : page === "settings" ? "Settings" : "Game menu";
+  return `<header class="game-menu-head"><div><small>RING & SECTOR</small><h1 id="gameMenuTitle">${title}</h1></div>${page !== "saved" ? '<button data-act="menu-close" aria-label="Close menu">×</button>' : ""}</header><div class="game-menu-body">
+  ${page === "saved" ? `<div class="saved-club"><b>All progress saved.</b><p>${esc(s.clubName)} is ready for your next visit. You can safely close this tab.</p>${btn("Resume game", "menu-close")}</div>` : page === "settings" ? `
+    <label>Screen orientation<select data-change="orientation" ${native ? "" : "disabled"}>${[["auto","Follow device"],["portrait","Portrait"],["landscape","Landscape"]].map(([id,name])=>`<option value="${id}" ${(s.settings.orientation||"auto")===id?"selected":""}>${name}</option>`).join("")}</select><small>${native ? "Follow device respects your phone’s rotation setting." : "In your browser, rotate the device or resize the window."}</small></label>
+    <label>Default meet mode<select data-change="menu-meet-mode">${["watch","coach"].map(mode=>`<option value="${mode}" ${s.settings.meetMode===mode?"selected":""}>${mode==="watch"?"Watch":"Coach every throw"}</option>`).join("")}</select></label>
+    ${toggle("highlights", "Meet highlights", "Fast-forward routine attempts.")}${toggle("clutch", "Pause for clutch moments")}${toggle("manualRelease", "Manual release timing")}${toggle("sound", "Sound effects")}${toggle("reducedMotion", "Reduce motion")}
+    ${btn("Back to menu", "game-menu", "", "subtle")}
+  ` : `<p class="menu-club">${esc(s.clubName)} <span>Season ${s.season} · Day ${s.day}</span></p><div class="game-menu-actions">${btn("Resume game", "menu-close")}${btn("Settings", "menu-settings", "", "subtle")}${btn("Save game", "save-game", "", "subtle")}${btn("Save & exit", "save-exit", "", "subtle")}</div><div class="game-menu-links">${btn("Export backup", "export", "", "text")}${btn("How to play", "menu-help", "", "text")}</div><p class="hint">Progress also saves automatically after each day and throw.</p>`}
+  <p id="menuSaveStatus" role="status" aria-live="polite"></p></div>`;
+}
 export function club(s, meta) {
-  const set = s.settings;
-  const toggle = (key, label, help) => `<label class="toggle"><input type="checkbox" data-change="setting" data-key="${key}" ${set[key] ? "checked" : ""}> ${label}${help ? `<small>${help}</small>` : ""}</label>`;
   const done = G.GOALS.filter((g) => s.goals.includes(g.id)).length;
   return `<form id="clubNameForm" class="name-form"><label>Club name<input maxlength="24" name="name" value="${esc(s.clubName)}" required></label><button class="button subtle" type="submit">Save</button></form>
   <div class="card-title"><h2>Club colours</h2></div><div class="palettes">${CLUB_PALETTES.map((p, i) => `<button class="palette ${s.colors.primary === p.primary && s.colors.secondary === p.secondary ? "selected" : ""}" data-act="palette" data-index="${i}" title="${p.name}"><i style="background:${p.primary}"></i><i style="background:${p.secondary}"></i></button>`).join("")}</div>
@@ -697,11 +707,7 @@ export function club(s, meta) {
   <p class="hint">Weekly: income ${cash(G.weeklyIncome(s))}, wages ${cash(G.wages(s))}. Visitors spend at the café and merch stand every day.</p>
   <details class="card" open><summary>${ico("target")} Club goals · ${done} / ${G.GOALS.length}</summary>${G.GOALS.map((g) => (s.goals.includes(g.id) ? `<div class="goal done"><div><strong>${ico("check")} ${esc(g.name)}</strong><small>${esc(g.desc)}</small></div><span class="reward">${esc(G.rewardText(g.reward))}</span></div>` : goalRow(s, g))).join("")}</details>
   <details class="card"><summary>${ico("trophy")} Hall of fame</summary>${s.awardHistory.length ? s.awardHistory.slice(0, 20).map((w) => `<div class="history"><span>Season ${w.season} · ${esc(w.award)}</span><b>${esc(w.name)}</b></div>`).join("") : "<p class='hint'>Season awards appear here.</p>"}${s.alumni.length ? `<div class="card-title"><h2>Alumni</h2></div>${s.alumni.map((a) => `<div class="history"><span>${esc(a.name)} · ${EVENTS[a.event].name}</span><b>${a.pb[a.event] ? mark(a.pb[a.event]) : "—"}</b></div>`).join("")}` : ""}</details>
-  <div class="card-title"><h2>Settings</h2></div>
-  ${toggle("clutch", "Pause for clutch moments", "Your last attempt when behind, even while watching.")}
-  ${toggle("manualRelease", "Manual release timing", "Tap on the gold zone for up to +2% when you coach a throw.")}
-  ${toggle("sound", "Sound effects")}
-  ${toggle("reducedMotion", "Reduce motion", "Fewer particles and shorter celebrations.")}
+  ${btn("Settings & saving", "game-menu", "", "subtle")}
   <div class="card-title"><h2>Save & transfer</h2></div><div class="inline">${btn("Export club", "export", "", "subtle")}${btn("Import club", "import", "", "subtle")}${btn("How to play", "help", "", "subtle")}</div>
   <p class="hint">Export before switching devices. Game ${esc(meta.version)} · ${esc(meta.status)}</p>
   <div class="inline">${btn("Check for updates", "check-update", "", "subtle")}${btn("Apply downloaded update", "apply-update", meta.pending ? "" : "disabled", "subtle")}</div>`;
@@ -834,7 +840,7 @@ export function meetComplete(s, view = {}) {
   return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : m.kind === "cup" ? esc(r.invitational?.name || "INVITATIONAL").toUpperCase() : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b>${m.score} <small>–</small> ${m.against}</b><span>${esc(m.name)}</span></div></header>
   <div class="meet-payout"><span>${ico("coin")} <b>+${cash(r.money || 0)}</b></span><span>${ico("heart")} +${r.fans || 0} fans</span><span>${ico("idea")} +${r.insights || 0} Insights</span>${r.mvp ? `<span class="meet-mvp">${ico("star")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}</div>
   ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
-  <nav class="meet-result-tabs" aria-label="Meet report"><button data-act="result-view" data-value="results" aria-pressed="${!growth}" class="${!growth?"active":""}">Results</button><button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
+  <nav class="meet-result-tabs" aria-label="Meet report"><button class="report-menu" data-act="game-menu">Menu</button><button data-act="result-view" data-value="results" aria-pressed="${!growth}" class="${!growth?"active":""}">Results</button><button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
   ${growth ? meetGrowth(s) : `
   <nav class="result-filters" aria-label="Filter event results">${[["all","All events"],...EVENT_IDS.map(ev=>[ev,EVENTS[ev].name])].map(([id,label])=>`<button data-act="result-event" data-event="${id}" aria-pressed="${selected === id}" class="${selected === id ? "active" : ""}">${label}</button>`).join("")}<small><i></i> Your athletes · NM = no mark</small></nav>
   <div class="scorebook-grid ${selected !== "all" ? "single-event" : ""}">${G.eventScores(m).filter(e=>selected === "all" || e.event === selected).map(e=>resultTable(s,e)).join("")}</div>
