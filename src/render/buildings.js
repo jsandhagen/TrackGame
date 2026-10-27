@@ -290,6 +290,44 @@ export function drawFacility(g, type, level, x, y, o = {}) {
       for (let i = 0; i < 3; i++) windowAt(g, lx + 4 + i * 12, b - 12, 7, 5, i === 1);
       if (L > 1) for (let i = 0; i < 3; i++) rect(g, lx + w + 4 + i * 3, b - 10, 2, 8, ["#6ad0e0", "#a0e070", "#e070c0"][i]);
     },
+    indoor() {
+      const lx=x+8, w=72, h=23+L*2;
+      box(g,lx,b,w,h,24,"#c4d4dc");
+      gable(g,lx,b-h,w,24,9,"#5f8291");
+      for(let n=0;n<6;n++) rect(g,lx+3+n*11,b-h+2,1,h-2,"#92aab8");
+      rect(g,lx+10,b-17,24,17,"#354b54");
+      for(let n=0;n<5;n++) line(g,lx+12+n*5,b-16,lx+12+n*5,b-1,"#77918d");
+      for(let n=0;n<4;n++) line(g,lx+11,b-15+n*4,lx+33,b-15+n*4,"#77918d");
+      door(g,lx+51,b,9,14,colors.primary);
+      sign(g,lx+42,b-h-12,"HALL","#426574");
+      if(L>1) windowAt(g,lx+38,b-17,9,6,true);
+      if(L>2) flagpole(g,lx+w+4,b,28);
+    },
+    lodge() {
+      const lx=x+15, w=56, h=20+(L-1)*5;
+      box(g,lx,b,w,h,22,"#b9946c");
+      gable(g,lx,b-h,w,22,8,"#65513c");
+      for(let n=0;n<h;n+=4) rect(g,lx,b-h+n,w,1,"#997752");
+      windowAt(g,lx+6,b-15,14,8,true); windowAt(g,lx+35,b-15,14,8,true);
+      door(g,lx+25,b,7,12,colors.primary);
+      bench(g,lx-10,b+2);
+      sign(g,lx+28,b-h-13,"COACH","#65513c");
+      rect(g,lx+62,b-21,14,12,"#e5dfcd");
+      line(g,lx+65,b-17,lx+72,b-12,"#536f52");
+      if(L>1) table(g,lx+65,b+1,colors.secondary);
+      if(L>2) flagpole(g,lx-6,b,32);
+    },
+    testing() {
+      const lx=x+12, w=64, h=23+L*2;
+      box(g,lx,b,w,h,22,"#dce8e5");
+      rect(g,lx+2,b-h+2,w-4,4,"#508780");
+      windowAt(g,lx+6,b-20,25,12,true); door(g,lx+43,b,10,17,"#508780");
+      for(let n=0;n<3;n++) line(g,lx+9+n*6,b-9,lx+15+n*6,b-17,"#a57c4a",2);
+      ellipse(g,lx+20,b-6,4,2,"#b6bdc5");
+      sign(g,lx+32,b-h-11,"TEST","#376a65");
+      if(L>1) box(g,lx+69,b,9,14,9,"#7a9d98");
+      if(L>2) { rect(g,lx+8,b-h-7,35,3,"#457b81"); flagpole(g,lx-5,b,30); }
+    },
     fountain() {
       const cx = x + 50,
         cy = b - 10;

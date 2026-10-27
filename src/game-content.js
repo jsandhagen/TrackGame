@@ -120,6 +120,14 @@ export const TACTICS = {
 // Use keys: stamina stat cond xp sp heal teamCond teamStamina buff potential promote.
 export const SHOP_TIERS = [0, 120, 400, 1200, 3000];
 export const ITEMS = {
+  steelshot: { name: "Turned Steel Shot", event: "shot", kind: "gear", slot: "implement", rarity: "common", price: 200, tier: 0, icon: "ball", color: "#8e9aa4", desc: "Shot only: smooth steel competition shot. Foul risk −20%, distance +0.5%.", foul: 0.8, mark: 1.005 },
+  brassshot: { name: "Brass Competition Shot", event: "shot", kind: "gear", slot: "implement", rarity: "epic", price: 1100, tier: 3, icon: "ball", color: "#c8a45a", desc: "Shot only: compact brass shot. Distance +1%; up to another +2% as shot mastery rises from 40 to 80. Foul risk +10%.", mark: 1.01, foul: 1.1, masteryMark: [40, 80, 0.02] },
+  lowrim: { name: "Low-Rim-Weight Discus", event: "discus", kind: "gear", slot: "implement", rarity: "rare", price: 320, tier: 1, icon: "discus", color: "#8ab8d0", desc: "Discus only: an accessible rim-weight distribution. Foul risk −20%, throw spread −15%.", foul: 0.8, variance: 0.85 },
+  highrim: { name: "High-Rim-Weight Discus", event: "discus", kind: "gear", slot: "implement", rarity: "epic", price: 1200, tier: 3, icon: "discus", color: "#d0a85a", desc: "Discus only: rewards a well-developed release. Distance +1%; up to another +2.5% from mastery 45–85. Foul risk +25%.", mark: 1.01, foul: 1.25, masteryMark: [45, 85, 0.025] },
+  steelhammer: { name: "Steel-Head Hammer", event: "hammer", kind: "gear", slot: "implement", rarity: "rare", price: 340, tier: 1, icon: "hammer", color: "#8e9aa4", desc: "Hammer only: steel head, wire and handle. Foul risk −15%, throw spread −10%.", foul: 0.85, variance: 0.9 },
+  tungstenhammer: { name: "Tungsten-Core Hammer", event: "hammer", kind: "gear", slot: "implement", rarity: "epic", price: 1250, tier: 3, icon: "hammer", color: "#a8b0b8", desc: "Hammer only: compact competition head. Distance +1%; up to another +2% from mastery 45–85. Foul risk +15%.", mark: 1.01, foul: 1.15, masteryMark: [45, 85, 0.02] },
+  aluminiumjav: { name: "Aluminium Training Javelin", event: "jav", kind: "gear", slot: "implement", rarity: "common", price: 180, tier: 0, icon: "javelin", color: "#88b0d0", desc: "Javelin only: aluminium practice implement. Training +12%, competition distance −1%.", gain: 1.12, mark: 0.99 },
+  stiffjav: { name: "Stiff-Shaft Competition Javelin", event: "jav", kind: "gear", slot: "implement", rarity: "epic", price: 1200, tier: 3, icon: "javelin", color: "#d87850", desc: "Javelin only: a stiffer shaft matched to a developed delivery. Distance +1%; up to another +2.5% from mastery 50–90. Foul risk +20%.", mark: 1.01, foul: 1.2, masteryMark: [50, 90, 0.025] },
   precision: { name: "Precision Implement", kind: "gear", slot: "implement", rarity: "common", price: 180, tier: 0, icon: "ball", color: "#7fb3c8", desc: "Foul risk −30%, distance −0.5%.", foul: 0.7, mark: 0.995 },
   weighted: { name: "Weighted Trainer", kind: "gear", slot: "implement", rarity: "common", price: 150, tier: 0, icon: "ball", color: "#8a8478", desc: "Training +12%, distance −1.5%.", gain: 1.12, mark: 0.985 },
   competition: { name: "Competition Implement", kind: "gear", slot: "implement", rarity: "rare", price: 340, tier: 1, icon: "ball", color: "#e0b04a", desc: "Distance +2%, foul risk +20%.", mark: 1.02, foul: 1.2 },
@@ -185,6 +193,9 @@ export const FACILITIES = {
   scout: { name: "Scout Office", cost: 500, league: 1, color: "#7a8a5a", desc: "Rarer recruits and −15% scouting cost per level." },
   workshop: { name: "Kit Workshop", cost: 560, league: 1, color: "#9a7a5a", desc: "Forge gear: +0.6% distance per forge level. −10% forge cost per level." },
   lab: { name: "Sports Lab", cost: 800, league: 2, color: "#7ab0d0", desc: "XP +10% per level. Adds a Coaching Insight every third productive training day." },
+  indoor: { name: "Indoor Training Hall", cost: 1800, league: 2, color: "#6c91a0", desc: "Unlocks low-load indoor technical sessions. Each level improves that session's technique gains; practice still needs competition experience." },
+  lodge: { name: "Coaching Lodge", cost: 2800, league: 3, color: "#a88760", desc: "Lower-level athletes gain +8% XP per level when a more experienced teammate trains the same event. Enables coached peer review." },
+  testing: { name: "Equipment Testing Centre", cost: 4500, league: 4, color: "#719d9b", desc: "Enables implement trials: build event mastery and technique with event-matched gear. Levels improve trial gains. No extra distance bonus." },
   statue: { name: "Champion Statue", cost: 900, league: 0, needsTitle: true, color: "#c8b078", desc: "Needs a title. +2 fans a day per level; fans from wins +10%." },
 };
 export const FACILITY_IDS = Object.keys(FACILITIES);
@@ -232,37 +243,52 @@ export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1
 
 export const LEAGUES = [
   { name: "Community League", tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
-  { name: "County League", tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas & Sports Lab" },
-  { name: "Regional League", tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots and a championship track" },
-  { name: "National League", tag: "Your little club has made a name.", rating: 79, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage" },
+  { name: "County League", tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
+  { name: "Regional League", tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
+  { name: "National League", tag: "Your little club has made a name.", rating: 79, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
   { name: "World League", tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
 ];
 
 export const CLUBS = [
   [
-    { name: "Northgate AC", color: "#b65b4a", style: "Power-first club · dangerous in shot put" },
-    { name: "Harbor Throws", color: "#587eae", style: "Technical club · discus specialists" },
-    { name: "Oakridge TC", color: "#9974a3", style: "Fast-turning squad · hammer & javelin" },
+    { name: "Northgate AC", identity: "power", color: "#b65b4a", style: "Power-first club · dangerous in shot put" },
+    { name: "Harbor Throws", identity: "control", color: "#587eae", style: "Technical club · discus specialists" },
+    { name: "Oakridge TC", identity: "speed", color: "#9974a3", style: "Fast-turning squad · hammer & javelin" },
+    { name: "Willow Juniors", identity: "adaptable", color: "#729954", style: "Young all-rounders · secondary-event learners" },
+    { name: "Foundry Throws", identity: "power", color: "#9e6b53", style: "Strength specialists · shot and hammer" },
+    { name: "Lakeside AC", identity: "control", color: "#507f9c", style: "Reliable legal series · fewer spectacular throws" },
   ],
   [
-    { name: "Meadowfield Hares", color: "#c07a3a", style: "Quick feet · javelin threats" },
-    { name: "River City Otters", color: "#3f8f9a", style: "Smooth technicians" },
-    { name: "Stonebridge Rams", color: "#7d6a5a", style: "Brute strength in the ring" },
+    { name: "Meadowfield Hares", identity: "speed", color: "#c07a3a", style: "Quick feet · javelin threats" },
+    { name: "River City Otters", identity: "control", color: "#3f8f9a", style: "Smooth technicians" },
+    { name: "Stonebridge Rams", identity: "power", color: "#7d6a5a", style: "Brute strength in the ring" },
+    { name: "Ashgrove Union", identity: "hammer", color: "#8a6961", style: "Hammer specialists · rhythmic turns" },
+    { name: "Westhaven AC", identity: "clutch", color: "#ab7851", style: "Late-series threats · strong final attempts" },
+    { name: "Birchfield Collective", identity: "depth", color: "#608b78", style: "Versatile supporting scorers" },
   ],
   [
-    { name: "Cedar Valley", color: "#4f7d4a", style: "Deep, balanced roster" },
-    { name: "Highland Union", color: "#8a4f6e", style: "Hammer royalty" },
-    { name: "Eastbank Elite", color: "#3d5f8f", style: "Clutch performers" },
+    { name: "Cedar Valley", identity: "depth", color: "#4f7d4a", style: "Deep, balanced roster" },
+    { name: "Highland Union", identity: "hammer", color: "#8a4f6e", style: "Hammer royalty" },
+    { name: "Eastbank Elite", identity: "clutch", color: "#3d5f8f", style: "Clutch performers" },
+    { name: "Southbank Flyers", identity: "speed", color: "#a5914b", style: "Fast approaches · dangerous javelin specialists" },
+    { name: "Quarry Athletics", identity: "power", color: "#887467", style: "Shot and hammer power · weaker flight events" },
+    { name: "Elmwood Institute", identity: "adaptable", color: "#668e9f", style: "Technical cross-training · adaptable reserves" },
   ],
   [
-    { name: "Metro Athletics", color: "#c0504d", style: "Big-city professionals" },
-    { name: "Ironwood Club", color: "#5a5f66", style: "Unflappable veterans" },
-    { name: "Capital Union", color: "#2f5f9f", style: "National record holders" },
+    { name: "Metro Athletics", identity: "depth", color: "#c0504d", style: "Big-city professionals" },
+    { name: "Ironwood Club", identity: "control", color: "#5a5f66", style: "Unflappable veterans" },
+    { name: "Capital Union", identity: "clutch", color: "#2f5f9f", style: "National record holders" },
+    { name: "Coastal Institute", identity: "adaptable", color: "#527f9e", style: "Versatile technicians · secondary-event coverage" },
+    { name: "Granite Athletics", identity: "hammer", color: "#9a6b7f", style: "Hammer specialists · a strong supporting scorer" },
+    { name: "Meridian AC", identity: "speed", color: "#7c9160", style: "Fast deliveries · javelin and discus" },
   ],
   [
-    { name: "Aurora AC", color: "#6a4fb0", style: "Reigning world power" },
-    { name: "Summit Collective", color: "#2f8f7a", style: "High-altitude monsters" },
-    { name: "Pacific Stars", color: "#d08a2f", style: "Showtime throwers" },
+    { name: "Aurora AC", identity: "depth", color: "#6a4fb0", style: "Reigning world power" },
+    { name: "Summit Collective", identity: "power", color: "#2f8f7a", style: "High-altitude monsters" },
+    { name: "Pacific Stars", identity: "clutch", color: "#d08a2f", style: "Showtime throwers" },
+    { name: "Atlas Throws", identity: "hammer", color: "#9f6756", style: "Hammer contenders · disciplined supporting squad" },
+    { name: "Zephyr Athletics", identity: "speed", color: "#598fa3", style: "Fast approach specialists · javelin threats" },
+    { name: "Orion Collective", identity: "control", color: "#81916e", style: "Consistent series · precision equipment" },
   ],
 ];
 export const CLUB_BIASES = [

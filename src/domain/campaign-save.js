@@ -2,7 +2,7 @@ import { initMastery, PROFILES, APPROACHES } from "./mastery.js";
 import { ensureCustom } from "./customize.js";
 import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
-import { EVENT_IDS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE } from "../game-content.js";
+import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE } from "../game-content.js";
 import { syncMarks } from "./meet.js";
 import { statTotal, slotsOf } from "./core.js";
 import { dutySite } from "./facility-duties.js";
@@ -273,14 +273,14 @@ export function validateCampaign(input) {
   } else {
     const c = s.competition;
     if (!c || !["duel", "league"].includes(c.kind) || !int(c.tier, 0, s.league) || !int(c.stage, 0, 2) ||
-        !int(c.rival, 0, 2) || ![4, 7, 10].includes(c.spacing) || !int(c.startDay, 1, s.day + 30) || !int(s.matchDay, s.day, s.day + 30)) bad();
+        !int(c.rival, 0, CLUBS[c.tier].length - 1) || ![4, 7, 10].includes(c.spacing) || !int(c.startDay, 1, s.day + 30) || !int(s.matchDay, s.day, s.day + 30)) bad();
     if (c.kind === "duel" && (s.fixture !== 0 || s.phase === "seasonEnd")) bad();
   }
   if (!int(s.clubTier, 0, 4) || !int(s.clubStage, 0, 2)) bad();
   if (s.competition && (s.clubTier !== s.competition.tier || s.clubStage !== s.competition.stage)) bad();
   if (!s.circuit || !Array.isArray(s.circuit.cleared) || !Array.isArray(s.circuit.duels)) bad();
-  for (const list of [s.circuit.cleared, s.circuit.duels]) {
-    if (list.length > 15 || new Set(list).size !== list.length || list.some((k) => typeof k !== "string" || !/^[0-4]:[0-2]$/.test(k))) bad();
+  for (const [list,max,pattern] of [[s.circuit.cleared,15,/^[0-4]:[0-2]$/],[s.circuit.duels,30,/^[0-4]:[0-5]$/]]) {
+    if (list.length > max || new Set(list).size !== list.length || list.some(k => typeof k !== "string" || !pattern.test(k))) bad();
   }
   if (!s.coaching || !int(s.coaching.insights,0,1e9) || !int(s.coaching.practiceDays,0,1e9) || !Array.isArray(s.coaching.unlocked) || new Set(s.coaching.unlocked).size !== s.coaching.unlocked.length || s.coaching.unlocked.some((id) => !PLANS[id]?.course)) bad();
   for (const a of s.roster || []) if (PLANS[a.plan]?.course && !s.coaching.unlocked.includes(a.plan)) bad();
@@ -305,17 +305,23 @@ export function validateCampaign(input) {
     const all = EVENT_IDS.flatMap((ev) => s.entries[ev]);
     if (all.some((id) => all.filter((n) => n === id).length > 2)) bad();
   }
-  if (!Array.isArray(s.clubs) || s.clubs.length !== 3) bad();
+  if (!Array.isArray(s.clubs) || ![3,6].includes(s.clubs.length)) bad();
+  if(s.competition?.kind === "league" && s.clubs.length !== 3) bad();
+  const clubIds = new Set();
   const rivalIds = new Set();
   for (const c of s.clubs) {
+    if(!int(c.id,0,5) || clubIds.has(c.id)) bad();
+    clubIds.add(c.id);
     if (!word(c.name) || !color(c.color) || !Array.isArray(c.athletes) || (c.athletes.length < 4 || c.athletes.length > 6) || !num(c.points, 0, 100) || !num(c.diff, -1000, 1000)) bad();
     for (const a of c.athletes) checkAthlete(a, rivalIds, true);
   }
   if(!s.rivalClubs || typeof s.rivalClubs!=="object" || Array.isArray(s.rivalClubs) || Object.keys(s.rivalClubs).length>5) bad();
   for(const [tier,clubs] of Object.entries(s.rivalClubs)) {
-    if(!/^[0-4]$/.test(tier)||!Array.isArray(clubs)||clubs.length!==3) bad();
-    const cacheIds=new Set();
+    if(!/^[0-4]$/.test(tier)||!Array.isArray(clubs)||![3,6].includes(clubs.length)) bad();
+    const cacheIds=new Set(), cacheClubs=new Set();
     for(const c of clubs) {
+      if(!int(c.id,0,5) || cacheClubs.has(c.id)) bad();
+      cacheClubs.add(c.id);
       if(!word(c.name)||!color(c.color)||!Array.isArray(c.athletes)||c.athletes.length<4||c.athletes.length>6) bad();
       for(const a of c.athletes)checkAthlete(a,cacheIds,true);
     }

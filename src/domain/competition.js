@@ -19,7 +19,7 @@ export function entryProblem(s, kind, tier, stage = 0, rival = 0) {
   if (s.pendingEvent) return "Resolve the club decision first.";
   if (!["league", "duel"].includes(kind) || !Number.isInteger(tier) || tier < 0 || tier > 4) return "Unknown competition.";
   if (tier > s.league) return "Win the previous level's Championship to earn an invitation.";
-  if (kind === "duel") return Number.isInteger(rival) && rival >= 0 && rival < 3 ? null : "Unknown rival.";
+  if (kind === "duel") return Number.isInteger(rival) && rival >= 0 && rival < CLUBS[tier].length ? null : "Unknown rival.";
   if (!Number.isInteger(stage) || stage < 0 || stage > 2) return "Unknown trophy.";
   if (stage > 0 && !s.circuit.cleared.includes(circuitKey(tier, stage - 1))) return "Win the " + CIRCUIT_STAGES[stage - 1] + " first.";
   return null;
@@ -29,9 +29,14 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   // Keep the same named athletes when repeating a competition at the same level.
   const strength = kind === "duel" ? 0 : stage;
   s.rivalClubs ??= {};
-  s.rivalClubs[s.clubTier]=s.clubs;
-  s.clubs=s.rivalClubs[tier] || makeClubs(s,tier,strength);
-  s.rivalClubs[tier]=s.clubs;
+  const previousPool = s.rivalClubs[s.clubTier] || [];
+  s.rivalClubs[s.clubTier] = [...previousPool.filter(c => !s.clubs.some(active => active.id === c.id)), ...s.clubs].sort((a,b) => a.id-b.id);
+  let pool = s.rivalClubs[tier] || [];
+  const missing = CLUBS[tier].map((_,i) => i).filter(id => !pool.some(c => c.id === id));
+  pool = [...pool, ...makeClubs(s,tier,strength,missing)].sort((a,b) => a.id-b.id);
+  s.rivalClubs[tier] = pool;
+  const offset = (strength * 2 + Math.floor((s.season-1)/3)) % pool.length;
+  s.clubs = kind === "duel" ? pool : Array.from({length:3},(_,i) => pool[(offset+i)%pool.length]);
   // A club keeps its people. New stages develop their existing strengths.
   for(const c of s.clubs) {
     const previous=c.developedStage??(s.clubTier===tier?s.clubStage:strength);
