@@ -103,8 +103,9 @@ export function route(from, to) {
 }
 
 // ── The static map ──────────────────────────────────────────────────────
-const GRASS = ["#7fb05c", "#6ca24e", "#a0a452", "#dfe6e0"],
-  GRASS2 = ["#8cbc68", "#79ae5a", "#aeb05e", "#eef2f0"];
+// Bright, fresh greens in spring and summer, a gold autumn and a snowy winter.
+const GRASS = ["#86c05c", "#74b650", "#a8aa52", "#dfe6e0"],
+  GRASS2 = ["#96cc6a", "#84c25e", "#b8b862", "#eef2f0"];
 function paving(g, x, y, w, h, season, edge = true) {
   const c = season === 3 ? "#e6e4de" : "#d8cdb2";
   rect(g, x, y, w, h, c);
@@ -235,7 +236,14 @@ function baseWorld(s) {
       y = Math.round(hash(i + 999) * MAP_H);
     px(g, x, y, i % 3 ? GRASS2[season] : shade(GRASS[season], -0.14));
     if (i % 7 === 0) px(g, x + 1, y - 1, GRASS2[season]);
-    if (season === 0 && i % 23 === 0) px(g, x, y, ["#f6f0f4", "#f6d04c", "#f2a8c0"][i % 3]);
+    if ((season === 0 && i % 17 === 0) || (season === 1 && i % 41 === 0)) {
+      // Little three-pixel flowers: a coloured head over a stem.
+      const c = ["#f6f0f4", "#f6d04c", "#f2a8c0", "#b8a0f0"][i % 4];
+      px(g, x, y - 1, c);
+      px(g, x - 1, y, c);
+      px(g, x + 1, y, c);
+      px(g, x, y, "#f8e070");
+    }
     if (season === 2 && i % 19 === 0) px(g, x, y, ["#d8843a", "#b0602e", "#f0b050"][i % 3]);
   }
   drawStreetNetwork(g,season);
@@ -513,13 +521,13 @@ export function createWorld(cv) {
       W = cam.vw,
       H = cam.vh,
       t = now / 1000;
-    const tint = { cloudy: "rgba(80,92,104,0.14)", rain: "rgba(52,72,104,0.24)", snow: "rgba(214,226,250,0.12)", heat: "rgba(255,196,110,0.1)", windy: "rgba(120,130,120,0.06)" }[w];
+    const tint = { cloudy: "rgba(80,92,104,0.08)", rain: "rgba(52,72,104,0.24)", snow: "rgba(214,226,250,0.12)", heat: "rgba(255,196,110,0.1)", windy: "rgba(120,130,120,0.06)" }[w];
     if (tint) {
       sg.fillStyle = tint;
       sg.fillRect(0, 0, W, H);
     }
     if (w === "cloudy" || w === "rain" || w === "windy") {
-      sg.fillStyle = "rgba(20,30,40,0.08)";
+      sg.fillStyle = "rgba(20,30,40,0.05)";
       for (let i = 0; i < 7; i++) {
         const speed = w === "windy" ? 24 : 8,
           x = ((hash(i) * MAP_W + t * speed) % (MAP_W + 240)) - 120 - ox,

@@ -197,6 +197,14 @@ function stadiumBase(s, ev, venue) {
   for (let y = 0; y < 60; y++) rect(g, 0, y, W, 1, mix(sky[0], sky[1], y / 60));
   if (venue.time === "night" && venue.weather !== "rain" && venue.weather !== "snow") for (let i = 0; i < 40; i++) px(g, hash(i) * W, hash(i + 50) * 30, "#e8e8ff");
   else if (["sunny", "heat", "windy"].includes(venue.weather)) ellipse(g, W - 60, 14, 9, 9, venue.time === "golden" ? "#f8c080" : "#fff2c0");
+  // A few puffy clouds on fair days.
+  if (venue.time !== "night" && !["rain", "snow"].includes(venue.weather))
+    for (let i = 0; i < 4; i++) {
+      const cx = 40 + hash(i * 7) * (W - 80), cy = 10 + hash(i * 3) * 26, w = 14 + hash(i) * 12;
+      ellipse(g, cx, cy + 2, w, 4, "rgba(255,255,255,0.55)");
+      ellipse(g, cx - w * 0.3, cy, w * 0.5, 4, "rgba(255,255,255,0.7)");
+      ellipse(g, cx + w * 0.25, cy - 1, w * 0.55, 5, "rgba(255,255,255,0.8)");
+    }
   const horizon = [62, 62, 34, 10, 10][venue.grand];
   if (venue.grand <= 2) backdrop(g, venue.backdrop, horizon, venue);
   stands(g, venue);
@@ -220,14 +228,22 @@ function stadiumBase(s, ev, venue) {
     text(g, fit(a, 13), x + 40, 97, { color: "#fff6dc", outline: null, align: "center" });
   }
   // Field.
-  rect(g, 0, 106, W, H - 106, "#6aa04e");
-  for (let x = 0; x < W; x += 32) rect(g, x, 106, 16, H - 106, "#76ac58");
+  // Field: a bright checkerboard mow.
+  rect(g, 0, 106, W, H - 106, "#6eb24c");
+  for (let y = 106; y < H; y += 20) for (let x = (Math.floor((y - 106) / 20) % 2) * 20; x < W; x += 40) rect(g, x, y, 20, 20, "#7abc58");
+  for (let i = 0; i < 260; i++) px(g, hash(i * 3) * W, 108 + hash(i * 5) * (H - 110), i % 3 ? "#86c464" : "#62a444");
   // Sector boundaries meet at the throwing origin; distance lines are arcs
   // of equal radius, rather than straight strips across a widening wedge.
   const boundary = sector.arc(SPAN);
   poly(g, [[O.x, O.y], ...boundary], "#7cb45c");
   line(g, O.x, O.y, ...boundary[0], "#f4f4e8");
   line(g, O.x, O.y, ...boundary.at(-1), "#f4f4e8");
+  // Sector flags where the boundary lines end.
+  for (const [fx, fy] of [boundary[0], boundary.at(-1)]) {
+    rect(g, fx, fy - 12, 1, 12, "#f4f4e8");
+    rect(g, fx + 1, fy - 12, 6, 4, "#e04a3a");
+    rect(g, fx + 1, fy - 10, 3, 2, "#fff6dc");
+  }
   const e = EVENTS[ev],
     step = [1, 2, 4, 5, 10, 20, 25].find((n) => SPAN / n <= 9) || 50;
   for (let d = Math.ceil(e.min / step) * step; d < SPAN; d += step) {
@@ -385,7 +401,7 @@ export function createStadium(cv) {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = skyFor(venue)[0];
     g.fillRect(0, 0, W, top + 1);
-    g.fillStyle = "#6aa04e";
+    g.fillStyle = "#6eb24c";
     g.fillRect(0, top + H - 1, W, LH - H - top + 1);
     const el = view.elapsed ?? 99999;
     const hasCut = hasCutIn(beat);
@@ -473,12 +489,27 @@ export function createStadium(cv) {
     // judge out in the sector stays small with the distance.
     figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 44, O.y - 20, 2);
     if (foulShown) rect(g, O.x + 30, O.y - 72, 10, 7, "#e04a3a");
-    // Waiting athlete on the bench.
-    if (waiting && throwing) {
-      rect(g, 4, O.y + 50, 56, 5, "#a07850");
-      rect(g, 8, O.y + 55, 3, 6, "#7a5a3a");
-      rect(g, 52, O.y + 55, 3, 6, "#7a5a3a");
-      figure(g, { ...athleteLook(waiting, waitingColors), pose: "sit", frame: Math.floor(now / 600) % 2 }, 32, O.y + 52, 2);
+    // Team benches along the front: your squad on the left, theirs beside them. Teammates jump
+    // up when their side lands a big one.
+    const benchOf = (side) => {
+      const entries = m.fields?.[bi]?.[side] || [],
+        pool = side === "home" ? s.roster : matchClub(s)?.athletes || [],
+        busy = throwing === side ? active : null;
+      const ids = [...entries.map((e) => e.id), ...pool.map((a) => a.id)];
+      return [...new Set(ids)].map((id) => pool.find((a) => a.id === id)).filter((a) => a && a !== busy && !a.injury).slice(0, 3);
+    };
+    const celebrate = big && sinceLand >= 0 && sinceLand < 1600 ? beat.side : null;
+    for (const [side, x0, colors] of [["home", 6, s.colors], ["away", 128, rivalColors]]) {
+      const by = H - 10;
+      rect(g, x0, by - 26, 96, 3, colors.primary);
+      rect(g, x0, by - 27, 96, 1, shade(colors.primary, 0.35));
+      rect(g, x0, by - 2, 96, 4, "#a07850");
+      rect(g, x0, by - 3, 96, 1, "#c09868");
+      for (const lx of [x0 + 4, x0 + 90]) rect(g, lx, by - 23, 2, 25, "#5a5e66");
+      benchOf(side).forEach((a, n) => {
+        const up = celebrate === side;
+        figure(g, { ...athleteLook(a, colors), pose: up ? "cheer" : "sit", frame: up ? Math.floor(now / 180 + n) % 2 : 0 }, x0 + 18 + n * 30, up ? by + 1 : by - 1, 2);
+      });
     }
     // The thrower.
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
