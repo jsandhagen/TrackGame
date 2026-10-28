@@ -2,9 +2,9 @@ import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
 import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
-import { figure, shadow, athleteLook } from "./sprites.js";
+import { figure, shadow, athleteLook, runFrame } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
-import { drawArena, drawArenaFront, animateArena, loopPoint, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
+import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
 import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
 
@@ -361,14 +361,16 @@ function targetFor(s, a, index, now, activity, counts) {
     if (leg === 1) activity = "technique";
     else if (leg === 2) activity = "power";
     else {
-      const [x, y, dir] = loopPoint(LANE, now / 50000 + index * 0.11);
-      return { x, y: y + 2, pose: "run", flip: dir < 0, follow: true };
+      const u = now / 50000 + index * 0.11,
+        [x, y, dir] = loopPoint(LANE, u);
+      return { x, y: y + 2, pose: "run", frame: runFrame(u * loopLength(LANE)), flip: dir < 0, follow: true };
     }
   }
   if (activity === "speed") {
     const n = slot("speed"),
-      t = (now / 2600 + n * 0.3) % 1;
-    return { x: TRACK.x + TRACK.r - 20 + t * (TRACK.w - 2 * TRACK.r + 40), y: TRACK.y + TRACK.h - 4 - (n % 4) * 3, pose: "run", flip: false, follow: true };
+      t = (now / 2600 + n * 0.3) % 1,
+      x = TRACK.x + TRACK.r - 20 + t * (TRACK.w - 2 * TRACK.r + 40);
+    return { x, y: TRACK.y + TRACK.h - 4 - (n % 4) * 3, pose: "run", frame: runFrame(x), flip: false, follow: true };
   }
   if (activity === "technique" || activity === "sharpen") {
     const ev = a.trainingEvent || a.event,

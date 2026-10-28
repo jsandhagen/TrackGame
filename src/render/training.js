@@ -1,5 +1,5 @@
 import { canvas, rect, ellipse, line, shade } from "./pixel.js";
-import { figure, athleteLook, shadow } from "./sprites.js";
+import { figure, athleteLook, shadow, runFrame } from "./sprites.js";
 import { text } from "./font.js";
 import { STAT_SHORT, STAT_COLORS } from "../game-content.js";
 
@@ -166,15 +166,16 @@ function act(drill, i, t, ev) {
     }
     case "acceleration": {
       const p = wave(t + off * 3, 1500);
-      return { pose: "run", frame: Math.floor(t / 80) % 4, dx: -70 + p * 140, dust: true };
+      return { pose: "run", frame: runFrame(p * 140), dx: -70 + p * 140, dust: true };
     }
     case "sandbag": {
       const f = Math.floor((t + off) / 520) % 2;
       return { pose: "lift", frame: f, face: f ? undefined : "strain", sweat: f === 0 };
     }
     case "ladder": {
+      // Through the ladder, then turn and run back to the start.
       const p = wave(t + off * 2, 900);
-      return { pose: "run", frame: Math.floor(t / 60) % 4, dx: -24 + (p < 0.5 ? p : 1 - p) * 96, dust: true };
+      return { pose: "run", frame: runFrame(p * 96), dx: -24 + (p < 0.5 ? p : 1 - p) * 96, flip: p >= 0.5, dust: true };
     }
     case "shadow": {
       const p = wave(t + off, 1300);
@@ -278,11 +279,12 @@ export function playTraining(cv, opts) {
         // Jog in from the right edge.
         const p = t / SCENE.intro;
         x = SCENE_W + 20 - (SCENE_W + 20 - home) * Math.min(1, p * 1.2);
-        pose = { pose: "run", frame: Math.floor(t / 80) % 4 };
+        pose = { pose: "run", frame: runFrame(SCENE_W + 20 - x) };
         flip = true;
       } else if (!reveal) {
         pose = act(opts.drill, i, t - SCENE.intro, r.event);
         x = home + (pose.dx || 0);
+        flip = !!pose.flip;
         if (opts.drill === "acceleration" && t >= SCENE.work - 200) x = home;
       } else {
         const happy = r.quality !== "good";
@@ -296,7 +298,7 @@ export function playTraining(cv, opts) {
         rect(o, x - 6 - s * 6, FLOOR - 34 + s * 10, 1, 2, "#9fe0ff");
         rect(o, x + 8 + s * 5, FLOOR - 36 + s * 9, 1, 2, "#9fe0ff");
       }
-      if (working && pose.dust) for (let k = 0; k < 3; k++) rect(o, x - 8 - k * 4, FLOOR - (k % 2), 2, 1, "#e8d8c0");
+      if (working && pose.dust) for (let k = 0; k < 3; k++) rect(o, flip ? x + 6 + k * 4 : x - 8 - k * 4, FLOOR - (k % 2), 2, 1, "#e8d8c0");
       if (working && pose.flight != null) drawImplement(o, opts.drill, r.event, home, FLOOR, pose.flight);
       if (working && pose.idea) text(o, "!", x + 6, FLOOR - 44, { color: "#f2c94c" });
       if (reveal) {

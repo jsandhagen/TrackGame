@@ -337,6 +337,11 @@ export function sprite(o) {
   cache.set(key, c);
   return c;
 }
+// The run frame for a runner who has covered `dist` pixels. Each run frame carries the planted
+// foot about RUN_STRIDE pixels back, so stepping by distance keeps that foot fixed on the ground;
+// frames on a clock let the body outrun the legs and the feet slide forward, like running backwards.
+export const RUN_STRIDE = 4;
+export const runFrame = (dist) => ((Math.floor(dist / RUN_STRIDE) % 4) + 4) % 4;
 // Draw a figure with its feet at (x, y). Scale must be an integer to stay crisp.
 export function figure(g, o, x, y, scale = 1) {
   const c = sprite(o);

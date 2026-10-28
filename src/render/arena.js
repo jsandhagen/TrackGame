@@ -63,13 +63,15 @@ export function roundRect(g, { x, y, w, h, r }, c) {
     g.fillRect(Math.round(x + ins), Math.round(y + yy), Math.round(w - ins * 2), 1);
   }
 }
+// Distance once round a rounded rectangle's outline.
+export const loopLength = ({ w, h, r }) => 2 * (w - 2 * r) + 2 * (h - 2 * r) + 2 * Math.PI * r;
 // A point on a rounded rectangle's outline, for runners and walkers. Returns [x, y, direction].
 export function loopPoint(b, u) {
   const { x, y, w, h, r } = b,
     sw = w - 2 * r,
     sh = h - 2 * r,
     arc = (Math.PI * r) / 2,
-    total = 2 * sw + 2 * sh + 4 * arc;
+    total = loopLength(b);
   let d = (((u % 1) + 1) % 1) * total;
   const seg = [
     [sw, (t) => [x + r + t, y + h, 1]],
