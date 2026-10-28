@@ -71,30 +71,53 @@ const THROWS = {
     { feet: [[-6, -1], [1, -1]], hands: [[-8, -12], [2, -17]], item: "shot", crouch: 3, lean: -1, face: "strain" },
     { feet: [[-4, -2], [3, -1]], hands: [[-6, -12], [8, -23]], lean: 2, face: "strain" },
     { feet: [[-4, -4], [3, -1]], hands: [[-6, -16], [6, -15]], lean: 2 },
+    // Back of the circle, bent low with the shot at the neck; the glide; a spin step.
+    { feet: [[-6, -1], [3, -1]], hands: [[-7, -12], [-3, -17]], item: "shot", crouch: 4, lean: 2, face: "strain" },
+    { feet: [[-9, -1], [4, -2]], hands: [[-8, -12], [-3, -17]], item: "shot", crouch: 3, lean: 1, face: "strain" },
+    { feet: [[-2, -2], [2, -1]], hands: [[-9, -15], [3, -18]], item: "shot", crouch: 2, dy: -1, face: "strain" },
+    { feet: [[2, -1], [-3, -2]], hands: [[-9, -15], [3, -18]], item: "shot", crouch: 2, face: "strain" },
   ],
   discus: [
     { feet: [[-5, -1], [2, -1]], hands: [[5, -14], [-9, -13]], item: "disc", crouch: 1 },
     { feet: [[-5, -1], [2, -1]], hands: [[-9, -13], [6, -14]], item: "disc", crouch: 2, face: "strain" },
     { feet: [[-4, -2], [3, -1]], hands: [[-6, -13], [9, -14]], lean: 1, face: "strain" },
     { feet: [[-3, -3], [3, -1]], hands: [[-5, -12], [6, -11]], lean: 1 },
+    // Pre-swings back and forward, then two spin steps with the arm long.
+    { feet: [[-5, -1], [2, -1]], hands: [[-4, -12], [-11, -14]], item: "disc", crouch: 1 },
+    { feet: [[-5, -1], [2, -1]], hands: [[-6, -12], [10, -15]], item: "disc", crouch: 1 },
+    { feet: [[-2, -2], [3, -1]], hands: [[-10, -16], [11, -16]], item: "disc", crouch: 2, dy: -1, face: "strain" },
+    { feet: [[1, -1], [-3, -2]], hands: [[-10, -15], [11, -15]], item: "disc", crouch: 2, face: "strain" },
   ],
   hammer: [
     { feet: [[-5, -1], [2, -1]], hands: [[1, -11], [2, -11]], crouch: 1 },
     { feet: [[-5, -1], [2, -1]], hands: [[0, -21], [1, -21]], face: "strain" },
     { feet: [[-4, -2], [3, -1]], hands: [[3, -22], [5, -23]], lean: 1, face: "strain" },
     { feet: [[-3, -3], [3, -1]], hands: [[-2, -18], [2, -19]], lean: 1 },
+    // Winds dip low in front; turns sit back against the pull with the arms long.
+    { feet: [[-5, -1], [2, -1]], hands: [[-1, -10], [0, -10]], crouch: 2 },
+    { feet: [[-2, -2], [3, -1]], hands: [[6, -15], [8, -15]], crouch: 2, lean: -1, face: "strain" },
+    { feet: [[2, -1], [-3, -2]], hands: [[6, -15], [8, -15]], crouch: 2, lean: -1, dy: -1, face: "strain" },
+    { feet: [[-2, -2], [3, -1]], hands: [[-6, -15], [-8, -15]], crouch: 2, lean: 1, face: "strain" },
   ],
   jav: [
     { feet: [[-5, -1], [2, -1]], hands: [[-3, -11], [3, -28]], item: "jav" },
     { feet: [[-6, -1], [2, -1]], hands: [[5, -12], [-8, -17]], item: "javback", crouch: 1, lean: -2, face: "strain" },
     { feet: [[-4, -2], [3, -1]], hands: [[-6, -12], [6, -24]], lean: 2, face: "strain" },
     { feet: [[-4, -4], [3, -1]], hands: [[-4, -12], [5, -14]], lean: 2 },
+    // Crossover steps with the javelin drawn back, then the block on a straight front leg.
+    { feet: [[3, -3], [-5, -1]], hands: [[5, -12], [-8, -17]], item: "javback", lean: -1, dy: -1 },
+    { feet: [[-5, -1], [3, -2]], hands: [[5, -12], [-8, -17]], item: "javback", lean: -1 },
+    { feet: [[-8, -1], [5, -1]], hands: [[5, -14], [-7, -18]], item: "javback", lean: -2, crouch: 1, face: "strain" },
+    { feet: [[-8, -1], [5, -1]], hands: [[5, -14], [-7, -18]], item: "javback", lean: -2, crouch: 1, face: "strain" },
   ],
 };
 export const THROW_FRAMES = { ready: 0, wind: 1, release: 2, follow: 3 };
 
 function poseData(pose, frame, event) {
-  if (pose === "throw") return THROWS[event || "shot"][frame % 4];
+  if (pose === "throw") {
+    const list = THROWS[event || "shot"];
+    return list[frame] || list[frame % 4];
+  }
   const list = POSES[pose] || POSES.idle;
   return list[frame % list.length];
 }

@@ -1,5 +1,5 @@
 import { athleteDuty } from "./facility-duties.js";
-import { practiceMastery, masteryOf, masteryCap } from "./mastery.js";
+import { practiceMastery, masteryOf, masteryCap, formOf, FORMS } from "./mastery.js";
 import { EVENT_IDS, PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
 import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random, hasCombo, grantXp } from "./core.js";
 
@@ -232,7 +232,8 @@ export function coachGroup(s, ids, id) {
   if (discovered) s.coaching.chemistry.push(chem.key);
   const levelUps = [];
   const results = ids.map((aid) => {
-    const a = s.roster.find((x) => x.id === aid), cap = capOf(a), odds = qualityOdds(a), roll = random(s);
+    const a = s.roster.find((x) => x.id === aid), cap = capOf(a), odds = qualityOdds(a), roll = random(s),
+      formEvent = a.trainingEvent || a.event, formBefore = formOf(a, formEvent);
     const quality = roll < odds.excellent ? "excellent" : roll < odds.excellent + odds.great ? "great" : "good";
     const gains = drillGains(s, a, id, n, chem).map((g, i) => Math.max(0, Math.min(cap - a.stats[i], g * QUALITY[quality].mult)));
     const energy = drillEnergy(s, id);
@@ -243,7 +244,10 @@ export function coachGroup(s, ids, id) {
     grantXp(s, a, ((d.xp || 0) + 2 + coachBefore) * QUALITY[quality].mult, levelUps);
     if (quality === "excellent" && !a.career.some((c) => c.label.startsWith("First bomb in training"))) a.career.unshift({ season: s.season, label: "First bomb in training: " + name });
     count(s, "coachedSessions");
-    return { id: aid, gains, mastery, energy, quality };
+    // A better form changes how they throw at meets: worth announcing.
+    const formAfter = formOf(a, formEvent);
+    if (formAfter > formBefore) note(s, a.name.split(" ")[0] + " can now throw with a " + FORMS[formEvent][formAfter].toLowerCase() + ".", "level");
+    return { id: aid, gains, mastery, energy, quality, form: formAfter > formBefore ? { event: formEvent, name: FORMS[formEvent][formAfter] } : null };
   });
   s.coaching.drills ??= {};
   s.coaching.drills[id] = drillXp(s, id) + 1;

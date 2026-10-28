@@ -4840,3 +4840,6 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition: none !important; }
 .reduce-motion #ticker > span > span { animation: none !important; transform: translate(0, -50%); }
 .reduce-motion .confetti, .reduce-motion .hud-delta { display: none; }
+.form-line { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
+.form-line b { color: var(--ink); }
+.form-up { display: inline-block; padding: 1px 6px; border-radius: 6px; background: #fff0b8; color: #6a4a08; animation: pop-in 0.4s 0.5s ease-out both; }

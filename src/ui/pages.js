@@ -420,6 +420,7 @@ export function trainingStage(s, session, befores) {
         })
         .filter(Boolean);
       if (G.overall(a) > before.ovr) ups.push(`OVR ${before.ovr} → <b>${G.overall(a)}</b>`);
+      if (r.form) ups.unshift(`<span class="form-up">New ${esc(EVENTS[r.form.event].name.toLowerCase())} technique: <b>${esc(r.form.name)}</b>!</span>`);
       return `<article class="result-row q-${r.quality}" style="--d:${k * 0.22}s">
         <div class="result-who">${portrait(a)}<div><strong>${esc(a.name)}</strong><span class="qbadge" style="--q:${QUAL[r.quality].color}">${QUAL[r.quality].name}</span></div></div>
         <div class="grows compact">${growRows(a, before)}</div>
@@ -616,8 +617,13 @@ function itemCard(s, k, mode) {
   return `<div class="item-card rarity-${d.rarity}">${icon(k)}<span><strong>${d.name} ×${s.bag[k]}</strong><small>${effectLine(d) || esc(d.desc)}</small></span>${action}</div>`;
 }
 
+// The technique an athlete throws with, and what unlocks the next one (mastery and Technique).
+function formLine(a, ev) {
+  const level = G.formOf(a, ev), next = G.FORM_STEPS[level + 1];
+  return `<small class="form-line">Form: <b>${esc(G.FORMS[ev][level])}</b>${next ? ` · ${esc(G.FORMS[ev][level + 1])} at form ${next} (now ${Math.floor(G.formScore(a, ev))}: average of Technique and mastery)` : " · top form"}</small>`;
+}
 function masteryCard(s,a) {
-  return `<section class="card"><h3>Event mastery</h3><p>${G.PROFILES[a.profile].name}: ${G.PROFILES[a.profile].desc}</p><label>Technical training event<select data-change="training-event" data-id="${a.id}">${EVENT_IDS.map(ev=>`<option value="${ev}" ${(a.trainingEvent||a.event)===ev?"selected":""}>${EVENTS[ev].name}</option>`).join("")}</select></label><p>Physical attributes transfer. Technique practice builds mastery in the selected event; competing raises its practice ceiling, even after a loss.</p>${EVENT_IDS.map(ev=>`<div class="goal"><div><strong>${EVENTS[ev].name}</strong><small>Mastery ${Math.floor(G.masteryOf(a,ev))} · practice ceiling ${G.masteryCap(a,ev)} · ${a.eventMeets[ev]} meets</small>${bar(G.masteryOf(a,ev),100,EVENTS[ev].color)}</div></div>`).join("")}</section>`;
+  return `<section class="card"><h3>Event mastery</h3><p>${G.PROFILES[a.profile].name}: ${G.PROFILES[a.profile].desc}</p><label>Technical training event<select data-change="training-event" data-id="${a.id}">${EVENT_IDS.map(ev=>`<option value="${ev}" ${(a.trainingEvent||a.event)===ev?"selected":""}>${EVENTS[ev].name}</option>`).join("")}</select></label><p>Physical attributes transfer. Technique practice builds mastery in the selected event; competing raises its practice ceiling, even after a loss.</p>${EVENT_IDS.map(ev=>`<div class="goal"><div><strong>${EVENTS[ev].name}</strong><small>Mastery ${Math.floor(G.masteryOf(a,ev))} · practice ceiling ${G.masteryCap(a,ev)} · ${a.eventMeets[ev]} meets</small>${bar(G.masteryOf(a,ev),100,EVENTS[ev].color)}${formLine(a,ev)}</div></div>`).join("")}</section>`;
 }
 function approachPicker(a,ev) {
   return `<label>${EVENTS[ev].name} approach<select data-change="approach" data-id="${a.id}" data-event="${ev}">${G.APPROACHES[ev].map(d=>`<option value="${d.id}" ${a.approaches[ev]===d.id?"selected":""} ${G.approachProblem(a,ev,d.id)?"disabled":""}>${d.name}${d.needs?" · mastery "+d.needs:""}</option>`).join("")}</select></label>`;

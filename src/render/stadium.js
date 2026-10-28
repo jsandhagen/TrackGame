@@ -2,7 +2,8 @@ import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, formOf } from "../domain/game.js";
+import { throwMotion } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
@@ -545,46 +546,58 @@ export function createStadium(cv) {
     }
     // The thrower.
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
+      // The throw follows the athlete's form: see throw-motion.js.
+      const level = formOf(active, ev),
+        phaseAt = (t) =>
+          t < T.prep ? ["ready", t / T.prep] : t < T.tech ? ["technique", (t - T.prep) / (T.tech - T.prep)] : t < T.tech + 250 ? ["release", (t - T.tech) / 250] : ["follow", (t - T.tech - 250) / (T.land - T.tech - 250)],
+        motionAt = (t) => throwMotion(ev, level, ...phaseAt(t), { foul: !!beat?.foul });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
         flip = false,
         x = O.x,
         y = O.y,
-        hammerBall = null;
-      if (beat?.type === "throw" && tt >= 0) {
-        const f = Math.min(1, Math.max(0, (tt - T.prep) / (T.tech - T.prep)));
-        if (tt < T.prep) (pose = "throw"), (frame = 0);
-        else if (tt < T.tech) {
-          pose = "throw";
-          if (ev === "jav") {
-            if (f < 0.7) (pose = "carry"), (frame = Math.floor(f * 14) % 4), (x = 20 + f / 0.7 * (O.x - 28));
-            else (frame = 1), (x = O.x - 8);
-          } else if (ev === "discus") {
-            frame = f < 0.75 ? 1 : 2;
-            flip = f < 0.75 && Math.floor(f * 8) % 2 === 1;
-          } else if (ev === "hammer") {
-            frame = f < 0.4 ? 0 : 1;
-            flip = f > 0.5 && f < 0.9 && Math.floor(f * 10) % 2 === 1;
-            const th = Math.PI * 2 * 3 * f * f;
-            hammerBall = [O.x + 4 + Math.cos(th) * 26, O.y - 30 + Math.sin(th) * 9];
-          } else frame = f < 0.5 ? 0 : 1;
-          if (ev === "shot" && f >= 0.5) x = O.x + 6;
-        } else if (tt < T.tech + 250) (pose = "throw"), (frame = 2), (x = ev === "jav" ? O.x - 8 : O.x + (ev === "shot" ? 6 : 0));
-        else if (tt < T.land) (pose = "throw"), (frame = 3), (x = ev === "jav" ? O.x - 8 : O.x);
-        else {
-          const good = beat.mark != null && (beat.newPb || beat.leading);
-          pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
-          frame = Math.floor(now / 220) % 2;
-          x = ev === "jav" ? O.x - 8 : O.x;
-        }
-      } else if (beat?.type === "throw") pose = "throw";
-      if (beat?.type === "decide") (pose = "throw"), (frame = 0);
-      shadow(g, x, y, 9);
-      if (hammerBall) {
-        line(g, x + 4, y - 30, hammerBall[0], hammerBall[1], "#d8d8c8");
-        ellipse(g, hammerBall[0], hammerBall[1], 3, 3, "#3a3e46");
+        mo = null;
+      if (beat?.type === "throw" && tt >= 0 && tt < T.land) {
+        mo = motionAt(tt);
+        pose = mo.run ? "carry" : "throw";
+        ({ frame, flip } = mo);
+        x = O.x + mo.dx;
+        y = O.y + mo.dy;
+      } else if (beat?.type === "throw" && tt >= T.land) {
+        const good = beat.mark != null && (beat.newPb || beat.leading);
+        pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
+        frame = Math.floor(now / 220) % 2;
+        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul });
+        x = O.x + end.dx;
+        y = O.y + end.dy;
+      } else {
+        // Waiting to throw: standing ready where their technique starts.
+        mo = throwMotion(ev, level, "ready", 0);
+        pose = "throw";
+        ({ frame, flip } = mo);
+        x = O.x + mo.dx;
+        y = O.y + mo.dy;
+        mo = { ...mo, ball: ev === "hammer" ? mo.ball : null };
       }
-      figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 2);
+      const look = athleteLook(active, activeColors);
+      // The best throwers leave a blur of afterimages through the turns.
+      if (mo?.ghost && !view.reduced)
+        [[0.07, 0.28], [0.14, 0.14]].forEach(([back, alpha]) => {
+          const g2 = motionAt(Math.max(T.prep, tt - back * (T.tech - T.prep)));
+          g.globalAlpha = alpha;
+          figure(g, { ...look, pose: g2.run ? "carry" : "throw", frame: g2.frame, flip: g2.flip, event: ev }, O.x + g2.dx, O.y + g2.dy, 2);
+          g.globalAlpha = 1;
+        });
+      shadow(g, x, y, 9);
+      const ball = mo?.ball && [x + mo.ball.dx, y + mo.ball.dy, mo.ball.behind],
+        chain = () => {
+          line(g, x + 2, y - 24, ball[0], ball[1], "#d8d8c8");
+          ellipse(g, ball[0], ball[1], 3, 3, "#3a3e46");
+          px(g, ball[0] - 1, ball[1] - 1, "#8a8e98");
+        };
+      if (ball && ball[2]) chain();
+      figure(g, { ...look, pose, frame, flip, event: ev }, x, y, 2);
+      if (ball && !ball[2]) chain();
       // Motion lines as the implement leaves the hand.
       if (beat?.type === "throw" && tt >= T.tech - 60 && tt < T.tech + 220 && !view.reduced) {
         const a = 1 - Math.max(0, tt - T.tech + 60) / 280;
