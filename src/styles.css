@@ -2469,12 +2469,12 @@ dialog[open] {
   align-self: flex-start;
 }
 .stat {
-  grid-template-columns: 82px 1fr 30px 22px !important;
+  grid-template-columns: 82px 1fr 30px 22px 22px !important;
 }
 .scale {
   display: flex;
   justify-content: space-between;
-  margin: -2px 52px 0 90px;
+  margin: -2px 82px 0 90px;
   font-size: 9px;
   color: var(--muted);
 }
@@ -4851,3 +4851,184 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .confirm-facts b { font-family: var(--display); font-size: 15px; }
 .confirm-facts .neg { color: var(--red); }
 @media (max-width: 480px) { .confirm-build { flex-direction: column; } }
+
+/* Athlete types: growth arrows beside stats, the training group's stat sheet and session matches. */
+.growth {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  text-align: center;
+  white-space: nowrap;
+}
+.growth.g0 { color: #1f9d55; }
+.growth.g1 { color: #4fae5e; }
+.growth.g2 { color: var(--muted); }
+.growth.g3 { color: #d07a3a; }
+.growth.g4 { color: #c94a3a; }
+.statline i .growth {
+  color: #fff;
+  opacity: 0.9;
+  margin-left: 1px;
+}
+.ev-tag {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #fff;
+  background: var(--c);
+  text-shadow: 0 1px 0 #0003;
+}
+.trainee-sheet {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 6px;
+  padding: 5px 7px 4px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+}
+.sheet-row {
+  display: grid;
+  grid-template-columns: minmax(118px, 0.8fr) 2fr;
+  align-items: center;
+  gap: 8px;
+}
+.sheet-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px 6px;
+  min-width: 0;
+}
+.sheet-who b {
+  font: 700 14px var(--display);
+}
+.sheet-who small {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sheet-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.sheet-stat {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  padding: 1px 2px 4px;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  background: #f3ecd8;
+  overflow: hidden;
+}
+.sheet-stat small {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--c);
+}
+.sheet-stat b {
+  font: 700 14px var(--display);
+}
+.sheet-stat i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--c);
+}
+.sheet-stat.key {
+  border-color: var(--c);
+  background: #fff;
+}
+.sheet-stat.focus::after {
+  content: "★";
+  position: absolute;
+  top: -1px;
+  right: 2px;
+  font-size: 10px;
+  color: var(--gold);
+  text-shadow: 0 1px 0 #7a5a1a66;
+}
+.sheet-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 1px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+.sheet-key .k-key::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  border: 2px solid #8a7a50;
+  border-radius: 3px;
+}
+.sheet-key .k-focus {
+  color: #9a7420;
+  font-weight: 700;
+}
+.drill .suits {
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #8a6510;
+  background: #fff1c2;
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.drill.suited {
+  border-color: #e2c26a;
+}
+/* Phones: one line per athlete, the event tag over the name; the type shows in the arrows. */
+@media (max-width: 520px) {
+  .sheet-row {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 5px;
+  }
+  .sheet-who {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .sheet-who b {
+    font-size: 13px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sheet-who small {
+    display: none;
+  }
+  .sheet-stats {
+    gap: 3px;
+  }
+  .sheet-stat {
+    flex-wrap: wrap;
+    gap: 0 2px;
+    padding: 1px 1px 4px;
+  }
+  .sheet-stat small {
+    flex-basis: 100%;
+    text-align: center;
+    line-height: 1.1;
+  }
+  .sheet-key {
+    gap: 2px 8px;
+  }
+}

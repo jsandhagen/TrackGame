@@ -110,6 +110,7 @@ export function signSecret(s, key) {
     base: LEAGUES[s.league].rating + d.stats,
     potential: d.potential,
     background: d.background,
+    type: d.type,
     look: { ...d.look },
     secret: key,
     skill: d.skill,

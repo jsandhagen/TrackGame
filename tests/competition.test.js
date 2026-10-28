@@ -123,6 +123,7 @@ test('a duel saved during a throw resumes with the same opponent and rewards', (
 
 test('saved skill setups affect their own context without silently changing the editable setup', () => {
   const s = G.newGame(95), a = s.roster[0];
+  a.type = 'allrounder'; // growth ×1, so only skills and background show
   a.skills = ['gymrat', 'opener'];
   a.equipped = ['gymrat'];
   assert(G.saveLoadout(s, a.id, 'training'));

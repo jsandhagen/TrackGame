@@ -6,6 +6,8 @@ import {
   RARITY,
   RARITY_IDS,
   BACKGROUNDS,
+  ATHLETE_TYPES,
+  GROWTH,
   SKILLS,
   ITEMS,
   GEAR_SLOTS,
@@ -67,6 +69,31 @@ export const slotsOf = (a) => RANKS[a.rank || 0].slots;
 export const wageOf = (a) => RANKS[a.rank || 0].wage + RARITY[a.rarity || "common"].wage + Math.floor(a.level / 4) * 8;
 export const statTotal = (a) => a.stats.reduce((n, v) => n + v, 0);
 
+// An athlete's type, chosen from their id rather than the club's random stream so that adding types
+// left every seeded campaign unchanged. Half of athletes get a type that suits their event.
+export function typeFor(id, event) {
+  const h = (n) => {
+    let x = Math.imul(id + 1, 0x9e3779b1) ^ Math.imul(n, 0x85ebca6b);
+    x = Math.imul(x ^ (x >>> 16), 0x7feb352d);
+    x = Math.imul(x ^ (x >>> 15), 0x846ca68b);
+    return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+  },
+    all = Object.keys(ATHLETE_TYPES),
+    fits = all.filter((k) => ATHLETE_TYPES[k].fits.includes(event)),
+    pool = fits.length && h(1) < 0.5 ? fits : all;
+  return pool[Math.floor(h(2) * pool.length)];
+}
+export const growthOf = (a) => (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).growth.map((g) => GROWTH[g]);
+// Where an athlete's next session does the most for their event: the stat that matters most, grows
+// fastest for their type and still has room under the ceiling.
+export function trainingFocus(a, event = a.trainingEvent || a.event) {
+  const cap = capOf(a),
+    growth = growthOf(a),
+    value = EVENTS[event].weights.map((w, i) => w * growth[i].mult * clamp((cap - a.stats[i]) / (cap * 0.3), 0, 1));
+  const best = value.indexOf(Math.max(...value));
+  return value[best] > 0 ? best : null;
+}
+
 export function makeLook(s, extra = {}) {
   return {
     skin: pick(s, SKINS),
@@ -97,6 +124,7 @@ export function createAthlete(s, event, o = {}) {
     rank: o.rank || 0,
     potential,
     background: o.background || pick(s, backgrounds),
+    type: null,
     rarity,
     skills: [],
     equipped: [],
@@ -120,6 +148,7 @@ export function createAthlete(s, event, o = {}) {
     seasonPoints: 0,
     seasonPbs: 0,
   };
+  a.type = ATHLETE_TYPES[o.type] ? o.type : typeFor(a.id, event);
   a.seasonStart = statTotal(a);
   if (o.skill) learnFree(a, o.skill);
   else if (rarity !== "common") {
@@ -185,6 +214,7 @@ export function effects(s, a, club = true, mode = s.match ? "meet" : "training",
   const e = blank();
   apply(e, BACKGROUNDS[a.background]);
   apply(e,PROFILES[a.profile]);
+  for (const [i, g] of growthOf(a).entries()) e.train[i] *= g.mult;
   for (const k of equippedSkills(a, mode)) apply(e, SKILLS[k], SKILLS[k].name);
   for (const slot of GEAR_SLOTS) {
     const id = a.gear?.[slot],

@@ -2,9 +2,9 @@ import { initMastery, PROFILES, APPROACHES } from "./mastery.js";
 import { ensureCustom } from "./customize.js";
 import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
-import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE } from "../game-content.js";
+import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE, ATHLETE_TYPES } from "../game-content.js";
 import { syncMarks } from "./meet.js";
-import { statTotal, slotsOf } from "./core.js";
+import { statTotal, slotsOf, typeFor } from "./core.js";
 import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
 import { DRILLS, CHEMISTRY } from "./coaching.js";
@@ -208,6 +208,8 @@ function checkAthlete(a, ids, rival = false) {
     if (list !== null && (!Array.isArray(list) || list.length > slotsOf(a) || new Set(list).size !== list.length || list.some((k) => !a.skills.includes(k)))) bad();
     if (presets.enabled && !Array.isArray(list)) bad();
   }
+  a.type ??= typeFor(a.id, a.event);
+  if(!ATHLETE_TYPES[a.type]) bad();
   if(!EVENT_IDS.includes(a.trainingEvent)||!PROFILES[a.profile]) bad();
   for(const ev of EVENT_IDS) if(!num(a.mastery?.[ev],0,100)||!int(a.eventMeets?.[ev],0,1e7)||!APPROACHES[ev].some(d=>d.id===a.approaches?.[ev])) bad();
   a.facilityFocus ??= "balanced";
