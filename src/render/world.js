@@ -1,5 +1,6 @@
 import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
-import { text } from "./font.js";
+import { text, measure } from "./font.js";
+import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
 import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
 import { figure, shadow, athleteLook } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
@@ -329,6 +330,7 @@ function baseWorld(s) {
 }
 
 // Where an athlete stands for today's activity, in map coordinates.
+let dayClock = 0.25;
 function targetFor(s, a, index, now, activity, counts) {
   const slot = (key) => (counts[key] = (counts[key] || 0) + 1) - 1;
   const plotOf = (type) => s.plots.findIndex((p) => p?.type === type);
@@ -344,9 +346,16 @@ function targetFor(s, a, index, now, activity, counts) {
     const site = PLANS[activity].facility;
     activity = site === "gym" ? "power" : site === "track" ? "speed" : site === "studio" ? "focus" : "technique";
   }
+  // All-round days move round the grounds like a real session: laps, then the athlete's own
+  // circle, then the gym, staggered so the squad is spread out. Gains are the same either way.
   if (activity === "balanced") {
-    const [x, y, dir] = loopPoint(LANE, now / 50000 + index * 0.11);
-    return { x, y: y + 2, pose: "run", flip: dir < 0, follow: true };
+    const leg = Math.floor(dayClock * 3 + index * 0.4) % 3;
+    if (leg === 1) activity = "technique";
+    else if (leg === 2) activity = "power";
+    else {
+      const [x, y, dir] = loopPoint(LANE, now / 50000 + index * 0.11);
+      return { x, y: y + 2, pose: "run", flip: dir < 0, follow: true };
+    }
   }
   if (activity === "speed") {
     const n = slot("speed"),
@@ -402,6 +411,12 @@ export function createWorld(cv) {
     sparks = [],
     flashes = [];
   const people = new Map();
+  // Speech and emote bubbles: who is talking, what, and since when. Keys are "a<id>" for
+  // athletes, "v<n>" for visitors and "coach".
+  const talk = new Map();
+  let nextChat = 0,
+    chatSeed = 0,
+    coachPos = [CENTER.x, CENTER.y + 30];
   let visitors = [],
     activities = new Map();
 
@@ -589,6 +604,7 @@ export function createWorld(cv) {
   }
   function draw(s, now, o = {}) {
     resize();
+    dayClock = o.dayProgress ?? 0.25;
     const k = s.plots.map((p) => (p ? p.type + p.level : "-")).join("|") + JSON.stringify(s.stadium) + JSON.stringify(s.stadiumStyle) + plotsOpen(s) + seasonOf(s) + s.colors.primary + s.colors.secondary + s.clubName;
     if (k !== key) {
       base = baseWorld(s);
@@ -665,7 +681,7 @@ export function createWorld(cv) {
         draw: () => {
           shadow(g, p.x, p.y, 5);
           figure(g, { ...athleteLook(a, s.colors), pose, frame, flip, event: target.event || a.event }, p.x, p.y);
-          if (pose === "sit" && Math.floor(now / 700) % 2) text(g, "Z", p.x + 6, p.y - 24, { color: "#ffffff" });
+          if (pose === "throw" && !p.path.length && s.stadium[target.event] > 0) flight(g, target.event, p.x, p.y, flip, (now / 420 + index) % 4);
           if (o.selected?.kind === "athlete" && o.selected.id === a.id) text(g, "↓", p.x, p.y - 30 - pulse, { color: "#f2c94c", align: "center" });
         },
       });
@@ -673,6 +689,7 @@ export function createWorld(cv) {
     // The head coach (that's you) watches from the infield.
     const coachX = CENTER.x + Math.round(Math.sin(now / 3000) * 8),
       coachY = CENTER.y + 30;
+    coachPos = [coachX, coachY];
     list.push({ y: coachY, draw: () => (shadow(g, coachX, coachY, 5), figure(g, { look: { skin: "#e2b08a", hair: "#4a3a2a", style: 0, special: "kid" }, shirt: s.colors.secondary, collar: s.colors.primary, shorts: "#3a3e46", pose: "study", frame: Math.floor(now / 900) % 2 }, coachX, coachY)) });
     list.sort((a, b) => a.y - b.y).forEach((d) => d.draw());
     drawArenaFront(g, s);
@@ -720,6 +737,8 @@ export function createWorld(cv) {
       text(sg, q.text, x - ox, y - oy - rise, { color: q.color, scale: q.scale || 1, align: "center", shadow: "rgba(0,0,0,0.45)" });
       sg.globalAlpha = 1;
     }
+    chatter(s, now, o);
+    drawTalk(s, now, ox, oy, o.calm);
     for (let i = banners.length - 1; i >= 0; i--) {
       const b = banners[i],
         t = (now - b.t0) / b.dur;
@@ -744,6 +763,80 @@ export function createWorld(cv) {
     out.drawImage(screen, 0, 0, cam.vw * cam.scale, cam.vh * cam.scale);
   }
 
+  // An implement in flight from a thrower towards the infield, with a puff where it lands.
+  function flight(g, ev, x, y, flip, phase) {
+    if (phase < 2) return;
+    const t = (phase - 2) / 2,
+      dir = flip ? -1 : 1,
+      reach = ev === "jav" ? 70 : ev === "shot" ? 26 : 52,
+      bx = x + dir * (4 + t * reach),
+      by = y - 14 + t * 14 - Math.sin(t * Math.PI) * (ev === "shot" ? 8 : 16);
+    if (t > 0.9) {
+      ellipse(g, x + dir * (4 + reach), y, 3, 1, "#e8dcc0");
+      return;
+    }
+    if (ev === "jav") line(g, bx - 4 * dir, by + 1, bx + 4 * dir, by - 1, "#f0e8d0");
+    else rect(g, bx - 1, by - 1, 2, 2, ev === "discus" ? "#e0c070" : "#4a4e56");
+  }
+  function say(key, str, now = performance.now(), dur = 2400) {
+    talk.set(key, { text: str, t0: now, dur });
+  }
+  // Every few seconds somebody says something: an athlete in their own voice, a visitor, or you.
+  function chatter(s, now, o) {
+    if (now < nextChat) return;
+    nextChat = now + 1800 + hash(++chatSeed) * 2600;
+    const roll = hash(chatSeed * 7);
+    if (roll < 0.66 && s.roster.length) {
+      const a = s.roster[Math.floor(hash(chatSeed * 13) * s.roster.length)];
+      if (!people.has(a.id) || talk.has("a" + a.id)) return;
+      const emote = hash(chatSeed * 17) < 0.5;
+      say("a" + a.id, emote ? emoteFor(s, a) : voiceLine(a, idleSituation(s, a), chatSeed), now, emote ? 1600 : 2600);
+    } else if (roll < 0.86 && visitors.length) {
+      const n = Math.floor(hash(chatSeed * 19) * visitors.length);
+      say("v" + n, CROWD_LINES[chatSeed % CROWD_LINES.length], now, 1800);
+    } else say("coach", COACH_LINES[chatSeed % COACH_LINES.length], now, 2000);
+  }
+  function speakerAt(key) {
+    if (key === "coach") return coachPos;
+    if (key[0] === "v") {
+      const v = visitors[+key.slice(1)];
+      return v ? [v.x, v.y - 6] : null;
+    }
+    const p = people.get(+key.slice(1));
+    return p ? [p.x, p.y] : null;
+  }
+  const EMOTE_COLORS = { "♥": "#e0506a", "♪": "#4a7ad0", "~": "#5ab0e0", "!": "#e08a2a", Z: "#7a8a96", "?": "#7a5aa8", "...": "#6c7a69" };
+  // Bubbles sit on the screen layer, above the lighting, so they read at night too.
+  function drawTalk(s, now, ox, oy, calm) {
+    for (const [key, b] of talk) {
+      const t = (now - b.t0) / b.dur,
+        at = speakerAt(key);
+      if (t >= 1 || !at) {
+        talk.delete(key);
+        continue;
+      }
+      const emote = b.text.length <= 3 && EMOTE_COLORS[b.text],
+        w = measure(b.text) + (emote ? 6 : 8),
+        h = 11,
+        hop = !calm && t < 0.08 ? Math.round((1 - t / 0.08) * 3) : 0,
+        x = Math.round(at[0] - ox - w / 2),
+        y = Math.round(at[1] - oy - 38 - hop);
+      if (x + w < 0 || x > cam.vw || y + h < 0 || y > cam.vh) continue;
+      sg.globalAlpha = t > 0.85 ? (1 - t) / 0.15 : 1;
+      rect(sg, x + 1, y, w - 2, h, "#2a2420");
+      rect(sg, x, y + 1, w, h - 2, "#2a2420");
+      rect(sg, x + 1, y + 1, w - 2, h - 2, "#fffaf0");
+      rect(sg, Math.round(at[0] - ox) - 1, y + h - 1, 3, 2, "#fffaf0");
+      rect(sg, Math.round(at[0] - ox) - 1, y + h + 1, 1, 1, "#2a2420");
+      rect(sg, Math.round(at[0] - ox) + 1, y + h + 1, 1, 1, "#2a2420");
+      rect(sg, Math.round(at[0] - ox), y + h + 2, 1, 1, "#2a2420");
+      text(sg, b.text, x + w / 2, y + 2, { color: emote || "#3a2a24", outline: null, align: "center" });
+      sg.globalAlpha = 1;
+    }
+  }
+  function sparkle(x, y, now = performance.now()) {
+    for (let n = 0; n < 18; n++) sparks.push({ x, y, vx: Math.cos(n) * (0.5 + hash(n)), vy: -0.8 - hash(n + 3), color: ["#f2c94c", "#fff6dc", "#9fe0ff"][n % 3], t0: now, dur: 900 });
+  }
   function onDay(s, report, now, dayMs) {
     activities = new Map(report.athletes.map((e) => [e.id, e.activity === "facility" ? "facility:" + report.duties.find((d) => d.id === e.id).key : e.activity]));
     // One line per stat gained, each in its stat colour, stacked above the athlete.
@@ -775,7 +868,12 @@ export function createWorld(cv) {
       const label = [d.money ? "+$" + d.money : "", d.insights ? "+" + d.insights + " INSIGHT" : "", d.fans ? "+" + d.fans + " FANS" : ""].filter(Boolean).join(" ");
       if (label) popups.push({ follow: d.id, stack: stackOf(d.id), x: 0, y: 0, text: label, color: "#f2d060", t0: now + dayMs * 0.55, dur: 1400 });
     }
-    for (const l of report.levelUps) popups.push({ follow: l.id, stack: stackOf(l.id) + 1, x: 0, y: 0, text: "LEVEL UP!", color: "#f2c94c", t0: now + dayMs * 0.5, dur: 2000, scale: 2 });
+    for (const l of report.levelUps) {
+      popups.push({ follow: l.id, stack: stackOf(l.id) + 1, x: 0, y: 0, text: "LEVEL UP!", color: "#f2c94c", t0: now + dayMs * 0.5, dur: 2000, scale: 2 });
+      const p = people.get(l.id), a = s.roster.find((x) => x.id === l.id);
+      if (p) sparkle(p.x, p.y - 12, now + dayMs * 0.5);
+      if (a) setTimeout(() => say("a" + a.id, voiceLine(a, "levelUp", l.level), performance.now(), 2200), dayMs * 0.5 + 600);
+    }
     for (const sp of report.spend) popups.push({ x: LOTS[sp.plot][0] + 56, y: LOTS[sp.plot][1] + 30, text: "+$" + sp.amount, color: "#f2d060", t0: now + dayMs * 0.55, dur: 1400 });
     if (report.week) banner("PAYDAY", (report.week.net >= 0 ? "+" : "-") + "$" + Math.abs(report.week.net) + " AFTER WAGES", "#f2d060", now);
   }
@@ -838,9 +936,11 @@ export function createWorld(cv) {
     draw,
     onDay,
     popup,
+    say: (id, str, dur) => say("a" + id, str, performance.now(), dur),
     banner,
-    flashPlot: (i, label) => burst(LOTS[i][0] + 56, LOTS[i][1] + 50, label),
-    flashSpot: (key, label) => burst(SPOTS[key].x, SPOTS[key].y, label),
+    // Building work is a show: the camera cuts to the site before the burst.
+    flashPlot: (i, label) => (focus(LOTS[i][0] + 56, LOTS[i][1] + 50), burst(LOTS[i][0] + 56, LOTS[i][1] + 50, label)),
+    flashSpot: (key, label) => (focus(SPOTS[key].x, SPOTS[key].y), burst(SPOTS[key].x, SPOTS[key].y, label)),
     pick,
     pan,
     zoomBy,

@@ -20,6 +20,7 @@ import { createPersistence } from "./platform/persistence.js";
 import { exportBackup } from "./platform/backups.js";
 import { initNative, isNativeApp, setOrientation, exitApp } from "./platform/native.js";
 import { validateCampaign, exportCampaign } from "./domain/campaign-save.js";
+import { line as voiceLine, idleSituation } from "./domain/voice.js";
 
 installIcons();
 const $ = (q) => document.querySelector(q);
@@ -333,6 +334,15 @@ function dialog(title, body, choices, o = {}) {
 $("#dialog").addEventListener("cancel", (e) => {
   if ($("#dialog").dataset.locked) e.preventDefault();
 });
+// A new teammate gets a proper arrival: portrait, background and their first words to the club.
+function welcomeAthlete(a, secret = false) {
+  if (!a) return;
+  save();
+  render();
+  world.replan();
+  sfx(secret ? "goal" : "level");
+  dialog(secret ? a.name + " joins!" : "Welcome, " + a.name.split(" ")[0] + "!", P.newcomer(state, a), [{ label: "Welcome aboard!", fn: () => (closeWindow(), world.say(a.id, voiceLine(a, "join", a.id + 1), 2600)) }], { eyebrow: secret ? "A secret character signs" : "New teammate", tone: "gold", cls: "newcomer-dialog" });
+}
 function showEvent() {
   const v = G.eventView(state);
   if (!v || $("#dialog").open) return;
@@ -482,8 +492,10 @@ function doDay(now) {
   if (!view.playing) view.dayP = 0.25;
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
-  for (const l of r.levelUps) {
-    toast(l.name + " hits level " + l.level + "! Skill points to spend.", "level", "levelup");
+  // One toast for everyone who levelled up today; the world shows each of them celebrating.
+  if (r.levelUps.length) {
+    const names = r.levelUps.map((l) => l.name.split(" ")[0]);
+    toast((names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) + " levelled up!" : r.levelUps[0].name + " hits level " + r.levelUps[0].level + "!") + " Skill points to spend.", "level", "levelup");
     sfx("level");
   }
   if (r.invitation) {
@@ -865,6 +877,7 @@ $("#app").addEventListener("click", async (e) => {
       const key = b.dataset.key,
         r = G.upgradeStadium(state, key);
       if (r) {
+        closeWindow();
         world.flashSpot(key, r.level === 1 ? "BUILT!" : "LEVEL " + r.level + "!");
         sfx("build");
         toast(STADIUM[key].name + ": " + STADIUM[key].levels[r.level] + "!", "level", "stadium");
@@ -875,6 +888,7 @@ $("#app").addEventListener("click", async (e) => {
       const i = +b.dataset.index,
         type = b.dataset.type;
       if (G.build(state, i, type)) {
+        closeWindow();
         world.flashPlot(i, "BUILT!");
         sfx("build");
         toast("The " + FACILITIES[type].name + " is open!", "info", "build2");
@@ -884,6 +898,7 @@ $("#app").addEventListener("click", async (e) => {
     case "upgrade": {
       const i = +b.dataset.index;
       if (G.upgrade(state, i)) {
+        closeWindow();
         world.flashPlot(i, "LEVEL " + state.plots[i].level + "!");
         sfx("build");
       }
@@ -905,16 +920,10 @@ $("#app").addEventListener("click", async (e) => {
       if (G.scout(state)) sfx("coin");
       break;
     case "recruit":
-      if (G.recruit(state, id)) {
-        toast("Signed! New bib, new beginnings.", "level", "squad");
-        sfx("level");
-      }
+      if (G.recruit(state, id)) welcomeAthlete(state.roster.at(-1));
       break;
     case "sign-secret":
-      if (G.signSecret(state, b.dataset.key)) {
-        toast(SECRETS[b.dataset.key].name + " joined the club!", "goal", "star");
-        sfx("goal");
-      }
+      if (G.signSecret(state, b.dataset.key)) welcomeAthlete(state.roster.at(-1), true);
       break;
     case "release-contract": {
       const a = state.roster.find((x) => x.id === id);
@@ -1115,7 +1124,12 @@ worldCanvas.addEventListener("pointerup", (e) => {
   if (state.match) return;
   if (!hit) return view.window ? closeWindow() : null;
   sfx("tap");
-  if (hit.kind === "athlete") return openWindow("squad", { athlete: hit.id });
+  if (hit.kind === "athlete") {
+    // A quick hello before their file opens.
+    const a = state.roster.find((x) => x.id === hit.id);
+    if (a) world.say(a.id, voiceLine(a, idleSituation(state, a), performance.now() / 997), 2000);
+    return openWindow("squad", { athlete: hit.id });
+  }
   if (hit.kind === "plot") return selectPlot(hit.index);
   if (hit.kind === "stadium") return openWindow("build", { selected: { kind: "stadium", key: hit.key } });
 });

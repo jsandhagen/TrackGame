@@ -1,4 +1,5 @@
 import * as G from "../domain/game.js";
+import { line as voiceLine } from "../domain/voice.js";
 import { throwResult } from "../render/meet-presentation.js";
 import {
   EVENTS,
@@ -72,6 +73,14 @@ function pageTabs(page, tabs, current, extra = "") {
   return `<nav class="tabs page-tabs">${tabs.map(([id, label]) => `<button data-act="page-tab" data-page="${page}" data-tab="${id}" class="${current === id ? "active" : ""}" aria-pressed="${current === id}">${label}</button>`).join("")}${extra}</nav>`;
 }
 export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Training ground", recruit: "Scouting report", build: "Groundskeeping", shop: "Kit shop", league: "Meet calendar", club: "Club office", lobby: "Call room", calendar: "Club calendar" };
+
+// The card that introduces a new signing.
+export function newcomer(s, a) {
+  return `<div class="newcomer">${portrait(a, "large")}<div><div class="newcomer-tags">${eventChip(a.event)} ${rarityChip(a)} ${chip(BACKGROUNDS[a.background].name, "#88b0d0")}</div>
+    <p class="quote">“${esc(voiceLine(a, "join", a.id + 1).toLowerCase().replace(/^./, (c) => c.toUpperCase()))}”</p>
+    <p class="newcomer-story">${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em></p>
+    <div class="newcomer-stats">${statRows(a, true)}</div><p class="hint">OVR ${G.overall(a)} in ${EVENTS[a.event].name} · wage ${cash(G.wageOf(a))}/wk</p></div></div>`;
+}
 
 // ── Club desk ───────────────────────────────────────────────────────────
 export function home(s, view) {

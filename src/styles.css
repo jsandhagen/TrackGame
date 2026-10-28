@@ -4779,3 +4779,12 @@ button.drill.high-tier { background: linear-gradient(#b8862a 0 4px, #fff8e2 4px)
   .fam-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex-basis: 100%; }
   .fam-filter button { flex: none; }
 }
+/* A new teammate's arrival card. */
+.newcomer { display: flex; gap: 12px; align-items: flex-start; }
+.newcomer .portrait.large { width: 96px; height: 96px; flex: none; animation: pop-in 0.45s ease-out both; }
+.newcomer > div { flex: 1; min-width: 0; }
+.newcomer-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.newcomer .quote { margin: 8px 0 6px; font-size: 15px; font-weight: 700; }
+.newcomer-story { margin: 0 0 6px; font-size: 12.5px; color: var(--muted); }
+/* Toasts on the club view sit at the bottom, clear of the banners across the middle. */
+#app:not(.has-window):not(.meeting) #toasts { top: auto; bottom: calc(max(8px, env(safe-area-inset-bottom)) + 74px); left: 50%; transform: translateX(-50%); }

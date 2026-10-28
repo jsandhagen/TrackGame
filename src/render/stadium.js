@@ -6,6 +6,19 @@ import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldReco
 import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
+import { line as voiceLine, throwSituation } from "../domain/voice.js";
+import { measure } from "./font.js";
+// A pixel speech bubble whose tail points down at (x, y + 12), kept inside the scene.
+function speech(g, str, x, y) {
+  const w = measure(str) + 8,
+    left = Math.round(Math.max(2, Math.min(W - w - 2, x - w / 2)));
+  rect(g, left + 1, y, w - 2, 11, "#2a2420");
+  rect(g, left, y + 1, w, 9, "#2a2420");
+  rect(g, left + 1, y + 1, w - 2, 9, "#fffaf0");
+  rect(g, Math.round(x) - 1, y + 10, 3, 2, "#fffaf0");
+  rect(g, Math.round(x), y + 12, 1, 1, "#2a2420");
+  text(g, str, left + w / 2, y + 2, { color: "#3a2a24", outline: null, align: "center" });
+}
 
 let W = 640;
 export const H = SCENE_HEIGHT;
@@ -491,6 +504,8 @@ export function createStadium(cv) {
       }
       figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 1);
       if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 10, y - 42, { color: "#f2c94c", scale: 2 });
+      // The thrower reacts once the mark is up: a speech bubble in their own voice.
+      if (beat?.type === "throw" && tt >= T.land + 150 && tt < T.land + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 40);
     }
     // Projectile.
     if (beat?.type === "throw" && tt >= T.tech && tt < T.land + 600) {
