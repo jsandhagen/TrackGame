@@ -85,7 +85,7 @@ export function setAthleteEvent(s, id, event) {
   return true;
 }
 
-export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false, highlights: true };
+export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: true, speed: 2, meetSpeed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
@@ -93,7 +93,7 @@ export function newGame(seed = Date.now() >>> 0) {
     balance: 2,
     rivalClubs: {},
     facilityDuties: {},
-    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0, drills: {} },
+    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0, drills: {}, chemistry: [] },
     rng: seed >>> 0 || 1,
     weatherSeed: weatherSeedFrom(seed),
     nextId: 1,
@@ -297,7 +297,7 @@ export function trainingGains(s, a, planId, fx = effects(s, a)) {
     gains = [0, 0, 0, 0];
   if (!plan || planId === "rest" || plan.facilityRole || planProblem(s,a,planId)) return gains;
   // Daily plans keep a squad ticking over; facilities and coached sessions make the big gains.
-  const base = 0.25,
+  const base = 0.14,
     cap = capOf(a),
     mood = MOOD_TRAIN[moodOf(a)];
   for (let i = 0; i < 4; i++) {

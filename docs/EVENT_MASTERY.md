@@ -15,3 +15,16 @@ Hype Engine now raises teammates' condition when its athlete wins an event. Both
 Rival clubs retain their athletes across stages and revisits. Later teams have deeper squads, authored approaches to equipment and skill selection, identifiable specialist stars and different supporting strengths. Beaten clubs improve the mastery of a weak-event specialist. Older careers infer initial event familiarity from existing appearances and personal bests, retain athletes and records, and migrate to save schema 8.
 
 See [current balance](BALANCE_CURRENT.md) for the current seeded results, policy definitions and remaining tuning limits.
+
+## Throwing form
+
+How an athlete throws at meets follows their **form** in that event: the average of their Technique and event mastery (`formOf`, `FORMS` in `src/domain/mastery.js`). Form changes only the animation, never the distance. Thresholds are 34, 50 and 68.
+
+| Form | Shot put | Discus | Hammer | Javelin |
+| --- | --- | --- | --- | --- |
+| 0 | Standing put | Standing throw (pre-swings) | Two winds, two turns | Short approach |
+| 1 | Glide from the back of the circle | Half turn | Three turns | Full run-up and crossovers |
+| 2 | Power glide with a reverse | One and a half turns | Four turns, keeps turning after release | Longer crossover phase and block |
+| 3 | Rotational | Fast spin, accelerating | Four fast turns | Elite approach |
+
+Form 3 leaves afterimages through the turns. Fouls carry the thrower over the front of the circle or the arc. The timelines are in `src/render/throw-motion.js` (pure and tested), and the extra technique frames are in `THROWS` in `sprites.js`. A coached session that lifts an athlete into a new form says so on the result card and in the club news. The athlete file's mastery card shows each event's current form and what unlocks the next.

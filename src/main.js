@@ -20,6 +20,7 @@ import { createPersistence } from "./platform/persistence.js";
 import { exportBackup } from "./platform/backups.js";
 import { initNative, isNativeApp, setOrientation, exitApp } from "./platform/native.js";
 import { validateCampaign, exportCampaign } from "./domain/campaign-save.js";
+import { line as voiceLine, idleSituation } from "./domain/voice.js";
 
 installIcons();
 const $ = (q) => document.querySelector(q);
@@ -28,8 +29,11 @@ const store = await createPersistence("ring-sector-leagues-v3");
 let state = store.read() ? validateCampaign(JSON.parse(store.read())) : G.newGame();
 let saveEnabled = false;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
-const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
+const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
 const DAY_MS = [0, 8000, 4000, 2000];
+// Money and fans roll to their new value in the HUD, and every change floats out beside the counter.
+const counters = { money: { shown: state.money, seen: state.money }, fans: { shown: state.fans, seen: state.fans } };
+const counterText = (key, n) => (key === "money" ? cash(Math.round(n)) : Math.round(n).toLocaleString());
 // How dark night gets at each speed, so the fastest speed doesn't strobe.
 const NIGHT_AT_SPEED = [1, 1, 0.75, 0.4];
 const world = createWorld($("#world")),
@@ -100,9 +104,9 @@ function hud() {
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
-  <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
+  <div class="res fans">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></div>
   <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
-  <div class="res money">${ico("coin")}<b>${cash(state.money)}</b></div>
+  <div class="res money">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></div>
   <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
 }
 function menu() {
@@ -155,7 +159,7 @@ function windowHTML() {
     build: () => P.build(state, view),
     shop: () => P.shop(state, view),
     league: () => P.league(state, view),
-    club: () => P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() }),
+    club: () => P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() }, view),
     lobby: () => P.lobby(state, view),
     calendar: () => P.calendar(state, view),
   }[page]?.();
@@ -169,9 +173,11 @@ function render(preserve = true) {
   const groupPlans = $("#panel .group-plans");
   if (groupPlans) view.showGroupPlans = groupPlans.open;
   const panel = $("#panel"),
-    page = state.match ? "meet:" + state.match.phase : view.window + ":" + view.athlete,
-    scroll = preserve && page === shownPage ? panel.scrollTop : 0;
+    page = state.match ? "meet:" + state.match.phase : [view.window, view.athlete, view.tab, view.tabs?.[view.window], view.trainTab, view.shopTab].join(":"),
+    scroll = preserve && page === shownPage ? panel.scrollTop : 0,
+    previousPage = shownPage;
   shownPage = page;
+  document.documentElement.classList.toggle("reduce-motion", !!state.settings.reducedMotion);
   hud();
   menu();
   tools();
@@ -195,7 +201,9 @@ function render(preserve = true) {
     $(".win-close").innerHTML = ico("close");
     $(".win-close").hidden = !!m;
     // A page class lets wide layouts arrange each window's content.
-    panel.innerHTML = `<div class="panel-body page-${m ? "meet" : view.window}${view.window === "squad" && view.athlete != null ? " page-athlete" : ""}">${win[1]}</div>`;
+    const fresh = page !== previousPage;
+    panel.innerHTML = `<div class="panel-body page-${m ? "meet" : view.window}${view.window === "squad" && view.athlete != null ? " page-athlete" : ""}${fresh ? " fresh" : ""}">${win[1]}</div>`;
+    if (fresh) countUp(panel);
     panel.scrollTop = scroll;
   } else panel.innerHTML = "";
   quickAction();
@@ -237,6 +245,23 @@ function buildingImage(key) {
 function athleteById(id) {
   return state.roster.find((a) => a.id === id) || state.prospects.find((a) => a.id === id) || state.pendingEvent?.data?.athlete;
 }
+// Numbers on a fresh results card or pop-up count up from zero.
+function countUp(root) {
+  if (reduced()) return;
+  root.querySelectorAll("[data-count]").forEach((el) => {
+    const to = +el.dataset.count,
+      fmt = (n) => (el.hasAttribute("data-cash") ? cash(n) : String(n));
+    if (!(to > 0)) return;
+    const t0 = performance.now(),
+      step = (now) => {
+        const p = Math.min(1, (now - t0) / 800);
+        el.textContent = fmt(Math.round(to * (1 - Math.pow(1 - p, 3))));
+        if (p < 1) requestAnimationFrame(step);
+      };
+    el.textContent = fmt(0);
+    requestAnimationFrame(step);
+  });
+}
 function paint(root) {
   root.querySelectorAll("canvas[data-portrait]").forEach((c) => {
     const a = athleteById(+c.dataset.portrait);
@@ -261,6 +286,11 @@ function paint(root) {
 // ── Windows and dialogs ─────────────────────────────────────────────────
 function openWindow(page, opts = {}) {
   if (state.match) return;
+  // A window opens on its first tab.
+  if (page !== view.window) {
+    if (view.tabs) delete view.tabs[page];
+    if (page === "train") view.trainTab = null;
+  }
   view.window = page;
   if (page !== "squad") view.athlete = null;
   if (page !== "build") view.moving = null;
@@ -313,6 +343,7 @@ function dialog(title, body, choices, o = {}) {
   dlg.className = "tone-" + (o.tone || "news") + (o.cls ? " " + o.cls : "");
   dlg.innerHTML = `<div class="dialog-head">${o.helper ? `<span class="medallion"><canvas width="64" height="64" data-helper class="portrait helper"></canvas></span>` : ""}<div><span class="eyebrow">${esc(o.eyebrow || HELPER + ", club secretary")}</span><h1>${esc(title)}</h1></div></div><div class="dialog-body">${body}</div><div class="dialog-actions">${choices.map((c, i) => `<button class="button ${c.secondary ? "subtle" : "primary"}" data-choice="${i}" ${c.disabled ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}</div>`;
   paint(dlg);
+  countUp(dlg);
   dlg.querySelectorAll("[data-choice]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -328,6 +359,15 @@ function dialog(title, body, choices, o = {}) {
 $("#dialog").addEventListener("cancel", (e) => {
   if ($("#dialog").dataset.locked) e.preventDefault();
 });
+// A new teammate gets a proper arrival: portrait, background and their first words to the club.
+function welcomeAthlete(a, secret = false) {
+  if (!a) return;
+  save();
+  render();
+  world.replan();
+  sfx(secret ? "goal" : "level");
+  dialog(secret ? a.name + " joins!" : "Welcome, " + a.name.split(" ")[0] + "!", P.newcomer(state, a), [{ label: "Welcome aboard!", fn: () => (closeWindow(), world.say(a.id, voiceLine(a, "join", a.id + 1), 2600)) }], { eyebrow: secret ? "A secret character signs" : "New teammate", tone: "gold", cls: "newcomer-dialog" });
+}
 function showEvent() {
   const v = G.eventView(state);
   if (!v || $("#dialog").open) return;
@@ -388,7 +428,7 @@ function runTraining(ids, drill) {
   save();
   render();
   world.replan();
-  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · session Lv " + session.level, tone: "gold", cls: "training" });
+  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · step " + G.tierOf(session.level - (session.tierUp ? 1 : 0)) + " of 5", tone: "gold", cls: "training" });
   const dlg = $("#dialog"),
     results = dlg.querySelector(".stage-results"),
     cv = dlg.querySelector(".stage-canvas");
@@ -402,11 +442,15 @@ function runTraining(ids, drill) {
     colors: state.colors,
     ctx: { gymLevel: G.facilityLevel(state, "gym"), trackColor: trackColorOf(Math.max(2, state.stadium.track), styleOf(state).track) },
     reduced: reduced(),
+    chemistry: session.chemistry,
+    upgrade: session.tierUp ? session.levelUp : null,
+    onChemistry: () => sfx("combo"),
     onReveal() {
       results.classList.add("show");
       dlg.querySelector(".stage-tap")?.remove();
       sfx(session.results.some((r) => r.quality === "excellent") ? "goal" : "stamp");
-      if (session.levelUp) setTimeout(() => sfx("combo"), 700);
+      if (session.levelUp) setTimeout(() => sfx(session.tierUp ? "level" : "combo"), 700);
+      if (session.coachLevelUp) setTimeout(() => sfx("goal"), 1300);
     },
   });
   cv.onclick = () => player.skip();
@@ -435,19 +479,21 @@ function help(welcome = false) {
   stopPlaying();
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
-    `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams. Here's the drill:" : "The drill, one more time:"}</p>
-    <ol class="howto"><li><b>Train.</b> Hit Train and the days roll. Everyone heads to the gym, the track or their own ring, and the stats tick up.</li>
-    <li><b>Run sessions.</b> Spend Coaching Insights (the lightbulb) in <b>Train</b>: up to three athletes per session, and sessions level up with reps.</li>
-    <li><b>Build.</b> Upgrade the rings, cages, runway, track and stands, then fill the plots outside. Good neighbours make <b>combos</b>.</li>
-    <li><b>Book meets.</b> Duels to test yourselves, leagues for trophies. Win Open, Challenger and Championship to move up a level.</li>
-    <li><b>Compete.</b> Watch your throwers go, or call every attempt from the infield.</li></ol>
-    <p class="hint">Drag to look around, tap anything. The clock only runs while you train.</p>`,
+    `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams." : "The drill, one more time:"}</p>
+    <ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
+    <li><b>Train</b> and watch the days roll by. Stats pop up as they grow.</li>
+    <li><b>Compete</b>, win prizes, then <b>build</b> and <b>shop</b> to get stronger.</li></ol>
+    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>`,
     [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
 }
 
 // ── Time ────────────────────────────────────────────────────────────────
+// Training is the show: once the clock runs, step out of the window so the club is in view.
+function watchClub() {
+  if (view.playing && view.window) closeWindow();
+}
 function stopPlaying() {
   if (!view.playing) return;
   view.playing = false;
@@ -471,8 +517,10 @@ function doDay(now) {
   if (!view.playing) view.dayP = 0.25;
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
-  for (const l of r.levelUps) {
-    toast(l.name + " hits level " + l.level + "! Skill points to spend.", "level", "levelup");
+  // One toast for everyone who levelled up today; the world shows each of them celebrating.
+  if (r.levelUps.length) {
+    const names = r.levelUps.map((l) => l.name.split(" ")[0]);
+    toast((names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) + " levelled up!" : r.levelUps[0].name + " hits level " + r.levelUps[0].level + "!") + " Skill points to spend.", "level", "levelup");
     sfx("level");
   }
   if (r.invitation) {
@@ -582,11 +630,11 @@ $("#app").addEventListener("click", async (e) => {
     case "recenter":
       return world.home();
     case "play":
-      return play();
+      return play(), watchClub();
     case "pause":
       return stopPlaying(), render();
     case "speed":
-      return +b.dataset.speed ? play(+b.dataset.speed) : (stopPlaying(), render());
+      return +b.dataset.speed ? (play(+b.dataset.speed), watchClub()) : (stopPlaying(), render());
     case "day":
       if (state.pendingEvent) return showEvent();
       return doDay(performance.now());
@@ -595,6 +643,9 @@ $("#app").addEventListener("click", async (e) => {
       stopPlaying();
       if (G.lineupProblem(state)) G.autoLineup(state);
       return openWindow("lobby");
+    case "edit-lineup":
+      view.editLineup = !view.editLineup;
+      break;
     case "autolineup":
       G.autoLineup(state);
       toast("Strongest lineup entered.");
@@ -629,7 +680,7 @@ $("#app").addEventListener("click", async (e) => {
       state.settings.highlights=!state.settings.highlights;
       break;
     case "meet-speed":
-      view.meetSpeed = +b.dataset.speed;
+      view.meetSpeed = state.settings.meetSpeed = +b.dataset.speed;
       break;
     case "tactic":
       if (state.match?.phase !== "decide") return;
@@ -717,6 +768,18 @@ $("#app").addEventListener("click", async (e) => {
       return render(false);
     case "coach-session":
       return runTraining((b.dataset.ids || String(id)).split(",").filter(Boolean).map(Number), b.dataset.drill);
+    case "coach-athlete":
+      view.trainees = [id];
+      return openWindow("train");
+    case "page-tab":
+      (view.tabs ??= {})[b.dataset.page] = b.dataset.tab;
+      break;
+    case "drill-family":
+      view.drillFamily = b.dataset.value;
+      break;
+    case "train-tab":
+      view.trainTab = b.dataset.tab;
+      break;
     case "trainee": {
       const list = P.trainees(state, view).filter((x) => x !== id);
       if (list.length === P.trainees(state, view).length) list.push(id);
@@ -839,6 +902,7 @@ $("#app").addEventListener("click", async (e) => {
       const key = b.dataset.key,
         r = G.upgradeStadium(state, key);
       if (r) {
+        closeWindow();
         world.flashSpot(key, r.level === 1 ? "BUILT!" : "LEVEL " + r.level + "!");
         sfx("build");
         toast(STADIUM[key].name + ": " + STADIUM[key].levels[r.level] + "!", "level", "stadium");
@@ -849,6 +913,7 @@ $("#app").addEventListener("click", async (e) => {
       const i = +b.dataset.index,
         type = b.dataset.type;
       if (G.build(state, i, type)) {
+        closeWindow();
         world.flashPlot(i, "BUILT!");
         sfx("build");
         toast("The " + FACILITIES[type].name + " is open!", "info", "build2");
@@ -858,6 +923,7 @@ $("#app").addEventListener("click", async (e) => {
     case "upgrade": {
       const i = +b.dataset.index;
       if (G.upgrade(state, i)) {
+        closeWindow();
         world.flashPlot(i, "LEVEL " + state.plots[i].level + "!");
         sfx("build");
       }
@@ -879,16 +945,10 @@ $("#app").addEventListener("click", async (e) => {
       if (G.scout(state)) sfx("coin");
       break;
     case "recruit":
-      if (G.recruit(state, id)) {
-        toast("Signed! New bib, new beginnings.", "level", "squad");
-        sfx("level");
-      }
+      if (G.recruit(state, id)) welcomeAthlete(state.roster.at(-1));
       break;
     case "sign-secret":
-      if (G.signSecret(state, b.dataset.key)) {
-        toast(SECRETS[b.dataset.key].name + " joined the club!", "goal", "star");
-        sfx("goal");
-      }
+      if (G.signSecret(state, b.dataset.key)) welcomeAthlete(state.roster.at(-1), true);
       break;
     case "release-contract": {
       const a = state.roster.find((x) => x.id === id);
@@ -1034,6 +1094,8 @@ function importSave() {
           label: "Restore club",
           fn: () => {
             state = incoming;
+            for (const key of Object.keys(counters)) counters[key] = { shown: state[key], seen: state[key] };
+            newsSeen = state.log[0];
             presenter = null;
             view.window = null;
             view.athlete = null;
@@ -1089,7 +1151,12 @@ worldCanvas.addEventListener("pointerup", (e) => {
   if (state.match) return;
   if (!hit) return view.window ? closeWindow() : null;
   sfx("tap");
-  if (hit.kind === "athlete") return openWindow("squad", { athlete: hit.id });
+  if (hit.kind === "athlete") {
+    // A quick hello before their file opens.
+    const a = state.roster.find((x) => x.id === hit.id);
+    if (a) world.say(a.id, voiceLine(a, idleSituation(state, a), performance.now() / 997), 2000);
+    return openWindow("squad", { athlete: hit.id });
+  }
   if (hit.kind === "plot") return selectPlot(hit.index);
   if (hit.kind === "stadium") return openWindow("build", { selected: { kind: "stadium", key: hit.key } });
 });
@@ -1146,9 +1213,63 @@ initNative({
   },
 }).catch(console.error);
 
+function floatDelta(key, delta) {
+  const box = $("#hud .res." + key);
+  if (!box || !delta) return;
+  const r = box.getBoundingClientRect(),
+    el = document.createElement("span");
+  el.className = "hud-delta " + (delta > 0 ? "up" : "down") + " " + key;
+  el.textContent = (delta > 0 ? "+" : "−") + counterText(key, Math.abs(delta));
+  el.style.left = r.left + r.width / 2 + "px";
+  el.style.top = r.bottom + 2 + "px";
+  $("#app").append(el);
+  setTimeout(() => el.remove(), 1300);
+}
+function tickCounters(dt) {
+  for (const [key, c] of Object.entries(counters)) {
+    const target = state[key];
+    if (target !== c.seen) {
+      floatDelta(key, target - c.seen);
+      c.seen = target;
+    }
+    if (c.shown === target) continue;
+    const gap = target - c.shown;
+    c.shown = Math.abs(gap) <= 1 || reduced() ? target : c.shown + gap * Math.min(1, dt / 140);
+    const el = $("#hud .res." + key + " b");
+    if (el) el.textContent = counterText(key, c.shown);
+  }
+}
+// The club news: each new bulletin slides across a ticker under the HUD, one at a time.
+let newsSeen = state.log[0],
+  newsBusy = false;
+const newsQueue = [];
+function tickNews() {
+  if (state.log[0] !== newsSeen) {
+    const fresh = [];
+    for (const entry of state.log) {
+      if (entry === newsSeen) break;
+      fresh.push(entry);
+    }
+    newsQueue.push(...fresh.reverse().slice(-3));
+    newsSeen = state.log[0];
+  }
+  if (newsBusy || !newsQueue.length || state.match) return;
+  const entry = newsQueue.shift(),
+    el = $("#ticker"),
+    secs = Math.max(5, Math.min(11, entry.text.length / 9));
+  newsBusy = true;
+  el.innerHTML = `<b>${ico("news")} NEWS</b><span><span style="--dur:${secs}s">${esc(entry.text)}</span></span>`;
+  el.hidden = false;
+  setTimeout(() => {
+    el.hidden = true;
+    newsBusy = false;
+  }, secs * 1000 + 250);
+}
 function frame(now) {
   const dt = Math.min(100, now - (lastFrame || now));
   lastFrame = now;
+  tickCounters(dt);
+  tickNews();
   if (!document.hidden && !$("#gameMenu").open) {
     if (state.match) {
       pumpMeet(dt);

@@ -48,3 +48,19 @@ export function disciplineModel(a,ev,wind='calm',override){
  if(ev==='jav'){const control=(a.stats[1]+mastery)/2;r.mark=1+clamp((a.stats[2]+control-110)/1700,-0.02,0.045);r.foul=1.25+Math.max(0,a.stats[2]-control)*0.02;r.energy=3;}
  return r;
 }
+// Throwing form: how complete a technique an athlete uses in an event, from their technique
+// stat and event mastery. It only changes how throws look; distance comes from the rating.
+export const FORMS={
+ shot:['Standing put','Glide','Power glide','Rotational'],
+ discus:['Standing throw','Half turn','One and a half turns','Fast spin'],
+ hammer:['Two turns','Three turns','Four turns','Four fast turns'],
+ jav:['Short approach','Full approach','Crossover approach','Elite approach'],
+};
+export const FORM_STEPS=[0,34,50,68];
+export const formScore=(a,ev)=>((a.stats?.[1]??20)+masteryOf(a,ev))/2;
+export function formOf(a,ev){
+ const score=formScore(a,ev);
+ let level=0;
+ while(level+1<FORM_STEPS.length&&score>=FORM_STEPS[level+1]) level++;
+ return level;
+}

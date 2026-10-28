@@ -2,10 +2,24 @@ import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, formOf } from "../domain/game.js";
+import { throwMotion } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
+import { line as voiceLine, throwSituation } from "../domain/voice.js";
+import { measure } from "./font.js";
+// A pixel speech bubble whose tail points down at (x, y + 12), kept inside the scene.
+function speech(g, str, x, y) {
+  const w = measure(str) + 8,
+    left = Math.round(Math.max(2, Math.min(W - w - 2, x - w / 2)));
+  rect(g, left + 1, y, w - 2, 11, "#2a2420");
+  rect(g, left, y + 1, w, 9, "#2a2420");
+  rect(g, left + 1, y + 1, w - 2, 9, "#fffaf0");
+  rect(g, Math.round(x) - 1, y + 10, 3, 2, "#fffaf0");
+  rect(g, Math.round(x), y + 12, 1, 1, "#2a2420");
+  text(g, str, left + w / 2, y + 2, { color: "#3a2a24", outline: null, align: "center" });
+}
 
 let W = 640;
 export const H = SCENE_HEIGHT;
@@ -31,10 +45,48 @@ const O = THROW_ORIGIN;
 let sector = throwingSector("shot", W, 100);
 const centreY = x => sector.centerY(x);
 const upperY = x => sector.upperY(x);
-// The sector reaches just past the world record, or past the club's own record once it goes further.
+// The sector is sized to this field: a third past the longest throw anyone here is likely to
+// make, so novice marks land out in the sector rather than huddled by the circle. It never
+// reaches beyond the world record, or the club's own record once it goes further.
 let SPAN = 100;
-const spanOf = (s, ev) => Math.max(EVENTS[ev].record * 1.06, worldRecord(s, ev) * 1.08);
+function spanOf(s, m, i, ev) {
+  const most = Math.max(EVENTS[ev].record * 1.06, worldRecord(s, ev) * 1.08),
+    field = m.fields?.[i];
+  if (!field) return most;
+  const away = matchClub(s)?.athletes;
+  let reach = 0;
+  for (const [entries, pool] of [[field.home, s.roster], [field.away, away || []]])
+    for (const e of entries) {
+      const a = pool.find((x) => x.id === e.id);
+      reach = Math.max(reach, a ? rawMark(a, ev) : 0, a?.pb?.[ev] || 0, ...e.marks.filter((x) => x != null));
+    }
+  if (!reach) return most;
+  return Math.ceil(Math.min(most, Math.max(EVENTS[ev].min * 1.6, reach * 1.35)));
+}
 const ppmOf = () => sector.ppm;
+// Half the javelin runway's width on screen, in the oblique view.
+const RUNWAY = 9;
+// The discus and hammer cage: posts on an arc round the back of the circle, opening towards the
+// sector, with netting between them. The far half is drawn behind the thrower, the near half in
+// front, so the thrower stands inside it.
+const CAGE = { rx: 38, ry: 15, h: 74, from: 0.28, to: 1.72 };
+function cage(g, half) {
+  const posts = [];
+  for (let i = 0; i <= 8; i++) {
+    const a = Math.PI * (CAGE.from + ((CAGE.to - CAGE.from) * i) / 8);
+    posts.push([Math.round(O.x + Math.cos(a) * CAGE.rx), Math.round(O.y + Math.sin(a) * CAGE.ry), Math.sin(a)]);
+  }
+  // Far posts have negative sin (they sit above the circle on screen); near posts positive.
+  const mine = ([, , z]) => (half === "back" ? z <= 0.05 : z > 0.05);
+  for (let i = 0; i + 1 < posts.length; i++) {
+    const [x1, y1, z1] = posts[i], [x2, y2, z2] = posts[i + 1];
+    if (!mine([0, 0, (z1 + z2) / 2])) continue;
+    poly(g, [[x1, y1], [x2, y2], [x2, y2 - CAGE.h], [x1, y1 - CAGE.h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.1)");
+    for (let k = 8; k < CAGE.h; k += 8) line(g, x1, y1 - k, x2, y2 - k, "rgba(70,90,80,0.35)");
+    line(g, x1, y1 - CAGE.h, x2, y2 - CAGE.h, "#3a4a42");
+  }
+  for (const p of posts) if (mine(p)) rect(g, p[0], p[1] - CAGE.h, 2, CAGE.h, "#4a5a52");
+}
 function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
   for (let i = 1; i < points.length; i++) if (!dashed || i % 4 < 2) line(g, ...points[i - 1], ...points[i], color);
@@ -169,6 +221,14 @@ function stadiumBase(s, ev, venue) {
   for (let y = 0; y < 60; y++) rect(g, 0, y, W, 1, mix(sky[0], sky[1], y / 60));
   if (venue.time === "night" && venue.weather !== "rain" && venue.weather !== "snow") for (let i = 0; i < 40; i++) px(g, hash(i) * W, hash(i + 50) * 30, "#e8e8ff");
   else if (["sunny", "heat", "windy"].includes(venue.weather)) ellipse(g, W - 60, 14, 9, 9, venue.time === "golden" ? "#f8c080" : "#fff2c0");
+  // A few puffy clouds on fair days.
+  if (venue.time !== "night" && !["rain", "snow"].includes(venue.weather))
+    for (let i = 0; i < 4; i++) {
+      const cx = 40 + hash(i * 7) * (W - 80), cy = 10 + hash(i * 3) * 26, w = 14 + hash(i) * 12;
+      ellipse(g, cx, cy + 2, w, 4, "rgba(255,255,255,0.55)");
+      ellipse(g, cx - w * 0.3, cy, w * 0.5, 4, "rgba(255,255,255,0.7)");
+      ellipse(g, cx + w * 0.25, cy - 1, w * 0.55, 5, "rgba(255,255,255,0.8)");
+    }
   const horizon = [62, 62, 34, 10, 10][venue.grand];
   if (venue.grand <= 2) backdrop(g, venue.backdrop, horizon, venue);
   stands(g, venue);
@@ -192,40 +252,55 @@ function stadiumBase(s, ev, venue) {
     text(g, fit(a, 13), x + 40, 97, { color: "#fff6dc", outline: null, align: "center" });
   }
   // Field.
-  rect(g, 0, 106, W, H - 106, "#6aa04e");
-  for (let x = 0; x < W; x += 32) rect(g, x, 106, 16, H - 106, "#76ac58");
+  // Field: a bright checkerboard mow.
+  rect(g, 0, 106, W, H - 106, "#6eb24c");
+  for (let y = 106; y < H; y += 20) for (let x = (Math.floor((y - 106) / 20) % 2) * 20; x < W; x += 40) rect(g, x, y, 20, 20, "#7abc58");
+  for (let i = 0; i < 260; i++) px(g, hash(i * 3) * W, 108 + hash(i * 5) * (H - 110), i % 3 ? "#86c464" : "#62a444");
   // Sector boundaries meet at the throwing origin; distance lines are arcs
   // of equal radius, rather than straight strips across a widening wedge.
-  const boundary = sector.arc(SPAN);
-  poly(g, [[O.x, O.y], ...boundary], "#7cb45c");
-  line(g, O.x, O.y, ...boundary[0], "#f4f4e8");
-  line(g, O.x, O.y, ...boundary.at(-1), "#f4f4e8");
+  // The javelin's sector lines run out from the two ends of the throwing arc; the circles' lines
+  // start at the centre of the ring, which covers them.
+  const boundary = sector.arc(SPAN),
+    [upper, lower] = ev === "jav" ? [[O.x + 3, O.y - RUNWAY - 2], [O.x + 3, O.y + RUNWAY + 2]] : [[O.x, O.y], [O.x, O.y]];
+  poly(g, [upper, ...boundary, lower], "#7cb45c");
+  line(g, ...upper, ...boundary[0], "#f4f4e8");
+  line(g, ...lower, ...boundary.at(-1), "#f4f4e8");
+  // Sector flags where the boundary lines end.
+  for (const [fx, fy] of [boundary[0], boundary.at(-1)]) {
+    rect(g, fx, fy - 12, 1, 12, "#f4f4e8");
+    rect(g, fx + 1, fy - 12, 6, 4, "#e04a3a");
+    rect(g, fx + 1, fy - 10, 3, 2, "#fff6dc");
+  }
   const e = EVENTS[ev],
-    step = SPAN > 140 ? 20 : e.max > 40 ? 10 : SPAN > 30 ? 4 : 2;
+    step = [1, 2, 4, 5, 10, 20, 25].find((n) => SPAN / n <= 9) || 50;
   for (let d = Math.ceil(e.min / step) * step; d < SPAN; d += step) {
     const [x,y] = sector.point(d, -sector.halfAngle);
     distanceArc(g, d, "rgba(244,244,232,0.5)");
     rect(g, x - 7, y - 11, 15, 8, "#f4efe2");
     text(g, String(d), x, y - 10, { color: "#3a5a3a", outline: null, align: "center" });
   }
-  // Circle, cage or runway.
+  // Circle, cage or runway, drawn at the same double scale as the people who use them: a ring
+  // about as wide as the thrower is tall, and a cage that stands well above their head.
   if (ev === "jav") {
-    poly(g, [[8, O.y + 3], [O.x, O.y - 5], [O.x, O.y + 6], [8, O.y + 15]], venue.track);
-    line(g, 8, O.y + 3, O.x, O.y - 5, "#f4e8d0");
-    line(g, 8, O.y + 15, O.x, O.y + 6, "#f4e8d0");
-    for (let i = 0; i < 6; i++) rect(g, O.x - 1, O.y - 5 + i * 2, 2, 1, "#f4f4e8");
+    // A straight runway along the sector's centre line, ending at the curved throwing arc.
+    const cy = (x) => O.y + (O.x - x) * 0.1;
+    poly(g, [[0, cy(0) - RUNWAY], [O.x, O.y - RUNWAY], [O.x, O.y + RUNWAY], [0, cy(0) + RUNWAY]], venue.track);
+    line(g, 0, cy(0) - RUNWAY, O.x, O.y - RUNWAY, "#f4e8d0");
+    line(g, 0, cy(0) + RUNWAY, O.x, O.y + RUNWAY, "#f4e8d0");
+    for (let k = -RUNWAY - 2; k <= RUNWAY + 2; k++) {
+      const t = k / (RUNWAY + 2);
+      rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, "#f8f8f0");
+    }
   } else {
-    ellipse(g, O.x, O.y + 2, 15, 6, "#5a6a5a");
-    ellipse(g, O.x, O.y, 14, 5, "#e8e4d0");
-    ellipse(g, O.x, O.y, 12, 4, "#a8a898");
-    if (ev === "shot") rect(g, O.x + 12, O.y - 3, 3, 6, "#f4efe2");
-    if (ev !== "shot") {
-      for (let i = 0; i < 7; i++) {
-        const x = O.x - 22 + i * 6;
-        rect(g, x, O.y - 52, 1, 50, "#4a5a52");
-      }
-      for (let y = O.y - 50; y < O.y - 4; y += 4) rect(g, O.x - 22, y, 37, 1, "rgba(80,100,90,0.45)");
-      rect(g, O.x - 22, O.y - 53, 38, 2, "#3a4a42");
+    if (ev !== "shot") cage(g, "back");
+    ellipse(g, O.x, O.y + 3, 30, 11, "#5a6a5a");
+    ellipse(g, O.x, O.y, 28, 10, "#e8e4d0");
+    ellipse(g, O.x, O.y, 24, 8, "#a8a898");
+    for (let i = 0; i < 18; i++) px(g, O.x - 20 + hash(i) * 40, O.y - 5 + hash(i + 9) * 10, "#9a9a8a");
+    if (ev === "shot") {
+      // The stop board on the front of the circle.
+      rect(g, O.x + 24, O.y - 6, 5, 12, "#f4efe2");
+      rect(g, O.x + 24, O.y + 6, 5, 1, "#c8c0a8");
     }
   }
   return c;
@@ -347,7 +422,7 @@ export function createStadium(cv) {
       bi = beat?.eventIndex ?? m.eventIndex,
       ev = EVENT_IDS[bi],
       e = EVENTS[ev];
-    SPAN = spanOf(s, ev);
+    SPAN = spanOf(s, m, bi, ev);
     sector = throwingSector(ev, W, SPAN);
     const ppm = ppmOf();
     const LH = camera.height,
@@ -357,9 +432,17 @@ export function createStadium(cv) {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = skyFor(venue)[0];
     g.fillRect(0, 0, W, top + 1);
-    g.fillStyle = "#6aa04e";
+    g.fillStyle = "#6eb24c";
     g.fillRect(0, top + H - 1, W, LH - H - top + 1);
-    g.translate(0, top);
+    const el = view.elapsed ?? 99999;
+    const hasCut = hasCutIn(beat);
+    const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
+    const landed = !(beat?.type === "throw") || tt >= T.land;
+    // Big moments land with a jolt: a short, decaying shake of the whole scene.
+    const big = beat?.type === "throw" && beat.mark != null && (beat.worldRecord || (beat.newPb && beat.previousPb > 0) || beat.tookLead || (beat.side === "home" && beat.scoringSwing > 0)),
+      sinceLand = tt - T.land,
+      jolt = big && !view.reduced && sinceLand >= 0 && sinceLand < 280 ? (1 - sinceLand / 280) * (beat.worldRecord ? 4 : 2) : 0;
+    g.translate(Math.round(Math.sin(sinceLand * 0.9) * jolt), top + Math.round(Math.cos(sinceLand * 1.3) * jolt));
     const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN;
     if (k !== key) {
       base = stadiumBase(s, ev, venue);
@@ -367,13 +450,20 @@ export function createStadium(cv) {
     }
     g.imageSmoothingEnabled = false;
     g.drawImage(base, 0, 0);
-    const el = view.elapsed ?? 99999;
-    const hasCut = hasCutIn(beat);
-    const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
-    const landed = !(beat?.type === "throw") || tt >= T.land;
     const reacting = beat?.type === "throw" && landed && el < beatDuration(beat) && beat.mark != null && beat.side === "home" && (beat.newPb || beat.scoringSwing > 0);
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     drawCrowd(g, s, m, now, cheer, venue);
+    // Flashbulbs pop in the stands after a big throw.
+    if (big && !view.reduced && sinceLand >= 0 && sinceLand < 1600)
+      for (let n = 0; n < 9; n++) {
+        const h = hash(n * 31 + Math.floor(now / 90)),
+          fx = Math.round(h * W),
+          fy = 58 + Math.round(hash(n * 17 + Math.floor(now / 90)) * 32);
+        if (h > 0.45) continue;
+        rect(g, fx, fy, 2, 2, "#ffffff");
+        px(g, fx - 1, fy, "#fff6c8");
+        px(g, fx + 2, fy + 1, "#fff6c8");
+      }
     drawScreen(g, s, m, venue, now);
     windsock(g, m, now);
     const home = homeAthlete(s, bi),
@@ -405,6 +495,7 @@ export function createStadium(cv) {
     // Stack labels in rows so close marks don't overprint each other.
     const rowsEnd = [];
     for (const l of lines.sort((a, b) => a.mark - b.mark)) {
+      if (l.mark > SPAN) continue;
       const x = atX(l.mark);
       if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
       else distanceArc(g, l.mark, l.color, l.dash);
@@ -425,64 +516,106 @@ export function createStadium(cv) {
     const judgeX = Math.min(W - 20, O.x + (landed && beat?.type === "throw" && beat.mark != null ? beat.mark : (e.min + e.max) / 2) * ppm + 10);
     figure(g, { ...OFFICIAL, pose: "idle", frame: Math.floor(now / 700) % 2 }, judgeX, centreY(judgeX) - 18, 1);
     const foulShown = beat?.type === "throw" && beat.foul && landed;
-    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 34, O.y - 22, 1);
-    if (foulShown) rect(g, O.x + 26, O.y - 48, 6, 4, "#e04a3a");
-    // Waiting athlete on the bench.
-    if (waiting && throwing) {
-      rect(g, 12, O.y + 39, 36, 3, "#a07850");
-      figure(g, { ...athleteLook(waiting, waitingColors), pose: "sit", frame: Math.floor(now / 600) % 2 }, 30, O.y + 40, 1);
+    // People at the circle are drawn at double size, like a sports sim's close-up; the field
+    // judge out in the sector stays small with the distance.
+    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 44, O.y - 20, 2);
+    if (foulShown) rect(g, O.x + 30, O.y - 72, 10, 7, "#e04a3a");
+    // Team benches along the front: your squad on the left, theirs beside them. Teammates jump
+    // up when their side lands a big one.
+    const benchOf = (side) => {
+      const entries = m.fields?.[bi]?.[side] || [],
+        pool = side === "home" ? s.roster : matchClub(s)?.athletes || [],
+        busy = throwing === side ? active : null;
+      const ids = [...entries.map((e) => e.id), ...pool.map((a) => a.id)];
+      return [...new Set(ids)].map((id) => pool.find((a) => a.id === id)).filter((a) => a && a !== busy && !a.injury).slice(0, 3);
+    };
+    const celebrate = big && sinceLand >= 0 && sinceLand < 1600 ? beat.side : null;
+    for (const [side, x0, colors] of [["home", 6, s.colors], ["away", 128, rivalColors]]) {
+      const by = H - 10;
+      // A plain bench seat on legs, with the team's pennant planted at the end.
+      ellipse(g, x0 + 48, by + 6, 50, 3, "rgba(30,50,30,0.25)");
+      rect(g, x0, by - 2, 96, 4, "#a07850");
+      rect(g, x0, by - 3, 96, 1, "#c09868");
+      for (const lx of [x0 + 4, x0 + 46, x0 + 90]) rect(g, lx, by + 2, 2, 5, "#6a5038");
+      rect(g, x0 + 98, by - 30, 1, 37, "#e8e0c8");
+      poly(g, [[x0 + 99, by - 30], [x0 + 111, by - 26], [x0 + 99, by - 22]], colors.primary);
+      benchOf(side).forEach((a, n) => {
+        const up = celebrate === side;
+        figure(g, { ...athleteLook(a, colors), pose: up ? "cheer" : "sit", frame: up ? Math.floor(now / 180 + n) % 2 : 0 }, x0 + 18 + n * 30, up ? by + 1 : by - 1, 2);
+      });
     }
     // The thrower.
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
+      // The throw follows the athlete's form: see throw-motion.js.
+      const level = formOf(active, ev),
+        phaseAt = (t) =>
+          t < T.prep ? ["ready", t / T.prep] : t < T.tech ? ["technique", (t - T.prep) / (T.tech - T.prep)] : t < T.tech + 250 ? ["release", (t - T.tech) / 250] : ["follow", (t - T.tech - 250) / (T.land - T.tech - 250)],
+        motionAt = (t) => throwMotion(ev, level, ...phaseAt(t), { foul: !!beat?.foul });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
         flip = false,
         x = O.x,
         y = O.y,
-        hammerBall = null;
-      if (beat?.type === "throw" && tt >= 0) {
-        const f = Math.min(1, Math.max(0, (tt - T.prep) / (T.tech - T.prep)));
-        if (tt < T.prep) (pose = "throw"), (frame = 0);
-        else if (tt < T.tech) {
-          pose = "throw";
-          if (ev === "jav") {
-            if (f < 0.7) (pose = "carry"), (frame = Math.floor(f * 14) % 4), (x = 8 + f / 0.7 * (O.x - 12));
-            else (frame = 1), (x = O.x - 4);
-          } else if (ev === "discus") {
-            frame = f < 0.75 ? 1 : 2;
-            flip = f < 0.75 && Math.floor(f * 8) % 2 === 1;
-          } else if (ev === "hammer") {
-            frame = f < 0.4 ? 0 : 1;
-            flip = f > 0.5 && f < 0.9 && Math.floor(f * 10) % 2 === 1;
-            const th = Math.PI * 2 * 3 * f * f;
-            hammerBall = [O.x + 2 + Math.cos(th) * 14, O.y - 16 + Math.sin(th) * 5];
-          } else frame = f < 0.5 ? 0 : 1;
-          if (ev === "shot" && f >= 0.5) x = O.x + 3;
-        } else if (tt < T.tech + 250) (pose = "throw"), (frame = 2), (x = ev === "jav" ? O.x - 4 : O.x + (ev === "shot" ? 3 : 0));
-        else if (tt < T.land) (pose = "throw"), (frame = 3), (x = ev === "jav" ? O.x - 4 : O.x);
-        else {
-          const good = beat.mark != null && (beat.newPb || beat.leading);
-          pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
-          frame = Math.floor(now / 220) % 2;
-          x = ev === "jav" ? O.x - 4 : O.x;
-        }
-      } else if (beat?.type === "throw") pose = "throw";
-      if (beat?.type === "decide") (pose = "throw"), (frame = 0);
-      shadow(g, x, y, 5);
-      if (hammerBall) {
-        line(g, x + 2, y - 16, hammerBall[0], hammerBall[1], "#d8d8c8");
-        ellipse(g, hammerBall[0], hammerBall[1], 2, 2, "#3a3e46");
+        mo = null;
+      if (beat?.type === "throw" && tt >= 0 && tt < T.land) {
+        mo = motionAt(tt);
+        pose = mo.run ? "carry" : "throw";
+        ({ frame, flip } = mo);
+        x = O.x + mo.dx;
+        y = O.y + mo.dy;
+      } else if (beat?.type === "throw" && tt >= T.land) {
+        const good = beat.mark != null && (beat.newPb || beat.leading);
+        pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
+        frame = Math.floor(now / 220) % 2;
+        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul });
+        x = O.x + end.dx;
+        y = O.y + end.dy;
+      } else {
+        // Waiting to throw: standing ready where their technique starts.
+        mo = throwMotion(ev, level, "ready", 0);
+        pose = "throw";
+        ({ frame, flip } = mo);
+        x = O.x + mo.dx;
+        y = O.y + mo.dy;
+        mo = { ...mo, ball: ev === "hammer" ? mo.ball : null };
       }
-      figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 1);
-      if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 10, y - 42, { color: "#f2c94c", scale: 2 });
+      const look = athleteLook(active, activeColors);
+      // The best throwers leave a blur of afterimages through the turns.
+      if (mo?.ghost && !view.reduced)
+        [[0.07, 0.28], [0.14, 0.14]].forEach(([back, alpha]) => {
+          const g2 = motionAt(Math.max(T.prep, tt - back * (T.tech - T.prep)));
+          g.globalAlpha = alpha;
+          figure(g, { ...look, pose: g2.run ? "carry" : "throw", frame: g2.frame, flip: g2.flip, event: ev }, O.x + g2.dx, O.y + g2.dy, 2);
+          g.globalAlpha = 1;
+        });
+      shadow(g, x, y, 9);
+      const ball = mo?.ball && [x + mo.ball.dx, y + mo.ball.dy, mo.ball.behind],
+        chain = () => {
+          line(g, x + 2, y - 24, ball[0], ball[1], "#d8d8c8");
+          ellipse(g, ball[0], ball[1], 3, 3, "#3a3e46");
+          px(g, ball[0] - 1, ball[1] - 1, "#8a8e98");
+        };
+      if (ball && ball[2]) chain();
+      figure(g, { ...look, pose, frame, flip, event: ev }, x, y, 2);
+      if (ball && !ball[2]) chain();
+      // Motion lines as the implement leaves the hand.
+      if (beat?.type === "throw" && tt >= T.tech - 60 && tt < T.tech + 220 && !view.reduced) {
+        const a = 1 - Math.max(0, tt - T.tech + 60) / 280;
+        for (let k = 0; k < 3; k++) line(g, x + 14 + k * 2, y - 50 + k * 9, x + 28 + k * 3, y - 54 + k * 9, `rgba(255,255,255,${(0.75 * a).toFixed(2)})`);
+      }
+      if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 18, y - 76, { color: "#f2c94c", scale: 2 });
+      // The thrower reacts once the mark is up: a speech bubble in their own voice.
+      if (beat?.type === "throw" && tt >= T.land + 150 && tt < T.land + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
+    // The near side of the cage passes in front of whoever is in the circle.
+    if (ev === "discus" || ev === "hammer") cage(g, "front");
     // Projectile.
     if (beat?.type === "throw" && tt >= T.tech && tt < T.land + 600) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
-        sx = (ev === "jav" ? O.x - 4 : O.x) + 7,
-        sy = O.y - 22,
+        sx = (ev === "jav" ? O.x - 8 : O.x) + 14,
+        sy = O.y - 42,
         [ex, ey] = sector.point(dist, angle),
         peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev];
       const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];
@@ -507,17 +640,30 @@ export function createStadium(cv) {
           if (ev === "hammer") line(g, x, y, x - 6, y - 4, "#d8d8c8");
         }
       } else {
-        const dt = tt - T.land;
-        for (let k = 0; k < 6; k++) px(g, ex + Math.cos(k) * dt * 0.02, ey - (dt * 0.015 * (k % 3)), `rgba(200,180,140,${Math.max(0, 0.8 - dt / 600)})`);
+        // Impact: a ring of turf and dust thrown up around the landing, heavier for the shot and hammer.
+        const dt = tt - T.land,
+          heavy = ev === "shot" || ev === "hammer" ? 1.4 : 1,
+          fade = Math.max(0, 1 - dt / 700);
+        if (fade > 0 && !beat.foul) {
+          ellipse(g, ex, ey, 3 + dt * 0.012 * heavy, 1 + dt * 0.004, `rgba(225,210,170,${(0.55 * fade).toFixed(2)})`);
+          for (let k = 0; k < 12; k++) {
+            const a = (k / 12) * Math.PI * 2, r = dt * 0.03 * heavy * (0.6 + hash(k) * 0.6);
+            px(g, ex + Math.cos(a) * r, ey - Math.abs(Math.sin(a)) * r * 0.8 + (dt * dt) / 60000, `rgba(${k % 3 ? "200,180,140" : "120,160,80"},${fade.toFixed(2)})`);
+          }
+        }
         rect(g, ex - 2, ey, 5, 2, beat.foul ? "#e04a3a" : "#8a7a50");
       }
     }
     // Landing callouts.
     if (beat?.type === "throw" && landed) {
-      const label = beat.mark == null ? "FOUL" : beat.mark.toFixed(2) + " M";
+      // The distance rolls up to the mark, then pops on the big ones.
+      const roll = Math.min(1, Math.max(0, sinceLand) / 420),
+        shown = beat.mark == null ? null : beat.mark * (view.reduced ? 1 : 1 - Math.pow(1 - roll, 3)),
+        label = shown == null ? "FOUL" : shown.toFixed(2) + " M",
+        popped = big && !view.reduced && sinceLand >= 420 && sinceLand < 620;
       const color = beat.mark == null ? "#f06050" : beat.side === "home" ? "#fff6dc" : shade(m.color, 0.5);
       const labelY = Math.max(50, overlayTop + 8);
-      text(g, label, W / 2, labelY, { color, scale: 3, align: "center" });
+      text(g, label, W / 2, labelY - (popped ? 4 : 0), { color, scale: popped ? 4 : 3, align: "center" });
       if (beat.worldRecord) text(g, "WORLD RECORD!", W / 2, labelY + 26, { color: (Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc", scale: 2, align: "center" });
       else if (beat.newPb) text(g, beat.previousPb ? "NEW PB! +" + beat.pbDelta.toFixed(2) : "FIRST MARK!", W / 2, labelY + 26, { color: "#f2c94c", scale: 2, align: "center" });
       else text(g, throwResult(beat).headline.toUpperCase(), W / 2, labelY + 26, { color: "#fff6dc", scale: 2, align: "center" });
@@ -569,13 +715,13 @@ export function createStadium(cv) {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 60 + n * 40, O.y + (n % 2) * 8, 1);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 90 + n * 60, O.y + (n % 2) * 10, 2);
       });
     } else if (m.phase === "complete") {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 60 + n * 40, O.y + (n % 2) * 8, 1);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 90 + n * 60, O.y + (n % 2) * 10, 2);
       });
     }
     g.setTransform(1, 0, 0, 1, 0, 0);

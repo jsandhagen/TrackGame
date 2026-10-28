@@ -459,7 +459,7 @@ function gatehouse(g, s) {
 function trackAndField(g, s, season) {
   const st = s.stadium,
     snow = season === 3,
-    grass = ["#6caa50", "#5e9e48", "#8a9e48", "#dfe8e0"][season];
+    grass = ["#78bc54", "#6ab24a", "#90a64a", "#dfe8e0"][season];
   const tc = snow ? "#c8c4c0" : trackColorOf(st.track, styleOf(s).track),
     gravel = st.track <= 1;
   if (st.stands >= 3) roundRect(g, FIELD, shade(grass, 0.03));
@@ -480,14 +480,14 @@ function trackAndField(g, s, season) {
   }
   roundRect(g, { ...inset(TRACK, 18, 18), r: TRACK.r - 18 }, chalk);
   roundRect(g, INFIELD, grass);
-  // Mowing stripes across the infield, kept inside its rounded ends.
-  g.fillStyle = shade(grass, snow ? -0.02 : 0.07);
+  // A checkerboard mow across the infield, kept inside its rounded ends.
+  g.fillStyle = shade(grass, snow ? -0.02 : 0.1);
   for (let yy = 0; yy < INFIELD.h; yy++) {
     const r = INFIELD.r,
       ins = yy < r ? r - Math.round(Math.sqrt(Math.max(0, r * r - (r - yy - 0.5) ** 2))) : yy >= INFIELD.h - r ? r - Math.round(Math.sqrt(Math.max(0, r * r - (yy - (INFIELD.h - r) + 0.5) ** 2))) : 0,
       x0 = INFIELD.x + ins,
       x1 = INFIELD.x + INFIELD.w - ins;
-    for (let x = INFIELD.x + 4; x < x1; x += 24) {
+    for (let x = INFIELD.x + 4 + (Math.floor(yy / 22) % 2) * 12; x < x1; x += 24) {
       const a = Math.max(x, x0),
         b = Math.min(x + 12, x1);
       if (b > a) g.fillRect(a, INFIELD.y + yy, b - a, 1);
@@ -734,7 +734,50 @@ function throws(g, s, season) {
   javelinArea(g, s, snow, pad);
 }
 // A team bench in front of the main stand, kit bags by the finish, a hurdle stack.
+// The coach's corner and training clutter on the infield, so it looks used.
+function infieldKit(g, s) {
+  const cx = CENTER.x + 16,
+    cy = CENTER.y + 22;
+  // Team bench with towels and kit bags.
+  rect(g, cx, cy, 26, 3, shade(s.colors.primary, -0.1));
+  rect(g, cx, cy - 1, 26, 1, shade(s.colors.primary, 0.3));
+  for (const lx of [cx + 2, cx + 22]) rect(g, lx, cy + 3, 2, 3, "#3a3e46");
+  rect(g, cx + 4, cy - 2, 5, 2, "#f4f0e4");
+  rect(g, cx + 15, cy - 2, 4, 2, s.colors.secondary);
+  for (const [bx, c] of [[cx - 8, s.colors.primary], [cx + 30, "#3a5a8a"]]) {
+    rect(g, bx, cy + 1, 7, 4, c);
+    rect(g, bx + 1, cy, 5, 1, shade(c, 0.35));
+    rect(g, bx + 2, cy - 1, 3, 1, "#2a2e36");
+  }
+  // Water cooler on a crate.
+  const wx = CENTER.x + 52, wy = CENTER.y + 18;
+  rect(g, wx - 1, wy + 4, 9, 4, "#a07850");
+  rect(g, wx, wy - 2, 7, 6, "#3a7ac0");
+  rect(g, wx, wy - 3, 7, 1, "#f4f0e4");
+  rect(g, wx + 1, wy - 1, 2, 3, "#7ab0e8");
+  rect(g, wx + 6, wy + 1, 2, 1, "#c84a3a");
+  // A drill line of cones.
+  for (let i = 0; i < 5; i++) {
+    const x = CENTER.x - 64 + i * 11, y = CENTER.y - 28;
+    rect(g, x, y + 2, 4, 1, "#c8601e");
+    rect(g, x + 1, y, 2, 2, "#f08a3a");
+    px(g, x + 1, y, "#fff2d0");
+  }
+  // Ball cart beside the shot circle, javelin rack beside the runway.
+  const sx = SPOTS.shot.x + 20, sy = SPOTS.shot.y + 8;
+  rect(g, sx, sy, 10, 5, "#5a6068");
+  rect(g, sx + 1, sy + 1, 8, 3, "#2e3238");
+  for (let i = 0; i < 3; i++) ellipse(g, sx + 2 + i * 3, sy + 1, 1, 1, "#9aa0aa");
+  rect(g, sx + 1, sy + 5, 2, 2, "#2a2420");
+  rect(g, sx + 7, sy + 5, 2, 2, "#2a2420");
+  const jx = SPOTS.jav.x - 30, jy = SPOTS.jav.y + 12;
+  rect(g, jx, jy, 12, 1, "#7a5a3a");
+  rect(g, jx, jy - 6, 1, 7, "#7a5a3a");
+  rect(g, jx + 11, jy - 6, 1, 7, "#7a5a3a");
+  for (let i = 0; i < 4; i++) line(g, jx + 2 + i * 3, jy - 9, jx + 1 + i * 3, jy, i % 2 ? "#e8e0c8" : "#f4d060");
+}
 function props(g, s) {
+  infieldKit(g, s);
   const bx = CENTER.x - 116,
     by = FIELD.y + 5;
   rect(g, bx, by - 4, 30, 5, shade(s.colors.primary, -0.2));
