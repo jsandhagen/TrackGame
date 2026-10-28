@@ -58,6 +58,9 @@ test('picking who trains shows every athlete event, type, stats and growth, but 
   assert.match(html, /sheet-stat key/);
   assert.match(html, /data-act="coach-session" data-ids="\d+" data-drill="sandbag"/);
   assert(!/Best for|Best to train/.test(html), 'choosing who trains is the player\'s call');
+  const pick = html.slice(html.indexOf('pick-list'));
+  assert.match(pick, /class="gain[^"]*"[^>]*>POW \+{1,3}</);
+  assert(!/>[A-Z]{3} \+\d/.test(pick), 'the picker shows sizes, not numbers the rating roll will change');
   assert.match(P.newcomer(s, a), new RegExp(ATHLETE_TYPES[a.type].name));
   const scout = P.recruit(s);
   for (const b of s.prospects) assert(scout.includes(ATHLETE_TYPES[b.type].name));

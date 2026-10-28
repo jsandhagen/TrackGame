@@ -289,9 +289,18 @@ function drillTip(s, id) {
 }
 const billChips = (s, cost, energy) =>
   `${cost.money ? `<span class="cost money ${s.money < cost.money ? "short" : ""}">${ico("coin")}${cash(cost.money)}</span>` : `<span class="cost ${s.coaching.insights < cost.insights ? "short" : ""}">${ico("idea")}${cost.insights}</span>`}${energy ? `<span class="cost energy">${ico("bolt")}${energy}</span>` : ""}`;
-// Gains as coloured pills; with no numbers they show which stats a drill works.
-function gainPills(gains, numbers, chem = null) {
-  return gains.map((g, i) => (g > 0.05 ? `<span class="gain ${chem && G.chemistryMult(chem)[i] > 1 ? "chem" : ""}" style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} ${numbers ? plus(g) : "↑"}</span>` : "")).join("");
+// Gains as coloured pills. On a drill card they show which stats it works. In the picker they show
+// a size, +, ++ or +++, against the biggest gain anyone there would get: each session rolls a rating
+// that scales the result, so an exact number would promise more than the session can.
+const SIZES = [["+", "Small gain"], ["++", "Good gain"], ["+++", "Big gain"]];
+function gainPills(gains, top = 0, chem = null) {
+  return gains
+    .map((g, i) => {
+      if (g <= 0.05) return "";
+      const [mark, label] = top ? SIZES[g >= top * 0.67 ? 2 : g >= top * 0.34 ? 1 : 0] : ["↑", "Trains " + STAT_NAMES[i]];
+      return `<span class="gain ${chem && G.chemistryMult(chem)[i] > 1 ? "chem" : ""}" style="--c:${STAT_COLORS[i]}" title="${label}">${STAT_SHORT[i]} ${mark}</span>`;
+    })
+    .join("");
 }
 const extraPills = (id, d, ev) =>
   (["delivery", "review"].includes(id) || d.mastery ? `<span class="gain" style="--c:${ev ? EVENTS[ev].color : "#c8a050"}">Mastery</span>` : "") +
@@ -307,7 +316,7 @@ function drillGrid(s, family = "all") {
       base = d.gains.map((g, i) => (G.tierOf(G.drillLevel(s, id)) >= 3 && d.broad === i ? g + Math.max(...d.gains) * 0.25 : g));
     return `<button class="drill fam-${d.family} ${problem ? "locked" : ""} ${G.tierOf(G.drillLevel(s, id)) >= 4 ? "high-tier" : ""}" data-act="pick-drill" data-drill="${id}" ${problem ? "disabled" : ""} title="${esc(drillTip(s, id))}">
         <span class="drill-top"><span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong>${drillLadder(s, id)}</span><span class="drill-cost">${billChips(s, G.sessionCost(s, id, 1), G.drillEnergy(s, id))}</span></span>
-        <span class="gains">${gainPills(base, false)}${extraPills(id, d, null)}</span>
+        <span class="gains">${gainPills(base)}${extraPills(id, d, null)}</span>
         <small class="${problem ? "why" : "able"}">${problem ? esc(problem) : `${able.length} of ${s.roster.length} can train${d.minGroup ? ` · ${d.minGroup}+ together` : ""}`}</small>
       </button>`;
   };
@@ -324,14 +333,18 @@ function drillGrid(s, family = "all") {
 function drillPicker(s, view, id) {
   const d = G.DRILLS[id], ids = trainees(s, view), n = ids.length, chem = G.chemistryOf(s, ids),
     problem = G.groupProblem(s, ids, id), cost = G.sessionCost(s, id, Math.max(1, n));
+  const preview = new Map(s.roster.map((a) => {
+      const group = ids.includes(a.id) ? ids : [...ids, a.id].slice(-G.MAX_GROUP);
+      return [a.id, G.drillProblem(s, a, id, 1) ? [0, 0, 0, 0] : G.drillGains(s, a, id, group.length, G.chemistryOf(s, group))];
+    })),
+    top = Math.max(0, ...[...preview.values()].flat());
   const row = (a) => {
     const at = ids.indexOf(a.id), why = G.drillProblem(s, a, id, 1), ev = a.trainingEvent || a.event, w = EVENTS[ev].weights, cap = G.capOf(a),
-      group = at >= 0 ? ids : [...ids, a.id].slice(-G.MAX_GROUP),
-      gains = why ? [0, 0, 0, 0] : G.drillGains(s, a, id, group.length, G.chemistryOf(s, group));
+      gains = preview.get(a.id);
     return `<button class="pick-row ${at >= 0 ? "on" : ""}" data-act="trainee" data-id="${a.id}" aria-pressed="${at >= 0}" ${why && at < 0 ? "disabled" : ""}>
       <span class="pick-who">${portrait(a)}${at >= 0 ? `<i class="order">${at + 1}</i>` : ""}<span><b>${esc(a.name.split(" ")[0])}</b> ${eventChip(ev)}<small>Lv ${a.level} · ${esc(typeName(a))} · OVR ${Math.round(G.eventRating(a, ev))}</small>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span></span>
       <span class="sheet-stats">${a.stats.map((v, i) => `<span class="sheet-stat ${w[i] >= 0.25 ? "key" : ""}" style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}: ${Math.round(w[i] * 100)}% of ${esc(EVENTS[ev].name)} · ceiling ${Math.floor(cap)}"><small>${STAT_SHORT[i]}</small><b>${showStat(v)}</b>${growthMark(a, i)}<i style="width:${Math.min(100, (v / cap) * 100)}%"></i></span>`).join("")}</span>
-      <span class="pick-gains">${why ? `<small class="why">${esc(why)}</small>` : gainPills(gains, true, chem && s.coaching.chemistry?.includes(chem.key) ? chem : null) || `<small>${["delivery", "review"].includes(id) || d.mastery ? "Mastery only" : "Little to gain"}</small>`}</span>
+      <span class="pick-gains">${why ? `<small class="why">${esc(why)}</small>` : gainPills(gains, top, chem && s.coaching.chemistry?.includes(chem.key) ? chem : null) || `<small>${["delivery", "review"].includes(id) || d.mastery ? "Mastery only" : "Little to gain"}</small>`}</span>
     </button>`;
   };
   const tip = id === "delivery" && ids.length ? [...new Set(ids.map((x) => s.roster.find((a) => a.id === x)?.trainingEvent || s.roster.find((a) => a.id === x)?.event))].map((ev) => G.EVENT_DRILLS[ev]).join(" ") : drillTip(s, id);
@@ -339,7 +352,7 @@ function drillPicker(s, view, id) {
   <div class="pick-head fam-${d.family}">${btn("‹ Sessions", "pick-drill", 'data-drill=""', "text")}<span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong>${drillLadder(s, id)}<small>${esc(tip)}</small></span><span class="gains">${extraPills(id, d, null)}</span></div>
   <p class="session-hint">${n > 1 ? `<b>Group of ${n}: +${(n - 1) * 10}%.</b> ` : `Pick up to ${G.MAX_GROUP} to train together; each partner adds 10%. `}${chemistryLine(s, ids)}</p>
   <div class="pick-list">${s.roster.map(row).join("")}</div>
-  <p class="sheet-key"><span class="k-key">Key stat for their event</span><span>Growth speed ${rateMeter(0, "Fast")} fast · ${rateMeter(4, "Very slow")} slow</span></p>
+  <p class="sheet-key"><span class="k-key">Key stat for their event</span><span>Growth speed ${rateMeter(0, "Fast")} fast · ${rateMeter(4, "Very slow")} slow</span><span>+ to +++ expected gain; every session rolls its own result</span></p>
   <div class="session-run"><span class="run-bill">${n ? billChips(s, cost, G.drillEnergy(s, id)) : ""}</span>${btn(problem ? esc(problem) : `${ico("play")} Run session${n > 1 ? " · " + n + " athletes" : ""}`, "coach-session", `data-ids="${ids.join(",")}" data-drill="${id}" ${problem ? "disabled" : ""}`)}</div>
 </div>`;
 }
