@@ -7,7 +7,8 @@ import * as G from "./domain/game.js";
 import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
-import { createStadium, beatDuration, CUTIN_MS } from "./render/stadium.js";
+import { createStadium } from "./render/stadium.js";
+import { beatDuration, SETUP_MS, LAND_MS, hasCutIn, throwOffset, advanceBeatClock } from "./render/meet-presentation.js";
 import { playTraining } from "./render/training.js";
 import { portrait as paintPortrait } from "./render/sprites.js";
 import { paintIcon } from "./render/icons.js";
@@ -179,6 +180,7 @@ function render(preserve = true) {
   $("#world").hidden = !!m;
   $("#stadium").hidden = !m;
   $("#app").classList.toggle("meeting", !!m);
+  $("#app").classList.toggle("meet-live", !!m && m.phase !== "complete");
   $("#app").classList.toggle("results", m?.phase === "complete");
   $("#app").classList.toggle("has-window", !m && !!view.window);
   $("#meetbar").hidden = !m || m.phase === "complete";
@@ -496,10 +498,10 @@ function startBeat(beat) {
   const cue = (at, fn) => presenter.cues.push({ at, fn });
   if (beat.type === "throw") {
     view.hide = { side: beat.side, eventIndex: beat.eventIndex, attempt: beat.attempt };
-    const cut = beat.activations.length ? CUTIN_MS : 0;
-    if (cut) cue(0, () => sfx("skill"));
-    cue(cut + 1000, () => sfx("whoosh"));
-    cue(cut + 1900, () => {
+    const offset = throwOffset(beat);
+    if (hasCutIn(beat)) cue(SETUP_MS, () => sfx("skill"));
+    cue(offset + 1000, () => sfx("whoosh"));
+    cue(offset + LAND_MS, () => {
       view.hide = null;
       sfx(beat.mark == null ? "foul" : "land");
       if (beat.side === "home" && beat.mark != null && (beat.newPb || beat.leading || beat.scoringSwing>0)) sfx("cheer");
@@ -521,10 +523,9 @@ function startBeat(beat) {
 function pumpMeet(dt) {
   const m = state.match;
   if (!m) return;
+  if (view.meetPaused) return;
   if (presenter) {
-    const b=presenter.beat;
-    const routine=state.settings.highlights && b.athleteId!==state.settings.followAthlete && b.type === "throw" && b.attempt>0 && !b.newPb && !b.worldRecord && !b.signature && !b.scoringSwing && !b.target?.qualification;
-    presenter.el += dt * view.meetSpeed * (routine?5:1);
+    presenter.el = advanceBeatClock(presenter.beat, presenter.el, dt, view.meetSpeed, state.settings);
     for (const c of presenter.cues) if (!c.done && presenter.el >= c.at) (c.done = true), c.fn();
     if (presenter.el < presenter.base) return;
   }
@@ -537,6 +538,7 @@ function decide(tactic, quality = "good") {
   const beat = G.decideThrow(state, tactic, quality, view.sig);
   view.sig = false;
   view.meter = null;
+  view.meetPaused = false;
   if (beat) {
     save();
     startBeat(beat);
@@ -612,6 +614,10 @@ $("#app").addEventListener("click", async (e) => {
       presenter = null;
       view.hide = null;
       view.meter = null;
+      view.meetPaused = false;
+      break;
+    case "meet-pause":
+      view.meetPaused = !view.meetPaused;
       break;
     case "meet-mode":
       state.settings.meetMode = b.dataset.value;
@@ -1147,7 +1153,9 @@ function frame(now) {
     if (state.match) {
       pumpMeet(dt);
       const bar = $("#meetbar");
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced(), insetTop: $("#hud").offsetHeight + 8, insetBottom: bar.hidden ? 0 : bar.offsetHeight + 8 });
+      const arena = $("#stadium").getBoundingClientRect();
+      const sidePanel = !bar.hidden && bar.getBoundingClientRect().left >= arena.right;
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced(), insetTop: sidePanel ? 0 : $("#hud").offsetHeight + 8, insetBottom: bar.hidden || sidePanel ? 0 : bar.offsetHeight + 8 });
       if (view.meter) {
         const n = $("#needle");
         if (n) n.style.left = meterPos(now) * 100 + "%";

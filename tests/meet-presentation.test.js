@@ -3,6 +3,53 @@ import assert from 'node:assert/strict';
 import * as G from '../src/domain/game.js';
 import * as P from '../src/ui/pages.js';
 import {validateCampaign, exportCampaign} from '../src/domain/campaign-save.js';
+import {advanceBeatClock, beatDuration, throwOffset, LAND_MS, RESULT_MS, HIGHLIGHT_MS, hasCutIn, throwResult} from '../src/render/meet-presentation.js';
+
+test('highlights and 4x delivery speed preserve real time to read every result', () => {
+ for (const speed of [1,2,4]) for (const highlights of [false,true]) for (const important of [false,true]) {
+  const beat={type:'throw',athleteId:1,attempt:1,activations:['Captain'],newPb:important,previousPb:important?12:0};
+  const landing=throwOffset(beat)+LAND_MS, duration=beatDuration(beat);
+  let elapsed=0,time=0,landedAt=null;
+  while(elapsed<duration) {
+   elapsed=advanceBeatClock(beat,elapsed,10,speed,{highlights});time+=10;
+   if(landedAt==null && elapsed>=landing)landedAt=time;
+  }
+  const expected=important?HIGHLIGHT_MS:RESULT_MS;
+  assert(time-landedAt>=expected-10, `${speed}x highlights=${highlights} result lasted ${time-landedAt}ms`);
+ }
+ assert(!hasCutIn({type:'throw',activations:['Captain'],attempt:0,scoringSwing:5}));
+ assert(hasCutIn({type:'throw',activations:['Meteor Put'],signature:true}));
+});
+
+test('live results conceal the incoming mark, reveal its consequence and retain the correct throw number', () => {
+ const s=G.newGame(31);G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
+ let beat;do {beat=G.advanceMatch(s);}while(beat.type!=='throw');
+ const inFlight=P.meetBar(s,{hide:{side:beat.side,eventIndex:beat.eventIndex,attempt:beat.attempt}});
+ const setup=inFlight.split('<div class="meet-desk">')[0];
+ assert.match(setup,/UP NOW/);assert(!setup.includes('landed'));assert(!setup.includes('team-point swing +5'));
+ const landed=P.meetBar(s,{});assert.match(landed,/meet-moment landed/);assert.match(landed,/Throw 1 \/ 3/);
+ if(beat.mark!=null)assert(landed.includes(beat.mark.toFixed(2)));
+ assert.match(landed,/Pause meet/);assert.match(P.meetBar(s,{meetPaused:true}),/Resume meet/);
+});
+
+test('throw consequences match whole-field placings and survive a mid-meet save', () => {
+ const s=G.newGame(32);G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
+ let beat;do {beat=G.advanceMatch(s);}while(beat.type!=='throw');
+ const own=G.fieldLeaderboard(s).find(row=>row.side===beat.side&&row.id===beat.athleteId);
+ assert.equal(beat.place,own.place);assert.equal(beat.previousPlace,null);
+ assert.equal(beat.tookLead,own.place===1);
+ const copy=validateCampaign(exportCampaign(s));assert.deepEqual(copy.match.last,beat);
+ G.simulateMatch(s);G.simulateMatch(copy);assert.deepEqual(copy.match,s.match);
+ const html=P.meetComplete(s);assert.match(html,/Your meet highlights/);
+ assert.equal((html.match(/class="meet-highlight /g)||[]).length,4);
+});
+
+test('fouls explain the banked mark and provisional places never promise qualification', () => {
+ const result=throwResult({type:'throw',foul:true,mark:null,ownBest:12.25,place:2,scoringSwing:0});
+ assert.equal(result.headline,'Foul');assert.match(result.detail,/12.25 m still counts/);
+ const qualified=throwResult({type:'throw',mark:12.3,ownBest:12.3,place:4,qualified:true});
+ assert.match(qualified.detail,/Into the top four/);assert(!qualified.detail.includes('qualified'));
+});
 
 test('switching primary event preserves progress and survives save round trip', () => {
  const s=G.newGame(12), a=s.roster[0], mastery=structuredClone(a.mastery), pb=structuredClone(a.pb);

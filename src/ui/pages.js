@@ -1,4 +1,5 @@
 import * as G from "../domain/game.js";
+import { throwResult } from "../render/meet-presentation.js";
 import {
   EVENTS,
   EVENT_IDS,
@@ -569,7 +570,7 @@ function approachPicker(a,ev) {
 function targetText(t) {
   if(!t)return "No scoring place to chase; bank a mark or protect the lead.";
   if(t.legal)return "Establish a legal mark to join the scoring.";
-  return `${t.delta!=null?"Another "+t.delta.toFixed(2)+" m":"Target "+mark(t.mark)} moves into place ${t.place}${t.qualification?" and reaches the final":""}${t.swing>0?" · team-point swing +"+t.swing:""}.`;
+  return `Target ${mark(t.mark)}${t.delta!=null?" (+"+t.delta.toFixed(2)+" m)":""} for place ${t.place}${t.qualification?" and the top four":""}${t.swing>0?" · team-point swing +"+t.swing:""}.`;
 }
 function developmentCard(a, all = false) {
   const earned = a.development?.claimed || [];
@@ -795,17 +796,25 @@ export function meetBar(s, view) {
   let marks = (side === "home" ? m.homeMarks : m.awayMarks)[i];
   if(view.hide?.side === side && view.hide.eventIndex === i) marks = marks.slice(0,view.hide.attempt);
   const rows = G.fieldLeaderboard(s,i,view.hide);
-  return `<div class="meet-desk">
+  const beat = m.last;
+  const throwing = beat?.type === "throw" && beat.eventIndex === i;
+  const result = throwing && !view.hide ? throwResult(beat) : null;
+  const attempt = throwing ? beat.attempt + 1 : Math.min(m.attempts, marks.length + 1);
+  const liveHome = rows.filter(r=>r.side === "home").reduce((n,r)=>n+r.points,0);
+  const liveAway = rows.filter(r=>r.side === "away").reduce((n,r)=>n+r.points,0);
+  return `<header class="meet-rail-score" aria-label="Club meet score"><small>MEET SCORE · ${i + 1} / 4 EVENTS</small><div><span><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b></div><div><span><i class="dot" style="--c:${m.color}"></i>${esc(m.name)}</span><b>${m.against}</b></div><nav aria-label="Event progress">${G.eventScores(m).map((e,n)=>`<span class="${n === i ? "current" : ""}">${EVENTS[e.event].short} ${e.done ? e.h + '–' + e.a : n === i ? 'LIVE' : '·'}</span>`).join("")}</nav></header><div class="meet-moment ${result ? "landed" : ""} ${beat?.foul && result ? "foul" : ""}" role="status" aria-live="polite" aria-atomic="true">
+    ${result ? `<div><small>${esc(beat.name)} · ${EVENTS[ev].name} · Throw ${attempt}</small><strong>${esc(result.headline)}</strong><span>${esc(result.detail)}</span></div><b>${beat.mark == null ? "X" : beat.mark.toFixed(2) + '<small>m</small>'}</b>` : throwing || m.phase === "decide" ? `<div><small>${m.phase === "decide" ? "YOUR CALL" : "UP NOW"} · Throw ${attempt} / ${m.attempts}</small><strong>${esc(a.name)}</strong><span>${esc(targetText(beat.target))}</span></div>` : `<div><small>${EVENTS[ev].name}</small><strong>${beat?.type === "eventEnd" ? "Event complete · " + beat.h + "–" + beat.a + " points" : beat?.finals ? "Top four · three more throws" : "Three throws. Make your best one count."}</strong><span>${beat?.finals ? "Qualifying marks carry into the final." : "Places score 5–3–1 for the club."}</span></div>`}
+  </div><div class="meet-desk">
     <section class="current-thrower ${side === "home" ? "our-athlete" : ""}" aria-label="Current thrower">
-      <div class="thrower-heading"><b>${EVENTS[ev].name}</b><span>${m.finalRound ? "Final round" : "Round " + Math.min(m.attempts,marks.length+1) + " / " + m.attempts}</span></div>
+      <div class="thrower-heading"><b>${EVENTS[ev].name}</b><span>Throw ${attempt} / ${m.attempts}${m.finalRound ? " · Final" : ""}</span></div>
       <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
     </section>
-    <section class="live-standings" aria-label="Live standings"><header><strong>Event standings</strong><small>${m.finalRound ? "Final throws" : "Qualifying"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""} · 5–3–1 pts</small></header><div class="standings-list">${rows.map(row=>{
+    <section class="live-standings" aria-label="Live standings"><header><strong>Event ${liveHome}–${liveAway} <small>${m.closed[i] ? "FINAL" : "PROVISIONAL"}</small></strong><small>${m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${rows.map(row=>{
       const {athlete}=meetAthlete(s,row.side,row.id);
       return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
     }).join("")}</div></section>
-  </div><div class="meet-toolbar"><div class="seg">${[1,2,4].map(n=>`<button class="${(view.meetSpeed||1) === n ? "active" : ""}" data-act="meet-speed" data-speed="${n}" aria-label="Meet speed ${n} times" aria-pressed="${(view.meetSpeed||1) === n}">${n}×</button>`).join("")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${btn(view.skipConfirm ? "Confirm skip" : "Skip", "skip", "", "subtle small")}</div>`;
+  </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" title="Delivery speed; results stay readable">${[1,2,4].map(n=>`<button class="${(view.meetSpeed||1) === n ? "active" : ""}" data-act="meet-speed" data-speed="${n}" aria-label="Delivery speed ${n} times" aria-pressed="${(view.meetSpeed||1) === n}">${n}×</button>`).join("")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${btn(view.skipConfirm ? "Confirm skip" : "Skip", "skip", "", "subtle small")}</div>`;
 }
 export function meetScore(s) {
   const m = s.match,
@@ -852,6 +861,19 @@ function meetGrowth(s) {
     </article>`;
   }).join("")}</div></section>`;
 }
+function meetHighlights(s) {
+  const m = s.match, rewards = m.rewards || {};
+  return `<section class="meet-highlights" aria-label="Your meet highlights">${G.eventScores(m).map(event => {
+    const ours = event.placings.filter(row => row.side === "home");
+    const row = ours[0];
+    const {athlete, face} = row ? meetAthlete(s, "home", row.id) : {};
+    const pb = (rewards.pbs || []).find(p => p.id === row?.id && p.event === event.event);
+    const wr = (rewards.worldRecords || []).some(p => p.id === row?.id && p.event === event.event);
+    const sweep = ours.filter(r => r.place != null && r.place <= 3).length === 3;
+    const title = wr ? "World record!" : sweep ? "Podium sweep!" : row?.place === 1 ? "Event winner" : pb?.delta > 0 ? "Personal best!" : "Club best";
+    return `<article class="meet-highlight ${row?.place === 1 ? "event-winner" : ""}" style="--event-color:${EVENTS[event.event].color}"><header>${eventChip(event.event)}<b>${event.h}–${event.a} pts</b></header><strong>${row ? title : "No club entry"}</strong>${athlete ? `<div>${face}<span><b>${esc(athlete.name)}</b><small>${row.mark == null ? "No legal mark" : mark(row.mark)}${row.place ? " · Place " + row.place : ""}</small></span></div>` : ""}${pb ? `<small class="highlight-pb">${pb.delta > 0 ? "PB +" + pb.delta.toFixed(2) + " m" : "First official mark"}</small>` : ""}</article>`;
+  }).join("")}</section>`;
+}
 export function meetComplete(s, view = {}) {
   const m = s.match,
     r = m.rewards || { items: [], pbs: [], levelUps: [], goals: [] },
@@ -864,6 +886,7 @@ export function meetComplete(s, view = {}) {
   ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
   <nav class="meet-result-tabs" aria-label="Meet report"><button class="report-menu" data-act="game-menu">Menu</button><button data-act="result-view" data-value="results" aria-pressed="${!growth}" class="${!growth?"active":""}">Results</button><button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
   ${growth ? meetGrowth(s) : `
+  ${meetHighlights(s)}
   <nav class="result-filters" aria-label="Filter event results">${[["all","All events"],...EVENT_IDS.map(ev=>[ev,EVENTS[ev].name])].map(([id,label])=>`<button data-act="result-event" data-event="${id}" aria-pressed="${selected === id}" class="${selected === id ? "active" : ""}">${label}</button>`).join("")}<small><i></i> Your athletes · NM = no mark</small></nav>
   <div class="scorebook-grid ${selected !== "all" ? "single-event" : ""}">${G.eventScores(m).filter(e=>selected === "all" || e.event === selected).map(e=>resultTable(s,e)).join("")}</div>
   `}

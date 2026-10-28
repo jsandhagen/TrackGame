@@ -425,9 +425,13 @@ function throwFor(s, side, tactic, quality, sig) {
   a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.
   a.condition = clamp(a.condition + (foul ? -8 : 2), 0, 100);
-  const beforeMargin=c.m.rotation?fieldLeaderboard(s,c.i).reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0):0;
+  const beforeBoard = c.m.rotation ? fieldLeaderboard(s,c.i) : [];
+  const previousRow = beforeBoard.find(e => e.side === side && e.id === a.id);
+  const beforeMargin=beforeBoard.reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0);
   c.own.push(mark);
-  const swing=c.m.rotation?fieldLeaderboard(s,c.i).reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0)-beforeMargin:0;
+  const afterBoard = c.m.rotation ? fieldLeaderboard(s,c.i) : [];
+  const row = afterBoard.find(e => e.side === side && e.id === a.id);
+  const swing=c.m.rotation?afterBoard.reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0)-beforeMargin:0;
   const previousPb = side === "home" ? Math.max(a.pb[c.ev] || 0, c.ownBest || 0) : 0;
   const newPb = side === "home" && mark != null && mark > previousPb && mark > (a.pb[c.ev] || 0);
   // A world record stands from the moment it lands; later throws in the meet must beat it.
@@ -464,6 +468,11 @@ function throwFor(s, side, tactic, quality, sig) {
     target: c.target,
     approach: r.discipline.approach,
     scoringSwing: c.m.rotation ? swing : 0,
+    previousPlace: previousRow?.place ?? null,
+    place: row?.place ?? null,
+    tookLead: row?.place === 1 && previousRow?.place !== 1,
+    qualified: !!(m.championship && !m.finalRound && row?.place != null && row.place <= 4 && (!previousRow?.place || previousRow.place > 4)),
+    improvement: mark != null && c.ownBest != null ? Math.max(0, mark - c.ownBest) : 0,
   };
 }
 function autoQuality(s, a) {

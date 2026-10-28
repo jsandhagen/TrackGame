@@ -3,10 +3,12 @@ import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord } from "../domain/game.js";
+import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
+import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
+export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
 
-// The scene keeps a fixed 270px-tall layout; its width follows the screen.
-let W = 480;
-export const H = 270;
+let W = 640;
+export const H = SCENE_HEIGHT;
 const TRACK_COLORS = ["#b07850", "#c46a4e", "#c46a4e", "#3a6ab0", "#3a6ab0"];
 const CROWDS = [0.3, 0.45, 0.6, 0.78, 0.95];
 // Venue look for the meet in progress: your own stadium at home, the rival's ground away
@@ -25,25 +27,21 @@ function venueOf(s, m) {
     crowd: v.home ? Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) : v.special ? 0.92 : CROWDS[grand],
   };
 }
-const O = { x: 72, y: 220 };
-const centreY = (x) => O.y - (x - O.x) * 0.04;
-const sectorSlope = () => Math.min(0.17, 102 / Math.max(1, W - O.x));
-const upperY = (x) => O.y - (x - O.x) * sectorSlope();
-const lowerY = (x) => O.y + (x - O.x) * Math.min(0.09, 38 / Math.max(1, W - O.x));
+const O = THROW_ORIGIN;
+let sector = throwingSector("shot", W, 100);
+const centreY = x => sector.centerY(x);
+const upperY = x => sector.upperY(x);
 // The sector reaches just past the world record, or past the club's own record once it goes further.
 let SPAN = 100;
 const spanOf = (s, ev) => Math.max(EVENTS[ev].record * 1.06, worldRecord(s, ev) * 1.08);
-const ppmOf = () => (W - O.x - 36) / SPAN;
+const ppmOf = () => sector.ppm;
+function distanceArc(g, metres, color, dashed = false) {
+  const points = sector.arc(metres);
+  for (let i = 1; i < points.length; i++) if (!dashed || i % 4 < 2) line(g, ...points[i - 1], ...points[i], color);
+}
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
-// Base milliseconds for each beat at 1× speed.
-export const CUTIN_MS = 950;
-export function beatDuration(beat) {
-  if (!beat) return 0;
-  if (beat.type === "throw") return 2700 + (beat.activations?.length ? CUTIN_MS : 0);
-  return { meetStart: 1900, eventStart: 1700, eventEnd: 1900, complete: 0, decide: 0 }[beat.type] ?? 1000;
-}
-const T = { prep: 250, tech: 1000, land: 1900 };
+const T = { prep: 250, tech: 1000, land: LAND_MS };
 
 function skyFor(venue) {
   const w = venue.weather,
@@ -196,24 +194,25 @@ function stadiumBase(s, ev, venue) {
   // Field.
   rect(g, 0, 106, W, H - 106, "#6aa04e");
   for (let x = 0; x < W; x += 32) rect(g, x, 106, 16, H - 106, "#76ac58");
-  // Sector.
-  poly(g, [[O.x, O.y], [W, upperY(W)], [W, lowerY(W)]], "#7cb45c");
-  line(g, O.x, O.y, W, upperY(W), "#f4f4e8");
-  line(g, O.x, O.y, W, lowerY(W), "#f4f4e8");
+  // Sector boundaries meet at the throwing origin; distance lines are arcs
+  // of equal radius, rather than straight strips across a widening wedge.
+  const boundary = sector.arc(SPAN);
+  poly(g, [[O.x, O.y], ...boundary], "#7cb45c");
+  line(g, O.x, O.y, ...boundary[0], "#f4f4e8");
+  line(g, O.x, O.y, ...boundary.at(-1), "#f4f4e8");
   const e = EVENTS[ev],
-    ppm = ppmOf(ev),
     step = SPAN > 140 ? 20 : e.max > 40 ? 10 : SPAN > 30 ? 4 : 2;
   for (let d = Math.ceil(e.min / step) * step; d < SPAN; d += step) {
-    const x = O.x + d * ppm;
-    line(g, x, upperY(x) + 1, x, lowerY(x) - 1, "rgba(244,244,232,0.45)");
-    rect(g, x - 7, upperY(x) - 10, 15, 8, "#f4efe2");
-    text(g, String(d), x, upperY(x) - 9, { color: "#3a5a3a", outline: null, align: "center" });
+    const [x,y] = sector.point(d, -sector.halfAngle);
+    distanceArc(g, d, "rgba(244,244,232,0.5)");
+    rect(g, x - 7, y - 11, 15, 8, "#f4efe2");
+    text(g, String(d), x, y - 10, { color: "#3a5a3a", outline: null, align: "center" });
   }
   // Circle, cage or runway.
   if (ev === "jav") {
-    poly(g, [[0, O.y - 6], [O.x, O.y - 5], [O.x, O.y + 6], [0, O.y + 8]], venue.track);
-    line(g, 0, O.y - 6, O.x, O.y - 5, "#f4e8d0");
-    line(g, 0, O.y + 8, O.x, O.y + 6, "#f4e8d0");
+    poly(g, [[8, O.y + 3], [O.x, O.y - 5], [O.x, O.y + 6], [8, O.y + 15]], venue.track);
+    line(g, 8, O.y + 3, O.x, O.y - 5, "#f4e8d0");
+    line(g, 8, O.y + 15, O.x, O.y + 6, "#f4e8d0");
     for (let i = 0; i < 6; i++) rect(g, O.x - 1, O.y - 5 + i * 2, 2, 1, "#f4f4e8");
   } else {
     ellipse(g, O.x, O.y + 2, 15, 6, "#5a6a5a");
@@ -258,10 +257,9 @@ function flag(g, x, y, color, label, below = false) {
   rect(g, x + 1, y - 12, 6, 1, shade(color, 0.3));
   if (label) text(g, label, x + 1, below ? y + 3 : y - 21, { color: below ? shade(color, 0.55) : "#fff6dc", align: "center" });
 }
-function cutin(g, a, colors, name, skill, t, sideColor) {
+function cutin(g, a, colors, name, skill, t, sideColor, y = 100) {
   const slide = Math.min(1, t * 5),
-    out = t > 0.85 ? (t - 0.85) / 0.15 : 0,
-    y = 100;
+    out = t > 0.85 ? (t - 0.85) / 0.15 : 0;
   g.globalAlpha = 1 - out;
   rect(g, 0, y, W, 56, "rgba(18,22,30,0.88)");
   rect(g, 0, y, W, 2, sideColor);
@@ -338,21 +336,23 @@ export function createStadium(cv) {
       cw = Math.max(1, Math.round(cv.clientWidth * dpr)),
       ch = Math.max(1, Math.round(cv.clientHeight * dpr));
     if (cv.width !== cw || cv.height !== ch) (cv.width = cw), (cv.height = ch);
-    // Fit the venue in normal viewports. On short screens, crop the upper stands
-    // instead of shrinking the athletes below a readable size.
     const insetTop = (view.insetTop || 0) * dpr,
-      insetBottom = (view.insetBottom || 0) * dpr,
-      scale = Math.max(0.25, Math.min(cw / (cw < ch ? 240 : 480), Math.max((ch - insetTop - insetBottom) / H, dpr * 0.75)));
-    W = Math.ceil(cw / scale);
+      insetBottom = (view.insetBottom || 0) * dpr;
+    const camera = meetCamera(cw, ch, {insetTop, insetBottom, dpr});
+    const {scale} = camera;
+    W = camera.width;
     if (off.width !== W) off.width = W;
     const venue = venueOf(s, m);
     const beat = view.beat,
       bi = beat?.eventIndex ?? m.eventIndex,
       ev = EVENT_IDS[bi],
-      e = EVENTS[ev],
-      ppm = ((SPAN = spanOf(s, ev)), ppmOf(ev));
-    const LH = Math.ceil(ch / scale),
-      top = Math.round(LH - H - insetBottom / scale);
+      e = EVENTS[ev];
+    SPAN = spanOf(s, ev);
+    sector = throwingSector(ev, W, SPAN);
+    const ppm = ppmOf();
+    const LH = camera.height,
+      top = Math.round(camera.top);
+    const overlayTop = Math.max(0, Math.ceil(insetTop / scale - top));
     if (off.height !== LH) off.height = LH;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = skyFor(venue)[0];
@@ -368,10 +368,10 @@ export function createStadium(cv) {
     g.imageSmoothingEnabled = false;
     g.drawImage(base, 0, 0);
     const el = view.elapsed ?? 99999;
-    const hasCut = beat?.type === "throw" && beat.activations?.length;
-    const tt = hasCut ? el - CUTIN_MS : el; // throw timeline after the cut-in
+    const hasCut = hasCutIn(beat);
+    const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
     const landed = !(beat?.type === "throw") || tt >= T.land;
-    const reacting = beat?.type === "throw" && landed && tt < 2700 && beat.mark != null && (beat.side === "home" ? beat.newPb || beat.leading : false);
+    const reacting = beat?.type === "throw" && landed && el < beatDuration(beat) && beat.mark != null && beat.side === "home" && (beat.newPb || beat.scoringSwing > 0);
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     drawCrowd(g, s, m, now, cheer, venue);
     drawScreen(g, s, m, venue, now);
@@ -387,8 +387,7 @@ export function createStadium(cv) {
     const board = m.fields ? fieldLeaderboard(s, bi, inAir) : [];
     const atX = (mark) => Math.min(W - 6, O.x + mark * ppm);
     board.filter((r) => r.mark != null && !(r.side === upSide && r.id === upAthlete?.id)).forEach((r, n) => {
-      const x = atX(r.mark),
-        y = centreY(x) + ((n % 3) - 1) * 6 + 4,
+      const [x,y] = sector.point(r.mark, ((n % 3) - 1) * sector.halfAngle * 0.42),
         c = r.side === "home" ? s.colors.primary : m.color;
       rect(g, x, y - 6, 1, 6, "#f4f4f0");
       rect(g, x - 1, y - 7, 3, 2, c);
@@ -402,13 +401,14 @@ export function createStadium(cv) {
     if (beat?.target?.mark != null) lines.push({ mark: beat.target.mark, label: "TARGET " + beat.target.mark.toFixed(2), color: "#ffe69a" });
     // The thrower's own best so far, flagged in their colours.
     const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
-    if (own != null) lines.push({ mark: own, label: own.toFixed(2), color: "#fff6dc", flag: upSide === "home" ? s.colors.primary : m.color });
+    if (own != null) lines.push({ mark: own, label: own === leader?.mark ? null : own.toFixed(2), color: "#fff6dc", flag: upSide === "home" ? s.colors.primary : m.color });
     // Stack labels in rows so close marks don't overprint each other.
     const rowsEnd = [];
     for (const l of lines.sort((a, b) => a.mark - b.mark)) {
       const x = atX(l.mark);
       if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
-      else for (let y = upperY(x) + 2; y < lowerY(x) - 2; y += l.dash ? 4 : 1) rect(g, x, y, 1, l.dash ? 2 : 1, l.color);
+      else distanceArc(g, l.mark, l.color, l.dash);
+      if (!l.label) continue;
       const half = l.label.length * 2.4 + 2;
       let row = 0;
       while (rowsEnd[row] != null && rowsEnd[row] > x - half) row++;
@@ -422,15 +422,15 @@ export function createStadium(cv) {
       waiting = throwing === "away" ? home : rival,
       waitingColors = throwing === "away" ? s.colors : rivalColors;
     // Officials.
-    const judgeX = Math.min(W - 20, O.x + (beat?.type === "throw" && beat.mark != null ? beat.mark : (e.min + e.max) / 2) * ppm + 10);
+    const judgeX = Math.min(W - 20, O.x + (landed && beat?.type === "throw" && beat.mark != null ? beat.mark : (e.min + e.max) / 2) * ppm + 10);
     figure(g, { ...OFFICIAL, pose: "idle", frame: Math.floor(now / 700) % 2 }, judgeX, centreY(judgeX) - 18, 1);
     const foulShown = beat?.type === "throw" && beat.foul && landed;
     figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 34, O.y - 22, 1);
     if (foulShown) rect(g, O.x + 26, O.y - 48, 6, 4, "#e04a3a");
     // Waiting athlete on the bench.
     if (waiting && throwing) {
-      rect(g, 6, 176, 40, 3, "#a07850");
-      figure(g, { ...athleteLook(waiting, waitingColors), pose: "idle", frame: Math.floor(now / 600) % 2 }, 26, 188, 2);
+      rect(g, 12, O.y + 39, 36, 3, "#a07850");
+      figure(g, { ...athleteLook(waiting, waitingColors), pose: "sit", frame: Math.floor(now / 600) % 2 }, 30, O.y + 40, 1);
     }
     // The thrower.
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
@@ -455,7 +455,7 @@ export function createStadium(cv) {
             frame = f < 0.4 ? 0 : 1;
             flip = f > 0.5 && f < 0.9 && Math.floor(f * 10) % 2 === 1;
             const th = Math.PI * 2 * 3 * f * f;
-            hammerBall = [O.x + 4 + Math.cos(th) * 22, O.y - 22 + Math.sin(th) * 8];
+            hammerBall = [O.x + 2 + Math.cos(th) * 14, O.y - 16 + Math.sin(th) * 5];
           } else frame = f < 0.5 ? 0 : 1;
           if (ev === "shot" && f >= 0.5) x = O.x + 3;
         } else if (tt < T.tech + 250) (pose = "throw"), (frame = 2), (x = ev === "jav" ? O.x - 4 : O.x + (ev === "shot" ? 3 : 0));
@@ -468,23 +468,22 @@ export function createStadium(cv) {
         }
       } else if (beat?.type === "throw") pose = "throw";
       if (beat?.type === "decide") (pose = "throw"), (frame = 0);
-      shadow(g, x, y, 8);
+      shadow(g, x, y, 5);
       if (hammerBall) {
-        line(g, x + 4, y - 22, hammerBall[0], hammerBall[1], "#d8d8c8");
+        line(g, x + 2, y - 16, hammerBall[0], hammerBall[1], "#d8d8c8");
         ellipse(g, hammerBall[0], hammerBall[1], 2, 2, "#3a3e46");
       }
-      figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 2);
-      if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 14, y - 82, { color: "#f2c94c", scale: 2 });
+      figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 1);
+      if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 10, y - 42, { color: "#f2c94c", scale: 2 });
     }
     // Projectile.
     if (beat?.type === "throw" && tt >= T.tech && tt < T.land + 600) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
-        lateral = (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * 12,
-        sx = (ev === "jav" ? O.x - 4 : O.x) + 14,
-        sy = O.y - 44,
-        ex = O.x + dist * ppm,
-        ey = centreY(ex) + (beat.foul ? -((ex - O.x) * 0.17) - 10 : lateral) + 2,
+        angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
+        sx = (ev === "jav" ? O.x - 4 : O.x) + 7,
+        sy = O.y - 22,
+        [ex, ey] = sector.point(dist, angle),
         peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev];
       const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];
       if (f < 1) {
@@ -514,32 +513,34 @@ export function createStadium(cv) {
       }
     }
     // Landing callouts.
-    if (beat?.type === "throw" && landed && tt < 2700) {
+    if (beat?.type === "throw" && landed) {
       const label = beat.mark == null ? "FOUL" : beat.mark.toFixed(2) + " M";
       const color = beat.mark == null ? "#f06050" : beat.side === "home" ? "#fff6dc" : shade(m.color, 0.5);
-      text(g, label, W / 2, 50, { color, scale: 3, align: "center" });
-      if (beat.worldRecord) text(g, "WORLD RECORD!", W / 2, 76, { color: (Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc", scale: 2, align: "center" });
-      else if (beat.newPb) text(g, beat.previousPb ? "NEW PB! +" + beat.pbDelta.toFixed(2) : "FIRST MARK!", W / 2, 76, { color: "#f2c94c", scale: 2, align: "center" });
-      else text(g, (beat.side === "home" ? "" : m.name.toUpperCase() + " · ") + beat.name.toUpperCase(), W / 2, 76, { color: "#fff6dc", align: "center" });
+      const labelY = Math.max(50, overlayTop + 8);
+      text(g, label, W / 2, labelY, { color, scale: 3, align: "center" });
+      if (beat.worldRecord) text(g, "WORLD RECORD!", W / 2, labelY + 26, { color: (Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc", scale: 2, align: "center" });
+      else if (beat.newPb) text(g, beat.previousPb ? "NEW PB! +" + beat.pbDelta.toFixed(2) : "FIRST MARK!", W / 2, labelY + 26, { color: "#f2c94c", scale: 2, align: "center" });
+      else text(g, throwResult(beat).headline.toUpperCase(), W / 2, labelY + 26, { color: "#fff6dc", scale: 2, align: "center" });
     }
-    if (hasCut && el < CUTIN_MS) {
+    if (hasCut && el >= SETUP_MS && el < SETUP_MS + CUTIN_MS) {
       const a = beat.side === "home" ? home : rival;
-      cutin(g, a, beat.side === "home" ? s.colors : rivalColors, beat.name, beat.activations[0] + (beat.activations.length > 1 ? " +" + (beat.activations.length - 1) : ""), el / CUTIN_MS, beat.side === "home" ? s.colors.secondary : m.color);
+      cutin(g, a, beat.side === "home" ? s.colors : rivalColors, beat.name, beat.activations[0] + (beat.activations.length > 1 ? " +" + (beat.activations.length - 1) : ""), (el - SETUP_MS) / CUTIN_MS, beat.side === "home" ? s.colors.secondary : m.color, Math.max(100, overlayTop + 10));
     }
     weatherFx(g, venue, now, view.reduced);
     // Beat banners.
     const banner = (big, sub, color, t) => {
       const slide = Math.min(1, t * 6);
-      rect(g, 0, 110, W * slide, 40, "rgba(18,22,30,0.85)");
-      rect(g, 0, 110, W * slide, 2, color);
-      rect(g, 0, 148, W * slide, 2, color);
+      const y = Math.max(110, overlayTop + 10);
+      rect(g, 0, y, W * slide, 40, "rgba(18,22,30,0.85)");
+      rect(g, 0, y, W * slide, 2, color);
+      rect(g, 0, y + 38, W * slide, 2, color);
       if (slide >= 1) {
-        text(g, big, W / 2, 116, { color, scale: 2, align: "center" });
-        text(g, sub, W / 2, 136, { color: "#fff6dc", align: "center" });
+        text(g, big, W / 2, y + 6, { color, scale: 2, align: "center" });
+        text(g, sub, W / 2, y + 26, { color: "#fff6dc", align: "center" });
       }
     };
     if (beat?.type === "meetStart") banner(venue.name.toUpperCase(), ({ final: "LEAGUE FINAL", duel: "CLUB DUEL", league: "LEAGUE FIXTURE", cup: "INVITATIONAL" }[m.kind] + " · " + s.clubName + " VS " + m.name).toUpperCase(), venue.special ? "#f2c94c" : s.colors.secondary, el / beatDuration(beat));
-    if (beat?.type === "eventStart") banner(e.name.toUpperCase(), (home?.name + "  VS  " + rival?.name).toUpperCase(), e.color, el / beatDuration(beat));
+    if (beat?.type === "eventStart") banner(e.name.toUpperCase(), beat.finals ? "TOP FOUR ADVANCE - MARKS CARRY FORWARD" : "THREE THROWS EACH - PLACES SCORE 5 / 3 / 1", e.color, el / beatDuration(beat));
     if (beat?.type === "eventEnd") {
       const who = s.clubName + " +" + beat.h + " · " + m.name + " +" + beat.a;
       banner(who.toUpperCase(), (beat.home != null ? beat.home.toFixed(2) : "FOUL") + "  VS  " + (beat.away != null ? beat.away.toFixed(2) : "FOUL") + "   ·   " + beat.score + " - " + beat.against, beat.h > beat.a ? "#f2c94c" : beat.a > beat.h ? shade(m.color, 0.4) : "#fff6dc", el / beatDuration(beat));
@@ -568,13 +569,13 @@ export function createStadium(cv) {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 60 + n * 40, O.y + (n % 2) * 8, 1);
       });
     } else if (m.phase === "complete") {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 60 + n * 40, O.y + (n % 2) * 8, 1);
       });
     }
     g.setTransform(1, 0, 0, 1, 0, 0);

@@ -3957,6 +3957,40 @@ ol.howto li::marker {
 .meet-toolbar .seg .active { background: #f0cb63; color: #302612; }
 .meet-toolbar .ico { width: 13px; height: 13px; vertical-align: middle; }
 .meet-toolbar > .seg:first-child { margin-right: auto; }
+.meet-moment { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; padding: 7px 12px; background: #203e32; border-bottom: 2px solid #ffffff25; }
+.meet-moment > div { display: grid; gap: 1px; min-width: 0; }
+.meet-moment small { font-size: 10px; color: #c3d3c0; }
+.meet-moment strong { font: 700 21px/1.1 var(--display); color: #fff0bc; }
+.meet-moment span { font-size: 12px; color: #d9e5cf; }
+.meet-moment > b { font: 700 34px/1 var(--display); color: #ffe49a; white-space: nowrap; }
+.meet-moment > b > small { font-size: 12px; margin-left: 4px; }
+.meet-moment.landed { background: #304c32; border-bottom-color: #e0bf64; }
+.meet-moment.foul { background: #4a302c; border-bottom-color: #cb8c77; }
+.meet-moment.foul > b { color: #ef9b82; }
+.meet-toolbar > button:first-child { margin-right: auto; }
+.meet-highlights { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; margin-bottom: 10px; }
+.meet-highlight { background: #edf0df; border: 1px solid #b7c7a5; border-top: 3px solid var(--event-color); border-radius: 4px; padding: 7px; min-width: 0; }
+.meet-highlight.event-winner { background: #fff0c5; border-color: #c5ad67; }
+.meet-highlight > header { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 10px; }
+.meet-highlight > strong { display: block; font: 700 20px var(--display); margin: 5px 0; color: #31503c; }
+.meet-highlight > div { display: flex; align-items: center; gap: 6px; }
+.meet-highlight .portrait { width: 32px; height: 32px; flex: 0 0 32px; }
+.meet-highlight > div > span { display: grid; min-width: 0; font-size: 12px; }
+.meet-highlight small { font-size: 10px; color: #52624d; }
+.meet-highlight .highlight-pb { display: block; margin-top: 4px; color: #805819; font-weight: 700; }
+@media (max-width: 650px) {
+  .meet-highlights { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .meet-moment { min-height: 66px; padding: 6px 8px; }
+  .meet-moment strong { font-size: 18px; }
+  .meet-moment span { font-size: 11px; }
+  .meet-moment > b { font-size: 28px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .meet-moment { min-height: 52px; padding: 4px 8px; }
+  .meet-moment strong { font-size: 18px; }
+  .meet-moment > div { grid-template-columns: auto 1fr; gap: 1px 10px; align-items: baseline; }
+  .meet-moment > div > span { grid-column: 1 / -1; }
+}
 /* Full-time scorebook uses the available window, with one pinned exit. */
 #window.center.meet-results { top: calc(var(--hud) + 8px); bottom: max(8px, env(safe-area-inset-bottom)); left: 50%; width: min(1040px, calc(100vw - 24px)); max-height: none; transform: translateX(-50%); border-radius: 8px; }
 .meet-results .win-head { padding: 4px 12px; }
@@ -4092,6 +4126,50 @@ ol.howto li::marker {
   .thrower-identity > span > strong { white-space: normal; font-size: 12px; line-height: 1.15; }
 }
 .meeting #hud::after { content: none; }
+.meet-rail-score { display: none; }
+/* Landscape reserves a real column for the scorebook. The arena keeps its
+   height, so the venue and throwing sector fit without cropping. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .meet-live { --meet-rail: clamp(270px, 33vw, 350px); }
+  .meet-live #stage #stadium { width: calc(100% - var(--meet-rail) - max(8px, env(safe-area-inset-right)) - 8px); }
+  .meet-live #hud { right: auto; }
+  .meet-live #hud .meet-score { display: none; }
+  .meet-live #meetbar { top: max(8px, env(safe-area-inset-top)); left: auto; width: var(--meet-rail); bottom: max(8px, env(safe-area-inset-bottom)); }
+  .meet-live .meet-rail-score { display: grid; flex: none; gap: 1px; padding: 4px 9px; background: #0d211c; border-bottom: 1px solid #ffffff25; }
+  .meet-live .meet-rail-score > small { font-size: 8px; line-height: 10px; letter-spacing: 1px; color: #bbceba; }
+  .meet-live .meet-rail-score > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 19px; font-size: 12px; font-weight: 700; }
+  .meet-live .meet-rail-score > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meet-live .meet-rail-score > div > b { color: #f0cd74; font: 700 21px/1 var(--display); }
+  .meet-live .meet-rail-score .dot { margin-right: 6px; }
+  .meet-live .meet-rail-score > nav { display: flex; gap: 5px; font-size: 8px; line-height: 10px; color: #afc1ae; margin-top: 2px; }
+  .meet-live .meet-rail-score > nav > span { flex: 1; white-space: nowrap; }
+  .meet-live .meet-rail-score .current { color: #f7d77a; }
+  .meet-live .meet-moment { flex: none; min-height: 64px; padding: 5px 8px; gap: 7px; }
+  .meet-live .meet-moment > div { display: grid; grid-template-columns: 1fr; gap: 2px; }
+  .meet-live .meet-moment small { font-size: 9px; }
+  .meet-live .meet-moment strong { font-size: 20px; }
+  .meet-live .meet-moment span { font-size: 10px; line-height: 1.3; }
+  .meet-live .meet-moment > b { font-size: 29px; }
+  .meet-live .meet-desk { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow-y: auto; scrollbar-width: thin; }
+  .meet-live .current-thrower { flex: none; border-right: 0; border-bottom: 1px solid #ffffff20; padding: 5px 8px; }
+  .meet-live .thrower-heading { display: none; }
+  .meet-live .thrower-identity { display: none; }
+  .meet-live .live-standings { padding: 5px 8px; }
+  .meet-live .live-standings > header { font-size: 11px; }
+  .meet-live .live-standings > header > small { display: none; }
+  .meet-live .standings-list { grid-template-columns: 1fr; gap: 2px; }
+  .meet-live .standing { grid-template-columns: 18px minmax(0,1fr) 42px; font-size: 11px; padding: 2px 3px; }
+  .meet-live .meet-toolbar { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); flex: none; gap: 4px; padding: 5px; }
+  .meet-live .meet-toolbar > button:first-child { grid-column: 1 / 3; margin: 0; }
+  .meet-live .meet-toolbar > .seg:nth-child(2) { grid-column: 3 / 7; }
+  .meet-live .meet-toolbar > .seg:nth-child(3) { grid-column: 1 / 4; }
+  .meet-live .meet-toolbar > button:nth-child(4) { grid-column: 4 / 6; }
+  .meet-live .meet-toolbar > button:nth-child(5) { grid-column: 6; }
+  .meet-live .meet-toolbar .seg > button { flex: 1; }
+  .meet-live .meet-toolbar .seg button { min-width: 34px; padding: 4px 6px; }
+  .meet-live .meet-toolbar > .button { padding: 4px 7px; font-size: 10px; }
+  .meet-live #window.center.low { left: calc((100% - var(--meet-rail) - 16px) / 2); width: calc(100% - var(--meet-rail) - 32px); top: max(8px, env(safe-area-inset-top)); bottom: max(8px, env(safe-area-inset-bottom)); }
+}
 /* Meet report: scores first, then the progress earned by each entrant. */
 .meet-result-tabs { display: flex; gap: 4px; padding: 0 0 7px; border-bottom: 1px solid #cdd2ba; margin-bottom: 7px; }
 .meet-result-tabs > button { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 5px 14px; border: 1px solid #a6b197; border-radius: 4px; background: #e3e8d3; color: #37513f; font: 700 13px var(--display); }
