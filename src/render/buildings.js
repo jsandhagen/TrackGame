@@ -332,6 +332,33 @@ export function drawFacility(g, type, level, x, y, o = {}) {
       for (let i = 0; i < 3; i++) windowAt(g, lx + 4 + i * 12, b - 12, 7, 5, i === 1);
       if (L > 1) for (let i = 0; i < 3; i++) rect(g, lx + w + 4 + i * 3, b - 10, 2, 8, ["#6ad0e0", "#a0e070", "#e070c0"][i]);
     },
+    library() {
+      // Brick reading room with tall windows and a portico; more shelves and a wing with each level.
+      const lx = x + 16, w = 50 + (L > 2 ? 10 : 0), h = 20 + (L > 1 ? 4 : 0);
+      box(g, lx, b, w, h, 20, "#b8664c");
+      for (let n = 3; n < h; n += 4) rect(g, lx, b - n, w, 1, "#a2553e");
+      gable(g, lx, b - h, w, 20, 7, "#4f3d36");
+      for (let i = 0; i < (L > 2 ? 4 : 3); i++) windowAt(g, lx + 5 + i * 12, b - h + 5, 6, 10, L > 1);
+      rect(g, lx + Math.floor(w / 2) - 8, b - 12, 16, 2, "#efe2c0");
+      for (const dx of [-7, 5]) rect(g, lx + Math.floor(w / 2) + dx, b - 10, 2, 10, "#efe2c0");
+      door(g, lx + Math.floor(w / 2) - 3, b, 6, 9, colors.primary);
+      sign(g, lx + Math.floor(w / 2), b - h - 13, "BOOKS", "#5a3a2e");
+      if (L > 1) bench(g, lx - 12, b + 2);
+      if (L > 2) for (let i = 0; i < 4; i++) rect(g, lx + w + 3, b - 14 + i * 3, 6, 2, ["#c84a40", "#4a7ac8", "#e2b04a", "#5a9a5a"][i]);
+    },
+    institute() {
+      // Glass-fronted research block with a rooftop dish; extra floors and a data wing as it grows.
+      const lx = x + 12, w = 62, h = 22 + L * 5;
+      box(g, lx, b, w, h, 22, "#e4eaf2");
+      rect(g, lx + 2, b - h + 2, w - 4, 3, "#5a7ab0");
+      for (let f = 0; f < 2 + L; f++) for (let i = 0; i < 5; i++) windowAt(g, lx + 4 + i * 11, b - h + 8 + f * 7, 7, 4, f === 0 && i % 2 === 0);
+      door(g, lx + 27, b, 9, 11, "#3c5a8a");
+      ellipse(g, lx + w - 12, b - h - 6, 6, 3, "#c8d0d8");
+      rect(g, lx + w - 13, b - h - 5, 2, 5, "#7a8a9a");
+      sign(g, lx + 24, b - h - 12, "SCIENCE", "#3c5a8a");
+      if (L > 1) box(g, lx + w + 3, b, 10, 14, 10, "#c8d4e2");
+      if (L > 2) flagpole(g, lx - 6, b, 34);
+    },
     indoor() {
       const lx=x+8, w=72, h=23+L*2;
       box(g,lx,b,w,h,24,"#c4d4dc");
@@ -430,6 +457,7 @@ export function animateFacility(g, type, level, x, y, t) {
   }
   if (type === "workshop" && Math.floor(t / 180) % 5 === 0) for (let i = 0; i < 3; i++) px(g, x + 30 + hash(Math.floor(t / 180) + i) * 6, b - 8 - hash(i + t) * 6, "#f8c050");
   if (type === "lab" && Math.floor(t / 500) % 2) px(g, x + 42, b - 32 - level, "#e85a50");
+  if (type === "institute" && Math.floor(t / 700) % 2) px(g, x + 62, b - 33 - level * 5, "#e85a50");
   if (type === "studio") px(g, x + 54, b - 33 - (level > 2 ? 6 : 0), Math.floor(t / 600) % 2 ? "#e85a50" : "#6a2a2a");
 }
 // A plot the club doesn't own yet: rough meadow, a few shrubs and a sign naming the league it opens in.

@@ -30,7 +30,7 @@ const centreY = (x) => O.y - (x - O.x) * 0.04;
 const sectorSlope = () => Math.min(0.17, 102 / Math.max(1, W - O.x));
 const upperY = (x) => O.y - (x - O.x) * sectorSlope();
 const lowerY = (x) => O.y + (x - O.x) * Math.min(0.09, 38 / Math.max(1, W - O.x));
-const ppmOf = (ev) => (W - O.x - 36) / EVENTS[ev].record;
+const ppmOf = (ev) => (W - O.x - 36) / (EVENTS[ev].record * 1.06);
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
 // Base milliseconds for each beat at 1× speed.
@@ -515,7 +515,8 @@ export function createStadium(cv) {
       const label = beat.mark == null ? "FOUL" : beat.mark.toFixed(2) + " M";
       const color = beat.mark == null ? "#f06050" : beat.side === "home" ? "#fff6dc" : shade(m.color, 0.5);
       text(g, label, W / 2, 50, { color, scale: 3, align: "center" });
-      if (beat.newPb) text(g, beat.previousPb ? "NEW PB! +" + beat.pbDelta.toFixed(2) : "FIRST MARK!", W / 2, 76, { color: "#f2c94c", scale: 2, align: "center" });
+      if (beat.worldRecord) text(g, "WORLD RECORD!", W / 2, 76, { color: (Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc", scale: 2, align: "center" });
+      else if (beat.newPb) text(g, beat.previousPb ? "NEW PB! +" + beat.pbDelta.toFixed(2) : "FIRST MARK!", W / 2, 76, { color: "#f2c94c", scale: 2, align: "center" });
       else text(g, (beat.side === "home" ? "" : m.name.toUpperCase() + " · ") + beat.name.toUpperCase(), W / 2, 76, { color: "#fff6dc", align: "center" });
     }
     if (hasCut && el < CUTIN_MS) {

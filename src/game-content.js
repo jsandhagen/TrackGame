@@ -171,13 +171,13 @@ export const SLOT_NAMES = { implement: "Implement", shoes: "Shoes", charm: "Char
 // The stadium: fixed installations that are upgraded in place.
 // cost[k] / league[k] = price and league needed to go from level k to k + 1.
 export const STADIUM = {
-  track: { name: "Track", levels: ["Grass loop", "Gravel track", "Synthetic track", "Championship track"], cost: [0, 900, 2400], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level. Enables acceleration drills; level 2 supports elastic-strength blocks." },
-  shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 1800], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1900], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 2000], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 1800], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  track: { name: "Track", levels: ["Grass loop", "Gravel track", "Synthetic track", "Championship track"], cost: [0, 900, 2400], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +40% per level. Enables acceleration drills; level 2 supports elastic-strength blocks." },
+  shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 1800], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +40% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1900], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +40% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 2000], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +40% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 1800], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +40% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
   stands: { name: "Grandstand", levels: ["Open field", "Bleachers", "Covered main stand", "Stands all round", "Olympic stadium"], cost: [450, 1500, 4000, 10000], league: [0, 1, 3, 4], start: 0, max: 4, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level. From an open field to metal bleachers, a covered main stand, stands all round and finally an Olympic bowl with a ring roof." },
-  studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 900, 2400], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +25% per level. Enables video sessions and feedback plans; meet reviews generate extra Insights." },
+  studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 900, 2400], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +40% per level. Enables video sessions and feedback plans; meet reviews generate extra Insights. +0.4 Coaching Insights a day per level." },
   lights: { name: "Floodlights", levels: ["None", "Floodlights", "Stadium lights"], cost: [1200, 3000], league: [2, 3], start: 0, max: 2, desc: "Evening meets: +20% fans from home wins per level and a brighter crowd." },
 };
 export const STADIUM_IDS = Object.keys(STADIUM);
@@ -185,8 +185,8 @@ export const THROW_SPOTS = ["shot", "discus", "hammer", "jav"];
 
 // Buildings on the plots around the stadium.
 export const FACILITIES = {
-  club: { name: "Clubhouse", cost: 0, league: 0, fixed: true, color: "#c0784a", desc: "Home. Each level: +$60 weekly income and +1 daily condition." },
-  gym: { name: "Strength Room", cost: 280, league: 0, stat: 0, color: "#d08a50", desc: "Power training +25% per level. Enables coached strength sessions; level 2 supports maximum-strength blocks." },
+  club: { name: "Clubhouse", cost: 0, league: 0, fixed: true, color: "#c0784a", desc: "Home. Each level: +$60 weekly income and +1 daily condition. +0.15 Coaching Insights a day per level." },
+  gym: { name: "Strength Room", cost: 280, league: 0, stat: 0, color: "#d08a50", desc: "Power training +40% per level. Enables coached strength sessions; level 2 supports maximum-strength blocks. +0.1 Coaching Insights a day per level." },
   spa: { name: "Recovery Spa", cost: 340, league: 0, color: "#6ab0b0", desc: "Rest recovers +12 stamina per level. Injuries heal faster. Reduces the stamina cost of coached sessions." },
   cafe: { name: "Canteen Café", cost: 300, league: 0, color: "#e0a050", desc: "Six in ten visitors buy: $2 each, +$1 per level. Serves up to 30 customers a day, +15 per level. +1 daily condition." },
   shop: { name: "Merch Stand", cost: 380, league: 0, color: "#d0605a", desc: "Half of visitors buy: $3 each, +$1.50 per level. Serves up to 20 customers a day, +10 per level. +1 fan a day per level." },
@@ -195,10 +195,12 @@ export const FACILITIES = {
   dorm: { name: "Dormitory", cost: 450, league: 0, color: "#a08a6a", desc: "Room for +2 athletes per level (base squad of 6)." },
   scout: { name: "Scout Office", cost: 500, league: 1, color: "#7a8a5a", desc: "Rarer recruits and −15% scouting cost per level." },
   workshop: { name: "Kit Workshop", cost: 560, league: 1, color: "#9a7a5a", desc: "Forge gear: +0.6% distance per forge level. −10% forge cost per level." },
-  lab: { name: "Sports Lab", cost: 800, league: 2, color: "#7ab0d0", desc: "XP +10% per level. Adds a Coaching Insight every third productive training day." },
-  indoor: { name: "Indoor Training Hall", cost: 1800, league: 2, color: "#6c91a0", desc: "Unlocks low-load indoor technical sessions. Each level improves that session's gains; practice still needs competition experience." },
-  lodge: { name: "Coaching Lodge", cost: 2800, league: 3, color: "#a88760", desc: "Lower-level athletes gain +8% XP per level when a more experienced teammate trains the same event. Enables coached peer review." },
-  testing: { name: "Equipment Testing Centre", cost: 4500, league: 4, color: "#719d9b", desc: "Enables implement trials: build event mastery and technique with event-matched gear. Levels improve trial gains. No extra distance bonus." },
+  library: { name: "Coaches' Library", cost: 380, league: 0, color: "#8a5a48", desc: "Coaching manuals, notebooks and old meet programmes. +0.5 Coaching Insights a day per level." },
+  lab: { name: "Sports Lab", cost: 800, league: 2, color: "#7ab0d0", desc: "XP +10% per level. +0.6 Coaching Insights a day per level from movement data." },
+  institute: { name: "Sports Science Institute", cost: 2400, league: 2, color: "#5a7ab0", desc: "Research staff study the squad's training. +1.5 Coaching Insights a day per level." },
+  indoor: { name: "Indoor Training Hall", cost: 1800, league: 2, color: "#6c91a0", desc: "Unlocks low-load indoor technical sessions. Each level improves that session's gains; practice still needs competition experience. +0.3 Coaching Insights a day per level." },
+  lodge: { name: "Coaching Lodge", cost: 2800, league: 3, color: "#a88760", desc: "Lower-level athletes gain +8% XP per level when a more experienced teammate trains the same event. Enables coached peer review. +0.5 Coaching Insights a day per level." },
+  testing: { name: "Equipment Testing Centre", cost: 4500, league: 4, color: "#719d9b", desc: "Enables implement trials: build event mastery and technique with event-matched gear. Levels improve trial gains. No extra distance bonus. +0.6 Coaching Insights a day per level." },
   statue: { name: "Champion Statue", cost: 900, league: 0, needsTitle: true, color: "#c8b078", desc: "Needs a title. +2 fans a day per level; fans from wins +10%." },
 };
 export const FACILITY_IDS = Object.keys(FACILITIES);
@@ -223,6 +225,7 @@ export const COMBOS = [
   { a: "shop", b: "cafe", key: "matchday", name: "Matchday Strip", desc: "Merch spending ×1.5." },
   { a: "lab", b: "workshop", key: "techhub", name: "Tech Hub", desc: "Forging costs −25%." },
   { a: "lab", b: "spa", key: "science", name: "Sports Science", desc: "XP +15%." },
+  { a: "library", b: "institute", key: "thinktank", name: "Think Tank", desc: "Coaching Insights from buildings +25%." },
   { a: "scout", b: "club", key: "network", name: "Scouting Network", desc: "Rarer recruits." },
   { a: "dorm", b: "spa", key: "dorms", name: "Rest & Reload", desc: "Injury risk −50%, rest +5 stamina." },
   { a: "dorm", b: "cafe", key: "teamspirit", name: "Team Spirit", desc: "Team condition +1 a day." },

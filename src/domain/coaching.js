@@ -1,6 +1,6 @@
 import { practiceMastery, masteryOf, masteryCap } from "./mastery.js";
 import { PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
-import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random } from "./core.js";
+import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random, hasCombo } from "./core.js";
 
 export const INSIGHT_START = 16;
 export const DRILLS = {
@@ -82,7 +82,7 @@ export function drillGains(s, a, id, group = 1) {
   const d = DRILLS[id], fx = effects(s,a,true,"training"), cap = capOf(a);
   if (!d) return [0,0,0,0];
   const site = d.needs[0][0] === "event" ? (a.trainingEvent||a.event) : d.needs[0][0];
-  const quality = (1 + 0.12 * (facilityLevel(s,site)-1)) * (1 + 0.08 * (drillLevel(s,id)-1)) * groupBonus(group);
+  const quality = (1 + 0.2 * (facilityLevel(s,site)-1)) * (1 + 0.08 * (drillLevel(s,id)-1)) * groupBonus(group);
   return d.gains.map((v,i) => Math.max(0,Math.min(cap-a.stats[i],v*quality*fx.gain*fx.train[i]*MOOD_TRAIN[moodOf(a)])));
 }
 // Everything except the Insight bill, which a group pays once.
@@ -143,10 +143,18 @@ export function coachSession(s, athleteId, id) {
   const out = coachGroup(s, [athleteId], id);
   return out && { ...out.results[0], insights: out.cost, session: out };
 }
+// Buildings that produce Coaching Insights every day, per level (fractions carry over).
+export const INSIGHT_RATES = { club: 0.15, gym: 0.1, library: 0.5, lab: 0.6, indoor: 0.3, studio: 0.4, lodge: 0.5, institute: 1.5, testing: 0.6 };
+export function insightRate(s) {
+  const base = Object.entries(INSIGHT_RATES).reduce((n, [type, rate]) => n + rate * facilityLevel(s, type), 0);
+  return base * (hasCombo(s, "thinktank") ? 1.25 : 1);
+}
+// One Insight for a day of practice, plus whatever the club's buildings produce.
 export function practiceInsights(s, trained) {
-  if (!trained) return 0;
-  s.coaching.practiceDays++;
-  const earned = 1 + (facilityLevel(s,"lab") > 0 && s.coaching.practiceDays % 3 === 0 ? 1 : 0);
+  if (trained) s.coaching.practiceDays++;
+  const total = (trained ? 1 : 0) + insightRate(s) + (s.coaching.spare || 0),
+    earned = Math.floor(total + 1e-9);
+  s.coaching.spare = Math.round((total - earned) * 1000) / 1000;
   s.coaching.insights += earned; return earned;
 }
 export function meetInsights(s, personalBests) {

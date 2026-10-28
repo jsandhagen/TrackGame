@@ -134,6 +134,7 @@ export function newGame(seed = Date.now() >>> 0) {
     lastEventDay: 1,
     saleDay: 0,
     records: {},
+    worldRecords: {},
     awardHistory: [],
     lastAwards: null,
     alumni: [],
@@ -280,14 +281,15 @@ export function trainingGains(s, a, planId, fx = effects(s, a)) {
   const plan = PLANS[planId],
     gains = [0, 0, 0, 0];
   if (!plan || planId === "rest" || plan.facilityRole || planProblem(s,a,planId)) return gains;
-  const base = 0.38,
+  // Daily plans keep a squad ticking over; facilities and coached sessions make the big gains.
+  const base = 0.25,
     cap = capOf(a),
     mood = MOOD_TRAIN[moodOf(a)];
   for (let i = 0; i < 4; i++) {
     let g;
     if (plan.stat != null) {
       const lvl = facilityLevel(s, planFacility(plan, a));
-      g = plan.stat === i ? base * 2 * (plan.rate || 1) * (lvl ? 1 + 0.25 * lvl : 0.8) : base * (plan.secondary?.[0] === i ? plan.secondary[1] : 0.22);
+      g = plan.stat === i ? base * 2 * (plan.rate || 1) * (lvl ? 1 + 0.4 * lvl : 0.6) : base * (plan.secondary?.[0] === i ? plan.secondary[1] : 0.22);
     } else g = base * (planId === "sharpen" ? 0.15 : 0.62);
     const room = clamp((cap - a.stats[i]) / (cap * 0.55), 0.06, 1);
     g *= fx.gain * fx.train[i] * mood * room;

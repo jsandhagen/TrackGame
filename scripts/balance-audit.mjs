@@ -7,7 +7,7 @@ const N = Number(process.env.AUDIT_SEEDS || 30),
   MAX = Number(process.env.AUDIT_SEASONS || 60);
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) / 2)];
 const pct = (a, q) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) * q)];
-const BUILD = ["cafe", "spa", "garden", "shop", "dorm", "workshop", "scout", "lab", "fountain"];
+const BUILD = ["cafe", "library", "spa", "garden", "shop", "dorm", "institute", "workshop", "scout", "lab", "fountain"];
 const STAND = ["discus", "hammer", "stands", "studio", "shot", "jav", "track", "discus", "hammer", "stands", "studio", "lights"];
 const SKILL_PRIORITY = ["gymrat", "formfreak", "fasttwitch", "clutch", "icevein", "quickstudy", "hunter", "secondwind", "momentum", "workhorse", "bigstage", "highroller", "captain", "meteor", "cyclone", "tempest", "skyspear"];
 
@@ -20,7 +20,27 @@ export function engaged(s) {
   } finally {
     s.money += reserve;
   }
+  coach(s);
   G.autoLineup(s);
+}
+// Spend Coaching Insights on group sessions: each athlete gets the session that helps their
+// event most, grouped three at a time with others who want the same one.
+function coach(s) {
+  if (s.matchDay != null && s.matchDay - s.day <= 1) return;
+  const value = (a, id) => G.drillGains(s, a, id).reduce((n, g, i) => n + g * EVENTS[a.event].weights[i], 0);
+  const wants = new Map();
+  for (const a of s.roster) {
+    const options = Object.keys(G.DRILLS).filter((id) => !G.drillProblem(s, a, id, 1));
+    if (!options.length) continue;
+    const best = options.sort((x, y) => value(a, y) - value(a, x))[0];
+    if (value(a, best) <= 0) continue;
+    wants.set(best, [...(wants.get(best) || []), a.id]);
+  }
+  for (const [id, ids] of wants)
+    for (let i = 0; i < ids.length; i += G.MAX_GROUP) {
+      const group = ids.slice(i, i + G.MAX_GROUP);
+      if (!G.groupProblem(s, group, id)) G.coachGroup(s, group, id);
+    }
 }
 function spend(s) {
   const plans = ["power", "technique", "speed", "focus"];

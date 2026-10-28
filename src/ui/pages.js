@@ -182,7 +182,7 @@ function athletePage(s, a, view) {
         const at = p.facility === "event" ? (a.trainingEvent||a.event) : p.facility;
         const lvl = at ? G.facilityLevel(s, at) : 0,
           name = at ? (STADIUM[at] || FACILITIES[at]).name : null;
-        const where = at ? (lvl ? name + " Lv " + lvl + (p.stat != null ? " · +" + lvl * 25 + "%" : "") : p.stat != null ? "No " + name + " yet · −20%" : "Clubhouse") : id === "balanced" ? "Laps of the track" : "Light drills";
+        const where = at ? (lvl ? name + " Lv " + lvl + (p.stat != null ? " · +" + lvl * 40 + "%" : "") : p.stat != null ? "No " + name + " yet · −40%" : "Clubhouse") : id === "balanced" ? "Laps of the track" : "Light drills";
         const problem = G.planProblem(s,a,id);
         const unlockable = p.course && !s.coaching.unlocked.includes(id);
         const unlockProblem = (p.facility === "event" && (a.eventMeets[a.trainingEvent||a.event]||0)<(p.cost>=24?4:2) ? "Compete in this event to qualify for advanced coaching" : null) || G.facilityProblem(s,a,p.needs) || (s.coaching.insights < p.cost ? "Not enough Insights" : null);
@@ -245,7 +245,7 @@ const plus = (n) => "+" + (Math.round(n * 10) / 10).toString();
 const vital = (c) => (c.stat != null ? showStat(c.from) + " → " + showStat(c.to) : Math.round(c.from) + " → " + Math.round(c.to));
 export const previewText = (changes) => changes.map((c) => (c.from != null ? c.label + " " + vital(c) : c.label)).join(" · ");
 export function insightBanner(s) {
-  return `<div class="insight-banner">${ico("idea")}<div><b>${s.coaching.insights}</b> Coaching Insights<small>The coach's notebook. +1 for every day of training, +4 to +9 from each meet review.</small></div></div>`;
+  return `<div class="insight-banner">${ico("idea")}<div><b>${s.coaching.insights}</b> Coaching Insights<small>Your buildings add <b>${(Math.round(G.insightRate(s) * 10) / 10).toLocaleString()}</b> a day. +1 for every day of training, +4 to +9 from each meet review.</small></div></div>`;
 }
 function planForecast(s, a) {
   if (a.plan === "facilities") return "Automatic duties replace stat training. Rewards and stamina costs depend on the selected facility; athletes recover when no suitable site is available.";
@@ -649,7 +649,7 @@ export function league(s, view) {
       ${open ? `<div class="rival-squad">${c.athletes.map((a, i) => `<div class="rival-athlete">${rivalPortrait(c.id, i)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].name} · ~${mark(G.rawMark(a, a.event))}</small><small>${a.skills.map((k) => SKILLS[k].name).join(" · ") || "No skills"} · ${esc(G.PROFILES[a.profile].name)} · mastery ${Math.floor(G.masteryOf(a,a.event))} · ${Object.values(a.gear).filter(Boolean).map(k=>ITEMS[k].name).join(" / ")}</small></span>${ovrBadge(a)}</div>`).join("")}</div>` : ""}</div>`;
     })
     .join("")}
-  <div class="card-title"><h2>Club records</h2></div><div class="records">${EVENT_IDS.map((ev) => `<span>${EVENTS[ev].name}<b>${s.records[ev] ? mark(s.records[ev].mark) : "—"}</b><small>${s.records[ev] ? esc(s.records[ev].name) + " · S" + s.records[ev].season : ""}</small></span>`).join("")}</div>
+  <div class="card-title"><h2>Club records</h2></div><div class="records">${EVENT_IDS.map((ev) => `<span>${EVENTS[ev].name}<b>${s.records[ev] ? mark(s.records[ev].mark) : "—"}</b><small>${s.records[ev] ? esc(s.records[ev].name) + " · S" + s.records[ev].season : ""}</small><small class="${s.worldRecords?.[ev] ? "wr-ours" : ""}">World record ${G.worldRecord(s, ev).toFixed(2)}${s.worldRecords?.[ev] ? " · " + esc(s.worldRecords[ev].name) : ""}</small></span>`).join("")}</div>
   <div class="card-title"><h2>${ico("trophy")} Trophy cabinet</h2></div><div class="trophies">${s.trophies.length || s.invitations?.won.length ? s.trophies.map((t) => `<div>${ico("trophy", "big")}<strong>${LEAGUES[t.league].name} · ${G.CIRCUIT_STAGES[t.stage ?? 2]}</strong><small>Season ${t.season}</small></div>`).join("") + (s.invitations?.won || []).map((t) => `<div class="invite-trophy">${ico("star", "big")}<strong>${esc(t.name)}</strong><small>${LEAGUES[t.tier].name} · ${esc(G.shortDate(t.day))}</small></div>`).join("") : "<p class='hint'>A space is waiting for the first one.</p>"}</div>`;
 }
 
@@ -765,7 +765,7 @@ function resultTable(s, event) {
     <table class="placing-table"><caption class="sr-only">${EVENTS[event.event].name} individual results</caption><colgroup><col class="col-place"><col><col class="col-mark"><col class="col-points"></colgroup><thead><tr><th scope="col">Pl.</th><th scope="col">Athlete</th><th scope="col">Best (m)</th><th scope="col">Pts</th></tr></thead><tbody>${rows.map(row => {
       const {athlete, face} = meetAthlete(s, row.side, row.id);
       const pb = s.match.rewards?.pbs?.some(p => p.id === row.id && p.event === event.event);
-      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(s.match.name)}${pb ? ' <em class="pb-tag">PB</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
+      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(s.match.name)}${s.match.rewards?.worldRecords?.some((w) => w.id === row.id && w.event === event.event) ? ' <em class="pb-tag">WR</em>' : pb ? ' <em class="pb-tag">PB</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
     }).join("")}</tbody></table>
     <details class="throw-series"><summary>Throw series <span>${rows.length} athletes</span></summary>${rows.map(row => {
       const {athlete} = meetAthlete(s,row.side,row.id);
@@ -845,7 +845,7 @@ export function meetComplete(s, view = {}) {
   const growth = view.resultView === "progress";
   const selected = EVENT_IDS.includes(view.resultEvent) ? view.resultEvent : "all";
   return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : m.kind === "cup" ? esc(r.invitational?.name || "INVITATIONAL").toUpperCase() : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b>${m.score} <small>–</small> ${m.against}</b><span>${esc(m.name)}</span></div></header>
-  <div class="meet-payout"><span>${ico("coin")} <b>+${cash(r.money || 0)}</b></span><span>${ico("heart")} +${r.fans || 0} fans</span><span>${ico("idea")} +${r.insights || 0} Insights</span>${r.mvp ? `<span class="meet-mvp">${ico("star")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}</div>
+  <div class="meet-payout"><span>${ico("coin")} <b>+${cash(r.money || 0)}</b></span><span>${ico("heart")} +${r.fans || 0} fans</span><span>${ico("idea")} +${r.insights || 0} Insights</span>${r.mvp ? `<span class="meet-mvp">${ico("star")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}${(r.worldRecords || []).map((w) => `<span class="meet-mvp wr-ours">${ico("trophy")} WORLD RECORD <b>${esc(w.name)} ${mark(w.mark)}</b></span>`).join("")}</div>
   ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
   <nav class="meet-result-tabs" aria-label="Meet report"><button class="report-menu" data-act="game-menu">Menu</button><button data-act="result-view" data-value="results" aria-pressed="${!growth}" class="${!growth?"active":""}">Results</button><button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
   ${growth ? meetGrowth(s) : `
@@ -860,6 +860,7 @@ export function meetComplete(s, view = {}) {
     ${r.invitational ? `<p class="pb-line">${ico("star")} ${r.invitational.won ? esc(r.invitational.name) + " champions! The " + esc(ITEMS[r.invitational.prize].name) + " is ours." : "Thanks for coming to the " + esc(r.invitational.name) + ". A keepsake for the trip; the " + esc(ITEMS[r.invitational.prize].name) + " stays with the winners."}</p>` : ""}
     ${(r.mastery || []).map(d=>`<p class="pb-line">${esc(d.name)} · ${EVENTS[d.event].name} mastery +${d.gain.toFixed(1)} (${Math.floor(d.mastery)})</p>`).join("")}
     ${(r.development || []).map((d) => `<p class="pb-line">${ico("star")} ${esc(d.name)} · ${esc(d.milestone)} · ${esc(d.reward)}</p>`).join("")}
+    ${(r.worldRecords || []).map((w) => `<p class="pb-line wr-line">${ico("trophy")} WORLD RECORD · ${esc(w.name)} · ${EVENTS[w.event].name} ${mark(w.mark)} (was ${w.previous.toFixed(2)}) · +$2,500, +400 fans</p>`).join("")}
     ${r.pbs.map((p) => `<p class="pb-line">${ico("medal")} ${esc(p.name)} · ${EVENTS[p.event].name} PB ${mark(p.mark)}${p.delta ? " (+" + p.delta.toFixed(2) + ")" : ""}</p>`).join("")}
     ${r.levelUps.map((l) => `<p class="pb-line">${ico("levelup")} ${esc(l.name)} reached level ${l.level}</p>`).join("")}
     ${r.goals.map((id) => `<p class="pb-line">${ico("target")} Goal: ${esc(G.GOALS.find((g) => g.id === id)?.name)}</p>`).join("")}

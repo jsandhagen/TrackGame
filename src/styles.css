@@ -4475,3 +4475,5 @@ dialog > .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscr
   .decide > .scoring-target { order: 1; }
   .decide > .tactics { order: 2; }
 }
+.wr-ours { color: #b07a12; font-weight: 700; }
+.wr-line { color: #8a5a00; font-weight: 700; background: #fbefc8; border-radius: 6px; padding: 3px 6px; }

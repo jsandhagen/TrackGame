@@ -10,6 +10,7 @@ import {
   forecast,
   forecastRaw,
   realMark,
+  worldRecord,
   equippedSkills,
   grantXp,
   xpNeeded,
@@ -429,6 +430,13 @@ function throwFor(s, side, tactic, quality, sig) {
   const swing=c.m.rotation?fieldLeaderboard(s,c.i).reduce((n,e)=>n+(e.side===side?1:-1)*e.points,0)-beforeMargin:0;
   const previousPb = side === "home" ? Math.max(a.pb[c.ev] || 0, c.ownBest || 0) : 0;
   const newPb = side === "home" && mark != null && mark > previousPb && mark > (a.pb[c.ev] || 0);
+  // A world record stands from the moment it lands; later throws in the meet must beat it.
+  const worldRecordBroken = side === "home" && mark != null && mark > worldRecord(s, c.ev);
+  if (worldRecordBroken) {
+    const previous = worldRecord(s, c.ev);
+    s.worldRecords = { ...s.worldRecords, [c.ev]: { mark, name: a.name, season: s.season, day: s.day, previous } };
+    (m.worldRecords ??= []).push({ id: a.id, name: a.name, event: c.ev, mark, previous });
+  }
   const ownBest = best(c.own),
     oppBest = c.oppBest;
   return {
@@ -446,6 +454,7 @@ function throwFor(s, side, tactic, quality, sig) {
     signature: !!sig,
     activations: r.acts.filter(Boolean),
     newPb,
+    worldRecord: worldRecordBroken,
     previousPb,
     pbDelta: newPb && previousPb ? mark - previousPb : 0,
     ownBest,
@@ -677,7 +686,16 @@ export function settleMatch(s) {
     const a=matchClub(s).athletes.find(a=>a.id===entry.id);
     competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
   }
-  rewards.insights = meetInsights(s,rewards.pbs.length);
+  // World records: the sport's biggest headline, paid in prize money, fans and Insights.
+  rewards.worldRecords = m.worldRecords || [];
+  for (const wr of rewards.worldRecords) {
+    const a = s.roster.find((x) => x.id === wr.id);
+    s.money += 2500; rewards.money += 2500; fans += 400;
+    count(s, "worldRecords");
+    a?.career.unshift({ season: s.season, label: "WORLD RECORD · " + EVENTS[wr.event].name, mark: wr.mark });
+    note(s, "WORLD RECORD! " + wr.name + " throws " + wr.mark.toFixed(2) + " m in the " + EVENTS[wr.event].name.toLowerCase() + ", beating " + wr.previous.toFixed(2) + ".", "win");
+  }
+  rewards.insights = meetInsights(s,rewards.pbs.length + 3 * rewards.worldRecords.length);
   rewards.fans = Math.round(fans);
   s.fans += rewards.fans;
   if (m.kind === "cup") settleInvitation(s, win, rewards);

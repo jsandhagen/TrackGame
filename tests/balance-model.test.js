@@ -3,26 +3,39 @@ import assert from 'node:assert/strict';
 import * as G from '../src/domain/game.js';
 import { EVENTS, EVENT_IDS, LEAGUES, STADIUM } from '../src/game-content.js';
 
-test('distances approach each world record but never pass it', () => {
+test('distances keep rising past the world record towards a ceiling 5% beyond it', () => {
   for (const ev of EVENT_IDS) {
     const { record } = EVENTS[ev];
     assert.equal(G.realMark(ev, record * 0.8), record * 0.8, 'ordinary marks are untouched');
     let last = 0;
     for (const raw of [record * 0.95, record, record * 1.1, record * 1.3, record * 3]) {
       const m = G.realMark(ev, raw);
-      assert(m < record && m > last, ev + ' stays below the record and keeps rising');
+      assert(m < record * G.MARK_CEILING && m > last, ev + ' keeps rising but stays under the ceiling');
       last = m;
     }
+    assert(G.realMark(ev, record) < record, 'matching the record in raw ability is not enough');
+    assert(G.realMark(ev, record * 1.1) > record, 'a big enough edge breaks it');
   }
 });
 
-test('a maxed athlete with every bonus stays below the world record in a meet', () => {
+test('World Championship rivals throw world-class marks but not world records', () => {
+  const s = G.newGame(13);
+  for (const c of G.makeClubs(s, 4, 2)) for (const a of c.athletes) assert(G.forecast(s, a, a.event, { club: false }) < EVENTS[a.event].record);
+});
+
+test('a world record is kept, rewarded and becomes the next target', () => {
   const s = G.newGame(7);
-  const a = s.roster[0];
-  a.stats = [100, 100, 100, 100];
-  for (const ev of EVENT_IDS) a.mastery[ev] = 100;
-  a.buff = 1.3;
-  for (const ev of EVENT_IDS) assert(G.forecast(s, a, ev) < EVENTS[ev].record);
+  assert(G.enterCompetition(s, { kind: 'duel', tier: 0, rival: 0 }));
+  s.day = s.matchDay;
+  for (const a of s.roster) { a.stats = [100, 100, 100, 100]; for (const ev of EVENT_IDS) a.mastery[ev] = 100; a.buff = 1.6; }
+  const money = s.money;
+  assert(G.startMatch(s));
+  assert(G.simulateMatch(s));
+  const broken = s.match.rewards.worldRecords;
+  assert(broken.length > 0);
+  for (const w of broken) assert(w.mark > EVENTS[w.event].record && G.worldRecord(s, w.event) >= w.mark);
+  assert(s.money >= money + 2500);
+  assert(s.goals.includes('worldrecord'));
 });
 
 test('rival strength rises smoothly through every stage of the circuit', () => {
@@ -95,4 +108,31 @@ test('older saves lift their saved rivals onto the new curve once', async () => 
   assert(out.clubs[0].athletes.every((a) => a.gear.charm !== 'medal'));
   const again = validateCampaign(JSON.parse(JSON.stringify(out)));
   assert.deepEqual(again.clubs[0].athletes[0].stats, out.clubs[0].athletes[0].stats, 'runs only once');
+});
+
+test('research buildings produce Coaching Insights every day, fractions carried over', () => {
+  const s = G.newGame(3);
+  const before = G.insightRate(s);
+  s.plots[8] = { type: 'library', level: 2 };
+  assert.equal(Math.round((G.insightRate(s) - before) * 100), 100, 'two library levels add a whole Insight a day');
+  s.plots[11] = { type: 'institute', level: 1 };
+  const withInstitute = G.insightRate(s);
+  assert(withInstitute >= before + 2.5);
+  s.coaching.spare = 0;
+  const start = s.coaching.insights;
+  let earned = 0;
+  for (let d = 0; d < 10; d++) earned += G.practiceInsights(s, false);
+  assert.equal(s.coaching.insights - start, earned);
+  assert(Math.abs(earned + s.coaching.spare - withInstitute * 10) < 1e-6, 'nothing is lost to rounding');
+});
+
+test('daily plans lean on facilities: a plan with nowhere to train gains far less', () => {
+  const s = G.newGame(8);
+  const a = s.roster.find((x) => x.event === 'discus');
+  a.trainingEvent = 'discus';
+  s.stadium.discus = 0;
+  const bare = G.trainingGains(s, a, 'technique')[1];
+  s.stadium.discus = 3;
+  const built = G.trainingGains(s, a, 'technique')[1];
+  assert(built > bare * 3.5, 'a competition cage is worth several times an empty field');
 });

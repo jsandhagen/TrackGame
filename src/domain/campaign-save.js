@@ -290,6 +290,8 @@ export function validateCampaign(input) {
   if (!s.coaching || !int(s.coaching.insights,0,1e9) || !int(s.coaching.practiceDays,0,1e9) || !Array.isArray(s.coaching.unlocked) || new Set(s.coaching.unlocked).size !== s.coaching.unlocked.length || s.coaching.unlocked.some((id) => !PLANS[id]?.course)) bad();
   for (const a of s.roster || []) if (PLANS[a.plan]?.course && !s.coaching.unlocked.includes(a.plan)) bad();
   s.coaching.drills ??= {};
+  s.coaching.spare ??= 0;
+  if (!num(s.coaching.spare, 0, 1)) bad();
   if (typeof s.coaching.drills !== "object" || Array.isArray(s.coaching.drills) || Object.entries(s.coaching.drills).some(([k, n]) => !DRILLS[k] || !int(n, 0, 1e7))) bad();
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
   s.weatherSeed ??= weatherSeedFrom(s.rng);
@@ -353,6 +355,8 @@ export function validateCampaign(input) {
   if (!s.forge || Object.entries(s.forge).some(([k, n]) => !ITEMS[k] || !int(n, 0, 3))) bad();
   if (!s.counters || Object.values(s.counters).some((n) => !num(n, 0, 1e9))) bad();
   if (!s.records || typeof s.records !== "object") bad();
+  s.worldRecords ??= {};
+  if (typeof s.worldRecords !== "object" || Array.isArray(s.worldRecords) || Object.entries(s.worldRecords).some(([ev, r]) => !EVENT_IDS.includes(ev) || !num(r?.mark, 0, 1000) || !word(r.name))) bad();
   if (!SPONSORS[s.sponsor] || !s.colors || !color(s.colors.primary) || !color(s.colors.secondary)) bad();
   ensureCustom(s);
   s.secretsOffered = s.secretsOffered.filter((k) => SECRETS[k]);

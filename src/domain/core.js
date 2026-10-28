@@ -210,12 +210,17 @@ export function eventRating(a, event) {
   return a.stats.reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (0.60 + 0.40 * masteryOf(a,event)/100);
 }
 // Distances follow ability until 92% of the world record; beyond that each extra bit of ability
-// buys fewer centimetres, so no mark ever passes the record.
+// buys fewer centimetres, towards a ceiling 5% past the record. Breaking a world record takes
+// a fully built club stacking everything it has, and every centimetre after that is harder still.
+export const MARK_CEILING = 1.05;
 export function realMark(event, m) {
   const record = EVENTS[event].record,
-    knee = record * 0.92;
-  return m <= knee ? m : knee + (record - knee) * (1 - Math.exp(-(m - knee) / (record - knee)));
+    knee = record * 0.92,
+    room = record * MARK_CEILING - knee;
+  return m <= knee ? m : knee + room * (1 - Math.exp(-(m - knee) / room));
 }
+// The current world record: the real one until a club throw beats it.
+export const worldRecord = (s, event) => Math.max(EVENTS[event].record, s.worldRecords?.[event]?.mark || 0);
 const baseMark = (a, event) => {
   const e = EVENTS[event];
   return e.min + (e.max - e.min) * Math.pow(clamp(eventRating(a, event), 0, 100) / 100, 1.12);

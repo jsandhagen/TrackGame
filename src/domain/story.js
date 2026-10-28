@@ -59,6 +59,7 @@ export const GOALS = [
   { id: "worldtitle", name: "Champions of the World", desc: "Win the World League", target: 1, progress: (s) => s.trophies.filter((t) => t.league === 4 && (t.stage ?? 2) === 2).length, reward: { items: { hermes: 1 } } },
   { id: "fans10000", name: "Global Following", desc: "Reach 10,000 fans", target: 10000, progress: (s) => s.fans, reward: { items: { comet: 1 } } },
   { id: "secret6", name: "The Whole Gang", desc: "Sign all 6 secret characters", target: 6, progress: (s) => s.counters.secretsSigned || 0, reward: { money: 10000 } },
+  { id: "worldrecord", name: "Rewrite History", desc: "Break a world record", target: 1, progress: (s) => s.counters.worldRecords || 0, reward: { money: 5000 } },
 ];
 export function goalProgress(s, g) {
   return Math.min(g.target, g.progress(s));

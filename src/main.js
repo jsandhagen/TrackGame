@@ -500,6 +500,10 @@ function startBeat(beat) {
       view.hide = null;
       sfx(beat.mark == null ? "foul" : "land");
       if (beat.side === "home" && beat.mark != null && (beat.newPb || beat.leading || beat.scoringSwing>0)) sfx("cheer");
+      if (beat.worldRecord) {
+        sfx("win");
+        toast("WORLD RECORD! " + beat.name + " · " + beat.mark.toFixed(2) + " m", "goal", "trophy");
+      }
       render();
     });
   } else if (beat.type === "eventEnd") sfx(beat.h > beat.a ? "cheer" : "event");
@@ -516,7 +520,7 @@ function pumpMeet(dt) {
   if (!m) return;
   if (presenter) {
     const b=presenter.beat;
-    const routine=state.settings.highlights && b.athleteId!==state.settings.followAthlete && b.type === "throw" && b.attempt>0 && !b.newPb && !b.signature && !b.scoringSwing && !b.target?.qualification;
+    const routine=state.settings.highlights && b.athleteId!==state.settings.followAthlete && b.type === "throw" && b.attempt>0 && !b.newPb && !b.worldRecord && !b.signature && !b.scoringSwing && !b.target?.qualification;
     presenter.el += dt * view.meetSpeed * (routine?5:1);
     for (const c of presenter.cues) if (!c.done && presenter.el >= c.at) (c.done = true), c.fn();
     if (presenter.el < presenter.base) return;
