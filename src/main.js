@@ -173,7 +173,7 @@ function render(preserve = true) {
   const groupPlans = $("#panel .group-plans");
   if (groupPlans) view.showGroupPlans = groupPlans.open;
   const panel = $("#panel"),
-    page = state.match ? "meet:" + state.match.phase : [view.window, view.athlete, view.tab, view.tabs?.[view.window], view.trainTab, view.shopTab].join(":"),
+    page = state.match ? "meet:" + state.match.phase : [view.window, view.athlete, view.tab, view.tabs?.[view.window], view.trainTab, view.shopTab, view.drill].join(":"),
     scroll = preserve && page === shownPage ? panel.scrollTop : 0,
     previousPage = shownPage;
   shownPage = page;
@@ -289,7 +289,7 @@ function openWindow(page, opts = {}) {
   // A window opens on its first tab.
   if (page !== view.window) {
     if (view.tabs) delete view.tabs[page];
-    if (page === "train") view.trainTab = null;
+    if (page === "train") view.trainTab = view.drill = null;
   }
   view.window = page;
   if (page !== "squad") view.athlete = null;
@@ -424,6 +424,7 @@ function runTraining(ids, drill) {
     session = G.coachGroup(state, ids, drill);
   if (!session) return toast(problem || "That session isn't available right now.", "warn");
   view.trainees = [];
+  view.drill = null;
   announce(snap);
   save();
   render();
@@ -785,6 +786,9 @@ $("#app").addEventListener("click", async (e) => {
     case "drill-family":
       view.drillFamily = b.dataset.value;
       break;
+    case "pick-drill":
+      view.drill = b.dataset.drill || null;
+      return render(false);
     case "train-tab":
       view.trainTab = b.dataset.tab;
       break;

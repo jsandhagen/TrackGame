@@ -46,22 +46,18 @@ test('older saves gain a type on load and a type survives a save', () => {
   assert.throws(() => validateCampaign(bad));
 });
 
-test('the next stat to train is one the event needs, grows fast and has room left', () => {
-  const s = G.newGame(3), a = s.roster.find((x) => x.event === 'shot');
-  a.type = 'powerhouse'; a.stats = [30, 30, 30, 30];
-  assert.equal(G.trainingFocus(a), 0);
-  a.stats[0] = G.capOf(a);
-  assert.equal(G.trainingFocus(a), 1);
-});
-
-test('the training lineup shows each athlete event, stats and growth, and which sessions suit them', () => {
+test('picking who trains shows every athlete event, type, stats and growth, but no advice', () => {
   const s = G.newGame(5), a = s.roster[0];
-  const html = P.train(s, {trainees: [a.id]});
-  assert.match(html, /trainee-sheet/);
-  assert.match(html, /class="ev-tag"/);
+  const list = P.train(s, {});
+  assert.match(list, /data-act="pick-drill" data-drill="sandbag"/);
+  assert(!list.includes('data-act="trainee"'), 'sessions come first, athletes second');
+  const html = P.train(s, {drill: 'sandbag', trainees: [a.id]});
+  for (const b of s.roster) assert.match(html, new RegExp(`data-act="trainee" data-id="${b.id}"`));
+  assert.match(html, new RegExp(ATHLETE_TYPES[a.type].name));
   assert.match(html, /class="growth g\d"/);
   assert.match(html, /sheet-stat key/);
-  assert.match(html, /★ Best for/);
+  assert.match(html, /data-act="coach-session" data-ids="\d+" data-drill="sandbag"/);
+  assert(!/Best for|Best to train/.test(html), 'choosing who trains is the player\'s call');
   assert.match(P.newcomer(s, a), new RegExp(ATHLETE_TYPES[a.type].name));
   const scout = P.recruit(s);
   for (const b of s.prospects) assert(scout.includes(ATHLETE_TYPES[b.type].name));

@@ -84,15 +84,6 @@ export function typeFor(id, event) {
   return pool[Math.floor(h(2) * pool.length)];
 }
 export const growthOf = (a) => (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).growth.map((g) => GROWTH[g]);
-// Where an athlete's next session does the most for their event: the stat that matters most, grows
-// fastest for their type and still has room under the ceiling.
-export function trainingFocus(a, event = a.trainingEvent || a.event) {
-  const cap = capOf(a),
-    growth = growthOf(a),
-    value = EVENTS[event].weights.map((w, i) => w * growth[i].mult * clamp((cap - a.stats[i]) / (cap * 0.3), 0, 1));
-  const best = value.indexOf(Math.max(...value));
-  return value[best] > 0 ? best : null;
-}
 
 export function makeLook(s, extra = {}) {
   return {
