@@ -180,6 +180,7 @@ function render(preserve = true) {
   $("#world").hidden = !!m;
   $("#stadium").hidden = !m;
   $("#app").classList.toggle("meeting", !!m);
+  $("#app").classList.toggle("meet-live", !!m && m.phase !== "complete");
   $("#app").classList.toggle("results", m?.phase === "complete");
   $("#app").classList.toggle("has-window", !m && !!view.window);
   $("#meetbar").hidden = !m || m.phase === "complete";
@@ -1152,7 +1153,9 @@ function frame(now) {
     if (state.match) {
       pumpMeet(dt);
       const bar = $("#meetbar");
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced(), insetTop: $("#hud").offsetHeight + 8, insetBottom: bar.hidden ? 0 : bar.offsetHeight + 8 });
+      const arena = $("#stadium").getBoundingClientRect();
+      const sidePanel = !bar.hidden && bar.getBoundingClientRect().left >= arena.right;
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced(), insetTop: sidePanel ? 0 : $("#hud").offsetHeight + 8, insetBottom: bar.hidden || sidePanel ? 0 : bar.offsetHeight + 8 });
       if (view.meter) {
         const n = $("#needle");
         if (n) n.style.left = meterPos(now) * 100 + "%";
