@@ -5,7 +5,7 @@
 //
 // Positions are offsets from the centre of the circle (or the end of the runway) in scene pixels,
 // for a thrower drawn at double size. Frames index THROWS in sprites.js:
-// 0 ready · 1 wind · 2 release · 3 follow-through · 4–7 event-specific technique frames.
+// 0 ready · 1 wind · 2 release · 3 follow-through · 4–7 technique · 8–9 recovery.
 
 const ease = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
@@ -22,7 +22,7 @@ export function throwMotion(ev, level, phase, p, { foul = false } = {}) {
 
 function finish(m, p, foul, at, hop) {
   // Release, then follow through; a foul carries the thrower over the front of the circle.
-  m.frame = 3;
+  m.frame = foul ? 3 : p < 0.55 ? 8 : 9;
   m.dx = foul ? lerp(at, at + 12, p * 1.5) : at;
   if (hop && !foul) m.dy = -Math.round(Math.sin(Math.min(1, p * 2) * Math.PI) * 3);
   return m;
@@ -30,7 +30,7 @@ function finish(m, p, foul, at, hop) {
 
 function shot(m, level, phase, p, foul) {
   if (phase === "ready") return Object.assign(m, level ? { frame: 4, flip: true, dx: BACK } : { frame: 0 });
-  if (phase === "release") return Object.assign(m, { frame: 2, dx: 6 });
+  if (phase === "release") return Object.assign(m, { frame: p < 0.45 ? 2 : 3, dx: 6 });
   if (phase === "follow") return finish(m, p, foul, 6, level >= 2);
   if (level === 0) return Object.assign(m, p < 0.5 ? { frame: 0 } : { frame: 1, dx: -2 });
   if (level === 3) {
@@ -50,7 +50,7 @@ function shot(m, level, phase, p, foul) {
 
 function discus(m, level, phase, p, foul) {
   if (phase === "ready") return Object.assign(m, { frame: 0, dx: level ? BACK + 4 : 0 });
-  if (phase === "release") return Object.assign(m, { frame: 2, dx: 4 });
+  if (phase === "release") return Object.assign(m, { frame: p < 0.45 ? 2 : 3, dx: 4 });
   if (phase === "follow") return finish(m, p, foul, 4, level >= 2);
   const swing = (q, n) => (Math.floor(q * n * 2) % 2 ? 4 : 5);
   if (level === 0) return Object.assign(m, p < 0.75 ? { frame: swing(p / 0.75, 2) } : { frame: 1 });
@@ -71,7 +71,7 @@ function hammer(m, level, phase, p, foul) {
     winds = 2,
     split = level === 3 ? 0.3 : 0.38;
   if (phase === "ready") return Object.assign(m, { frame: 4, dx: BACK + 2, ball: orbit(0, 20, 0) });
-  if (phase === "release") return Object.assign(m, { frame: 2, dx: 4 });
+  if (phase === "release") return Object.assign(m, { frame: p < 0.45 ? 2 : 3, dx: 4 });
   if (phase === "follow") {
     // Good throwers keep turning once after letting go.
     if (level >= 2 && !foul && p < 0.4) return Object.assign(m, { frame: 5 + (Math.floor(p * 5) % 2), flip: Math.floor(p * 5) % 2 === 1, dx: 4 });
@@ -97,7 +97,7 @@ function orbit(th, r, flatten) {
 function javelin(m, level, phase, p, foul) {
   const slope = (dx) => Math.round(-dx * 0.1);
   if (phase === "ready") return Object.assign(m, { frame: 0, dx: level ? 20 - 96 : -70, dy: slope(level ? 20 - 96 : -70) });
-  if (phase === "release") return Object.assign(m, { frame: 2, dx: -6, dy: slope(-6) });
+  if (phase === "release") return Object.assign(m, { frame: p < 0.45 ? 2 : 3, dx: -6, dy: slope(-6) });
   if (phase === "follow") {
     const r = finish(m, p, foul, -4, false);
     if (!foul && level >= 1) r.dx = lerp(-6, -1, p);
@@ -107,7 +107,7 @@ function javelin(m, level, phase, p, foul) {
   if (level === 0) {
     // A short run with the javelin over the shoulder, then pull it back and throw.
     if (p < 0.75) return Object.assign(m, { frame: Math.floor(p * 16) % 4, run: true, dx: lerp(-70, -14, p / 0.75), dy: slope(lerp(-70, -14, p / 0.75)) });
-    return Object.assign(m, { frame: 1, dx: -10, dy: slope(-10) });
+    return Object.assign(m, { frame: p < 0.9 ? 1 : 7, dx: -10, dy: slope(-10) });
   }
   // Full run-up from the end of the runway, crossover steps, then the block.
   const [runEnd, crossEnd] = level === 1 ? [0.65, 0.88] : [0.55, 0.88],
@@ -122,5 +122,5 @@ function javelin(m, level, phase, p, foul) {
       step = Math.floor(q * (level === 1 ? 4 : 6));
     return Object.assign(m, { frame: 4 + (step % 2), dx, dy: slope(dx) - (step % 2 ? 1 : 0) });
   }
-  return Object.assign(m, { frame: 6, dx: -8, dy: slope(-8) });
+  return Object.assign(m, { frame: p < 0.94 ? 6 : 7, dx: -8, dy: slope(-8) });
 }

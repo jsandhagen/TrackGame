@@ -1,6 +1,6 @@
 import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel.js";
 import { text, fit } from "./font.js";
-import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
+import { figure, sprite, shadow, athleteLook, throwGrip, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, formOf } from "../domain/game.js";
 import { throwMotion } from "./throw-motion.js";
@@ -590,8 +590,9 @@ export function createStadium(cv) {
         });
       shadow(g, x, y, 9);
       const ball = mo?.ball && [x + mo.ball.dx, y + mo.ball.dy, mo.ball.behind],
+        grip = ball && throwGrip(ev, frame, { flip, look: active.look }),
         chain = () => {
-          line(g, x + 2, y - 24, ball[0], ball[1], "#d8d8c8");
+          line(g, x + grip[0] * 2, y + grip[1] * 2, ball[0], ball[1], "#d8d8c8");
           ellipse(g, ball[0], ball[1], 3, 3, "#3a3e46");
           px(g, ball[0] - 1, ball[1] - 1, "#8a8e98");
         };
@@ -611,11 +612,15 @@ export function createStadium(cv) {
     if (ev === "discus" || ev === "hammer") cage(g, "front");
     // Projectile.
     if (beat?.type === "throw" && tt >= T.tech && tt < T.land + 600) {
-      const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
+      const release = throwMotion(ev, formOf(active, ev), "release", 0),
+        grip = throwGrip(ev, release.frame, { look: active.look }),
+        // The hammer head leaves its orbit; the other implements leave the hand.
+        ball = ev === "hammer" ? throwMotion(ev, formOf(active, ev), "technique", 1).ball : null,
+        f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
-        sx = (ev === "jav" ? O.x - 8 : O.x) + 14,
-        sy = O.y - 42,
+        sx = O.x + release.dx + (ball ? ball.dx : grip[0] * 2),
+        sy = O.y + release.dy + (ball ? ball.dy : grip[1] * 2),
         [ex, ey] = sector.point(dist, angle),
         peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev];
       const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];
