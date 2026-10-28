@@ -3957,6 +3957,40 @@ ol.howto li::marker {
 .meet-toolbar .seg .active { background: #f0cb63; color: #302612; }
 .meet-toolbar .ico { width: 13px; height: 13px; vertical-align: middle; }
 .meet-toolbar > .seg:first-child { margin-right: auto; }
+.meet-moment { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; padding: 7px 12px; background: #203e32; border-bottom: 2px solid #ffffff25; }
+.meet-moment > div { display: grid; gap: 1px; min-width: 0; }
+.meet-moment small { font-size: 10px; color: #c3d3c0; }
+.meet-moment strong { font: 700 21px/1.1 var(--display); color: #fff0bc; }
+.meet-moment span { font-size: 12px; color: #d9e5cf; }
+.meet-moment > b { font: 700 34px/1 var(--display); color: #ffe49a; white-space: nowrap; }
+.meet-moment > b > small { font-size: 12px; margin-left: 4px; }
+.meet-moment.landed { background: #304c32; border-bottom-color: #e0bf64; }
+.meet-moment.foul { background: #4a302c; border-bottom-color: #cb8c77; }
+.meet-moment.foul > b { color: #ef9b82; }
+.meet-toolbar > button:first-child { margin-right: auto; }
+.meet-highlights { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; margin-bottom: 10px; }
+.meet-highlight { background: #edf0df; border: 1px solid #b7c7a5; border-top: 3px solid var(--event-color); border-radius: 4px; padding: 7px; min-width: 0; }
+.meet-highlight.event-winner { background: #fff0c5; border-color: #c5ad67; }
+.meet-highlight > header { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 10px; }
+.meet-highlight > strong { display: block; font: 700 20px var(--display); margin: 5px 0; color: #31503c; }
+.meet-highlight > div { display: flex; align-items: center; gap: 6px; }
+.meet-highlight .portrait { width: 32px; height: 32px; flex: 0 0 32px; }
+.meet-highlight > div > span { display: grid; min-width: 0; font-size: 12px; }
+.meet-highlight small { font-size: 10px; color: #52624d; }
+.meet-highlight .highlight-pb { display: block; margin-top: 4px; color: #805819; font-weight: 700; }
+@media (max-width: 650px) {
+  .meet-highlights { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .meet-moment { min-height: 66px; padding: 6px 8px; }
+  .meet-moment strong { font-size: 18px; }
+  .meet-moment span { font-size: 11px; }
+  .meet-moment > b { font-size: 28px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .meet-moment { min-height: 52px; padding: 4px 8px; }
+  .meet-moment strong { font-size: 18px; }
+  .meet-moment > div { grid-template-columns: auto 1fr; gap: 1px 10px; align-items: baseline; }
+  .meet-moment > div > span { grid-column: 1 / -1; }
+}
 /* Full-time scorebook uses the available window, with one pinned exit. */
 #window.center.meet-results { top: calc(var(--hud) + 8px); bottom: max(8px, env(safe-area-inset-bottom)); left: 50%; width: min(1040px, calc(100vw - 24px)); max-height: none; transform: translateX(-50%); border-radius: 8px; }
 .meet-results .win-head { padding: 4px 12px; }
