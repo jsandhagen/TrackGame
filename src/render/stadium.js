@@ -267,7 +267,7 @@ function cutin(g, a, colors, name, skill, t, sideColor) {
     const lx = ((i * 53 + t * 900) % (W + 60)) - 30;
     line(g, lx, y + 8 + ((i * 17) % 40), lx + 26, y + 8 + ((i * 17) % 40), "rgba(255,255,255,0.18)");
   }
-  const img = sprite(athleteLook(a, colors, { pose: "cheer", frame: 0, face: "happy" }));
+  const img = sprite(athleteLook(a, colors, { mode: "meet", pose: "cheer", frame: 0, face: "happy" }));
   const px0 = -60 + slide * 90;
   g.drawImage(img, OX - 9, OY - 25, 18, 18, Math.round(px0), y + 2, 54, 54);
   const tx = W - (W - 130) * slide;
@@ -427,7 +427,7 @@ export function createStadium(cv) {
     // Waiting athlete on the bench.
     if (waiting && throwing) {
       rect(g, 6, 176, 40, 3, "#a07850");
-      figure(g, { ...athleteLook(waiting, waitingColors), pose: "idle", frame: Math.floor(now / 600) % 2 }, 26, 188, 2);
+      figure(g, { ...athleteLook(waiting, waitingColors, {mode:"meet"}), pose: "idle", frame: Math.floor(now / 600) % 2 }, 26, 188, 2);
     }
     // The thrower.
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
@@ -470,7 +470,7 @@ export function createStadium(cv) {
         line(g, x + 4, y - 22, hammerBall[0], hammerBall[1], "#d8d8c8");
         ellipse(g, hammerBall[0], hammerBall[1], 2, 2, "#3a3e46");
       }
-      figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 2);
+      figure(g, { ...athleteLook(active, activeColors, {mode:"meet"}), pose, frame, flip, event: ev }, x, y, 2);
       if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 14, y - 82, { color: "#f2c94c", scale: 2 });
     }
     // Projectile.
@@ -564,13 +564,13 @@ export function createStadium(cv) {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
+        if (a) figure(g, { ...athleteLook(a, s.colors, {mode:"meet"}), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
       });
     } else if (m.phase === "complete") {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
+        if (a) figure(g, { ...athleteLook(a, s.colors, {mode:"meet"}), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 60 + n * 40, 210 + (n % 2) * 8, 2);
       });
     }
     g.setTransform(1, 0, 0, 1, 0, 0);

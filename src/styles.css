@@ -4366,3 +4366,14 @@ ol.howto li::marker {
 .group-plans > small { display: block; }
 .plan-skips { font-size: 10px; color: #8a613b; margin: 5px 0; }
 .individual-plans > summary { font: 700 14px var(--display); cursor: pointer; }
+.transformation-guide p { font-size: 11px; color: var(--muted); }
+.transformation-guide h3 { font: 700 16px var(--display); margin-bottom: 5px; }
+.transformation-current { display: flex; gap: 10px; align-items: center; padding: 6px 0; }
+.transformation-current .portrait.large { width: 64px; height: 64px; }
+.transformation-current span { display: grid; gap: 3px; }
+.transformation-current small { font-size: 10px; color: var(--muted); }
+.transformation-stats { font-size: 10px; color: #506b40; padding: 5px; background: #e7efd8; }
+.skill-row > .portrait { flex: 0 0 40px; width: 40px; height: 40px; }
+.transformation-reveal { display: flex; align-items: center; gap: 14px; }
+.transformation-reveal .portrait { flex: 0 0 96px; }
+.transformation-reveal p { font-size: 12px; margin-top: 7px; }

@@ -231,12 +231,12 @@ function athleteById(id) {
 function paint(root) {
   root.querySelectorAll("canvas[data-portrait]").forEach((c) => {
     const a = athleteById(+c.dataset.portrait);
-    if (a) paintPortrait(c, a, state.colors);
+    if (a) paintPortrait(c, a, state.colors, {mode:state.match?"meet":"training", ...(c.dataset.costume !== undefined ? {costume:c.dataset.costume} : {})});
   });
   root.querySelectorAll("canvas[data-rival]").forEach((c) => {
     const [club, i] = c.dataset.rival.split(":").map(Number),
       cl = G.clubById(state, club);
-    if (cl) paintPortrait(c, cl.athletes[i], { primary: cl.color, secondary: "#f4efe2" });
+    if (cl) paintPortrait(c, cl.athletes[i], { primary: cl.color, secondary: "#f4efe2" }, {mode:state.match?"meet":"training"});
   });
   root.querySelectorAll("canvas[data-icon]").forEach((c) => paintIcon(c, c.dataset.icon));
   root.querySelectorAll("canvas[data-building]").forEach((c) => {
@@ -410,7 +410,11 @@ function applyItem(item, aid) {
     before = a && growthBefore(a);
   const problem = G.itemProblem(state, item, aid);
   if (G.useItem(state, item, aid)) {
-    if (a) showGrowth(a, before, d.name);
+    if (a && d.teaches) {
+      const skill=SKILLS[d.teaches], active=G.equippedSkills(a,"training").includes(d.teaches);
+      sfx("level");
+      dialog(skill.name+" learned!", `<div class="transformation-reveal">${P.portrait(a,"large",`data-costume="${skill.costume}"`)}<div><strong>${esc(a.name)} learned a permanent skill.</strong><p>${esc(skill.desc)}</p><p>${active ? "Equipped and active in training. Meet appearance follows your saved meet setup." : "Learned and ready. Free a normal skill slot and equip it in Skills, then update any saved setups."}</p></div></div>`, [{label:"View skills",fn:()=>{openWindow("squad",{athlete:aid});view.tab="skills";render(false);}},{label:"Back to the club",secondary:true}], {eyebrow:"Transformation unlocked",tone:"gold"});
+    } else if (a) showGrowth(a, before, d.name);
     else {
       toast(d.name + ": the whole squad feels great.", "level", "gift");
       sfx("level");

@@ -176,6 +176,14 @@ function apply(e, d, label) {
 }
 export const equippedSkills = (a, mode = "training") =>
   (a.loadouts?.enabled && Array.isArray(a.loadouts[mode]) ? a.loadouts[mode] : a.equipped || []).filter((k) => a.skills.includes(k) && SKILLS[k]);
+// Transformation bonuses add together; only the strongest equipped form is drawn.
+export function appearanceSkill(a, mode = "training") {
+  return equippedSkills(a,mode).filter(k=>SKILLS[k].costume).sort((x,y)=>(SKILLS[y].statBoost||0)-(SKILLS[x].statBoost||0))[0] || null;
+}
+export function performanceStats(a, mode = "meet") {
+  const bonus=equippedSkills(a,mode).reduce((n,k)=>n+(SKILLS[k].statBoost||0),0);
+  return a.stats.map(v=>Math.min(100,v*(1+bonus)));
+}
 export function effects(s, a, club = true, mode = s.match ? "meet" : "training", event = mode === "training" ? (a.trainingEvent || a.event) : EVENT_IDS[s.match?.eventIndex] || a.event) {
   const e = blank();
   apply(e, BACKGROUNDS[a.background]);
@@ -207,7 +215,7 @@ export function effects(s, a, club = true, mode = s.match ? "meet" : "training",
 
 // ── Performance ───────────────────────────────────────────────────────
 export function eventRating(a, event) {
-  return a.stats.reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (0.60 + 0.40 * masteryOf(a,event)/100);
+  return performanceStats(a).reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (0.60 + 0.40 * masteryOf(a,event)/100);
 }
 export function rawMark(a, event) {
   const e = EVENTS[event];

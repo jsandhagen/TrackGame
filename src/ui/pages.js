@@ -143,11 +143,13 @@ export function squad(s, view) {
 }
 export function statRows(a, compact = false) {
   const cap = G.capOf(a);
+  const meetStats = G.performanceStats(a);
+  const transformed = meetStats.some((v,i)=>v>a.stats[i]+0.001);
   return `<div class="stats">${a.stats
     .map(
       (v, i) => `<div class="stat"><span>${STAT_NAMES[i]}</span><span class="track"><i style="width:${v}%;--c:${STAT_COLORS[i]}"></i><s style="left:${cap}%" title="Current limit ${Math.floor(cap)}"></s></span><b>${showStat(v)}</b>${grade(v)}</div>`,
     )
-    .join("")}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
+    .join("")}${transformed ? `<p class="transformation-stats">Equipped meet transformation boost: ${meetStats.map((v,i)=>`${STAT_SHORT[i]} ${showStat(a.stats[i])} → ${showStat(v)}`).join(" · ")}. Base stats and training caps stay unchanged.</p>` : ""}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
 }
 function athletePage(s, a, view) {
   const tabs = [
@@ -196,9 +198,9 @@ function athletePage(s, a, view) {
   if (tab === "skills") {
     const slots = G.slotsOf(a);
     const learnable = Object.keys(SKILLS).filter((k) => G.skillAvailable(a, k));
-    body = `<div class="slots">${Array.from({ length: slots }, (_, i) => {
+    body = `${transformationCard(s,a)}<div class="slots">${Array.from({ length: slots }, (_, i) => {
       const k = a.equipped[i];
-      return k ? `<div class="slot on">${skillIcon(k)}<span><strong>${SKILLS[k].name}</strong><small>${SKILLS[k].desc}</small></span></div>` : `<div class="slot"><span class="skill-icon">${ico("plus")}</span><span><strong>Empty slot</strong><small>Equip a learned skill below.</small></span></div>`;
+      return k ? `<div class="slot on">${skillIcon(k,a)}<span><strong>${SKILLS[k].name}</strong><small>${SKILLS[k].desc}</small></span></div>` : `<div class="slot"><span class="skill-icon">${ico("plus")}</span><span><strong>Empty slot</strong><small>Equip a learned skill below.</small></span></div>`;
     }).join("")}${RANKS[a.rank + 1] && RANKS[a.rank + 1].slots > slots ? `<div class="slot locked"><span class="skill-icon">${ico("lock")}</span><span><strong>${RANKS[a.rank + 1].name} slot</strong><small>Unlocks at ${RANKS[a.rank + 1].name} rank.</small></span></div>` : ""}</div>
     <section class="card loadout-card"><h3>Saved skill setups</h3><p>Arrange the skills below, then save a setup. Athletes use the training setup at the club and the meet setup in competition.</p>
     ${["training", "meet"].map((mode) => `<div class="loadout-row"><span><strong>${mode === "training" ? "Training" : "Meet"}</strong><small>${a.loadouts?.[mode] == null ? "Not saved" : a.loadouts[mode].map((k) => esc(SKILLS[k].name)).join(" · ") || "No skills equipped"}</small></span>${btn("Save current", "save-loadout", `data-id="${a.id}" data-mode="${mode}"`, "subtle small")}</div>`).join("")}
@@ -420,15 +422,19 @@ export function itemTargets(s, id) {
     .map((a) => {
       const problem = d.kind === "use" ? G.itemProblem(s, id, a.id) : null,
         info = d.kind === "use" ? previewText(G.itemPreview(s, id, a.id)) : a.gear[d.slot] ? "Wearing " + ITEMS[a.gear[d.slot]].name + (s.forge[a.gear[d.slot]] ? " +" + s.forge[a.gear[d.slot]] : "") : "Empty " + SLOT_NAMES[d.slot].toLowerCase() + " slot";
-      return `<button class="pick" data-pick="${a.id}" ${problem ? "disabled" : ""}>${portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · ${esc(problem || info)}</small></span></button>`;
+      return `<button class="pick" data-pick="${a.id}" ${problem ? "disabled" : ""}>${portrait(a,"",d.teaches ? `data-costume="${SKILLS[d.teaches].costume}"` : "")}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · ${esc(problem || info)}</small></span></button>`;
     })
     .join("")}</div>`;
 }
 
-const skillIcon = (k) => `<span class="skill-icon c-${SKILLS[k].cat}">${ico({ train: "levelup", meet: "target", team: "heart", signature: "spark", unique: "star" }[SKILLS[k].cat])}</span>`;
+const skillIcon = (k,a) => SKILLS[k].costume && a ? portrait(a,"",`data-costume="${SKILLS[k].costume}"`) : `<span class="skill-icon c-${SKILLS[k].cat}">${ico({ train: "levelup", meet: "target", team: "heart", signature: "spark", unique: "star", transformation:"spark" }[SKILLS[k].cat])}</span>`;
+function transformationCard(s,a) {
+  const active=G.appearanceSkill(a,"training"), meet=G.appearanceSkill(a,"meet");
+  return `<section class="card transformation-guide"><h3>Headgear & transformation skills</h3><p>Buy a mask, suit or crown in the Kit shop, then use it on an athlete to teach its skill permanently. Equip it in a normal skill slot to activate the look and boost. Multiple transformation boosts add together; the strongest equipped form supplies the appearance.</p><div class="transformation-current">${portrait(a,"large")}<span><strong>${active ? SKILLS[active].name : "Original appearance"}</strong><small>Training look${meet!==active ? " · Meet look: "+(meet?SKILLS[meet].name:"Original") : " & meet look"}</small></span></div>${a.loadouts?.enabled ? '<p class="hint">Automatic setups are active. Save each setup after changing equipped skills below.</p>' : ""}${btn("Browse transformations", "page",'data-page="shop"',"subtle small")}</section>`;
+}
 function skillRow(a, k, label, act, disabled) {
   const d = SKILLS[k];
-  return `<div class="skill-row ${a.equipped.includes(k) ? "on" : ""}">${skillIcon(k)}<span><strong>${d.name}</strong><small>${d.desc}</small></span>${btn(label, act, `data-id="${a.id}" data-skill="${k}" ${disabled ? "disabled" : ""}`, act === "learn" ? "primary small" : "subtle small")}</div>`;
+  return `<div class="skill-row ${a.equipped.includes(k) ? "on" : ""}">${skillIcon(k,a)}<span><strong>${d.name}</strong><small>${d.desc}</small></span>${btn(label, act, `data-id="${a.id}" data-skill="${k}" ${disabled ? "disabled" : ""}`, act === "learn" ? "primary small" : "subtle small")}</div>`;
 }
 
 // ── Scouting ────────────────────────────────────────────────────────────
@@ -512,7 +518,8 @@ export function shop(s, view) {
   let body;
   if (tab === "shop") {
     const groups = [
-      ["Fuel & recovery", "Handed over at the side of the track.", (d) => d.kind === "use"],
+      ["Headgear & transformations", "Shop items teach permanent skills. Equip the skill to activate its appearance and bonuses; each uses a normal skill slot.", d => !!d.teaches],
+      ["Fuel & recovery", "Handed over at the side of the track.", (d) => d.kind === "use" && !d.teaches],
       ...EVENT_IDS.map(ev => [EVENTS[ev].name + " implements", "Bonuses apply only to this event. Other events use club issue.", d => d.slot === "implement" && d.event === ev]),
       ["General implements", "One per thrower. Swap any time from the kit bag.", d => d.slot === "implement" && !d.event],
       ["Throwing shoes & spikes", "", (d) => d.slot === "shoes"],
@@ -530,7 +537,7 @@ export function shop(s, view) {
       gear = ids.filter((k) => ITEMS[k].kind === "gear");
     const worn = s.roster.flatMap((a) => GEAR_SLOTS.map((slot) => a.gear[slot] && [a.gear[slot], a]).filter(Boolean));
     body = `${ids.length ? "" : "<p class='hint'>The kit bag is empty.</p>"}
-    ${uses.length ? `<div class="card-title"><h2>Fuel & recovery</h2></div><div class="item-grid">${uses.map((k) => itemCard(s, k, "use")).join("")}</div>` : ""}
+    ${uses.length ? `<div class="card-title"><h2>Consumables & transformation items</h2></div><div class="item-grid">${uses.map((k) => itemCard(s, k, "use")).join("")}</div>` : ""}
     ${gear.length ? `<div class="card-title"><h2>Spare gear</h2></div><div class="item-grid">${gear.map((k) => itemCard(s, k, "equip")).join("")}</div>` : ""}
     ${worn.length ? `<div class="card-title"><h2>Being worn</h2></div>${worn.map(([k, a]) => `<div class="history"><span>${esc(ITEMS[k].name)}${s.forge[k] ? " +" + s.forge[k] : ""}</span><b>${esc(a.name)}</b></div>`).join("")}` : ""}
     ${G.facilityLevel(s, "workshop") ? `<div class="card-title"><h2>Kit Workshop · forging</h2></div><p class="hint">Each forge level adds +0.6% distance to every copy of that item.</p><div class="item-grid">${[...new Set([...gear, ...worn.map(([k]) => k)])].map((k) => `<div class="item-card rarity-${ITEMS[k].rarity}">${icon(k)}<span><strong>${ITEMS[k].name}${s.forge[k] ? " +" + s.forge[k] : ""}</strong><small>${(s.forge[k] || 0) >= 3 ? "Fully forged." : "Next: +" + ((s.forge[k] || 0) + 1)}</small></span>${btn((s.forge[k] || 0) >= 3 ? "Max" : "Forge · " + cash(G.forgeCost(s, k)), "forge", `data-item="${k}" ${(s.forge[k] || 0) >= 3 || s.money < G.forgeCost(s, k) ? "disabled" : ""}`, "subtle small")}</div>`).join("")}</div>` : `<p class="hint">Build a Kit Workshop to forge your gear.</p>`}`;
@@ -549,9 +556,9 @@ function shopCard(s, k) {
   const priceTag = `${price < d.price ? `<s>${cash(d.price)}</s> ` : ""}${cash(price)}`;
   const actions =
     d.kind === "use"
-      ? btn((d.team ? "Buy & serve · " : "Buy & use · ") + priceTag, "buy-use", `data-item="${k}" ${poor ? "disabled" : ""}`, "small") + btn("Stock 1", "buy", `data-item="${k}" ${poor ? "disabled" : ""}`, "subtle small")
+      ? btn((d.teaches ? "Buy & teach · " : d.team ? "Buy & serve · " : "Buy & use · ") + priceTag, "buy-use", `data-item="${k}" ${poor ? "disabled" : ""}`, "small") + btn("Stock 1", "buy", `data-item="${k}" ${poor ? "disabled" : ""}`, "subtle small")
       : btn("Buy · " + priceTag, "buy-gear", `data-item="${k}" ${poor ? "disabled" : ""}`, "small");
-  return `<div class="item-card shop-item rarity-${d.rarity}">${icon(k, 40)}<span><strong>${d.name}</strong><small>${effectLine(d) || esc(d.desc)}</small><span class="owned">${chip(RARITY[d.rarity].name, RARITY[d.rarity].color, "rarity")}${owned ? " Have " + owned : ""}</span></span><span class="buy-actions">${actions}</span></div>`;
+  return `<div class="item-card shop-item rarity-${d.rarity}">${d.teaches && s.roster[0] ? portrait(s.roster[0], "", `data-costume="${SKILLS[d.teaches].costume}"`) : icon(k, 40)}<span><strong>${d.name}</strong><small>${effectLine(d) || esc(d.desc)}</small><span class="owned">${chip(RARITY[d.rarity].name, RARITY[d.rarity].color, "rarity")}${owned ? " Have " + owned : ""}</span></span><span class="buy-actions">${actions}</span></div>`;
 }
 function itemCard(s, k, mode) {
   const d = ITEMS[k];
