@@ -55,11 +55,11 @@ export const grade = (v) => {
   const [letter, , color] = gradeOf(showStat(v));
   return `<b class="grade" style="--g:${color}">${letter}</b>`;
 };
-// How fast a stat grows for this athlete's type: ▲▲ fast to ▼▼ very slow.
-export const growthMark = (a, i) => {
-  const g = (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).growth[i];
-  return `<em class="growth g${g}" title="${GROWTH[g].name} growth (×${GROWTH[g].mult})">${GROWTH[g].mark}</em>`;
-};
+// How fast a stat grows for this athlete's type, as a meter of five bars (five is fast, one is very
+// slow). Bars rather than arrows: a slow stat still only ever goes up.
+const rateMeter = (g, label = `${GROWTH[g].name} growth (×${GROWTH[g].mult})`) =>
+  `<em class="rate r${5 - g}" title="${label}" aria-label="${label}">${"<i></i>".repeat(5)}</em>`;
+export const growthMark = (a, i) => rateMeter((ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).growth[i]);
 const typeName = (a) => (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).name;
 const typeChip = (a) => chip(typeName(a), "#c99a4a");
 const ovrBadge = (a) => `<span class="ovr"><small>OVR</small><b>${G.overall(a)}</b>${grade(G.overall(a))}</span>`;
@@ -160,7 +160,7 @@ export function statRows(a, compact = false) {
     .map(
       (v, i) => `<div class="stat"><span>${STAT_NAMES[i]}</span><span class="track ${v > 100 ? "beyond" : ""}"><i style="width:${Math.min(100, v)}%;--c:${STAT_COLORS[i]}"></i><s style="left:${Math.min(100, cap)}%" title="Current limit ${Math.floor(cap)}"></s></span><b>${showStat(v)}</b>${grade(v)}${growthMark(a, i)}</div>`,
     )
-    .join("")}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. Arrows show how fast each stat grows for a ${esc(typeName(a))}. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
+    .join("")}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. The bars show how fast each stat grows for a ${esc(typeName(a))}. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
 }
 function athletePage(s, a, view) {
   const tabs = [
@@ -184,7 +184,7 @@ function athletePage(s, a, view) {
     <article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>
-    <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}<br><b>${esc(typeName(a))}</b>: ${esc(ATHLETE_TYPES[a.type]?.desc || "")} <em>${STAT_NAMES.map((n, i) => n + " " + GROWTH[ATHLETE_TYPES[a.type]?.growth[i] ?? 2].mark).join(" · ")}.</em></div>
+    <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}<br><b>${esc(typeName(a))}</b>: ${esc(ATHLETE_TYPES[a.type]?.desc || "")} <em>Growth: ${STAT_NAMES.map((n, i) => n + " " + GROWTH[ATHLETE_TYPES[a.type]?.growth[i] ?? 2].name.toLowerCase()).join(" · ")}.</em></div>
     <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Projected <b>${mark(G.forecast(s, a, a.event))}</b></span></div>`;
   }
   if (tab === "stats") body += btn(s.settings.followAthlete===a.id ? "Following in highlights · stop" : "Follow this athlete in highlights","follow-athlete",`data-id="${a.id}"`,"subtle")+masteryCard(s,a)+developmentCard(a);
@@ -339,7 +339,7 @@ function drillPicker(s, view, id) {
   <div class="pick-head fam-${d.family}">${btn("‹ Sessions", "pick-drill", 'data-drill=""', "text")}<span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong>${drillLadder(s, id)}<small>${esc(tip)}</small></span><span class="gains">${extraPills(id, d, null)}</span></div>
   <p class="session-hint">${n > 1 ? `<b>Group of ${n}: +${(n - 1) * 10}%.</b> ` : `Pick up to ${G.MAX_GROUP} to train together; each partner adds 10%. `}${chemistryLine(s, ids)}</p>
   <div class="pick-list">${s.roster.map(row).join("")}</div>
-  <p class="sheet-key"><span class="k-key">Key stat for their event</span><span>▲▲ fast growth · ▼▼ slow</span></p>
+  <p class="sheet-key"><span class="k-key">Key stat for their event</span><span>Growth speed ${rateMeter(0, "Fast")} fast · ${rateMeter(4, "Very slow")} slow</span></p>
   <div class="session-run"><span class="run-bill">${n ? billChips(s, cost, G.drillEnergy(s, id)) : ""}</span>${btn(problem ? esc(problem) : `${ico("play")} Run session${n > 1 ? " · " + n + " athletes" : ""}`, "coach-session", `data-ids="${ids.join(",")}" data-drill="${id}" ${problem ? "disabled" : ""}`)}</div>
 </div>`;
 }

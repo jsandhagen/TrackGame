@@ -55,11 +55,11 @@ export const BACKGROUNDS = {
 // the same total, so a type decides where an athlete grows fastest, not how good they get. `fits`
 // names the events whose key stats it grows quickly.
 export const GROWTH = [
-  { mult: 1.3, mark: "▲▲", name: "Fast" },
-  { mult: 1.15, mark: "▲", name: "Quick" },
-  { mult: 1, mark: "•", name: "Normal" },
-  { mult: 0.9, mark: "▼", name: "Slow" },
-  { mult: 0.8, mark: "▼▼", name: "Very slow" },
+  { mult: 1.3, name: "Fast" },
+  { mult: 1.15, name: "Quick" },
+  { mult: 1, name: "Normal" },
+  { mult: 0.9, name: "Slow" },
+  { mult: 0.8, name: "Very slow" },
 ];
 export const ATHLETE_TYPES = {
   powerhouse: { name: "Powerhouse", desc: "Packs on strength; slow to find speed.", growth: [0, 3, 4, 2], fits: ["shot", "hammer"] },

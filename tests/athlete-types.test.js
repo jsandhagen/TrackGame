@@ -54,12 +54,12 @@ test('picking who trains shows every athlete event, type, stats and growth, but 
   const html = P.train(s, {drill: 'sandbag', trainees: [a.id]});
   for (const b of s.roster) assert.match(html, new RegExp(`data-act="trainee" data-id="${b.id}"`));
   assert.match(html, new RegExp(ATHLETE_TYPES[a.type].name));
-  assert.match(html, /class="growth g\d"/);
+  assert.match(html, /class="rate r\d"/);
   assert.match(html, /sheet-stat key/);
   assert.match(html, /data-act="coach-session" data-ids="\d+" data-drill="sandbag"/);
   assert(!/Best for|Best to train/.test(html), 'choosing who trains is the player\'s call');
   assert.match(P.newcomer(s, a), new RegExp(ATHLETE_TYPES[a.type].name));
   const scout = P.recruit(s);
   for (const b of s.prospects) assert(scout.includes(ATHLETE_TYPES[b.type].name));
-  assert.match(scout, /class="growth g\d"/);
+  assert.match(scout, /class="rate r\d"/);
 });

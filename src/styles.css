@@ -4770,24 +4770,44 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .confirm-facts .neg { color: var(--red); }
 @media (max-width: 480px) { .confirm-build { flex-direction: column; } }
 
-/* Athlete types: growth arrows beside stats, and the athlete picker for a training session. */
-.growth {
+/* Athlete types: growth meters beside stats, and the athlete picker for a training session. */
+.rate {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 12px;
+  vertical-align: -1px;
   font-style: normal;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: -0.08em;
-  text-align: center;
-  white-space: nowrap;
 }
-.growth.g0 { color: #1f9d55; }
-.growth.g1 { color: #4fae5e; }
-.growth.g2 { color: var(--muted); }
-.growth.g3 { color: #d07a3a; }
-.growth.g4 { color: #c94a3a; }
-.statline i .growth {
-  color: #fff;
-  opacity: 0.9;
-  margin-left: 1px;
+.rate i {
+  width: 3px;
+  border-radius: 1px;
+  background: #d9d0b4;
+}
+.rate i:nth-child(1) { height: 4px; }
+.rate i:nth-child(2) { height: 6px; }
+.rate i:nth-child(3) { height: 8px; }
+.rate i:nth-child(4) { height: 10px; }
+.rate i:nth-child(5) { height: 12px; }
+.rate.r1 i:nth-child(-n + 1),
+.rate.r2 i:nth-child(-n + 2),
+.rate.r3 i:nth-child(-n + 3),
+.rate.r4 i:nth-child(-n + 4),
+.rate.r5 i:nth-child(-n + 5) {
+  background: #2f8a63;
+}
+.statline i .rate {
+  margin-left: 2px;
+}
+.statline i .rate i {
+  background: #ffffff55;
+}
+.statline i .rate.r1 i:nth-child(-n + 1),
+.statline i .rate.r2 i:nth-child(-n + 2),
+.statline i .rate.r3 i:nth-child(-n + 3),
+.statline i .rate.r4 i:nth-child(-n + 4),
+.statline i .rate.r5 i:nth-child(-n + 5) {
+  background: #fff;
 }
 .sheet-stats {
   display: grid;
@@ -4814,7 +4834,7 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .sheet-stat b {
   font: 700 14px var(--display);
 }
-.sheet-stat i {
+.sheet-stat > i {
   position: absolute;
   left: 0;
   bottom: 0;
