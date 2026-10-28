@@ -5,6 +5,8 @@ export const SETUP_MS = 700;
 export const LAND_MS = 1900;
 export const RESULT_MS = 1800;
 export const HIGHLIGHT_MS = 2800;
+// A routine attempt in highlights mode: the scoreboard carries the detail, so it reads quicker.
+export const ROUTINE_MS = 1000;
 
 export function isHighlight(beat) {
   return beat?.type === "throw" && !!(beat.worldRecord || beat.signature ||
@@ -23,21 +25,22 @@ export function beatDuration(beat) {
 
 export function advanceBeatClock(beat, elapsed, dt, speed = 1, settings = {}) {
   if (beat.type !== "throw") return elapsed + dt * (beat.type === "eventEnd" ? 1 : speed);
-  // Let the athlete's name and target register before any movement.
+  const routine = settings.highlights && settings.followAthlete !== beat.athleteId && !isHighlight(beat);
+  // Let the athlete's name and target register before any movement; routine attempts step up quicker.
   if (elapsed < SETUP_MS) {
-    const used = Math.min(dt, SETUP_MS - elapsed);
-    elapsed += used;
+    const pace = routine ? 3 : 1,
+      used = Math.min(dt, (SETUP_MS - elapsed) / pace);
+    elapsed += used * pace;
     dt -= used;
   }
   const landing = throwOffset(beat) + LAND_MS;
-  const routine = settings.highlights && settings.followAthlete !== beat.athleteId && !isHighlight(beat);
   const rate = Math.max(1, speed) * (routine ? 3 : 1);
   if (elapsed < landing) {
     const used = Math.min(dt, (landing - elapsed) / rate);
     elapsed = Math.min(landing, elapsed + used * rate);
     dt -= used;
   }
-  return elapsed + dt;
+  return elapsed + dt * (routine ? RESULT_MS / ROUTINE_MS : 1);
 }
 
 const placeName = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;

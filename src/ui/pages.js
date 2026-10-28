@@ -86,27 +86,14 @@ export function home(s, view) {
   <section class="card"><div class="card-title"><h2>${ico("target")} Season targets</h2>${btn("All goals", "page", 'data-page="club"', "text")}</div>
     ${G.openGoals(s, 3).map((g) => goalRow(s, g)).join("") || "<p class='hint'>Every target hit. Legendary.</p>"}
   </section>
-  <section class="card prep-controls">${preparationToggle(s)}${btn("Manage coaching plans", "page", 'data-page="train"', "text")}</section>
-  <div class="section-title"><h2>Training</h2><label class="bulk">Everyone <select data-change="bulk">${new Set(s.roster.map((a) => a.plan)).size > 1 ? "<option disabled selected>Mixed</option>" : ""}${Object.entries(PLANS).filter(([id]) => s.roster.every((a) => !G.planProblem(s,a,id))).map(([id, p]) => `<option value="${id}" ${s.roster.every((a) => a.plan === id) ? "selected" : ""}>${p.name}</option>`).join("")}</select></label></div>
-  <div class="roster-strip">${s.roster.map((a) => rosterRow(s, a)).join("")}</div>
-  <p class="hint">Plans send everyone where the work happens: Power to the Strength Room, Technique to their ring or runway, Speed to the track, Focus to the film room. Tired legs rest on their own.</p>
+  <div class="roster-glance">${s.roster.map((a) => `<button class="glance" data-act="athlete" data-id="${a.id}">${portrait(a)}<span><strong>${esc(shortName(a.name))}</strong><small>${EVENTS[a.event].short} · OVR ${G.overall(a)}</small></span>${alerts(s, a)}</button>`).join("")}</div>
+  <p class="hint">${btn("Training plans and sessions", "page", 'data-page="train"', "text")}</p>
   <section class="card journal"><div class="card-title"><h2>${ico("news")} Bulletin board</h2></div>${s.log.slice(0, 5).map((l) => `<p class="log ${l.kind}">${esc(l.text)}</p>`).join("")}</section>`;
 }
 function goalRow(s, g) {
   const p = G.goalProgress(s, g);
   return `<div class="goal"><div><strong>${esc(g.name)}</strong><small>${esc(g.desc)}</small>${bar(p, g.target, "#e2b04a")}</div><span class="reward">${esc(G.rewardText(g.reward))}</span></div>`;
 }
-function rosterRow(s, a) {
-  const act = G.plannedActivity(s, a);
-  const label = { rest: "Resting", sharpen: "Tapering", injured: "Injured", facility:"Helping at facility" }[act];
-  return `<div class="roster-row rarity-${a.rarity}">
-    <button class="who" data-act="athlete" data-id="${a.id}">${portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · OVR ${G.overall(a)} ${mood(a)}</small></span></button>
-    ${stamina(a)}
-    <select data-change="plan" data-id="${a.id}" aria-label="Training plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s,a,id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.name}</option>`).join("")}</select>
-    <span class="doing">${G.autoPrepActivity(s,a)?chip("Auto · "+PLANS[G.autoPrepActivity(s,a)].short,"#88b0d0"):""}${label && act !== a.plan ? chip(label, "#88b0d0") : ""}${alerts(s, a)}</span>
-  </div>`;
-}
-
 function dutyReward(out) {
   return [out.money ? cash(out.money) : "",out.insights ? out.insights+" Insights" : "",out.fans ? out.fans+" fans" : "",out.recovery ? "+"+out.recovery+" recovery for resting teammates" : ""].filter(Boolean).join(" · ");
 }
@@ -598,7 +585,7 @@ function competitionBoard(s, view) {
   const planning = s.phase === "planning";
   const active = s.competition;
   return `${invitationCard(s)}<section class="card calendar-intro"><span class="eyebrow">THE COMPETITION CIRCUIT</span><h2>Choose your next challenge</h2><details class="circuit-help"><summary>How the circuit works</summary><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three fixtures and a final for the top two. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p></details>
-    <div class="calendar-options"><label>Prepare before the first meet<select data-change="booking-preparation" ${planning ? "" : "disabled"}>${[3,5,7,10].map((n) => `<option value="${n}" ${(view.preparation || 5) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label><label>Days between league meets<select data-change="booking-spacing" ${planning ? "" : "disabled"}>${[4,7,10].map((n) => `<option value="${n}" ${(view.spacing || 7) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div>
+    <details class="calendar-options-wrap"><summary>Schedule options</summary><div class="calendar-options"><label>Prepare before the first meet<select data-change="booking-preparation" ${planning ? "" : "disabled"}>${[3,5,7,10].map((n) => `<option value="${n}" ${(view.preparation || 5) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label><label>Days between league meets<select data-change="booking-spacing" ${planning ? "" : "disabled"}>${[4,7,10].map((n) => `<option value="${n}" ${(view.spacing || 7) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div></details>
     ${active ? `<p class="booking-summary"><b>${esc(G.competitionName(s))}</b> · ${s.phase === "seasonEnd" ? "Complete — review your season to book again." : "Next meet: day " + s.matchDay + (active.kind === "league" ? " · " + active.spacing + " days between fixtures" : "")}</p><div class="inline">${btn(s.phase === "seasonEnd" ? "Season review" : "Back to preparations", "page", 'data-page="home"', "subtle")}${s.fixture === 0 && !s.results.length && s.day < s.matchDay ? btn("Cancel booking", "cancel-booking", "", "subtle") : ""}</div>` : "<p class='hint'>Community leagues and duels are free; higher leagues charge an entry fee. Training carries on between meets (so do wages and upkeep), and every earlier competition stays open.</p>"}
   </section>
   ${LEAGUES.map((tier, i) => `<details class="card circuit-tier" ${i === s.league ? "open" : ""}><summary>${tier.name} <span>${i > s.league ? "Invitation locked" : s.circuit.cleared.filter((k) => k.startsWith(i + ":")).length + " / 3 trophies"}</span></summary>
@@ -733,10 +720,12 @@ export function club(s, meta) {
 // ── Meet lobby ──────────────────────────────────────────────────────────
 // "Mara Kowal" → "Mara K." for tight pickers.
 const shortName = (name) => name.replace(/^(\S+)\s+(\p{L}).*$/u, "$1 $2.");
-export function lobby(s) {
+export function lobby(s, view = {}) {
   const m = G.opponent(s),
     problem = G.lineupProblem(s);
   const sky = G.weatherToday(s);
+  // A lineup that needs fixing opens straight into the entry pickers.
+  view = { ...view, editLineup: view.editLineup || !!problem };
   return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
   <p class="meet-forecast">${weatherChip(sky)} <span>${esc(G.WEATHER[sky].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
@@ -749,17 +738,19 @@ export function lobby(s) {
       theirs = G.rawMark(r, ev) * G.MOOD_MARK[2];
     const edge = mine / theirs - 1;
     const slot = (k) => `<select data-change="entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}"><option value="0" ${ids[k] == null ? "selected" : ""}>No entry</option>${s.roster.map((x) => `<option value="${x.id}" ${ids[k] === x.id ? "selected" : ""} ${x.injury ? "disabled" : ""}>${esc(shortName(x.name))} · ${mark(fc(x))}${x.event === ev ? " ★" : ""}${x.injury ? " (injured)" : ""}</option>`).join("")}</select>`;
-    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge" title="Your best entry against their specialist">${ico(edge > 0.01 ? "up" : edge < -0.01 ? "down" : "even")} ${Math.abs(edge * 100).toFixed(1)}%</span></div>
-      <div class="lineup-us">${a ? portrait(a) : ""}<span class="entry-slots">${[0, 1, 2].filter((k) => k <= ids.length).map(slot).join("")}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : "No entry yet"}</small></span></div>
+    // Entries read as names until the coach asks to change them.
+    const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> ${mark(fc(x))}${x.event === ev ? " ★" : ""}`).join("<br>");
+    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Your best entry against their specialist">${edge > 0.01 ? "Ahead" : edge < -0.01 ? "Behind" : "Level"}</span></div>
+      <div class="lineup-us">${a ? portrait(a) : ""}<span class="entry-slots">${view.editLineup ? [0, 1, 2].filter((k) => k <= ids.length).map(slot).join("") : `<span class="entry-names">${names || "No entry yet"}</span>`}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : ""}</small></span></div>
       <div class="lineup-them">${rivalPortrait(m.id, i)}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · ~${mark(theirs)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span></div></div>`;
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
-  <p class="hint">Up to three entries per event and two events per athlete; ★ marks a specialist. Places score 5–3–1, all-foul entries score zero, and ties go to the next-best throw.</p>
-  ${s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("")}
-  <div class="inline">${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
+  <p class="hint">Places score 5–3–1. ★ marks a specialist.${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
+  ${view.editLineup ? s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("") : ""}
+  <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   <div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
   <div class="card-title"><h2>How do you want to run it?</h2></div>
-  <div class="modes">${["watch", "coach"].map((mode) => `<button class="mode ${s.settings.meetMode === mode ? "selected" : ""}" data-act="meet-mode" data-value="${mode}"><strong>${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</strong><small>${mode === "watch" ? "Athletes choose their approach. Clutch pauses are optional in Settings." : "You choose the approach for every one of your throws."}</small></button>`).join("")}</div>
+  <div class="modes">${["watch", "coach"].map((mode) => `<button class="mode ${s.settings.meetMode === mode ? "selected" : ""}" data-act="meet-mode" data-value="${mode}"><strong>${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</strong><small>${mode === "watch" ? (s.settings.clutch ? "Athletes choose their approach; you make the call on clutch last throws." : "Athletes choose their approach. Clutch pauses can be turned on in Settings.") : "You choose the approach for every one of your throws."}</small></button>`).join("")}</div>
   ${btn(ico("stadium") + " Start the meet", "enter", problem ? "disabled" : "")}`;
 }
 

@@ -2,7 +2,7 @@ import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub } from "../domain/game.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
@@ -31,9 +31,24 @@ const O = THROW_ORIGIN;
 let sector = throwingSector("shot", W, 100);
 const centreY = x => sector.centerY(x);
 const upperY = x => sector.upperY(x);
-// The sector reaches just past the world record, or past the club's own record once it goes further.
+// The sector is sized to this field: a third past the longest throw anyone here is likely to
+// make, so novice marks land out in the sector rather than huddled by the circle. It never
+// reaches beyond the world record, or the club's own record once it goes further.
 let SPAN = 100;
-const spanOf = (s, ev) => Math.max(EVENTS[ev].record * 1.06, worldRecord(s, ev) * 1.08);
+function spanOf(s, m, i, ev) {
+  const most = Math.max(EVENTS[ev].record * 1.06, worldRecord(s, ev) * 1.08),
+    field = m.fields?.[i];
+  if (!field) return most;
+  const away = matchClub(s)?.athletes;
+  let reach = 0;
+  for (const [entries, pool] of [[field.home, s.roster], [field.away, away || []]])
+    for (const e of entries) {
+      const a = pool.find((x) => x.id === e.id);
+      reach = Math.max(reach, a ? rawMark(a, ev) : 0, a?.pb?.[ev] || 0, ...e.marks.filter((x) => x != null));
+    }
+  if (!reach) return most;
+  return Math.ceil(Math.min(most, Math.max(EVENTS[ev].min * 1.6, reach * 1.35)));
+}
 const ppmOf = () => sector.ppm;
 function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
@@ -201,7 +216,7 @@ function stadiumBase(s, ev, venue) {
   line(g, O.x, O.y, ...boundary[0], "#f4f4e8");
   line(g, O.x, O.y, ...boundary.at(-1), "#f4f4e8");
   const e = EVENTS[ev],
-    step = SPAN > 140 ? 20 : e.max > 40 ? 10 : SPAN > 30 ? 4 : 2;
+    step = [1, 2, 4, 5, 10, 20, 25].find((n) => SPAN / n <= 9) || 50;
   for (let d = Math.ceil(e.min / step) * step; d < SPAN; d += step) {
     const [x,y] = sector.point(d, -sector.halfAngle);
     distanceArc(g, d, "rgba(244,244,232,0.5)");
@@ -347,7 +362,7 @@ export function createStadium(cv) {
       bi = beat?.eventIndex ?? m.eventIndex,
       ev = EVENT_IDS[bi],
       e = EVENTS[ev];
-    SPAN = spanOf(s, ev);
+    SPAN = spanOf(s, m, bi, ev);
     sector = throwingSector(ev, W, SPAN);
     const ppm = ppmOf();
     const LH = camera.height,
@@ -405,6 +420,7 @@ export function createStadium(cv) {
     // Stack labels in rows so close marks don't overprint each other.
     const rowsEnd = [];
     for (const l of lines.sort((a, b) => a.mark - b.mark)) {
+      if (l.mark > SPAN) continue;
       const x = atX(l.mark);
       if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
       else distanceArc(g, l.mark, l.color, l.dash);

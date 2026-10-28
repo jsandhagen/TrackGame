@@ -4646,3 +4646,14 @@ dialog > .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscr
   .panel-body .calendar-options select { min-height: 32px; padding: 4px 8px; }
   .panel-body .calendar-intro { padding: 8px 10px; }
 }
+
+/* Clubhouse squad at a glance: tap a face to open the athlete. */
+.roster-glance { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; column-span: all; }
+.glance { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; border: 2px solid var(--line); border-radius: 10px; background: var(--card, #fffaf0); text-align: left; cursor: pointer; flex-wrap: wrap; }
+.glance > span { display: grid; min-width: 0; flex: 1; }
+.glance strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.glance small { font-size: 11px; color: var(--muted); }
+.calendar-options-wrap > summary { cursor: pointer; font-size: 12px; font-weight: 700; color: var(--muted); margin: 2px 0 6px; }
+/* Call room entries read as names until the coach opens them for changes. */
+.entry-names { display: block; font-size: 12.5px; line-height: 1.45; }
+.entry-names b { font-weight: 700; }

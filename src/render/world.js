@@ -691,6 +691,15 @@ export function createWorld(cv) {
         ellipse(g, f.x + Math.cos(a) * (14 + t * 20), f.y + Math.sin(a) * 6, 3, 2, `rgba(240,230,210,${0.8 - t * 0.8})`);
       }
     }
+    // Compose the visible part of the map on a screen-sized layer.
+    const [ox, oy] = origin();
+    sg.imageSmoothingEnabled = false;
+    sg.fillStyle = "#4e7a40";
+    sg.fillRect(0, 0, cam.vw, cam.vh);
+    sg.drawImage(world, -ox, -oy);
+    sky(s, ox, oy, now, o.calm);
+    light(s, ox, oy, o.dayProgress ?? 0.25, o.nightScale ?? 1);
+    // Popups go on the screen layer after the lighting, so evening and night never dim the numbers.
     for (let i = popups.length - 1; i >= 0; i--) {
       const q = popups[i],
         t = (now - q.t0) / q.dur;
@@ -705,18 +714,12 @@ export function createWorld(cv) {
         const p = people.get(q.follow);
         if (p) (x = p.x), (y = p.y - 28 - q.stack * 9);
       }
-      g.globalAlpha = t > 0.75 ? (1 - t) * 4 : 1;
-      text(g, q.text, x, y - Math.min(1, t * 2.5) * 10, { color: q.color, scale: q.scale || 1, align: "center" });
-      g.globalAlpha = 1;
+      // A quick hop on arrival, then a slow drift upwards.
+      const rise = Math.min(1, t * 2.5) * 10 + (t < 0.12 ? Math.sin((t / 0.12) * Math.PI) * 3 : 0);
+      sg.globalAlpha = t > 0.75 ? (1 - t) * 4 : 1;
+      text(sg, q.text, x - ox, y - oy - rise, { color: q.color, scale: q.scale || 1, align: "center", shadow: "rgba(0,0,0,0.45)" });
+      sg.globalAlpha = 1;
     }
-    // Compose the visible part of the map on a screen-sized layer.
-    const [ox, oy] = origin();
-    sg.imageSmoothingEnabled = false;
-    sg.fillStyle = "#4e7a40";
-    sg.fillRect(0, 0, cam.vw, cam.vh);
-    sg.drawImage(world, -ox, -oy);
-    sky(s, ox, oy, now, o.calm);
-    light(s, ox, oy, o.dayProgress ?? 0.25, o.nightScale ?? 1);
     for (let i = banners.length - 1; i >= 0; i--) {
       const b = banners[i],
         t = (now - b.t0) / b.dur;
@@ -743,23 +746,36 @@ export function createWorld(cv) {
 
   function onDay(s, report, now, dayMs) {
     activities = new Map(report.athletes.map((e) => [e.id, e.activity === "facility" ? "facility:" + report.duties.find((d) => d.id === e.id).key : e.activity]));
+    // One line per stat gained, each in its stat colour, stacked above the athlete.
+    const stacks = new Map(),
+      stackOf = (id) => {
+        const n = stacks.get(id) || 0;
+        stacks.set(id, n + 1);
+        return n;
+      };
     report.athletes.forEach((e, n) => {
       const a = s.roster.find((x) => x.id === e.id);
       if (!a) return;
+      const t0 = now + dayMs * 0.35 + n * 90,
+        dur = Math.min(2000, dayMs * 0.75);
+      if (e.activity === "rest" || e.activity === "injured" || e.activity === "facility") {
+        popups.push({ follow: e.id, stack: stackOf(e.id), x: 0, y: 0, text: e.activity === "rest" ? "REST" : e.activity === "injured" ? "RECOVERING" : "CLUB DUTY", color: e.activity === "facility" ? "#f2d060" : "#bfe8ff", t0, dur });
+        return;
+      }
       // Whole-point gains only: the same numbers the stat screens show.
-      const ups = a.stats.map((v, i) => Math.floor(v + 1e-6) - Math.floor(v - e.gains[i] + 1e-6));
-      const labels = ups.map((u, i) => (u > 0 ? "+" + u + " " + STAT_SHORT[i] : null)).filter(Boolean);
-      if(e.mastery>0) labels.push("+"+e.mastery.toFixed(1)+" MASTERY");
-      const label = e.activity === "rest" ? "REST" : e.activity === "injured" ? "RECOVERING" : e.activity === "facility" ? "CLUB DUTY" : labels.join(" ");
-      if (!label) return;
-      const best = ups.indexOf(Math.max(...ups));
-      popups.push({ follow: e.id, stack: 0, x: 0, y: 0, text: label, color: e.activity === "rest" || e.activity === "injured" ? "#bfe8ff" : STAT_COLORS[best], t0: now + dayMs * 0.35 + n * 70, dur: Math.min(1800, dayMs * 0.7) });
+      a.stats.forEach((v, i) => {
+        const up = Math.floor(v + 1e-6) - Math.floor(v - e.gains[i] + 1e-6);
+        if (up > 0) {
+          const k = stackOf(e.id);
+          popups.push({ follow: e.id, stack: k, x: 0, y: 0, text: "+" + up + " " + STAT_SHORT[i], color: STAT_COLORS[i], t0: t0 + k * 140, dur });
+        }
+      });
     });
     for (const d of report.duties || []) {
       const label = [d.money ? "+$" + d.money : "", d.insights ? "+" + d.insights + " INSIGHT" : "", d.fans ? "+" + d.fans + " FANS" : ""].filter(Boolean).join(" ");
-      if (label) popups.push({ follow: d.id, stack: 1, x: 0, y: 0, text: label, color: "#f2d060", t0: now + dayMs * 0.55, dur: 1400 });
+      if (label) popups.push({ follow: d.id, stack: stackOf(d.id), x: 0, y: 0, text: label, color: "#f2d060", t0: now + dayMs * 0.55, dur: 1400 });
     }
-    for (const l of report.levelUps) popups.push({ follow: l.id, stack: 1, x: 0, y: 0, text: "LV " + l.level + "!", color: "#f2c94c", t0: now + dayMs * 0.5, dur: 1600 });
+    for (const l of report.levelUps) popups.push({ follow: l.id, stack: stackOf(l.id) + 1, x: 0, y: 0, text: "LEVEL UP!", color: "#f2c94c", t0: now + dayMs * 0.5, dur: 2000, scale: 2 });
     for (const sp of report.spend) popups.push({ x: LOTS[sp.plot][0] + 56, y: LOTS[sp.plot][1] + 30, text: "+$" + sp.amount, color: "#f2d060", t0: now + dayMs * 0.55, dur: 1400 });
     if (report.week) banner("PAYDAY", (report.week.net >= 0 ? "+" : "-") + "$" + Math.abs(report.week.net) + " AFTER WAGES", "#f2d060", now);
   }

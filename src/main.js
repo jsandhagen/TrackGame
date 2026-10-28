@@ -28,7 +28,7 @@ const store = await createPersistence("ring-sector-leagues-v3");
 let state = store.read() ? validateCampaign(JSON.parse(store.read())) : G.newGame();
 let saveEnabled = false;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
-const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
+const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
 const DAY_MS = [0, 8000, 4000, 2000];
 // How dark night gets at each speed, so the fastest speed doesn't strobe.
 const NIGHT_AT_SPEED = [1, 1, 0.75, 0.4];
@@ -435,19 +435,21 @@ function help(welcome = false) {
   stopPlaying();
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
-    `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams. Here's the drill:" : "The drill, one more time:"}</p>
-    <ol class="howto"><li><b>Train.</b> Hit Train and the days roll. Everyone heads to the gym, the track or their own ring, and the stats tick up.</li>
-    <li><b>Run sessions.</b> Spend Coaching Insights (the lightbulb) in <b>Train</b>: up to three athletes per session, and sessions level up with reps.</li>
-    <li><b>Build.</b> Upgrade the rings, cages, runway, track and stands, then fill the plots outside. Good neighbours make <b>combos</b>.</li>
-    <li><b>Book meets.</b> Duels to test yourselves, leagues for trophies. Win Open, Challenger and Championship to move up a level.</li>
-    <li><b>Compete.</b> Watch your throwers go, or call every attempt from the infield.</li></ol>
-    <p class="hint">Drag to look around, tap anything. The clock only runs while you train.</p>`,
+    `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams." : "The drill, one more time:"}</p>
+    <ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
+    <li><b>Train</b> and watch the days roll by. Stats pop up as they grow.</li>
+    <li><b>Compete</b>, win prizes, then <b>build</b> and <b>shop</b> to get stronger.</li></ol>
+    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>`,
     [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
 }
 
 // ── Time ────────────────────────────────────────────────────────────────
+// Training is the show: once the clock runs, step out of the window so the club is in view.
+function watchClub() {
+  if (view.playing && view.window) closeWindow();
+}
 function stopPlaying() {
   if (!view.playing) return;
   view.playing = false;
@@ -582,11 +584,11 @@ $("#app").addEventListener("click", async (e) => {
     case "recenter":
       return world.home();
     case "play":
-      return play();
+      return play(), watchClub();
     case "pause":
       return stopPlaying(), render();
     case "speed":
-      return +b.dataset.speed ? play(+b.dataset.speed) : (stopPlaying(), render());
+      return +b.dataset.speed ? (play(+b.dataset.speed), watchClub()) : (stopPlaying(), render());
     case "day":
       if (state.pendingEvent) return showEvent();
       return doDay(performance.now());
@@ -595,6 +597,9 @@ $("#app").addEventListener("click", async (e) => {
       stopPlaying();
       if (G.lineupProblem(state)) G.autoLineup(state);
       return openWindow("lobby");
+    case "edit-lineup":
+      view.editLineup = !view.editLineup;
+      break;
     case "autolineup":
       G.autoLineup(state);
       toast("Strongest lineup entered.");
@@ -629,7 +634,7 @@ $("#app").addEventListener("click", async (e) => {
       state.settings.highlights=!state.settings.highlights;
       break;
     case "meet-speed":
-      view.meetSpeed = +b.dataset.speed;
+      view.meetSpeed = state.settings.meetSpeed = +b.dataset.speed;
       break;
     case "tactic":
       if (state.match?.phase !== "decide") return;
