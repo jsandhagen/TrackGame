@@ -63,6 +63,29 @@ function spanOf(s, m, i, ev) {
   return Math.ceil(Math.min(most, Math.max(EVENTS[ev].min * 1.6, reach * 1.35)));
 }
 const ppmOf = () => sector.ppm;
+// Half the javelin runway's width on screen, in the oblique view.
+const RUNWAY = 9;
+// The discus and hammer cage: posts on an arc round the back of the circle, opening towards the
+// sector, with netting between them. The far half is drawn behind the thrower, the near half in
+// front, so the thrower stands inside it.
+const CAGE = { rx: 38, ry: 15, h: 74, from: 0.28, to: 1.72 };
+function cage(g, half) {
+  const posts = [];
+  for (let i = 0; i <= 8; i++) {
+    const a = Math.PI * (CAGE.from + ((CAGE.to - CAGE.from) * i) / 8);
+    posts.push([Math.round(O.x + Math.cos(a) * CAGE.rx), Math.round(O.y + Math.sin(a) * CAGE.ry), Math.sin(a)]);
+  }
+  // Far posts have negative sin (they sit above the circle on screen); near posts positive.
+  const mine = ([, , z]) => (half === "back" ? z <= 0.05 : z > 0.05);
+  for (let i = 0; i + 1 < posts.length; i++) {
+    const [x1, y1, z1] = posts[i], [x2, y2, z2] = posts[i + 1];
+    if (!mine([0, 0, (z1 + z2) / 2])) continue;
+    poly(g, [[x1, y1], [x2, y2], [x2, y2 - CAGE.h], [x1, y1 - CAGE.h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.1)");
+    for (let k = 8; k < CAGE.h; k += 8) line(g, x1, y1 - k, x2, y2 - k, "rgba(70,90,80,0.35)");
+    line(g, x1, y1 - CAGE.h, x2, y2 - CAGE.h, "#3a4a42");
+  }
+  for (const p of posts) if (mine(p)) rect(g, p[0], p[1] - CAGE.h, 2, CAGE.h, "#4a5a52");
+}
 function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
   for (let i = 1; i < points.length; i++) if (!dashed || i % 4 < 2) line(g, ...points[i - 1], ...points[i], color);
@@ -234,10 +257,13 @@ function stadiumBase(s, ev, venue) {
   for (let i = 0; i < 260; i++) px(g, hash(i * 3) * W, 108 + hash(i * 5) * (H - 110), i % 3 ? "#86c464" : "#62a444");
   // Sector boundaries meet at the throwing origin; distance lines are arcs
   // of equal radius, rather than straight strips across a widening wedge.
-  const boundary = sector.arc(SPAN);
-  poly(g, [[O.x, O.y], ...boundary], "#7cb45c");
-  line(g, O.x, O.y, ...boundary[0], "#f4f4e8");
-  line(g, O.x, O.y, ...boundary.at(-1), "#f4f4e8");
+  // The javelin's sector lines run out from the two ends of the throwing arc; the circles' lines
+  // start at the centre of the ring, which covers them.
+  const boundary = sector.arc(SPAN),
+    [upper, lower] = ev === "jav" ? [[O.x + 3, O.y - RUNWAY - 2], [O.x + 3, O.y + RUNWAY + 2]] : [[O.x, O.y], [O.x, O.y]];
+  poly(g, [upper, ...boundary, lower], "#7cb45c");
+  line(g, ...upper, ...boundary[0], "#f4f4e8");
+  line(g, ...lower, ...boundary.at(-1), "#f4f4e8");
   // Sector flags where the boundary lines end.
   for (const [fx, fy] of [boundary[0], boundary.at(-1)]) {
     rect(g, fx, fy - 12, 1, 12, "#f4f4e8");
@@ -255,20 +281,17 @@ function stadiumBase(s, ev, venue) {
   // Circle, cage or runway, drawn at the same double scale as the people who use them: a ring
   // about as wide as the thrower is tall, and a cage that stands well above their head.
   if (ev === "jav") {
-    poly(g, [[0, O.y + 3], [O.x, O.y - 9], [O.x, O.y + 13], [0, O.y + 29]], venue.track);
-    line(g, 0, O.y + 3, O.x, O.y - 9, "#f4e8d0");
-    line(g, 0, O.y + 29, O.x, O.y + 13, "#f4e8d0");
-    for (let i = 0; i < 11; i++) rect(g, O.x - 1, O.y - 9 + i * 2, 3, 1, "#f4f4e8");
-  } else {
-    if (ev !== "shot") {
-      // The cage wraps round the back of the circle and opens towards the sector.
-      for (let i = 0; i < 7; i++) {
-        const x = O.x - 46 + i * 12;
-        rect(g, x, O.y - 96, 2, 92, "#4a5a52");
-      }
-      for (let y = O.y - 92; y < O.y - 6; y += 6) rect(g, O.x - 46, y, 74, 1, "rgba(80,100,90,0.45)");
-      rect(g, O.x - 46, O.y - 98, 76, 3, "#3a4a42");
+    // A straight runway along the sector's centre line, ending at the curved throwing arc.
+    const cy = (x) => O.y + (O.x - x) * 0.1;
+    poly(g, [[0, cy(0) - RUNWAY], [O.x, O.y - RUNWAY], [O.x, O.y + RUNWAY], [0, cy(0) + RUNWAY]], venue.track);
+    line(g, 0, cy(0) - RUNWAY, O.x, O.y - RUNWAY, "#f4e8d0");
+    line(g, 0, cy(0) + RUNWAY, O.x, O.y + RUNWAY, "#f4e8d0");
+    for (let k = -RUNWAY - 2; k <= RUNWAY + 2; k++) {
+      const t = k / (RUNWAY + 2);
+      rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, "#f8f8f0");
     }
+  } else {
+    if (ev !== "shot") cage(g, "back");
     ellipse(g, O.x, O.y + 3, 30, 11, "#5a6a5a");
     ellipse(g, O.x, O.y, 28, 10, "#e8e4d0");
     ellipse(g, O.x, O.y, 24, 8, "#a8a898");
@@ -571,6 +594,8 @@ export function createStadium(cv) {
       // The thrower reacts once the mark is up: a speech bubble in their own voice.
       if (beat?.type === "throw" && tt >= T.land + 150 && tt < T.land + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
+    // The near side of the cage passes in front of whoever is in the circle.
+    if (ev === "discus" || ev === "hammer") cage(g, "front");
     // Projectile.
     if (beat?.type === "throw" && tt >= T.tech && tt < T.land + 600) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
