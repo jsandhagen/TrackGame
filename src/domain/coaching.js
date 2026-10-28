@@ -28,8 +28,9 @@ export const DRILLS = {
 export const DRILL_LEVELS = [0, 3, 8, 15, 25];
 export const TIER_COST = [1, 1.3, 1.7, 2.3, 3.2];
 export const TIER_GAIN = [1, 1.5, 2.1, 2.9, 4];
-// The fourth step is a camp the club pays for in money rather than Insights.
-export const PAID_TIER = 4;
+// No step is billed in money: a paid camp drained the club so badly in the balance audit that it
+// stalled building (median final funds fell by more than half). Set PAID_TIER to a step to try it again.
+export const PAID_TIER = 0;
 export const MONEY_PER_INSIGHT = 30;
 export const DRILL_FAMILIES = [["power", "Power", 0], ["technique", "Technique", 1], ["speed", "Speed", 2], ["focus", "Focus", 3], ["recovery", "Recovery", null], ["special", "Club", null]];
 export const tierOf = (level) => Math.max(1, Math.min(level, TIER_COST.length));
@@ -187,7 +188,7 @@ export function drillGains(s, a, id, group = 1, chem = null) {
   if (tier >= 3 && d.broad != null) base[d.broad] += Math.max(...d.gains) * 0.25;
   return base.map((v,i) => {
     // Like any sports sim, a stat near its limit grows more slowly.
-    const room = Math.max(0.35, Math.min(1, (cap - a.stats[i]) / (cap * 0.5)));
+    const room = Math.max(0.5, Math.min(1, (cap - a.stats[i]) / (cap * 0.3)));
     return Math.max(0,Math.min(cap-a.stats[i],v*quality*mult[i]*room*fx.gain*fx.train[i]*MOOD_TRAIN[moodOf(a)]));
   });
 }
