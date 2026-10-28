@@ -24,11 +24,12 @@ const POSES = {
     { feet: [[2, -1], [-5, -1]], hands: [[-4, -10], [3, -10]] },
     { feet: [[-1, -1], [-2, -2]], hands: [[0, -10], [0, -10]], dy: -1 },
   ],
+  // Leaning in, the leading arm pumped up by the chin and the swing knee driving through.
   run: [
-    { feet: [[-7, -2], [4, -1]], hands: [[5, -13], [-6, -11]], lean: 1 },
-    { feet: [[-3, -3], [0, -1]], hands: [[1, -11], [-1, -12]], dy: -1, lean: 1 },
-    { feet: [[4, -1], [-7, -2]], hands: [[-6, -11], [5, -13]], lean: 1 },
-    { feet: [[0, -1], [-3, -3]], hands: [[-1, -12], [1, -11]], dy: -1, lean: 1 },
+    { feet: [[-8, -3], [5, -1]], hands: [[8, -18], [-1, -9]], lean: 3 },
+    { feet: [[4, -3], [0, -1]], hands: [[4, -13], [-2, -10]], dy: -1, lean: 3 },
+    { feet: [[5, -1], [-8, -3]], hands: [[-5, -8], [8, -18]], lean: 3 },
+    { feet: [[0, -1], [4, -3]], hands: [[-2, -10], [4, -13]], dy: -1, lean: 3 },
   ],
   lift: [
     { feet: [[-5, -1], [2, -1]], hands: [[-6, -27], [5, -27]], item: "barbell", face: "strain" },
@@ -340,7 +341,7 @@ export function sprite(o) {
 // The run frame for a runner who has covered `dist` pixels. Each run frame carries the planted
 // foot about RUN_STRIDE pixels back, so stepping by distance keeps that foot fixed on the ground;
 // frames on a clock let the body outrun the legs and the feet slide forward, like running backwards.
-export const RUN_STRIDE = 4;
+export const RUN_STRIDE = 5;
 export const runFrame = (dist) => ((Math.floor(dist / RUN_STRIDE) % 4) + 4) % 4;
 // Draw a figure with its feet at (x, y). Scale must be an integer to stay crisp.
 export function figure(g, o, x, y, scale = 1) {
