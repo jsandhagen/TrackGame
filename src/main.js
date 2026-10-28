@@ -31,6 +31,9 @@ let saveEnabled = false;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
 const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
 const DAY_MS = [0, 8000, 4000, 2000];
+// Money and fans roll to their new value in the HUD, and every change floats out beside the counter.
+const counters = { money: { shown: state.money, seen: state.money }, fans: { shown: state.fans, seen: state.fans } };
+const counterText = (key, n) => (key === "money" ? cash(Math.round(n)) : Math.round(n).toLocaleString());
 // How dark night gets at each speed, so the fastest speed doesn't strobe.
 const NIGHT_AT_SPEED = [1, 1, 0.75, 0.4];
 const world = createWorld($("#world")),
@@ -101,9 +104,9 @@ function hud() {
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
-  <div class="res fans">${ico("heart")}<b>${state.fans.toLocaleString()}</b></div>
+  <div class="res fans">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></div>
   <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
-  <div class="res money">${ico("coin")}<b>${cash(state.money)}</b></div>
+  <div class="res money">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></div>
   <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
 }
 function menu() {
@@ -171,8 +174,10 @@ function render(preserve = true) {
   if (groupPlans) view.showGroupPlans = groupPlans.open;
   const panel = $("#panel"),
     page = state.match ? "meet:" + state.match.phase : [view.window, view.athlete, view.tab, view.tabs?.[view.window], view.trainTab, view.shopTab].join(":"),
-    scroll = preserve && page === shownPage ? panel.scrollTop : 0;
+    scroll = preserve && page === shownPage ? panel.scrollTop : 0,
+    previousPage = shownPage;
   shownPage = page;
+  document.documentElement.classList.toggle("reduce-motion", !!state.settings.reducedMotion);
   hud();
   menu();
   tools();
@@ -196,7 +201,9 @@ function render(preserve = true) {
     $(".win-close").innerHTML = ico("close");
     $(".win-close").hidden = !!m;
     // A page class lets wide layouts arrange each window's content.
-    panel.innerHTML = `<div class="panel-body page-${m ? "meet" : view.window}${view.window === "squad" && view.athlete != null ? " page-athlete" : ""}">${win[1]}</div>`;
+    const fresh = page !== previousPage;
+    panel.innerHTML = `<div class="panel-body page-${m ? "meet" : view.window}${view.window === "squad" && view.athlete != null ? " page-athlete" : ""}${fresh ? " fresh" : ""}">${win[1]}</div>`;
+    if (fresh) countUp(panel);
     panel.scrollTop = scroll;
   } else panel.innerHTML = "";
   quickAction();
@@ -237,6 +244,23 @@ function buildingImage(key) {
 }
 function athleteById(id) {
   return state.roster.find((a) => a.id === id) || state.prospects.find((a) => a.id === id) || state.pendingEvent?.data?.athlete;
+}
+// Numbers on a fresh results card or pop-up count up from zero.
+function countUp(root) {
+  if (reduced()) return;
+  root.querySelectorAll("[data-count]").forEach((el) => {
+    const to = +el.dataset.count,
+      fmt = (n) => (el.hasAttribute("data-cash") ? cash(n) : String(n));
+    if (!(to > 0)) return;
+    const t0 = performance.now(),
+      step = (now) => {
+        const p = Math.min(1, (now - t0) / 800);
+        el.textContent = fmt(Math.round(to * (1 - Math.pow(1 - p, 3))));
+        if (p < 1) requestAnimationFrame(step);
+      };
+    el.textContent = fmt(0);
+    requestAnimationFrame(step);
+  });
 }
 function paint(root) {
   root.querySelectorAll("canvas[data-portrait]").forEach((c) => {
@@ -319,6 +343,7 @@ function dialog(title, body, choices, o = {}) {
   dlg.className = "tone-" + (o.tone || "news") + (o.cls ? " " + o.cls : "");
   dlg.innerHTML = `<div class="dialog-head">${o.helper ? `<span class="medallion"><canvas width="64" height="64" data-helper class="portrait helper"></canvas></span>` : ""}<div><span class="eyebrow">${esc(o.eyebrow || HELPER + ", club secretary")}</span><h1>${esc(title)}</h1></div></div><div class="dialog-body">${body}</div><div class="dialog-actions">${choices.map((c, i) => `<button class="button ${c.secondary ? "subtle" : "primary"}" data-choice="${i}" ${c.disabled ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}</div>`;
   paint(dlg);
+  countUp(dlg);
   dlg.querySelectorAll("[data-choice]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -1069,6 +1094,8 @@ function importSave() {
           label: "Restore club",
           fn: () => {
             state = incoming;
+            for (const key of Object.keys(counters)) counters[key] = { shown: state[key], seen: state[key] };
+            newsSeen = state.log[0];
             presenter = null;
             view.window = null;
             view.athlete = null;
@@ -1186,9 +1213,63 @@ initNative({
   },
 }).catch(console.error);
 
+function floatDelta(key, delta) {
+  const box = $("#hud .res." + key);
+  if (!box || !delta) return;
+  const r = box.getBoundingClientRect(),
+    el = document.createElement("span");
+  el.className = "hud-delta " + (delta > 0 ? "up" : "down") + " " + key;
+  el.textContent = (delta > 0 ? "+" : "−") + counterText(key, Math.abs(delta));
+  el.style.left = r.left + r.width / 2 + "px";
+  el.style.top = r.bottom + 2 + "px";
+  $("#app").append(el);
+  setTimeout(() => el.remove(), 1300);
+}
+function tickCounters(dt) {
+  for (const [key, c] of Object.entries(counters)) {
+    const target = state[key];
+    if (target !== c.seen) {
+      floatDelta(key, target - c.seen);
+      c.seen = target;
+    }
+    if (c.shown === target) continue;
+    const gap = target - c.shown;
+    c.shown = Math.abs(gap) <= 1 || reduced() ? target : c.shown + gap * Math.min(1, dt / 140);
+    const el = $("#hud .res." + key + " b");
+    if (el) el.textContent = counterText(key, c.shown);
+  }
+}
+// The club news: each new bulletin slides across a ticker under the HUD, one at a time.
+let newsSeen = state.log[0],
+  newsBusy = false;
+const newsQueue = [];
+function tickNews() {
+  if (state.log[0] !== newsSeen) {
+    const fresh = [];
+    for (const entry of state.log) {
+      if (entry === newsSeen) break;
+      fresh.push(entry);
+    }
+    newsQueue.push(...fresh.reverse().slice(-3));
+    newsSeen = state.log[0];
+  }
+  if (newsBusy || !newsQueue.length || state.match) return;
+  const entry = newsQueue.shift(),
+    el = $("#ticker"),
+    secs = Math.max(5, Math.min(11, entry.text.length / 9));
+  newsBusy = true;
+  el.innerHTML = `<b>${ico("news")} NEWS</b><span><span style="--dur:${secs}s">${esc(entry.text)}</span></span>`;
+  el.hidden = false;
+  setTimeout(() => {
+    el.hidden = true;
+    newsBusy = false;
+  }, secs * 1000 + 250);
+}
 function frame(now) {
   const dt = Math.min(100, now - (lastFrame || now));
   lastFrame = now;
+  tickCounters(dt);
+  tickNews();
   if (!document.hidden && !$("#gameMenu").open) {
     if (state.match) {
       pumpMeet(dt);

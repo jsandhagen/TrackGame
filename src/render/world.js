@@ -874,6 +874,12 @@ export function createWorld(cv) {
       if (p) sparkle(p.x, p.y - 12, now + dayMs * 0.5);
       if (a) setTimeout(() => say("a" + a.id, voiceLine(a, "levelUp", l.level), performance.now(), 2200), dayMs * 0.5 + 600);
     }
+    // The crowd notices: a couple of visitors cheer when somebody levels up.
+    if (report.levelUps.length && visitors.length)
+      for (let k = 0; k < Math.min(3, visitors.length); k++) {
+        const n = Math.floor(hash(report.day * 7 + k) * visitors.length);
+        setTimeout(() => say("v" + n, ["WOW!", "♥", "BRAVO!"][k % 3], performance.now(), 1600), dayMs * 0.55 + 250 * k);
+      }
     for (const sp of report.spend) popups.push({ x: LOTS[sp.plot][0] + 56, y: LOTS[sp.plot][1] + 30, text: "+$" + sp.amount, color: "#f2d060", t0: now + dayMs * 0.55, dur: 1400 });
     if (report.week) banner("PAYDAY", (report.week.net >= 0 ? "+" : "-") + "$" + Math.abs(report.week.net) + " AFTER WAGES", "#f2d060", now);
   }

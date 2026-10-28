@@ -387,7 +387,15 @@ export function createStadium(cv) {
     g.fillRect(0, 0, W, top + 1);
     g.fillStyle = "#6aa04e";
     g.fillRect(0, top + H - 1, W, LH - H - top + 1);
-    g.translate(0, top);
+    const el = view.elapsed ?? 99999;
+    const hasCut = hasCutIn(beat);
+    const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
+    const landed = !(beat?.type === "throw") || tt >= T.land;
+    // Big moments land with a jolt: a short, decaying shake of the whole scene.
+    const big = beat?.type === "throw" && beat.mark != null && (beat.worldRecord || (beat.newPb && beat.previousPb > 0) || beat.tookLead || (beat.side === "home" && beat.scoringSwing > 0)),
+      sinceLand = tt - T.land,
+      jolt = big && !view.reduced && sinceLand >= 0 && sinceLand < 280 ? (1 - sinceLand / 280) * (beat.worldRecord ? 4 : 2) : 0;
+    g.translate(Math.round(Math.sin(sinceLand * 0.9) * jolt), top + Math.round(Math.cos(sinceLand * 1.3) * jolt));
     const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN;
     if (k !== key) {
       base = stadiumBase(s, ev, venue);
@@ -395,13 +403,20 @@ export function createStadium(cv) {
     }
     g.imageSmoothingEnabled = false;
     g.drawImage(base, 0, 0);
-    const el = view.elapsed ?? 99999;
-    const hasCut = hasCutIn(beat);
-    const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
-    const landed = !(beat?.type === "throw") || tt >= T.land;
     const reacting = beat?.type === "throw" && landed && el < beatDuration(beat) && beat.mark != null && beat.side === "home" && (beat.newPb || beat.scoringSwing > 0);
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     drawCrowd(g, s, m, now, cheer, venue);
+    // Flashbulbs pop in the stands after a big throw.
+    if (big && !view.reduced && sinceLand >= 0 && sinceLand < 1600)
+      for (let n = 0; n < 9; n++) {
+        const h = hash(n * 31 + Math.floor(now / 90)),
+          fx = Math.round(h * W),
+          fy = 58 + Math.round(hash(n * 17 + Math.floor(now / 90)) * 32);
+        if (h > 0.45) continue;
+        rect(g, fx, fy, 2, 2, "#ffffff");
+        px(g, fx - 1, fy, "#fff6c8");
+        px(g, fx + 2, fy + 1, "#fff6c8");
+      }
     drawScreen(g, s, m, venue, now);
     windsock(g, m, now);
     const home = homeAthlete(s, bi),
@@ -507,6 +522,11 @@ export function createStadium(cv) {
         ellipse(g, hammerBall[0], hammerBall[1], 3, 3, "#3a3e46");
       }
       figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 2);
+      // Motion lines as the implement leaves the hand.
+      if (beat?.type === "throw" && tt >= T.tech - 60 && tt < T.tech + 220 && !view.reduced) {
+        const a = 1 - Math.max(0, tt - T.tech + 60) / 280;
+        for (let k = 0; k < 3; k++) line(g, x + 14 + k * 2, y - 50 + k * 9, x + 28 + k * 3, y - 54 + k * 9, `rgba(255,255,255,${(0.75 * a).toFixed(2)})`);
+      }
       if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 18, y - 76, { color: "#f2c94c", scale: 2 });
       // The thrower reacts once the mark is up: a speech bubble in their own voice.
       if (beat?.type === "throw" && tt >= T.land + 150 && tt < T.land + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
@@ -542,17 +562,30 @@ export function createStadium(cv) {
           if (ev === "hammer") line(g, x, y, x - 6, y - 4, "#d8d8c8");
         }
       } else {
-        const dt = tt - T.land;
-        for (let k = 0; k < 6; k++) px(g, ex + Math.cos(k) * dt * 0.02, ey - (dt * 0.015 * (k % 3)), `rgba(200,180,140,${Math.max(0, 0.8 - dt / 600)})`);
+        // Impact: a ring of turf and dust thrown up around the landing, heavier for the shot and hammer.
+        const dt = tt - T.land,
+          heavy = ev === "shot" || ev === "hammer" ? 1.4 : 1,
+          fade = Math.max(0, 1 - dt / 700);
+        if (fade > 0 && !beat.foul) {
+          ellipse(g, ex, ey, 3 + dt * 0.012 * heavy, 1 + dt * 0.004, `rgba(225,210,170,${(0.55 * fade).toFixed(2)})`);
+          for (let k = 0; k < 12; k++) {
+            const a = (k / 12) * Math.PI * 2, r = dt * 0.03 * heavy * (0.6 + hash(k) * 0.6);
+            px(g, ex + Math.cos(a) * r, ey - Math.abs(Math.sin(a)) * r * 0.8 + (dt * dt) / 60000, `rgba(${k % 3 ? "200,180,140" : "120,160,80"},${fade.toFixed(2)})`);
+          }
+        }
         rect(g, ex - 2, ey, 5, 2, beat.foul ? "#e04a3a" : "#8a7a50");
       }
     }
     // Landing callouts.
     if (beat?.type === "throw" && landed) {
-      const label = beat.mark == null ? "FOUL" : beat.mark.toFixed(2) + " M";
+      // The distance rolls up to the mark, then pops on the big ones.
+      const roll = Math.min(1, Math.max(0, sinceLand) / 420),
+        shown = beat.mark == null ? null : beat.mark * (view.reduced ? 1 : 1 - Math.pow(1 - roll, 3)),
+        label = shown == null ? "FOUL" : shown.toFixed(2) + " M",
+        popped = big && !view.reduced && sinceLand >= 420 && sinceLand < 620;
       const color = beat.mark == null ? "#f06050" : beat.side === "home" ? "#fff6dc" : shade(m.color, 0.5);
       const labelY = Math.max(50, overlayTop + 8);
-      text(g, label, W / 2, labelY, { color, scale: 3, align: "center" });
+      text(g, label, W / 2, labelY - (popped ? 4 : 0), { color, scale: popped ? 4 : 3, align: "center" });
       if (beat.worldRecord) text(g, "WORLD RECORD!", W / 2, labelY + 26, { color: (Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc", scale: 2, align: "center" });
       else if (beat.newPb) text(g, beat.previousPb ? "NEW PB! +" + beat.pbDelta.toFixed(2) : "FIRST MARK!", W / 2, labelY + 26, { color: "#f2c94c", scale: 2, align: "center" });
       else text(g, throwResult(beat).headline.toUpperCase(), W / 2, labelY + 26, { color: "#fff6dc", scale: 2, align: "center" });
