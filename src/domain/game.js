@@ -83,7 +83,7 @@ export function setAthleteEvent(s, id, event) {
   return true;
 }
 
-export const DEFAULT_SETTINGS = { orientation: "auto", meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false, highlights: true };
+export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: false, speed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
@@ -248,8 +248,21 @@ export function discover(s) {
 }
 
 // ── Daily simulation ──────────────────────────────────────────────────
+// A deliberately simple routine; never replaces the athlete's saved manual plan.
+export function autoPrepActivity(s, a) {
+  if (a.injury || !s.settings.autoMeetPrep || s.phase !== "season" || !Number.isFinite(s.matchDay) || s.matchDay < s.day || !EVENT_IDS.some(ev => entriesOf(s,ev).includes(a.id))) return null;
+  if (s.matchDay - s.day <= 1 || a.stamina < 40) return "rest";
+  return "balanced";
+}
+export function setAutoMeetPrep(s, enabled) {
+  if (typeof enabled !== "boolean" || s.match || s.pendingEvent) return false;
+  s.settings.autoMeetPrep = enabled;
+  return true;
+}
 export function plannedActivity(s, a, assignments) {
   if (a.injury) return "injured";
+  const automatic = autoPrepActivity(s,a);
+  if (automatic) return automatic;
   if((athleteDuty(s,a.id) || a.plan === "facilities") && a.stamina<30) return "rest";
   const duty=effectiveDuty(s,a.id,assignments || automaticDuties(s,visitorsPerDay(s)));
   if(duty && dutySite(s,duty)) {
