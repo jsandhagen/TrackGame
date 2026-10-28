@@ -10,6 +10,8 @@ import {
   RANKS,
   RARITY,
   BACKGROUNDS,
+  ATHLETE_TYPES,
+  GROWTH,
   SKILLS,
   ITEMS,
   FACILITIES,
@@ -53,6 +55,13 @@ export const grade = (v) => {
   const [letter, , color] = gradeOf(showStat(v));
   return `<b class="grade" style="--g:${color}">${letter}</b>`;
 };
+// How fast a stat grows for this athlete's type, as a meter of five bars (five is fast, one is very
+// slow). Bars rather than arrows: a slow stat still only ever goes up.
+const rateMeter = (g, label = `${GROWTH[g].name} growth (×${GROWTH[g].mult})`) =>
+  `<em class="rate r${5 - g}" title="${label}" aria-label="${label}">${"<i></i>".repeat(5)}</em>`;
+export const growthMark = (a, i) => rateMeter((ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).growth[i]);
+const typeName = (a) => (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).name;
+const typeChip = (a) => chip(typeName(a), "#c99a4a");
 const ovrBadge = (a) => `<span class="ovr"><small>OVR</small><b>${G.overall(a)}</b>${grade(G.overall(a))}</span>`;
 export const mood = (a) => `<span class="mood-wrap" title="${G.MOODS[G.moodOf(a)]} condition">${moodIco(G.moodOf(a))}</span>`;
 const rankChip = (a) => chip(G.rankName(a), ["#9aa58f", "#5aa4c8", "#8cc152", "#e2b04a", "#b060d0"][a.rank], "rank");
@@ -76,7 +85,7 @@ export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Tr
 
 // The card that introduces a new signing.
 export function newcomer(s, a) {
-  return `<div class="newcomer">${portrait(a, "large")}<div><div class="newcomer-tags">${eventChip(a.event)} ${rarityChip(a)} ${chip(BACKGROUNDS[a.background].name, "#88b0d0")}</div>
+  return `<div class="newcomer">${portrait(a, "large")}<div><div class="newcomer-tags">${eventChip(a.event)} ${rarityChip(a)} ${chip(BACKGROUNDS[a.background].name, "#88b0d0")} ${typeChip(a)}</div>
     <p class="quote">“${esc(voiceLine(a, "join", a.id + 1).toLowerCase().replace(/^./, (c) => c.toUpperCase()))}”</p>
     <p class="newcomer-story">${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em></p>
     <div class="newcomer-stats">${statRows(a, true)}</div><p class="hint">OVR ${G.overall(a)} in ${EVENTS[a.event].name} · wage ${cash(G.wageOf(a))}/wk</p></div></div>`;
@@ -149,9 +158,9 @@ export function statRows(a, compact = false) {
   const cap = G.capOf(a);
   return `<div class="stats">${a.stats
     .map(
-      (v, i) => `<div class="stat"><span>${STAT_NAMES[i]}</span><span class="track ${v > 100 ? "beyond" : ""}"><i style="width:${Math.min(100, v)}%;--c:${STAT_COLORS[i]}"></i><s style="left:${Math.min(100, cap)}%" title="Current limit ${Math.floor(cap)}"></s></span><b>${showStat(v)}</b>${grade(v)}</div>`,
+      (v, i) => `<div class="stat"><span>${STAT_NAMES[i]}</span><span class="track ${v > 100 ? "beyond" : ""}"><i style="width:${Math.min(100, v)}%;--c:${STAT_COLORS[i]}"></i><s style="left:${Math.min(100, cap)}%" title="Current limit ${Math.floor(cap)}"></s></span><b>${showStat(v)}</b>${grade(v)}${growthMark(a, i)}</div>`,
     )
-    .join("")}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
+    .join("")}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. The bars show how fast each stat grows for a ${esc(typeName(a))}. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
 }
 function athletePage(s, a, view) {
   const tabs = [
@@ -175,7 +184,7 @@ function athletePage(s, a, view) {
     <article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>
-    <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}</div>
+    <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}<br><b>${esc(typeName(a))}</b>: ${esc(ATHLETE_TYPES[a.type]?.desc || "")} <em>Growth: ${STAT_NAMES.map((n, i) => n + " " + GROWTH[ATHLETE_TYPES[a.type]?.growth[i] ?? 2].name.toLowerCase()).join(" · ")}.</em></div>
     <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Projected <b>${mark(G.forecast(s, a, a.event))}</b></span></div>`;
   }
   if (tab === "stats") body += btn(s.settings.followAthlete===a.id ? "Following in highlights · stop" : "Follow this athlete in highlights","follow-athlete",`data-id="${a.id}"`,"subtle")+masteryCard(s,a)+developmentCard(a);
@@ -241,7 +250,7 @@ function athletePage(s, a, view) {
     <details class="danger"><summary>Release contract</summary><p class="hint">${esc(a.name)} leaves the squad; their gear returns to the bag and their marks stay in club history.</p>${btn("Release " + esc(a.name.split(" ")[0]), "release-contract", `data-id="${a.id}" ${s.roster.length <= 4 ? "disabled" : ""}`, "subtle")}</details>`;
   }
   return `<div class="athlete-page"><aside class="athlete-side">${btn("‹ Squad", "back-squad", "", "text")}
-  <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)}</h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
+  <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)}</h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} · ${esc(typeName(a))} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
   <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav></aside><div class="athlete-body">${body}</div></div>`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
@@ -268,41 +277,84 @@ function shortForecast(s, a) {
 // for the chosen group (chemistry included) and the bill; sessions waiting on a building are listed
 // underneath.
 const stars = (tier) => `<span class="tier" title="Step ${tier} of 5">${"★".repeat(tier)}<i>${"★".repeat(5 - tier)}</i></span>`;
-function drillGrid(s, ids, family = "all") {
-  const group = ids.map((id) => s.roster.find((a) => a.id === id)).filter(Boolean),
-    n = Math.max(1, group.length),
-    lead = group[0],
-    chem = G.chemistryOf(s, ids);
+// The step on the drill's ladder: stars, then pips (or a bar) to the next step.
+function drillLadder(s, id) {
+  const level = G.drillLevel(s, id), next = G.drillThreshold(level), xp = G.drillXp(s, id), prev = G.drillThreshold(level - 1);
+  return `<span class="drill-lv">${stars(G.tierOf(level))}${next == null ? "" : next - prev <= 8 ? `<span class="xp">${Array.from({ length: next - prev }, (_, k) => `<i class="${k < xp - prev ? "on" : ""}"></i>`).join("")}</span>` : `<span class="xp-bar">${bar(xp - prev, next - prev, "#e2a92a")}</span>`}</span>`;
+}
+function drillTip(s, id) {
+  const level = G.drillLevel(s, id), next = G.drillThreshold(level), xp = G.drillXp(s, id),
+    upcoming = level < G.DRILL_NAMES[id].length ? G.DRILL_NAMES[id][level] : null;
+  return [G.DRILLS[id].desc || "", upcoming ? `Next step: ${upcoming} in ${next - xp} more session${next - xp === 1 ? "" : "s"}.` : ""].filter(Boolean).join(" ");
+}
+const billChips = (s, cost, energy) =>
+  `${cost.money ? `<span class="cost money ${s.money < cost.money ? "short" : ""}">${ico("coin")}${cash(cost.money)}</span>` : `<span class="cost ${s.coaching.insights < cost.insights ? "short" : ""}">${ico("idea")}${cost.insights}</span>`}${energy ? `<span class="cost energy">${ico("bolt")}${energy}</span>` : ""}`;
+// Gains as coloured pills. On a drill card they show which stats it works. In the picker they show
+// a size, +, ++ or +++, against the biggest gain anyone there would get: each session rolls a rating
+// that scales the result, so an exact number would promise more than the session can.
+const SIZES = [["+", "Small gain"], ["++", "Good gain"], ["+++", "Big gain"]];
+function gainPills(gains, top = 0, chem = null) {
+  return gains
+    .map((g, i) => {
+      if (g <= 0.05) return "";
+      const [mark, label] = top ? SIZES[g >= top * 0.67 ? 2 : g >= top * 0.34 ? 1 : 0] : ["↑", "Trains " + STAT_NAMES[i]];
+      return `<span class="gain ${chem && G.chemistryMult(chem)[i] > 1 ? "chem" : ""}" style="--c:${STAT_COLORS[i]}" title="${label}">${STAT_SHORT[i]} ${mark}</span>`;
+    })
+    .join("");
+}
+const extraPills = (id, d, ev) =>
+  (["delivery", "review"].includes(id) || d.mastery ? `<span class="gain" style="--c:${ev ? EVENTS[ev].color : "#c8a050"}">Mastery</span>` : "") +
+  (d.recover ? `<span class="gain" style="--c:#6ac08a">+${d.recover} stamina</span>` : "") +
+  (d.xp ? `<span class="gain" style="--c:#a465d6">+XP</span>` : "");
+// Training menu, step one: pick a session. Each card shows its step on the ladder, the stats it
+// works, the bill for one athlete and how many of the squad can do it today. Sessions waiting on a
+// building are listed underneath.
+function drillGrid(s, family = "all") {
   const card = ([id, d]) => {
-    const problem = G.groupProblem(s, ids, id),
-      level = G.drillLevel(s, id),
-      tier = G.tierOf(level),
-      next = G.drillThreshold(level),
-      xp = G.drillXp(s, id),
-      prev = G.drillThreshold(level - 1),
-      cost = G.sessionCost(s, id, n),
-      energy = G.drillEnergy(s, id),
-      upcoming = level < G.DRILL_NAMES[id].length ? G.DRILL_NAMES[id][level] : null;
-    const avg = [0, 1, 2, 3].map((i) => (group.length ? group.reduce((sum, a) => sum + G.drillGains(s, a, id, n, chem)[i], 0) / group.length : 0));
-    const ev = lead ? EVENTS[lead.trainingEvent || lead.event] : null;
-    const pills = avg.map((g, i) => (g > 0.05 || (!group.length && d.gains[i]) ? `<span class="gain ${chem && G.chemistryMult(chem)[i] > 1 && s.coaching.chemistry?.includes(chem.key) ? "chem" : ""}" style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} ${!group.length ? "↑" : plus(g)}</span>` : "")).join("") +
-      (["delivery", "review"].includes(id) || d.mastery ? `<span class="gain" style="--c:${ev?.color || "#c8a050"}">Mastery</span>` : "") +
-      (d.recover ? `<span class="gain" style="--c:#6ac08a">+${d.recover} stamina</span>` : "") +
-      (d.xp ? `<span class="gain" style="--c:#a465d6">+XP</span>` : "");
-    const tip = [id === "delivery" && lead ? G.EVENT_DRILLS[lead.trainingEvent || lead.event] : d.desc || "", upcoming ? `Next step: ${upcoming} in ${next - xp} more session${next - xp === 1 ? "" : "s"}.` : ""].filter(Boolean).join(" ");
-    return `<button class="drill fam-${d.family} ${problem ? "locked" : ""} ${tier >= 4 ? "high-tier" : ""}" data-act="coach-session" data-ids="${ids.join(",")}" data-drill="${id}" ${problem ? "disabled" : ""} title="${esc(tip)}">
-        <span class="drill-top"><span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong><span class="drill-lv">${stars(tier)}${next == null ? "" : next - prev <= 8 ? `<span class="xp">${Array.from({ length: next - prev }, (_, k) => `<i class="${k < xp - prev ? "on" : ""}"></i>`).join("")}</span>` : `<span class="xp-bar">${bar(xp - prev, next - prev, "#e2a92a")}</span>`}</span></span><span class="drill-cost">${cost.money ? `<span class="cost money ${s.money < cost.money ? "short" : ""}">${ico("coin")}${cash(cost.money)}</span>` : `<span class="cost ${s.coaching.insights < cost.insights ? "short" : ""}">${ico("idea")}${cost.insights}</span>`}${energy ? `<span class="cost energy">${ico("bolt")}${energy}</span>` : ""}</span></span>
-        <span class="gains">${pills}</span>
-        ${problem && group.length ? `<small class="why">${esc(problem)}</small>` : ""}
+    const able = s.roster.filter((a) => !G.drillProblem(s, a, id, 1)),
+      problem = !able.length ? "No one can do this today" : able.length < (d.minGroup || 1) ? `Needs ${d.minGroup} athletes free` : null,
+      base = d.gains.map((g, i) => (G.tierOf(G.drillLevel(s, id)) >= 3 && d.broad === i ? g + Math.max(...d.gains) * 0.25 : g));
+    return `<button class="drill fam-${d.family} ${problem ? "locked" : ""} ${G.tierOf(G.drillLevel(s, id)) >= 4 ? "high-tier" : ""}" data-act="pick-drill" data-drill="${id}" ${problem ? "disabled" : ""} title="${esc(drillTip(s, id))}">
+        <span class="drill-top"><span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong>${drillLadder(s, id)}</span><span class="drill-cost">${billChips(s, G.sessionCost(s, id, 1), G.drillEnergy(s, id))}</span></span>
+        <span class="gains">${gainPills(base)}${extraPills(id, d, null)}</span>
+        <small class="${problem ? "why" : "able"}">${problem ? esc(problem) : `${able.length} of ${s.roster.length} can train${d.minGroup ? ` · ${d.minGroup}+ together` : ""}`}</small>
       </button>`;
   };
   const order = G.DRILL_FAMILIES.map(([f]) => f),
     entries = Object.entries(G.DRILLS).filter(([, d]) => family === "all" || d.family === family).sort(([, x], [, y]) => order.indexOf(x.family) - order.indexOf(y.family)),
-    waiting = ([id, d]) => !!G.facilityProblem(s, lead || s.roster[0], d.needs),
+    waiting = ([, d]) => s.roster.every((a) => G.facilityProblem(s, a, d.needs)),
     ready = entries.filter((e) => !waiting(e)),
     later = entries.filter(waiting);
   return `<div class="drill-grid">${ready.map(card).join("") || `<p class="hint">Nothing in this family yet: see the buildings below.</p>`}</div>
-  ${later.length ? `<details class="drill-later"><summary>${ico("lock")} ${later.length} more session${later.length > 1 ? "s" : ""} unlock with new buildings</summary><ul>${later.map(([id, d]) => `<li title="${esc(id === "delivery" && lead ? G.EVENT_DRILLS[lead.trainingEvent || lead.event] : d.desc || "")}">${ico(DRILL_ICONS[id] || "levelup")}<span><strong>${esc(G.drillName(s, id))}</strong><small>${esc(G.facilityProblem(s, lead || s.roster[0], d.needs))}</small></span></li>`).join("")}</ul></details>` : ""}`;
+  ${later.length ? `<details class="drill-later"><summary>${ico("lock")} ${later.length} more session${later.length > 1 ? "s" : ""} unlock with new buildings</summary><ul>${later.map(([id, d]) => `<li title="${esc(d.desc || "")}">${ico(DRILL_ICONS[id] || "levelup")}<span><strong>${esc(G.drillName(s, id))}</strong><small>${esc(G.facilityProblem(s, s.roster[0], d.needs))}</small></span></li>`).join("")}</ul></details>` : ""}`;
+}
+// Step two: who does it. Every athlete is listed with their event, type, stats and growth, and what
+// this session would give them in the current group. The stats their event leans on are outlined.
+function drillPicker(s, view, id) {
+  const d = G.DRILLS[id], ids = trainees(s, view), n = ids.length, chem = G.chemistryOf(s, ids),
+    problem = G.groupProblem(s, ids, id), cost = G.sessionCost(s, id, Math.max(1, n));
+  const preview = new Map(s.roster.map((a) => {
+      const group = ids.includes(a.id) ? ids : [...ids, a.id].slice(-G.MAX_GROUP);
+      return [a.id, G.drillProblem(s, a, id, 1) ? [0, 0, 0, 0] : G.drillGains(s, a, id, group.length, G.chemistryOf(s, group))];
+    })),
+    top = Math.max(0, ...[...preview.values()].flat());
+  const row = (a) => {
+    const at = ids.indexOf(a.id), why = G.drillProblem(s, a, id, 1), ev = a.trainingEvent || a.event, w = EVENTS[ev].weights, cap = G.capOf(a),
+      gains = preview.get(a.id);
+    return `<button class="pick-row ${at >= 0 ? "on" : ""}" data-act="trainee" data-id="${a.id}" aria-pressed="${at >= 0}" ${why && at < 0 ? "disabled" : ""}>
+      <span class="pick-who">${portrait(a)}${at >= 0 ? `<i class="order">${at + 1}</i>` : ""}<span><b>${esc(a.name.split(" ")[0])}</b> ${eventChip(ev)}<small>Lv ${a.level} · ${esc(typeName(a))} · OVR ${Math.round(G.eventRating(a, ev))}</small>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span></span>
+      <span class="sheet-stats">${a.stats.map((v, i) => `<span class="sheet-stat ${w[i] >= 0.25 ? "key" : ""}" style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}: ${Math.round(w[i] * 100)}% of ${esc(EVENTS[ev].name)} · ceiling ${Math.floor(cap)}"><small>${STAT_SHORT[i]}</small><b>${showStat(v)}</b>${growthMark(a, i)}<i style="width:${Math.min(100, (v / cap) * 100)}%"></i></span>`).join("")}</span>
+      <span class="pick-gains">${why ? `<small class="why">${esc(why)}</small>` : gainPills(gains, top, chem && s.coaching.chemistry?.includes(chem.key) ? chem : null) || `<small>${["delivery", "review"].includes(id) || d.mastery ? "Mastery only" : "Little to gain"}</small>`}</span>
+    </button>`;
+  };
+  const tip = id === "delivery" && ids.length ? [...new Set(ids.map((x) => s.roster.find((a) => a.id === x)?.trainingEvent || s.roster.find((a) => a.id === x)?.event))].map((ev) => G.EVENT_DRILLS[ev]).join(" ") : drillTip(s, id);
+  return `<div class="drill-pick">
+  <div class="pick-head fam-${d.family}">${btn("‹ Sessions", "pick-drill", 'data-drill=""', "text")}<span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong>${drillLadder(s, id)}<small>${esc(tip)}</small></span><span class="gains">${extraPills(id, d, null)}</span></div>
+  <p class="session-hint">${n > 1 ? `<b>Group of ${n}: +${(n - 1) * 10}%.</b> ` : `Pick up to ${G.MAX_GROUP} to train together; each partner adds 10%. `}${chemistryLine(s, ids)}</p>
+  <div class="pick-list">${s.roster.map(row).join("")}</div>
+  <p class="sheet-key"><span class="k-key">Key stat for their event</span><span>Growth speed ${rateMeter(0, "Fast")} fast · ${rateMeter(4, "Very slow")} slow</span><span>+ to +++ expected gain; every session rolls its own result</span></p>
+  <div class="session-run"><span class="run-bill">${n ? billChips(s, cost, G.drillEnergy(s, id)) : ""}</span>${btn(problem ? esc(problem) : `${ico("play")} Run session${n > 1 ? " · " + n + " athletes" : ""}`, "coach-session", `data-ids="${ids.join(",")}" data-drill="${id}" ${problem ? "disabled" : ""}`)}</div>
+</div>`;
 }
 // What the chosen group's chemistry looks like: named once discovered, a hint before then.
 function chemistryLine(s, ids) {
@@ -322,9 +374,9 @@ function chemistryBook(s) {
   }).join("")}</div>`;
 }
 const canTrain = (s, a) => !a.injury && a.coachedDay !== s.day;
-export function trainees(s, view) {
+export function trainees(s, view, auto = false) {
   const picked = (view.trainees || []).filter((id) => s.roster.some((a) => a.id === id && canTrain(s, a)));
-  if (picked.length) return picked;
+  if (picked.length || !auto) return picked;
   const first = s.roster.find((a) => canTrain(s, a));
   return first ? [first.id] : [];
 }
@@ -346,7 +398,7 @@ function preparationToggle(s) {
 }
 function coachingPlanControls(s,view) {
   const scope=view.planScope||"entrants", plan=PLANS[view.groupPlan]?view.groupPlan:"balanced";
-  const ids=G.coachingTargets(s,scope,trainees(s,view)), preview=G.trainingPlanPreview(s,ids,plan);
+  const ids=G.coachingTargets(s,scope,trainees(s,view,true)), preview=G.trainingPlanPreview(s,ids,plan);
   return `<section class="card prep-controls"><div class="card-title"><h2>${ico("calendar")} Meet preparation</h2><span class="chip">${s.settings.autoMeetPrep?"Standard auto":"Manual"}</span></div>${preparationToggle(s)}
   ${s.settings.autoMeetPrep ? `<p class="prep-active">${s.phase === "season" && s.matchDay != null ? `Next meet: ${esc(G.shortDate(s.matchDay))} · Rest day: ${esc(G.shortDate(Math.max(1,s.matchDay-1)))}.` : "Book a meet to start the standard routine."} Saved manual plans resume when you turn this off.</p>` : ""}
   <details class="group-plans" ${(view.showGroupPlans ?? !s.settings.autoMeetPrep)?"open":""}><summary>Apply a coaching plan to a group</summary><div class="group-plan-fields"><label>Athletes<select data-change="plan-scope">${[["entrants","Meet entrants"],["squad","Whole squad"],["group","Selected training group"]].map(([id,label])=>`<option value="${id}" ${scope===id?"selected":""}>${label}</option>`).join("")}</select></label><label>Daily plan<select data-change="group-plan">${Object.entries(PLANS).map(([id,p])=>`<option value="${id}" ${plan===id?"selected":""}>${p.name}${p.course&&!s.coaching.unlocked.includes(id)?" · unlock "+p.cost+" Insights":""}</option>`).join("")}</select></label></div><p class="hint">${esc(PLANS[plan].desc)} ${preview.eligible.length} / ${ids.length} athletes qualify. ${preview.cost ? "Unlock once for the club, then apply to eligible athletes." : "No Insights spent to assign this plan."}</p>
@@ -364,19 +416,13 @@ export function train(s, view) {
   if (tab === "plans") return tabs + dailyPlans(s, view);
   if (tab === "chemistry") return tabs + chemistryBook(s);
   if (tab === "bag") return tabs + (items.length ? `<div class="use-grid">${items.map((k) => `<button class="use-item rarity-${ITEMS[k].rarity}" data-act="use" data-item="${k}">${icon(k, 32)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${esc(ITEMS[k].desc)}</small></span></button>`).join("")}</div>` : `<p class="hint">Kit bag's empty. Drinks and shakes are in the ${btn("Kit shop", "page", 'data-page="shop"', "text")}.</p>`);
-  const ids = trainees(s, view),
-    family = ["all", ...G.DRILL_FAMILIES.map(([f]) => f)].includes(view.drillFamily) ? view.drillFamily : "all";
-  return `${tabs}<div class="session-board">
-  <div class="trainee-strip" aria-label="Training group: up to 3, each partner adds 10%">${s.roster
-    .map((b) => {
-      const at = ids.indexOf(b.id),
-        why = b.injury ? "Injured" : b.coachedDay === s.day ? "Done today" : "";
-      return `<button class="trainee ${at >= 0 ? "on" : ""}" data-act="trainee" data-id="${b.id}" aria-pressed="${at >= 0}" ${why ? "disabled" : ""}>${portrait(b)}<span>${esc(b.name.split(" ")[0])}</span>${bar(b.stamina, 100, b.stamina < 30 ? "#e0604a" : "#6ac08a")}${at >= 0 ? `<i class="order">${at + 1}</i>` : ""}${why ? `<i class="done">${ico(b.injury ? "bandage" : "check")}</i><small>${why}</small>` : ""}</button>`;
-    })
-    .join("")}</div>
-  <div class="session-list">${ids.length ? `<p class="session-hint">${ids.length > 1 ? `<b>Group of ${ids.length}: +${(ids.length - 1) * 10}%.</b> ` : "Tap faces to train up to 3 together. "}${chemistryLine(s, ids)}</p>
-  <div class="session-tools"><nav class="fam-filter" aria-label="Session family">${[["all", "All"], ...G.DRILL_FAMILIES.map(([f, label]) => [f, label])].map(([f, label]) => `<button data-act="drill-family" data-value="${f}" class="${family === f ? "active" : ""} fam-${f}" aria-pressed="${family === f}">${label}</button>`).join("")}</nav>${coachBadge(s)}<span class="tools-insights">${ico("idea")}<b>${s.coaching.insights}</b></span></div>
-  ${drillGrid(s, ids, family)}` : `<p class="hint">Everyone has had a session today. Press Train to roll on to tomorrow.</p>`}</div></div>`;
+  const family = ["all", ...G.DRILL_FAMILIES.map(([f]) => f)].includes(view.drillFamily) ? view.drillFamily : "all";
+  if (G.DRILLS[view.drill]) return tabs + drillPicker(s, view, view.drill);
+  const free = s.roster.filter((a) => canTrain(s, a)).length;
+  return `${tabs}<div class="session-list">
+  <div class="session-tools"><nav class="fam-filter" aria-label="Session family">${[["all", "All"], ...G.DRILL_FAMILIES.map(([f, label]) => [f, label])].map(([f, label]) => `<button data-act="drill-family" data-value="${f}" class="${family === f ? "active" : ""} fam-${f}" aria-pressed="${family === f}">${label}</button>`).join("")}</nav>${coachBadge(s)}</div>
+  ${free ? "" : `<p class="hint">Everyone has had a session today. Press Train to roll on to tomorrow.</p>`}
+  ${drillGrid(s, family)}</div>`;
 }
 function coachBadge(s) {
   const level = G.coachLevel(s), done = s.counters?.coachedSessions || 0, from = G.coachThreshold(level - 1), to = G.coachThreshold(level);
@@ -489,8 +535,8 @@ export function recruit(s) {
   <div class="prospects">${s.prospects
     .map((a) => {
       const cost = G.signCost(s, a);
-      return `<article class="prospect rarity-${a.rarity}"><div class="prospect-head">${portrait(a)}<div>${eventChip(a.event)} ${rarityChip(a)}<h2>${esc(a.name)}</h2><small>${BACKGROUNDS[a.background].name} · potential ${Math.floor(a.potential)}</small></div>${ovrBadge(a)}</div>
-      <div class="statline big">${a.stats.map((v, i) => `<i style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} ${showStat(v)}</i>`).join("")}</div>
+      return `<article class="prospect rarity-${a.rarity}"><div class="prospect-head">${portrait(a)}<div>${eventChip(a.event)} ${rarityChip(a)}<h2>${esc(a.name)}</h2><small>${BACKGROUNDS[a.background].name} · ${esc(typeName(a))} · potential ${Math.floor(a.potential)}</small></div>${ovrBadge(a)}</div>
+      <div class="statline big">${a.stats.map((v, i) => `<i style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} ${showStat(v)} ${growthMark(a, i)}</i>`).join("")}</div>
       ${a.skills.length ? `<p class="hint">Knows <b>${SKILLS[a.skills[0]].name}</b>: ${SKILLS[a.skills[0]].desc}</p>` : ""}
       <div class="prospect-foot"><span>Wage ${cash(G.wageOf(a))}/wk</span>${btn("Sign · " + cash(cost), "recruit", `data-id="${a.id}" ${full || s.money < cost ? "disabled" : ""}`, "small")}</div></article>`;
     })
@@ -509,6 +555,30 @@ function stadiumCard(s, key, open) {
     cost = d.cost[lvl];
   return `<div class="stadium-row ${open ? "open" : ""}"><button class="stadium-head" data-act="spot" data-key="${key}">${ico(STADIUM_ICON[key])}<span><strong>${d.name}</strong><small>${esc(d.levels[lvl])}</small></span>${pips(lvl, d.max)}</button>
   ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
+}
+// What a construction or upgrade will cost and do, shown before any money is spent.
+export function constructionConfirm(s, o) {
+  const after = s.money - o.cost;
+  return `<div class="confirm-build">${o.picture || ""}<div><p>${o.desc}</p>
+    <div class="confirm-facts"><span>Cost <b>${cash(o.cost)}</b></span>${o.upkeep != null ? `<span>Upkeep <b>${o.upkeepFrom ? cash(o.upkeepFrom) + " → " : ""}${cash(o.upkeep)}/wk</b></span>` : ""}<span>Funds after <b class="${after < 300 ? "neg" : ""}">${cash(after)}</b></span></div>
+    ${o.note ? `<p class="hint">${o.note}</p>` : ""}</div></div>`;
+}
+export function buildConfirmBody(s, i, type) {
+  const d = FACILITIES[type],
+    // Combos this spot would complete, named only if the club has already found them.
+    pairs = COMBOS.filter((c) => !c.stadium && (c.a === type || c.b === type) && G.neighbours(i).some((j) => [c.a, c.b].includes(s.plots[j]?.type) && s.plots[j]?.type !== type)),
+    known = pairs.filter((c) => s.discovered.includes(c.key));
+  return constructionConfirm(s, { cost: d.cost, upkeep: G.upkeepOf(type, 1), desc: d.desc, picture: `<canvas class="building" width="104" height="66" data-building="${type}:1"></canvas>`,
+    note: known.length ? `${ico("spark")} Next door: ${known.map((c) => esc(c.name)).join(", ")}.` : pairs.length ? `${ico("spark")} Something good might happen next to the neighbours here…` : "" });
+}
+export function upgradeConfirmBody(s, i) {
+  const p = s.plots[i], d = FACILITIES[p.type];
+  return constructionConfirm(s, { cost: G.upgradeCost(p.type, p.level), upkeepFrom: p.type === "club" ? null : G.upkeepOf(p.type, p.level), upkeep: p.type === "club" ? null : G.upkeepOf(p.type, p.level + 1), desc: d.desc,
+    picture: `<canvas class="building" width="104" height="66" data-building="${p.type}:${Math.min(3, p.level + 1)}"></canvas>`, note: (p.level + 1) % 5 === 0 ? "Level " + (p.level + 1) + " makes it a landmark." : "" });
+}
+export function stadiumConfirmBody(s, key) {
+  const d = STADIUM[key], lvl = s.stadium[key], cost = d.cost[lvl];
+  return constructionConfirm(s, { cost, upkeep: Math.round(cost * 0.03), desc: `<b>${esc(d.levels[lvl + 1])}</b>. ${d.desc}` });
 }
 export function build(s, view) {
   const sel = view.selected;

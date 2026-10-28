@@ -53,3 +53,15 @@ test("customisation survives saving, and older saves get the defaults", () => {
   assert.equal(migrated.colors.shorts, "dark", "an unowned choice falls back to the default");
   assert.equal(migrated.stadiumStyle.track, "auto");
 });
+
+test('building and upgrading show the bill and what changes before anything is spent', async () => {
+  const P = await import('../src/ui/pages.js');
+  const s = G.newGame(60), free = G.unlockedPlots(s).find((i) => !s.plots[i]), money = s.money;
+  const build = P.buildConfirmBody(s, free, 'cafe');
+  assert.match(build, /Cost/); assert.match(build, /Upkeep/); assert.match(build, /Funds after/); assert.match(build, /data-building="cafe:1"/);
+  const gym = s.plots.findIndex((p) => p?.type === 'gym');
+  assert.match(P.upgradeConfirmBody(s, gym), /→/);
+  assert.match(P.stadiumConfirmBody(s, 'discus'), /Cost/);
+  assert.equal(s.money, money, 'showing a confirmation spends nothing');
+  assert.deepEqual(s.plots[free], null);
+});

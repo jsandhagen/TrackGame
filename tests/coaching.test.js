@@ -59,8 +59,8 @@ test('previous careers receive initial coaching resources without losing active 
  for(const mutate of [s=>s.coaching.insights=-1,s=>s.coaching.unlocked=['rest'],s=>s.coaching.unlocked=['strengthblock','strengthblock'],s=>s.roster[0].coachedDay=-1]){const x=G.newGame(9);mutate(x);assert.throws(()=>validateCampaign(x))}
 });
 test('training UI presents event-specific coached sessions, Insights costs and facility requirements',()=>{
- const s=G.newGame(10),discus=s.roster[1];const html=P.train(s,{trainees:[discus.id]});
- assert.match(html,/South African/);assert.match(html,/Discus cage level/);assert.match(html,/data-act="coach-session"/);
+ const s=G.newGame(10),discus=s.roster[1];const html=P.train(s,{trainees:[discus.id],drill:'delivery'});
+ assert.match(html,/South African/);assert.match(html,/data-act="coach-session"/);assert.match(html,/Discus cage level 1 required/);
  const athlete=P.squad(s,{athlete:discus.id,tab:'train'});
  assert.match(athlete,/Insights ready/);assert.match(athlete,/coach-athlete/);assert.match(athlete,/Maximum-strength block/);
 });
@@ -79,7 +79,7 @@ test('group sessions share one bill, rate every athlete, level the drill up and 
  const copy=validateCampaign(exportCampaign(s));assert.equal(copy.coaching.drills.lifting,3);
  const old=structuredClone(s);delete old.coaching.drills;assert.deepEqual(validateCampaign(old).coaching.drills,{});
  const broken=structuredClone(s);broken.coaching.drills={nonsense:1};assert.throws(()=>validateCampaign(broken));
- const html=P.train(s,{trainees:[s.roster[3].id]});assert.match(html,/Training group/);assert.match(html,/Squat &amp; pull complex/);
+ const html=P.train(s,{});assert.match(html,/Squat &amp; pull complex/);assert.match(P.train(s,{drill:'lifting',trainees:[s.roster[3].id]}),/Run session/);
 });
 
 test('starter sessions need no buildings: focus work, a recovery session that gives stamina back and a throw-off that needs a group',()=>{

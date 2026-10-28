@@ -148,13 +148,13 @@ export function newGame(seed = Date.now() >>> 0) {
   s.plots[CLUB_PLOT] = { type: "club", level: 1 };
   s.plots[10] = { type: "gym", level: 1 };
   const starters = [
-    ["shot", "Mara Kowal", "farm", { skin: "#e2b08a", hair: "#8e4c33", style: 2 }],
-    ["discus", "Tomas Reyes", "gymnast", { skin: "#c98f66", hair: "#1e1e24", style: 0 }],
-    ["hammer", "Noor Haddad", "dancer", { skin: "#a06a48", hair: "#1e1e24", style: 4 }],
-    ["jav", "Kofi Mensah", "sprinter", { skin: "#5e3a2a", hair: "#1e1e24", style: 1 }],
+    ["shot", "Mara Kowal", "farm", { skin: "#e2b08a", hair: "#8e4c33", style: 2 }, "powerhouse"],
+    ["discus", "Tomas Reyes", "gymnast", { skin: "#c98f66", hair: "#1e1e24", style: 0 }, "technician"],
+    ["hammer", "Noor Haddad", "dancer", { skin: "#a06a48", hair: "#1e1e24", style: 4 }, "natural"],
+    ["jav", "Kofi Mensah", "sprinter", { skin: "#5e3a2a", hair: "#1e1e24", style: 1 }, "speedster"],
   ];
-  for (const [event, name, background, look] of starters) {
-    const a = createAthlete(s, event, { name, background, look, potential: 62 + Math.round(random(s) * 4) });
+  for (const [event, name, background, look, type] of starters) {
+    const a = createAthlete(s, event, { name, background, look, type, potential: 62 + Math.round(random(s) * 4) });
     s.roster.push(a);
     s.lineup[event] = a.id;
   }

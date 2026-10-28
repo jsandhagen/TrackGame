@@ -16,8 +16,11 @@ export async function prepareUpdates(){
   if(pending)return applyPendingUpdate();
   return false;
 }
+// Updates are optional: if the updater plugin can't answer, play on with the installed game.
 export async function markGameHealthy(){
-  if(native)await CapacitorUpdater.notifyAppReady();
+  if(!native)return;
+  try{await CapacitorUpdater.notifyAppReady();}
+  catch(error){console.warn('Updater unavailable; playing the installed game',error);status='Update service unavailable. Your installed game and save remain available.';}
 }
 export async function applyPendingUpdate(){
   if(!native || !pending)return false;

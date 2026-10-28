@@ -50,7 +50,7 @@ test('prep and group changes are blocked during meets, and training exposes grou
  const s=booked();G.setAutoMeetPrep(s,true);s.day=s.matchDay;assert(G.startMatch(s));const snapshot=structuredClone(s);
  assert(!G.setAutoMeetPrep(s,false));assert(!G.applyTrainingPlanGroup(s,[s.roster[0].id],'rest').ok);assert.deepEqual(s,snapshot);
  const fresh=G.newGame(27),html=P.train(fresh,{trainTab:'plans'});assert.match(html,/Meet preparation/);assert.match(html,/Standard auto meet prep/);assert.match(html,/Selected training group/);
- const sessions=P.train(fresh,{});assert.match(sessions,/data-act="coach-session"/);assert(!sessions.includes('Meet preparation'),'sessions come first, plans live in their own tab');
+ const sessions=P.train(fresh,{});assert.match(sessions,/data-act="pick-drill"/);assert(!sessions.includes('Meet preparation'),'sessions come first, plans live in their own tab');
  const old=G.newGame(28);delete old.settings.autoMeetPrep;assert.equal(validateCampaign(exportCampaign(old)).settings.autoMeetPrep,false);
 });
 

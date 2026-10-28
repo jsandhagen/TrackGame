@@ -10,6 +10,8 @@ Ring & Sector 0.4.0 adds self-hosted game updates to the Android shell. Install 
 4. The next cold launch backs up the current native save, clears the pending marker and activates the downloaded bundle. An optional **Club → Apply downloaded update** control saves and flushes first, and is unavailable during training or a meet.
 5. The game validates the save and renders before acknowledging healthy startup. Save writes are disabled until the acknowledgment. The plugin reverts an unacknowledged startup after 20 seconds; an attempted build is not automatically retried.
 
+Updates are always optional. If the check finds no network, times out, gets no published release, or reads a manifest it can't validate, it skips quietly and the installed game keeps running. The same happens if the updater plugin itself fails to answer during the healthy-startup acknowledgment. Office → Save & settings shows the outcome.
+
 Switching away from the app is not a cold launch. Finish and reopen the process, or use the Club control when idle. No background installation service runs while the app is closed. An internet connection is needed to check or download, not to play.
 
 ## Publishing

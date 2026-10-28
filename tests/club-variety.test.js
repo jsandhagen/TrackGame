@@ -87,5 +87,5 @@ test('specialist buildings support group coaching, practice caps and event-match
  a.gear.implement='brassshot';a.eventMeets.shot=5;
  s.coaching.drills.trial=2;const out=G.coachGroup(s,[a.id],'trial');assert(out);assert.equal(out.level,2);
  assert(out.results[0].mastery>0);reload(s);
- const html=P.train(s,{trainees:[s.roster[2].id]});assert.match(html,/Indoor technical rehearsal/);assert.match(html,/Implement comparison|Grip &amp; release trial/);
+ const html=P.train(s,{});assert.match(html,/Indoor technical rehearsal/);assert.match(html,/Implement comparison|Grip &amp; release trial/);
 });

@@ -51,6 +51,26 @@ export const BACKGROUNDS = {
   prodigy: { name: "Prodigy", story: "Born to throw.", desc: "All training +10%, XP +10%", gain: 1.1, xp: 1.1, rare: true },
 };
 
+// Athlete types: how quickly each stat grows (Power, Technique, Speed, Focus). Every type adds up to
+// the same total, so a type decides where an athlete grows fastest, not how good they get. `fits`
+// names the events whose key stats it grows quickly.
+export const GROWTH = [
+  { mult: 1.3, name: "Fast" },
+  { mult: 1.15, name: "Quick" },
+  { mult: 1, name: "Normal" },
+  { mult: 0.9, name: "Slow" },
+  { mult: 0.8, name: "Very slow" },
+];
+export const ATHLETE_TYPES = {
+  powerhouse: { name: "Powerhouse", desc: "Packs on strength; slow to find speed.", growth: [0, 3, 4, 2], fits: ["shot", "hammer"] },
+  technician: { name: "Technician", desc: "Picks up technique fastest; slow to find speed.", growth: [3, 0, 4, 2], fits: ["discus", "jav"] },
+  speedster: { name: "Speedster", desc: "Gets quicker by the week; focus comes slowly.", growth: [3, 2, 0, 4], fits: ["jav"] },
+  mastermind: { name: "Mastermind", desc: "Focus grows fast; strength comes slowly.", growth: [4, 2, 3, 0], fits: [] },
+  thrower: { name: "Born Thrower", desc: "Strength and technique both grow quickly.", growth: [1, 1, 4, 3], fits: ["shot", "discus", "hammer"] },
+  natural: { name: "Natural Athlete", desc: "Strength and speed grow quickly.", growth: [1, 3, 1, 4], fits: ["shot", "hammer", "jav"] },
+  allrounder: { name: "All-rounder", desc: "Grows every stat at the same pace.", growth: [2, 2, 2, 2], fits: [] },
+};
+
 // Training menu. Each focused plan sends the athlete to its facility on the grounds.
 export const PLANS = {
   facilities: { name: "Use facilities automatically", short: "Use facilities", load: 0, cond: 0, facilityRole: true, desc: "Choose available club duties automatically to earn money, Coaching Insights or support the squad. Rest when tired; prepare for meets when selected." },
@@ -316,12 +336,12 @@ export const SPONSORS = {
 
 // Secret characters arrive as story events once their condition is met.
 export const SECRETS = {
-  olga: { name: "Grandma Olga", event: "shot", skill: "oldschool", background: "poker", fee: 600, look: { skin: "#f0c6a0", hair: "#d8d8d0", style: 6, special: "granny" }, stats: 4, potential: 78, hint: "Reach 250 fans", story: "A champion from the old days wants one more season. She brought her own knitting." },
-  bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
-  r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
-  yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
-  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the World League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
-  pip: { name: "Pip", event: "discus", skill: "wonderkid", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
+  olga: { name: "Grandma Olga", event: "shot", skill: "oldschool", type: "thrower", background: "poker", fee: 600, look: { skin: "#f0c6a0", hair: "#d8d8d0", style: 6, special: "granny" }, stats: 4, potential: 78, hint: "Reach 250 fans", story: "A champion from the old days wants one more season. She brought her own knitting." },
+  bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", type: "powerhouse", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
+  r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", type: "technician", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
+  yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", type: "speedster", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
+  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the World League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
+  pip: { name: "Pip", event: "discus", skill: "wonderkid", type: "allrounder", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
 };
 
 export const FIRST = ["Mara", "Tomas", "Noor", "Kofi", "Liv", "Hana", "Ezra", "Ines", "Dario", "Priya", "Ama", "Nico", "Zofia", "Kai", "Greta", "Owen", "Elif", "Lars", "Rui", "Tao", "Sade", "Mateo", "Ilse", "Bo", "Femi", "Anouk", "Ravi", "Odile", "Pax", "Wren", "Iker", "Saoirse", "Tariq", "Mina", "Otto", "Ayla", "Sven", "Lupe", "Hugo", "Nia", "Felix", "Rosa", "Arjun", "Ida", "Cyrus", "Maeve"];
