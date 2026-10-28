@@ -61,7 +61,7 @@ test('buildings and stadium upgrades cost upkeep, paid on payday', () => {
   s.money = 5000;
   assert(G.upgradeStadium(s, 'discus'));
   assert(G.upkeep(s) > before);
-  assert.equal(G.weeklyNet(s), G.weeklyIncome(s) - G.wages(s) - G.upkeep(s));
+  assert.equal(G.weeklyNet(s), G.weeklyIncome(s) + G.weeklyTakings(s) - G.wages(s) - G.upkeep(s));
   s.stadium.stands = STADIUM.stands.max;
   assert(G.upkeep(s) > 400, 'an Olympic stadium is expensive to run');
 });

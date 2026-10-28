@@ -163,10 +163,11 @@ function athletePage(s, a, view) {
     const next = RANKS[a.rank + 1],
       problem = G.promoteProblem(s, a);
     body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>
-    ${athleteDutyPicker(s,a)}
     ${statRows(a)}
-    <section class="card"><h3>Event attribute scaling</h3><p>Attribute weights before mastery, approach, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</section>
-    <section class="card"><h3>Skills & unique abilities</h3>${a.skills.map(k => `<p><b>${esc(SKILLS[k].name)}</b>${a.equipped.includes(k) ? " · Equipped" : " · Learned"}<br>${esc(SKILLS[k].desc)}</p>`).join("") || "<p>No learned skills yet.</p>"}${a.secret ? `<p><b>Unique: ${esc(SKILLS[SECRETS[a.secret].skill].name)}</b> · ${esc(SKILLS[SECRETS[a.secret].skill].desc)}</p>` : ""}${btn("Manage skills", "tab", 'data-tab="skills"', "subtle")}</section>
+    <p class="skill-line"><span>${a.equipped.length ? a.equipped.map((k) => esc(SKILLS[k].name)).join(" · ") : "No skills equipped"}${a.secret ? " · Unique: " + esc(SKILLS[SECRETS[a.secret].skill].name) : ""}</span>${btn("Manage skills", "tab", 'data-tab="skills"', "subtle small")}</p>
+    <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
+    ${athleteDutyPicker(s,a)}
+    <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, approach, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
     <article class="card rank-card"><div class="card-title"><h2>${RANKS[a.rank].name}${next ? " to " + next.name : ""}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : "<p>The highest honour in the sport.</p>"}
     </article>
@@ -236,9 +237,7 @@ function athletePage(s, a, view) {
   }
   return `${btn("‹ Squad", "back-squad", "", "text")}
   <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)}</h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
-  <label>Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select></label>
-  <p class="hint">Switching also selects the technical training event. Mastery and personal bests are kept; choose meet entries in the meet lobby.</p>
-  <nav class="tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav>${body}`;
+  <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav>${body}`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
 const DRILL_ICONS = { indoor: "target", peer: "video", trial: "ball", lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
@@ -582,7 +581,7 @@ function invitationCard(s) {
 function competitionBoard(s, view) {
   const planning = s.phase === "planning";
   const active = s.competition;
-  return `${invitationCard(s)}<section class="card calendar-intro"><span class="eyebrow">THE COMPETITION CIRCUIT</span><h2>Choose your next challenge</h2><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three fixtures and a final for the top two. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p>
+  return `${invitationCard(s)}<section class="card calendar-intro"><span class="eyebrow">THE COMPETITION CIRCUIT</span><h2>Choose your next challenge</h2><details class="circuit-help"><summary>How the circuit works</summary><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three fixtures and a final for the top two. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p></details>
     <div class="calendar-options"><label>Prepare before the first meet<select data-change="booking-preparation" ${planning ? "" : "disabled"}>${[3,5,7,10].map((n) => `<option value="${n}" ${(view.preparation || 5) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label><label>Days between league meets<select data-change="booking-spacing" ${planning ? "" : "disabled"}>${[4,7,10].map((n) => `<option value="${n}" ${(view.spacing || 7) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div>
     ${active ? `<p class="booking-summary"><b>${esc(G.competitionName(s))}</b> · ${s.phase === "seasonEnd" ? "Complete — review your season to book again." : "Next meet: day " + s.matchDay + (active.kind === "league" ? " · " + active.spacing + " days between fixtures" : "")}</p><div class="inline">${btn(s.phase === "seasonEnd" ? "Season review" : "Back to preparations", "page", 'data-page="home"', "subtle")}${s.fixture === 0 && !s.results.length && s.day < s.matchDay ? btn("Cancel booking", "cancel-booking", "", "subtle") : ""}</div>` : "<p class='hint'>Community leagues and duels are free; higher leagues charge an entry fee. Training carries on between meets (so do wages and upkeep), and every earlier competition stays open.</p>"}
   </section>
@@ -706,7 +705,7 @@ export function club(s, meta) {
   ${lookCard(s)}
   <div class="card-title"><h2>Sponsor</h2>${s.sponsorLocked ? chip("Locked this season", "#9aa58f") : chip("Choose before the first meet", "#e2b04a")}</div>
   <div class="sponsors">${Object.entries(SPONSORS).map(([id, d]) => `<button class="sponsor ${s.sponsor === id ? "selected" : ""}" data-act="sponsor" data-value="${id}" ${s.sponsorLocked || s.fans < d.fans ? "disabled" : ""}><strong>${d.name}</strong><small>${d.desc}</small>${s.fans < d.fans ? `<em>${d.fans.toLocaleString()} fans</em>` : ""}</button>`).join("")}</div>
-  <p class="hint">Weekly: income ${cash(G.weeklyIncome(s))}, wages ${cash(G.wages(s))}, upkeep ${cash(G.upkeep(s))}. Visitors spend at the café and merch stand every day.</p>
+  <p class="hint">Weekly: sponsor and club ${cash(G.weeklyIncome(s))}, café and merch about ${cash(G.weeklyTakings(s))}, wages ${cash(G.wages(s))}, upkeep ${cash(G.upkeep(s))}. Wages and upkeep are paid every Sunday.</p>
   <details class="card" open><summary>${ico("target")} Club goals · ${done} / ${G.GOALS.length}</summary>${G.GOALS.map((g) => (s.goals.includes(g.id) ? `<div class="goal done"><div><strong>${ico("check")} ${esc(g.name)}</strong><small>${esc(g.desc)}</small></div><span class="reward">${esc(G.rewardText(g.reward))}</span></div>` : goalRow(s, g))).join("")}</details>
   <details class="card"><summary>${ico("trophy")} Hall of fame</summary>${s.awardHistory.length ? s.awardHistory.slice(0, 20).map((w) => `<div class="history"><span>Season ${w.season} · ${esc(w.award)}</span><b>${esc(w.name)}</b></div>`).join("") : "<p class='hint'>Season awards appear here.</p>"}${s.alumni.length ? `<div class="card-title"><h2>Alumni</h2></div>${s.alumni.map((a) => `<div class="history"><span>${esc(a.name)} · ${EVENTS[a.event].name}</span><b>${a.pb[a.event] ? mark(a.pb[a.event]) : "—"}</b></div>`).join("")}` : ""}</details>
   ${btn("Settings & saving", "game-menu", "", "subtle")}
@@ -716,25 +715,31 @@ export function club(s, meta) {
 }
 
 // ── Meet lobby ──────────────────────────────────────────────────────────
+// "Mara Kowal" → "Mara K." for tight pickers.
+const shortName = (name) => name.replace(/^(\S+)\s+(\p{L}).*$/u, "$1 $2.");
 export function lobby(s) {
   const m = G.opponent(s),
     problem = G.lineupProblem(s);
+  const sky = G.weatherToday(s);
   return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
-  <p class="meet-forecast">${weatherChip(G.weatherToday(s))} <span>${esc(G.WEATHER[G.weatherToday(s)].desc)}</span></p>
+  <p class="meet-forecast">${weatherChip(sky)} <span>${esc(G.WEATHER[sky].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
-    const a = s.roster.find((x) => x.id === s.lineup[ev]),
+    // Every entry slot for the event sits in one row, beside the rival's specialist.
+    const ids = G.entriesOf(s, ev),
+      a = s.roster.find((x) => x.id === ids[0]),
       r = m.athletes[i],
-      mine = a ? G.forecast(s, a, ev, { doubleDuty: G.usesOf(s, a.id) > 1 }) : 0,
+      fc = (x) => G.forecast(s, x, ev, { doubleDuty: G.usesOf(s, x.id) > 1 }),
+      mine = ids.reduce((n, id) => Math.max(n, fc(s.roster.find((x) => x.id === id))), 0),
       theirs = G.rawMark(r, ev) * G.MOOD_MARK[2];
     const edge = mine / theirs - 1;
-    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge">${ico(edge > 0.01 ? "up" : edge < -0.01 ? "down" : "even")} ${Math.abs(edge * 100).toFixed(1)}%</span></div>
-      <div class="lineup-us">${a ? portrait(a) : ""}<span><select data-change="lineup" data-event="${ev}">${s.roster.map((x) => `<option value="${x.id}" ${x.id === s.lineup[ev] ? "selected" : ""} ${x.injury ? "disabled" : ""}>${esc(x.name)}${x.event === ev ? " (specialist)" : ""}${x.injury ? " (injured)" : ""}</option>`).join("")}</select><small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) + " · ~" + mark(mine) : ""}</small></span></div>
+    const slot = (k) => `<select data-change="entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}"><option value="0" ${ids[k] == null ? "selected" : ""}>No entry</option>${s.roster.map((x) => `<option value="${x.id}" ${ids[k] === x.id ? "selected" : ""} ${x.injury ? "disabled" : ""}>${esc(shortName(x.name))} · ${mark(fc(x))}${x.event === ev ? " ★" : ""}${x.injury ? " (injured)" : ""}</option>`).join("")}</select>`;
+    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge" title="Your best entry against their specialist">${ico(edge > 0.01 ? "up" : edge < -0.01 ? "down" : "even")} ${Math.abs(edge * 100).toFixed(1)}%</span></div>
+      <div class="lineup-us">${a ? portrait(a) : ""}<span class="entry-slots">${[0, 1, 2].filter((k) => k <= ids.length).map(slot).join("")}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : "No entry yet"}</small></span></div>
       <div class="lineup-them">${rivalPortrait(m.id, i)}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · ~${mark(theirs)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span></div></div>`;
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
+  <p class="hint">Up to three entries per event and two events per athlete; ★ marks a specialist. Places score 5–3–1, all-foul entries score zero, and ties go to the next-best throw.</p>
   ${s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("")}
-  <p class="hint">Individual places score 5–3–1; all-foul entries score zero. Ties use the second-best throw, then the next; identical series share points. Enter up to three athletes per event, two events per athlete. Leave events empty to concentrate your squad.</p>
-  <div class="entry-grid">${EVENT_IDS.map((ev) => `<section class="card"><h3>${EVENTS[ev].name} entries</h3>${[0,1,2].map((slot) => `<label>Entry ${slot+1}<select data-change="entry" data-event="${ev}" data-slot="${slot}"><option value="0">No entry</option>${s.roster.map((a) => `<option value="${a.id}" ${G.entriesOf(s,ev)[slot] === a.id ? "selected" : ""} ${a.injury ? "disabled" : ""}>${esc(a.name)}</option>`).join("")}</select></label>`).join("")}</section>`).join("")}</div>
   <div class="inline">${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   <div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
   <div class="card-title"><h2>How do you want to run it?</h2></div>

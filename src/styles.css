@@ -4362,3 +4362,116 @@ ol.howto li::marker {
 }
 /* Meet results start at the top of the screen, so toasts drop below the verdict and score. */
 #app.results #toasts { top: auto; bottom: calc(84px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
+/* ── Short landscape (phones on their side) ─────────────────────────────
+   The menu becomes a slim rail down the left edge so windows can use the
+   full height of the screen, and wider windows lay their cards side by side. */
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  :root { --rail: 52px; --win: min(560px, 62vw); }
+  #menu {
+    top: calc(var(--hud) + 46px);
+    bottom: max(6px, env(safe-area-inset-bottom));
+    right: auto;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: stretch;
+    width: var(--rail);
+  }
+  .menu-items {
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 12px;
+  }
+  .menu-item {
+    min-width: 0;
+    padding: 4px 0;
+  }
+  .menu-item .ico { width: 24px; height: 24px; }
+  .dot-badge { top: 2px; right: 4px; }
+  /* The main action stays bottom-right of the club; a window has its own actions. */
+  #menu .go {
+    position: fixed;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    margin: 0;
+  }
+  #app.has-window #menu .go { display: none; }
+  #tools {
+    left: calc(max(8px, env(safe-area-inset-left)) + var(--rail) + 8px);
+    bottom: max(8px, env(safe-area-inset-bottom));
+    grid-auto-flow: column;
+  }
+  #window {
+    top: calc(var(--hud) + 44px);
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: var(--win);
+    border-radius: 12px;
+  }
+  .win-head { padding: 3px 6px 10px 12px; }
+  .win-head h2 { font-size: 15px; }
+  .win-close { width: 28px; height: 28px; }
+  #panel { padding: 8px 10px 12px; }
+  #toasts {
+    left: calc(max(8px, env(safe-area-inset-left)) + var(--rail) + 8px);
+    width: min(420px, calc(100vw - var(--rail) - 32px));
+  }
+  #app.has-window #toasts { width: min(420px, calc(100vw - var(--win) - var(--rail) - 44px)); }
+  .meeting #toasts { left: max(10px, env(safe-area-inset-left)); }
+  /* Two columns where the content is a list of cards. */
+  #window .squad-grid,
+  #window .roster-strip,
+  #window .plan-rows,
+  #window .use-grid,
+  #window .item-grid,
+  #window .build-list,
+  #window .duel-list,
+  #window .entry-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 6px;
+  }
+  #window .profile .portrait.large { width: 64px; height: 64px; }
+  #window .profile h1 { font-size: 20px; }
+}
+/* Athlete file: tabs stay in reach while the file scrolls. */
+.athlete-tabs { position: sticky; top: -8px; z-index: 2; background: var(--paper); padding: 4px 0; }
+.skill-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; margin: 6px 0; }
+.primary-event { display: grid; gap: 3px; margin: 8px 0; font-size: 12px; font-weight: 700; }
+.primary-event small { font-weight: 400; color: var(--muted); }
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  #window .profile { gap: 10px; padding: 6px 8px; margin: 2px 0 4px; }
+  #window .profile p { margin: 0; }
+  .meeting #toasts { top: calc(var(--hud) + 56px); }
+}
+/* Call room: all of an event's entries in one row. */
+.entry-slots { display: grid; gap: 3px; }
+.entry-slots select { width: 100%; min-height: 30px; font-size: 12px; }
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  .lobby-sub, .meet-forecast { font-size: 11px; margin: 0 0 4px; }
+  .lineup-row { padding: 6px 8px; }
+}
+.circuit-help > summary { cursor: pointer; font-size: 12px; font-weight: 700; color: var(--muted); margin: 2px 0 6px; }
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  .lineup-row { grid-template-columns: 52px minmax(0, 1.5fr) minmax(0, 1fr); gap: 6px; }
+  .lineup-them .portrait { display: none; }
+}
+/* Dialogs keep their header and buttons in place; only the body scrolls,
+   so nothing opens half-scrolled and the action is always in reach. */
+dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
+dialog > .dialog-head, dialog > .dialog-actions { flex: none; }
+dialog > .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  dialog { max-height: calc(100dvh - 12px); }
+  .dialog-actions { padding: 8px 4px 10px; }
+  /* The training stage gives the results room on a short screen. */
+  .stage-canvas { width: auto; max-width: 100%; height: 38vh; margin: 0 auto; }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  /* Your call, coach: fits under the scoreboard, and the choices come right after the target. */
+  #window.center.low { top: calc(var(--hud) + 50px); bottom: max(6px, env(safe-area-inset-bottom)); max-height: none; transform: translateX(-50%); }
+  .decide { display: flex; flex-direction: column; gap: 6px; }
+  .decide > * { order: 3; margin: 0; }
+  .decide > p:first-child { order: 0; }
+  .decide > .scoring-target { order: 1; }
+  .decide > .tactics { order: 2; }
+}

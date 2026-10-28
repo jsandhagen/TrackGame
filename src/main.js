@@ -178,6 +178,7 @@ function render(preserve = true) {
   $("#stadium").hidden = !m;
   $("#app").classList.toggle("meeting", !!m);
   $("#app").classList.toggle("results", m?.phase === "complete");
+  $("#app").classList.toggle("has-window", !m && !!view.window);
   $("#meetbar").hidden = !m || m.phase === "complete";
   if (m && m.phase !== "complete") $("#meetbar").innerHTML = P.meetBar(state, view);
   const win = windowHTML();
@@ -317,6 +318,7 @@ function dialog(title, body, choices, o = {}) {
   );
   dlg.dataset.locked = o.locked ? "1" : "";
   dlg.showModal();
+  dlg.querySelector(".dialog-body").scrollTop = 0;
 }
 $("#dialog").addEventListener("cancel", (e) => {
   if ($("#dialog").dataset.locked) e.preventDefault();

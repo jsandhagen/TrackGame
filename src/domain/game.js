@@ -394,7 +394,9 @@ export function weeklyIncome(s) {
   return Math.round((sponsor.weekly + 80 + 60 * (facilityLevel(s, "club") - 1) + 70 * facilityLevel(s, "stands")) * (hasCombo(s, "nightfever") ? 1.15 : 1));
 }
 export const wages = (s) => s.roster.reduce((n, a) => n + wageOf(a), 0);
-export const weeklyNet = (s) => weeklyIncome(s) - wages(s) - upkeep(s);
+// A week of café and merch takings at today's visitor numbers.
+export const weeklyTakings = (s) => 7 * s.plots.reduce((n, p) => n + (p ? counterTakings(s, p.type, p.level) : 0), 0);
+export const weeklyNet = (s) => weeklyIncome(s) + weeklyTakings(s) - wages(s) - upkeep(s);
 function payWeek(s) {
   const income = weeklyIncome(s),
     paid = wages(s),
