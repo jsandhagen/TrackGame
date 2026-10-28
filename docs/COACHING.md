@@ -18,6 +18,17 @@ Coaching Insights sit in the top bar next to fans and money; the counter pulses 
 
 Consumables are previewed on each athlete before use (Power 29 → 31, Stamina 40 → 80) and athletes they would not help are greyed out with the reason (stamina already full, stat at its limit…), so items are never wasted. The shop offers **Buy & use** for consumables (pick the athlete, pay, apply), **+1 bag** to stock up, and for gear **Buy** followed by an optional immediate equip. The same result card shows what the item did.
 
+## Sessions first (0.9.x playtest pass)
+
+Playtesting found coached sessions felt like an optional extra next to the daily plans, and the Train window made you scroll past the plans to reach them. Sessions are now the main way an athlete grows:
+
+- **Train window tabs.** *Sessions* opens first: the squad stands beside the session cards (in a column on landscape phones, a row on portrait), and each card is one tap to run. Sessions still waiting on a building are listed in one line underneath. *Daily plans* holds meet preparation, group plans and each athlete's routine. *Kit bag* holds consumables. The athlete file's Training tab keeps the athlete's own plan and a *Coach a session* button that opens the Train window with them picked.
+- **Balance.** A day of practice earns 3 Insights (was 1), coached-session gains are 25% larger, and daily-plan gains are about 45% smaller. In a scripted 60-day opening with a duel every six days, sessions now supply about 62% of stat growth (was 33%), total growth is about 10% higher, and the bot runs a session about every other day. The long balance audit (12 seeds) keeps its pacing: the engaged bot's median world title moves from season 21 to 20. A bot that never coaches climbs more slowly (second league at season 12, was 9).
+- **Starter sessions.** Three sessions need no building, so there is a real choice on day one alongside strength, acceleration and event drills:
+  - *Breathing & visualisation* (4 Insights, 6 stamina): Focus, a little Technique.
+  - *Mobility & recovery* (3 Insights): gives back 30 stamina and adds a little Speed, Focus and Technique. It works even when legs are too heavy for anything else.
+  - *Club throw-off* (6 Insights, 18 stamina, two or more athletes): a little of every stat, event mastery, and 18 experience each, scaled by the rating.
+
 ## Special training (PLS2-style)
 
 Modelled on Pocket League Story 2, where research points pay for a drill that up to three players train together and drills level up with use.

@@ -15,7 +15,7 @@ const COACH = { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, shirt: "#2
 const QUALITY_COLOR = { good: "#8cc152", great: "#7cc8f0", excellent: "#f2c94c" };
 const QUALITY_TEXT = { good: "SOLID", great: "STRONG!", excellent: "BOMB!!" };
 // Coaching cues shouted mid-session.
-const CUES = { lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!", indoor: "SMOOTH RELEASE!", peer: "WATCH THE RHYTHM", trial: "FEEL THE GRIP" };
+const CUES = { visualise: "BREATHE IN...", recovery: "NICE AND EASY", contest: "BEAT THAT!", lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!", indoor: "SMOOTH RELEASE!", peer: "WATCH THE RHYTHM", trial: "FEEL THE GRIP" };
 const IMPLEMENT = { shot: "#6a6e78", discus: "#d8b060", hammer: "#5a5e68", jav: "#e8e0c8" };
 
 const slots = (n) => [[150], [118, 178], [96, 148, 200]][n - 1];
@@ -130,7 +130,14 @@ function testing(g,ctx) {
   rect(g,24,55,24,3,"#78918d");
   for(let x=81;x<SCENE_W;x+=35) { rect(g,x,67,25,3,"#a78459"); line(g,x+3,65,x+20,58,"#c3cbd1",2); }
 }
-const BACKDROPS = { indoor, peer: studio, trial: testing, lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
+// A quiet corner of the field with mats laid out for breathing work and stretching.
+function lawn(g, ctx) {
+  sky(g, "#f4c890", "#fbe6c4");
+  rect(g, 0, 50, SCENE_W, 10, "#6a9a52");
+  grass(g, 60);
+  for (const x of ctx.xs) rect(g, x - 11, FLOOR - 1, 22, 4, "#5a8ab0");
+}
+const BACKDROPS = { visualise: lawn, recovery: lawn, contest: field, indoor, peer: studio, trial: testing, lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
 
 // ── Athlete actions per drill ───────────────────────────────────────────
 // Returns the pose to draw plus any props, given time t since the drill started.
@@ -145,6 +152,16 @@ function act(drill, i, t, ev) {
       const p = wave(t + off * 3, 1500);
       return { pose: "run", frame: Math.floor(t / 80) % 4, dx: -70 + p * 140, dust: true };
     }
+    case "visualise": {
+      // Seated, eyes closed, a slow breath in and out.
+      const f = Math.floor((t + off) / 1100) % 2;
+      return { pose: "sit", frame: 1, dy: f, idea: wave(t + off, 2200) > 0.8 };
+    }
+    case "recovery": {
+      const f = Math.floor((t + off) / 700) % 2;
+      return { pose: f ? "sit" : "idle", frame: 0 };
+    }
+    case "contest":
     case "indoor":
     case "trial":
     case "delivery":
@@ -241,7 +258,7 @@ export function playTraining(cv, opts) {
       }
       const look = athleteLook(r.a, opts.colors, { pose: pose.pose, frame: pose.frame, event: pose.event, face: pose.face, flip });
       shadow(o, x, FLOOR + 1, 7);
-      figure(o, look, x, FLOOR);
+      figure(o, look, x, FLOOR + (pose.dy || 0));
       if (working && pose.sweat) {
         const s = wave(t + i * 97, 500);
         rect(o, x - 6 - s * 6, FLOOR - 34 + s * 10, 1, 2, "#9fe0ff");

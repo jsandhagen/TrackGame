@@ -155,7 +155,7 @@ function windowHTML() {
     build: () => P.build(state, view),
     shop: () => P.shop(state, view),
     league: () => P.league(state, view),
-    club: () => P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() }),
+    club: () => P.club(state, { version: GAME_VERSION, status: updateStatus(), pending: hasPendingUpdate() }, view),
     lobby: () => P.lobby(state, view),
     calendar: () => P.calendar(state, view),
   }[page]?.();
@@ -169,7 +169,7 @@ function render(preserve = true) {
   const groupPlans = $("#panel .group-plans");
   if (groupPlans) view.showGroupPlans = groupPlans.open;
   const panel = $("#panel"),
-    page = state.match ? "meet:" + state.match.phase : view.window + ":" + view.athlete,
+    page = state.match ? "meet:" + state.match.phase : [view.window, view.athlete, view.tab, view.tabs?.[view.window], view.trainTab, view.shopTab].join(":"),
     scroll = preserve && page === shownPage ? panel.scrollTop : 0;
   shownPage = page;
   hud();
@@ -261,6 +261,11 @@ function paint(root) {
 // ── Windows and dialogs ─────────────────────────────────────────────────
 function openWindow(page, opts = {}) {
   if (state.match) return;
+  // A window opens on its first tab.
+  if (page !== view.window) {
+    if (view.tabs) delete view.tabs[page];
+    if (page === "train") view.trainTab = null;
+  }
   view.window = page;
   if (page !== "squad") view.athlete = null;
   if (page !== "build") view.moving = null;
@@ -722,6 +727,15 @@ $("#app").addEventListener("click", async (e) => {
       return render(false);
     case "coach-session":
       return runTraining((b.dataset.ids || String(id)).split(",").filter(Boolean).map(Number), b.dataset.drill);
+    case "coach-athlete":
+      view.trainees = [id];
+      return openWindow("train");
+    case "page-tab":
+      (view.tabs ??= {})[b.dataset.page] = b.dataset.tab;
+      break;
+    case "train-tab":
+      view.trainTab = b.dataset.tab;
+      break;
     case "trainee": {
       const list = P.trainees(state, view).filter((x) => x !== id);
       if (list.length === P.trainees(state, view).length) list.push(id);

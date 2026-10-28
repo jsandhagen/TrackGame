@@ -41,8 +41,8 @@ test('advanced blocks trade additional training load for focused growth and fall
 test('training and meet Insights reward actual development once; facilities support earning',()=>{
  const s=G.newGame(6);s.roster.forEach(a=>{a.plan='rest';a.autoTaper=false});
  const before=s.coaching.insights;assert(G.advanceDay(s).ok);assert.equal(s.coaching.insights,before);
- s.roster[0].plan='power';assert(G.advanceDay(s).ok);assert.equal(s.coaching.insights,before+1);
- s.plots[8]={type:'lab',level:1};s.coaching.practiceDays=2;assert.equal(G.practiceInsights(s,true),2);
+ s.roster[0].plan='power';assert(G.advanceDay(s).ok);assert.equal(s.coaching.insights,before+G.PRACTICE_INSIGHTS);
+ s.plots[8]={type:'lab',level:1};s.coaching.practiceDays=2;s.coaching.spare=0.5;assert.equal(G.practiceInsights(s,true),G.PRACTICE_INSIGHTS+1);
  s.stadium.studio=1;assert.equal(G.meetInsights(s,8),9);
  if(s.pendingEvent) G.resolveEvent(s,G.eventView(s).choices.findIndex(c=>c.ok));
  assert(G.enterCompetition(s,{kind:'duel',tier:0}));s.day=s.matchDay;assert(G.startMatch(s));assert(G.simulateMatch(s));
@@ -59,8 +59,10 @@ test('previous careers receive initial coaching resources without losing active 
  for(const mutate of [s=>s.coaching.insights=-1,s=>s.coaching.unlocked=['rest'],s=>s.coaching.unlocked=['strengthblock','strengthblock'],s=>s.roster[0].coachedDay=-1]){const x=G.newGame(9);mutate(x);assert.throws(()=>validateCampaign(x))}
 });
 test('training UI presents event-specific coached sessions, Insights costs and facility requirements',()=>{
- const s=G.newGame(10);const html=P.squad(s,{athlete:s.roster[1].id,tab:'train'});
- assert.match(html,/Coaching Insights/);assert.match(html,/South African/);assert.match(html,/Discus cage level/);assert.match(html,/Maximum-strength block/);
+ const s=G.newGame(10),discus=s.roster[1];const html=P.train(s,{trainees:[discus.id]});
+ assert.match(html,/South African/);assert.match(html,/Discus cage level/);assert.match(html,/data-act="coach-session"/);
+ const athlete=P.squad(s,{athlete:discus.id,tab:'train'});
+ assert.match(athlete,/Insights ready/);assert.match(athlete,/coach-athlete/);assert.match(athlete,/Maximum-strength block/);
 });
 test('group sessions share one bill, rate every athlete, level the drill up and survive a save',()=>{
  const s=G.newGame(11);s.coaching.insights=200;const [a,b,c]=s.roster;
@@ -78,4 +80,18 @@ test('group sessions share one bill, rate every athlete, level the drill up and 
  const old=structuredClone(s);delete old.coaching.drills;assert.deepEqual(validateCampaign(old).coaching.drills,{});
  const broken=structuredClone(s);broken.coaching.drills={nonsense:1};assert.throws(()=>validateCampaign(broken));
  const html=P.train(s,{trainees:[s.roster[3].id]});assert.match(html,/Training group/);assert.match(html,/Squat &amp; pull complex/);
+});
+
+test('starter sessions need no buildings: focus work, a recovery session that gives stamina back and a throw-off that needs a group',()=>{
+ const s=G.newGame(12);s.coaching.insights=100;const [a,b]=s.roster;
+ for(const id of ['visualise','recovery','contest']) assert.equal(G.DRILLS[id].needs.length,0);
+ assert(G.drillGains(s,a,'visualise')[3]>G.drillGains(s,a,'visualise')[1]);
+ a.stamina=15;const r=G.coachGroup(s,[a.id],'recovery');assert(r);assert.equal(a.stamina,45);
+ assert.match(G.groupProblem(s,[b.id],'contest'),/2 or more/);
+ const xp=b.xp+b.level*1000,c=s.roster[2],out=G.coachGroup(s,[b.id,c.id],'contest');assert(out);
+ assert(b.xp+b.level*1000>xp,'the throw-off awards experience');
+});
+test('coached sessions outpace a day of the matching daily plan',()=>{
+ const s=G.newGame(13),a=s.roster[0];
+ assert(G.drillGains(s,a,'lifting')[0]>2*G.trainingGains(s,a,'power')[0]);
 });

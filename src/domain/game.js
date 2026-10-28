@@ -297,7 +297,7 @@ export function trainingGains(s, a, planId, fx = effects(s, a)) {
     gains = [0, 0, 0, 0];
   if (!plan || planId === "rest" || plan.facilityRole || planProblem(s,a,planId)) return gains;
   // Daily plans keep a squad ticking over; facilities and coached sessions make the big gains.
-  const base = 0.25,
+  const base = 0.14,
     cap = capOf(a),
     mood = MOOD_TRAIN[moodOf(a)];
   for (let i = 0; i < 4; i++) {
