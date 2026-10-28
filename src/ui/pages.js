@@ -510,6 +510,30 @@ function stadiumCard(s, key, open) {
   return `<div class="stadium-row ${open ? "open" : ""}"><button class="stadium-head" data-act="spot" data-key="${key}">${ico(STADIUM_ICON[key])}<span><strong>${d.name}</strong><small>${esc(d.levels[lvl])}</small></span>${pips(lvl, d.max)}</button>
   ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
 }
+// What a construction or upgrade will cost and do, shown before any money is spent.
+export function constructionConfirm(s, o) {
+  const after = s.money - o.cost;
+  return `<div class="confirm-build">${o.picture || ""}<div><p>${o.desc}</p>
+    <div class="confirm-facts"><span>Cost <b>${cash(o.cost)}</b></span>${o.upkeep != null ? `<span>Upkeep <b>${o.upkeepFrom ? cash(o.upkeepFrom) + " → " : ""}${cash(o.upkeep)}/wk</b></span>` : ""}<span>Funds after <b class="${after < 300 ? "neg" : ""}">${cash(after)}</b></span></div>
+    ${o.note ? `<p class="hint">${o.note}</p>` : ""}</div></div>`;
+}
+export function buildConfirmBody(s, i, type) {
+  const d = FACILITIES[type],
+    // Combos this spot would complete, named only if the club has already found them.
+    pairs = COMBOS.filter((c) => !c.stadium && (c.a === type || c.b === type) && G.neighbours(i).some((j) => [c.a, c.b].includes(s.plots[j]?.type) && s.plots[j]?.type !== type)),
+    known = pairs.filter((c) => s.discovered.includes(c.key));
+  return constructionConfirm(s, { cost: d.cost, upkeep: G.upkeepOf(type, 1), desc: d.desc, picture: `<canvas class="building" width="104" height="66" data-building="${type}:1"></canvas>`,
+    note: known.length ? `${ico("spark")} Next door: ${known.map((c) => esc(c.name)).join(", ")}.` : pairs.length ? `${ico("spark")} Something good might happen next to the neighbours here…` : "" });
+}
+export function upgradeConfirmBody(s, i) {
+  const p = s.plots[i], d = FACILITIES[p.type];
+  return constructionConfirm(s, { cost: G.upgradeCost(p.type, p.level), upkeepFrom: p.type === "club" ? null : G.upkeepOf(p.type, p.level), upkeep: p.type === "club" ? null : G.upkeepOf(p.type, p.level + 1), desc: d.desc,
+    picture: `<canvas class="building" width="104" height="66" data-building="${p.type}:${Math.min(3, p.level + 1)}"></canvas>`, note: (p.level + 1) % 5 === 0 ? "Level " + (p.level + 1) + " makes it a landmark." : "" });
+}
+export function stadiumConfirmBody(s, key) {
+  const d = STADIUM[key], lvl = s.stadium[key], cost = d.cost[lvl];
+  return constructionConfirm(s, { cost, upkeep: Math.round(cost * 0.03), desc: `<b>${esc(d.levels[lvl + 1])}</b>. ${d.desc}` });
+}
 export function build(s, view) {
   const sel = view.selected;
   let focus = "";

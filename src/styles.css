@@ -4843,3 +4843,11 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .form-line { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
 .form-line b { color: var(--ink); }
 .form-up { display: inline-block; padding: 1px 6px; border-radius: 6px; background: #fff0b8; color: #6a4a08; animation: pop-in 0.4s 0.5s ease-out both; }
+/* Build and upgrade confirmations. */
+.confirm-build { display: flex; gap: 12px; align-items: flex-start; }
+.confirm-build > canvas.building { flex: none; width: 156px; height: 99px; image-rendering: pixelated; }
+.confirm-build p { margin: 0 0 8px; }
+.confirm-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.confirm-facts b { font-family: var(--display); font-size: 15px; }
+.confirm-facts .neg { color: var(--red); }
+@media (max-width: 480px) { .confirm-build { flex-direction: column; } }

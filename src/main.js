@@ -599,7 +599,15 @@ const meterPos = (now) => {
 };
 
 // ── Input ───────────────────────────────────────────────────────────────
+// A tap on the map that opens a window must not also press whatever appears under the finger
+// (phones deliver the click after the window is drawn). Ignore window taps for a moment.
+let tapGuardUntil = 0;
 $("#app").addEventListener("click", async (e) => {
+  if (performance.now() < tapGuardUntil && e.target.closest("#window")) {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
   const b = e.target.closest("[data-act]");
   if (!b || b.disabled) return;
   unlockAudio();
@@ -899,35 +907,31 @@ $("#app").addEventListener("click", async (e) => {
       glide();
       break;
     case "upgrade-spot": {
+      // Nothing is built or upgraded without a yes.
       const key = b.dataset.key,
-        r = G.upgradeStadium(state, key);
-      if (r) {
-        closeWindow();
-        world.flashSpot(key, r.level === 1 ? "BUILT!" : "LEVEL " + r.level + "!");
-        sfx("build");
-        toast(STADIUM[key].name + ": " + STADIUM[key].levels[r.level] + "!", "level", "stadium");
-      }
-      break;
+        lvl = state.stadium[key];
+      if (G.stadiumProblem(state, key)) return toast(G.stadiumProblem(state, key), "warn");
+      return dialog((lvl ? "Upgrade the " : "Build the ") + STADIUM[key].name.toLowerCase() + "?", P.stadiumConfirmBody(state, key), [
+        { label: (lvl ? "Upgrade · " : "Build · ") + cash(STADIUM[key].cost[lvl]), fn: () => confirmStadium(key) },
+        { label: "Not now", secondary: true },
+      ], { eyebrow: "Groundskeeping", tone: "shop" });
     }
     case "build": {
       const i = +b.dataset.index,
         type = b.dataset.type;
-      if (G.build(state, i, type)) {
-        closeWindow();
-        world.flashPlot(i, "BUILT!");
-        sfx("build");
-        toast("The " + FACILITIES[type].name + " is open!", "info", "build2");
-      }
-      break;
+      return dialog("Build a " + FACILITIES[type].name + " here?", P.buildConfirmBody(state, i, type), [
+        { label: "Build · " + cash(FACILITIES[type].cost), fn: () => confirmBuild(i, type), disabled: state.money < FACILITIES[type].cost },
+        { label: "Not now", secondary: true },
+      ], { eyebrow: "Groundskeeping", tone: "shop" });
     }
     case "upgrade": {
-      const i = +b.dataset.index;
-      if (G.upgrade(state, i)) {
-        closeWindow();
-        world.flashPlot(i, "LEVEL " + state.plots[i].level + "!");
-        sfx("build");
-      }
-      break;
+      const i = +b.dataset.index,
+        p = state.plots[i];
+      if (!p) break;
+      return dialog("Upgrade the " + FACILITIES[p.type].name + " to level " + (p.level + 1) + "?", P.upgradeConfirmBody(state, i), [
+        { label: "Upgrade · " + cash(G.upgradeCost(p.type, p.level)), fn: () => confirmUpgrade(i), disabled: state.money < G.upgradeCost(p.type, p.level) },
+        { label: "Not now", secondary: true },
+      ], { eyebrow: "Groundskeeping", tone: "shop" });
     }
     case "move":
       view.moving = view.moving === +b.dataset.index ? null : +b.dataset.index;
@@ -1002,6 +1006,40 @@ function glide() {
     cover = win.hidden || innerWidth < innerHeight ? 0 : win.offsetWidth + 20;
   if (innerWidth < innerHeight && view.selected) world.focusOn(view.selected, 0);
   else world.focusOn(view.selected, cover);
+}
+// Confirmed construction: build, then show it off on the map.
+function confirmBuild(i, type) {
+  const before = snapshot();
+  if (!G.build(state, i, type)) return toast("That can't be built here right now.", "warn");
+  closeWindow();
+  world.flashPlot(i, "BUILT!");
+  sfx("build");
+  toast("The " + FACILITIES[type].name + " is open!", "info", "build2");
+  announce(before);
+  save();
+  render();
+}
+function confirmUpgrade(i) {
+  const before = snapshot();
+  if (!G.upgrade(state, i)) return toast("That upgrade isn't available right now.", "warn");
+  closeWindow();
+  world.flashPlot(i, "LEVEL " + state.plots[i].level + "!");
+  sfx("build");
+  announce(before);
+  save();
+  render();
+}
+function confirmStadium(key) {
+  const before = snapshot(),
+    r = G.upgradeStadium(state, key);
+  if (!r) return toast(G.stadiumProblem(state, key) || "That upgrade isn't available right now.", "warn");
+  closeWindow();
+  world.flashSpot(key, r.level === 1 ? "BUILT!" : "LEVEL " + r.level + "!");
+  sfx("build");
+  toast(STADIUM[key].name + ": " + STADIUM[key].levels[r.level] + "!", "level", "stadium");
+  announce(before);
+  save();
+  render();
 }
 function selectPlot(i) {
   const before = snapshot();
@@ -1150,6 +1188,7 @@ worldCanvas.addEventListener("pointerup", (e) => {
   const hit = world.pick(e.clientX, e.clientY);
   if (state.match) return;
   if (!hit) return view.window ? closeWindow() : null;
+  tapGuardUntil = performance.now() + 450;
   sfx("tap");
   if (hit.kind === "athlete") {
     // A quick hello before their file opens.
