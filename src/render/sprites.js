@@ -24,13 +24,7 @@ const POSES = {
     { feet: [[2, -1], [-5, -1]], hands: [[-4, -10], [3, -10]] },
     { feet: [[-1, -1], [-2, -2]], hands: [[0, -10], [0, -10]], dy: -1 },
   ],
-  // Leaning in, the leading arm pumped up by the chin and the swing knee driving through.
-  run: [
-    { feet: [[-8, -3], [5, -1]], hands: [[8, -18], [-1, -9]], lean: 3 },
-    { feet: [[4, -3], [0, -1]], hands: [[4, -13], [-2, -10]], dy: -1, lean: 3 },
-    { feet: [[5, -1], [-8, -3]], hands: [[-5, -8], [8, -18]], lean: 3 },
-    { feet: [[0, -1], [4, -3]], hands: [[-2, -10], [4, -13]], dy: -1, lean: 3 },
-  ],
+  run: null,
   lift: [
     { feet: [[-5, -1], [2, -1]], hands: [[-6, -27], [5, -27]], item: "barbell", face: "strain" },
     { feet: [[-5, -1], [2, -1]], hands: [[-6, -17], [5, -17]], item: "barbell", crouch: 2 },
@@ -64,6 +58,18 @@ const POSES = {
   ],
   jog: null,
 };
+// Running is drawn side-on, in profile, like a pixel-art run cycle: contact (front foot lands,
+// back heel kicked up), down (body sinks over the support leg, the other tucks under), up (push
+// off behind, knee driving through), then the same with the legs swapped. The body rides higher
+// than standing so the stride shows. Legs are [knee, foot] from the ground; arms are
+// [elbow, hand] from the shoulder, swinging against the legs.
+const STRIDE = [
+  { legs: [[[-1, -3], [-4, -4]], [[2, -4], [3, -1]]], arms: [[[2, 3], [5, 1]], [[-3, 1], [-5, 3]]], dy: -3 },
+  { legs: [[[2, -4], [-3, -5]], [[1, -3], [0, -1]]], arms: [[[1, 3], [-1, 5]], [[-2, 2], [0, 5]]], dy: -1.5 },
+  { legs: [[[3, -5], [2, -3]], [[-1, -3], [-4, -2]]], arms: [[[-3, 1], [-5, 3]], [[2, 3], [5, 1]]], dy: -4 },
+];
+const swap = (f) => ({ ...f, legs: [f.legs[1], f.legs[0]], arms: [f.arms[1], f.arms[0]] });
+POSES.run = [...STRIDE, ...STRIDE.map(swap)].map((f) => ({ ...f, side: true, lean: 2 }));
 POSES.jog = POSES.run;
 // Event throws: frames are ready, wind, release, follow.
 const THROWS = {
@@ -159,8 +165,20 @@ function drawFigure(g, o) {
     ttop = tb - 6; // top of the shirt
   const hx = -6 + lean,
     hy = ttop - 11 + (p.drop || 0);
-  const [farFoot, nearFoot] = p.feet.map(footAt),
-    [farHand, nearHand] = p.hands.map(handAt).map(([x, y]) => [x + Math.round(lean / 2), y + dy]);
+  const far = shade(limb, -0.18);
+  // Side-on poses are drawn in profile with limbs that bend at the knee and elbow.
+  const side = !!p.side,
+    hip = [-1 + lean, tb - 1],
+    shoulder = [-1 + lean, ttop + 1],
+    fromShoulder = ([x, y]) => [shoulder[0] + x, shoulder[1] + y];
+  const [farFoot, nearFoot] = side ? p.legs.map((l) => l[1]) : p.feet.map(footAt),
+    [farHand, nearHand] = side ? p.arms.map((a) => fromShoulder(a[1])) : p.hands.map(handAt).map(([x, y]) => [x + Math.round(lean / 2), y + dy]);
+  // A bent limb as 2px segments through sprite points.
+  const joint = (pts, c) => {
+    for (let i = 1; i < pts.length; i++) line(g, OX + pts[i - 1][0] + 0.5, OY + pts[i - 1][1] + 0.5, OX + pts[i][0] + 0.5, OY + pts[i][1] + 0.5, c, 2);
+  };
+  const leg = (k) => joint([hip, p.legs[k][0], [p.legs[k][1][0], p.legs[k][1][1] - 1]], k ? limb : far),
+    arm = (k) => joint([shoulder, fromShoulder(p.arms[k][0]), fromShoulder(p.arms[k][1])], k ? limb : far);
 
   if (rank >= 4) {
     g.fillStyle = shade(shirt, -0.35);
@@ -172,13 +190,16 @@ function drawFigure(g, o) {
     P(-8 + lean, ttop + 1 + flap, 2, 2, collar);
   }
   // Far leg and arm, slightly darker.
-  const far = shade(limb, -0.18);
-  line(g, OX - 2 + lean / 2, OY + tb, OX + farFoot[0] + 1, OY + farFoot[1] - 1, far, 2);
+  if (side) leg(0), arm(0);
+  else {
+    line(g, OX - 2 + lean / 2, OY + tb, OX + farFoot[0] + 1, OY + farFoot[1] - 1, far, 2);
+    line(g, OX - 3 + lean, OY + ttop + 1, OX + farHand[0] + 1, OY + farHand[1] + 1, far, 2);
+  }
   P(farFoot[0], farFoot[1], 3, 1, shade(SHOE, -0.2));
-  line(g, OX - 3 + lean, OY + ttop + 1, OX + farHand[0] + 1, OY + farHand[1] + 1, far, 2);
   P(farHand[0], farHand[1], 2, 2, far);
   // Near leg.
-  line(g, OX + 1 + lean / 2, OY + tb, OX + nearFoot[0] + 1, OY + nearFoot[1] - 1, limb, 2);
+  if (side) leg(1);
+  else line(g, OX + 1 + lean / 2, OY + tb, OX + nearFoot[0] + 1, OY + nearFoot[1] - 1, limb, 2);
   P(nearFoot[0], nearFoot[1], 3, 1, SHOE);
   P(nearFoot[0] + 2, nearFoot[1], 1, 1, collar);
   // Shorts and shirt.
@@ -205,8 +226,8 @@ function drawFigure(g, o) {
   if (fur) {
     mask(hair);
     for (const [x, y] of [[-1, 3], [-1, 6], [12, 4], [12, 7], [3, -1], [7, -1], [4, 11], [8, 11]]) H(x, y, 1, 1, hair);
-    H(3, 4, 8, 6, skin);
-    H(3, 4, 8, 1, shade(skin, 0.2));
+    H(side ? 4 : 3, 4, 8, 6, skin);
+    H(side ? 4 : 3, 4, 8, 1, shade(skin, 0.2));
   } else {
     mask(skin);
     H(1, 9, 10, 1, shade(skin, -0.08));
@@ -251,6 +272,12 @@ function drawFigure(g, o) {
       H(3, -3, 2, 1, hairHi);
     }
   }
+  // In profile the hair covers the back of the head down to an ear.
+  if (side && !fur && !metal) {
+    H(0, 3, 4, 5, hair);
+    H(1, 8, 2, 1, hair);
+    H(4, 6, 1, 2, shade(skin, -0.15));
+  }
   if (special === "beard") {
     H(5, 8, 7, 3, hair);
     H(6, 8, 5, 1, shade(hair, -0.2));
@@ -261,10 +288,11 @@ function drawFigure(g, o) {
   }
   // Face: small dot eyes and rosy cheeks.
   const face = p.face || o.face,
-    eyes = [5, 9];
+    eyes = side ? [9] : [5, 9],
+    mx = side ? 3 : 0;
   if (metal) {
-    H(3, 5, 9, 2, "#4ad0e8");
-    H(4, 5, 3, 1, "#c8f8ff");
+    H(side ? 6 : 3, 5, side ? 6 : 9, 2, "#4ad0e8");
+    H(side ? 8 : 4, 5, 3, 1, "#c8f8ff");
   } else {
     for (const x of eyes) {
       if (face === "blink" || face === "sleep") H(x - 1, 7, 2, 1, EYE);
@@ -277,22 +305,28 @@ function drawFigure(g, o) {
         H(x, 6, 1, 1, EYE);
       } else H(x, 6, 1, 2, EYE);
     }
-    H(2, 8, 2, 1, BLUSH);
-    if (!fur) H(10, 8, 1, 1, BLUSH);
+    if (side) H(7, 8, 2, 1, BLUSH);
+    else {
+      H(2, 8, 2, 1, BLUSH);
+      if (!fur) H(10, 8, 1, 1, BLUSH);
+    }
     if (special !== "beard") {
-      if (face === "happy") H(6, 9, 3, 1, "#8a3a30"), H(7, 10, 1, 1, "#e07070");
-      else if (face === "sad") H(6, 9, 3, 1, shade(skin, -0.35));
-      else if (face === "strain") H(6, 9, 2, 1, "#8a3a30");
-      else H(7, 9, 1, 1, "#a05040");
+      if (face === "happy") H(6 + mx, 9, 3, 1, "#8a3a30"), H(7 + mx, 10, 1, 1, "#e07070");
+      else if (face === "sad") H(6 + mx, 9, 3, 1, shade(skin, -0.35));
+      else if (face === "strain") H(6 + mx, 9, 2, 1, "#8a3a30");
+      else H(7 + mx, 9, 1, 1, "#a05040");
     }
     if (special === "granny") {
-      H(3, 5, 9, 1, "#9a8a80");
-      for (const x of [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
+      H(side ? 7 : 3, 5, side ? 5 : 9, 1, "#9a8a80");
+      for (const x of side ? [7, 11] : [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
     }
   }
   // Near arm last, in front of the body.
-  line(g, OX + 2 + lean, OY + ttop + 1, OX + nearHand[0] + 1, OY + nearHand[1] + 1, limb, 2);
-  P(2 + lean, ttop, 1, 2, shirt);
+  if (side) arm(1);
+  else {
+    line(g, OX + 2 + lean, OY + ttop + 1, OX + nearHand[0] + 1, OY + nearHand[1] + 1, limb, 2);
+    P(2 + lean, ttop, 1, 2, shirt);
+  }
   P(nearHand[0], nearHand[1], 2, 2, limb);
   if (rank >= 1) P(nearHand[0], nearHand[1] + 2, 2, 1, collar);
   const [nx, ny] = nearHand;
@@ -341,8 +375,11 @@ export function sprite(o) {
 // The run frame for a runner who has covered `dist` pixels. Each run frame carries the planted
 // foot about RUN_STRIDE pixels back, so stepping by distance keeps that foot fixed on the ground;
 // frames on a clock let the body outrun the legs and the feet slide forward, like running backwards.
-export const RUN_STRIDE = 5;
-export const runFrame = (dist) => ((Math.floor(dist / RUN_STRIDE) % 4) + 4) % 4;
+export const RUN_STRIDE = 3.5;
+export const runFrame = (dist) => {
+  const n = POSES.run.length;
+  return ((Math.floor(dist / RUN_STRIDE) % n) + n) % n;
+};
 // Draw a figure with its feet at (x, y). Scale must be an integer to stay crisp.
 export function figure(g, o, x, y, scale = 1) {
   const c = sprite(o);
