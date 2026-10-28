@@ -252,24 +252,31 @@ function stadiumBase(s, ev, venue) {
     rect(g, x - 7, y - 11, 15, 8, "#f4efe2");
     text(g, String(d), x, y - 10, { color: "#3a5a3a", outline: null, align: "center" });
   }
-  // Circle, cage or runway.
+  // Circle, cage or runway, drawn at the same double scale as the people who use them: a ring
+  // about as wide as the thrower is tall, and a cage that stands well above their head.
   if (ev === "jav") {
-    poly(g, [[8, O.y + 3], [O.x, O.y - 5], [O.x, O.y + 6], [8, O.y + 15]], venue.track);
-    line(g, 8, O.y + 3, O.x, O.y - 5, "#f4e8d0");
-    line(g, 8, O.y + 15, O.x, O.y + 6, "#f4e8d0");
-    for (let i = 0; i < 6; i++) rect(g, O.x - 1, O.y - 5 + i * 2, 2, 1, "#f4f4e8");
+    poly(g, [[0, O.y + 3], [O.x, O.y - 9], [O.x, O.y + 13], [0, O.y + 29]], venue.track);
+    line(g, 0, O.y + 3, O.x, O.y - 9, "#f4e8d0");
+    line(g, 0, O.y + 29, O.x, O.y + 13, "#f4e8d0");
+    for (let i = 0; i < 11; i++) rect(g, O.x - 1, O.y - 9 + i * 2, 3, 1, "#f4f4e8");
   } else {
-    ellipse(g, O.x, O.y + 2, 15, 6, "#5a6a5a");
-    ellipse(g, O.x, O.y, 14, 5, "#e8e4d0");
-    ellipse(g, O.x, O.y, 12, 4, "#a8a898");
-    if (ev === "shot") rect(g, O.x + 12, O.y - 3, 3, 6, "#f4efe2");
     if (ev !== "shot") {
+      // The cage wraps round the back of the circle and opens towards the sector.
       for (let i = 0; i < 7; i++) {
-        const x = O.x - 22 + i * 6;
-        rect(g, x, O.y - 52, 1, 50, "#4a5a52");
+        const x = O.x - 46 + i * 12;
+        rect(g, x, O.y - 96, 2, 92, "#4a5a52");
       }
-      for (let y = O.y - 50; y < O.y - 4; y += 4) rect(g, O.x - 22, y, 37, 1, "rgba(80,100,90,0.45)");
-      rect(g, O.x - 22, O.y - 53, 38, 2, "#3a4a42");
+      for (let y = O.y - 92; y < O.y - 6; y += 6) rect(g, O.x - 46, y, 74, 1, "rgba(80,100,90,0.45)");
+      rect(g, O.x - 46, O.y - 98, 76, 3, "#3a4a42");
+    }
+    ellipse(g, O.x, O.y + 3, 30, 11, "#5a6a5a");
+    ellipse(g, O.x, O.y, 28, 10, "#e8e4d0");
+    ellipse(g, O.x, O.y, 24, 8, "#a8a898");
+    for (let i = 0; i < 18; i++) px(g, O.x - 20 + hash(i) * 40, O.y - 5 + hash(i + 9) * 10, "#9a9a8a");
+    if (ev === "shot") {
+      // The stop board on the front of the circle.
+      rect(g, O.x + 24, O.y - 6, 5, 12, "#f4efe2");
+      rect(g, O.x + 24, O.y + 6, 5, 1, "#c8c0a8");
     }
   }
   return c;
@@ -501,11 +508,13 @@ export function createStadium(cv) {
     const celebrate = big && sinceLand >= 0 && sinceLand < 1600 ? beat.side : null;
     for (const [side, x0, colors] of [["home", 6, s.colors], ["away", 128, rivalColors]]) {
       const by = H - 10;
-      rect(g, x0, by - 26, 96, 3, colors.primary);
-      rect(g, x0, by - 27, 96, 1, shade(colors.primary, 0.35));
+      // A plain bench seat on legs, with the team's pennant planted at the end.
+      ellipse(g, x0 + 48, by + 6, 50, 3, "rgba(30,50,30,0.25)");
       rect(g, x0, by - 2, 96, 4, "#a07850");
       rect(g, x0, by - 3, 96, 1, "#c09868");
-      for (const lx of [x0 + 4, x0 + 90]) rect(g, lx, by - 23, 2, 25, "#5a5e66");
+      for (const lx of [x0 + 4, x0 + 46, x0 + 90]) rect(g, lx, by + 2, 2, 5, "#6a5038");
+      rect(g, x0 + 98, by - 30, 1, 37, "#e8e0c8");
+      poly(g, [[x0 + 99, by - 30], [x0 + 111, by - 26], [x0 + 99, by - 22]], colors.primary);
       benchOf(side).forEach((a, n) => {
         const up = celebrate === side;
         figure(g, { ...athleteLook(a, colors), pose: up ? "cheer" : "sit", frame: up ? Math.floor(now / 180 + n) % 2 : 0 }, x0 + 18 + n * 30, up ? by + 1 : by - 1, 2);
