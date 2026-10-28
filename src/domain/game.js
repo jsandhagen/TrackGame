@@ -503,6 +503,7 @@ export function itemProblem(s, id, athleteId) {
   if (d.team) return s.roster.every((b) => b.condition >= 100 && b.stamina >= 100) ? "The squad is already fresh" : null;
   const a = s.roster.find((x) => x.id === athleteId);
   if (!a) return "Choose an athlete";
+  if (d.teaches) return a.skills.includes(d.teaches) ? "Already knows " + SKILLS[d.teaches].name : null;
   if (d.promote) return a.rank >= 4 ? "Already a Legend" : a.promoteFree ? "Already holds a letter" : null;
   if (d.stat) return a.stats[d.stat[0]] >= capOf(a) - 1e-6 ? STAT_NAMES[d.stat[0]] + " is at the current limit" : null;
   if (d.potential) return a.potential >= 100 ? "Potential is maxed" : null;
@@ -517,6 +518,7 @@ export function itemPreview(s, id, athleteId) {
     a = s.roster.find((x) => x.id === athleteId),
     out = [];
   if (!d || !a) return out;
+  if (d.teaches) out.push({ label: "Learns " + SKILLS[d.teaches].name + (a.equipped.length < slotsOf(a) ? " and equips it in a free skill slot" : "; equip it later from Skills (slots are full)") });
   if (d.stamina) out.push({ label: "Stamina", from: a.stamina, to: Math.min(100, a.stamina + d.stamina) });
   if (d.heal && a.injury) out.push({ label: "Injury healed" });
   if (d.cond) out.push({ label: "Condition", from: a.condition, to: Math.min(100, a.condition + d.cond) });
@@ -542,6 +544,7 @@ export function useItem(s, id, athleteId) {
     }
     out.push("The whole squad feels great");
   } else {
+    if (d.teaches) { learnFree(a,d.teaches); count(s,"skillsLearned"); }
     if (d.stamina) a.stamina = clamp(a.stamina + d.stamina, 0, 100);
     if (d.heal) a.injury = 0;
     if (d.cond) a.condition = clamp(a.condition + d.cond, 0, 100);
@@ -591,7 +594,7 @@ export function forgeItem(s, id) {
 export function skillAvailable(a, id) {
   const k = SKILLS[id];
   if (!k || a.skills.includes(id)) return false;
-  if (k.cat === "unique") return false;
+  if (k.cat === "unique" || k.itemOnly) return false;
   if (k.event && masteryOf(a,k.event)<60) return false;
   return true;
 }

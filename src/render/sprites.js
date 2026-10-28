@@ -1,5 +1,6 @@
 import { canvas, outlined, flipped, shade, line, ellipse } from "./pixel.js";
-import { SHORTS_COLORS } from "../game-content.js";
+import { appearanceSkill } from "../domain/core.js";
+import { SHORTS_COLORS, SKILLS } from "../game-content.js";
 
 // Chibi figures: a big head, a small body, a crisp outline. Drawn facing right on a
 // 44×40 canvas with the feet at (22, 36); cached per look/pose/frame.
@@ -120,7 +121,7 @@ function drawFigure(g, o) {
     g.fillRect(OX + x, OY + y, w, h);
   };
   const fur = special === "yeti",
-    metal = special === "robot",
+    metal = special === "robot" || o.costume === "iron",
     kid = special === "kid";
   const skin = metal ? "#b8c4cc" : look.skin || "#e2b08a",
     limb = fur ? "#eef0f2" : skin,
@@ -147,6 +148,10 @@ function drawFigure(g, o) {
     P(-6 + lean, ttop + flap, 3, 2, collar);
     P(-8 + lean, ttop + 1 + flap, 2, 2, collar);
   }
+  // Costume silhouettes sit behind the athlete, without changing their saved identity.
+  if(o.costume === "fox") { P(-9+lean,ttop+1,5,5,"#d87d36"); P(-11+lean,ttop,3,3,"#f7e6c2"); }
+  if(o.costume === "dragon") { P(-9+lean,ttop-3,5,6,"#397b63"); P(3+lean,ttop-3,5,6,"#397b63"); P(-9+lean,tb,6,2,"#4e9d6e"); P(-11+lean,tb-1,3,2,"#f1aa3b"); }
+  if(o.costume === "cosmic" || o.costume === "owl") { for(let j=0;j<8;j++) P(-4+lean-Math.floor(j/3),ttop+j,8+Math.floor(j/2),1,o.costume === "owl" ? "#796140" : "#66539b"); }
   // Far leg and arm, slightly darker.
   const far = shade(limb, -0.18);
   line(g, OX - 2 + lean / 2, OY + tb, OX + farFoot[0] + 1, OY + farFoot[1] - 1, far, 2);
@@ -266,6 +271,18 @@ function drawFigure(g, o) {
       for (const x of [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
     }
   }
+  if(o.costume === "fox") {
+    H(0,-1,12,4,"#d87d36"); H(0,-4,3,4,"#d87d36"); H(9,-4,3,4,"#d87d36"); H(1,-3,1,2,"#f8dbb9"); H(10,-3,1,2,"#f8dbb9"); H(0,3,2,5,"#d87d36"); H(11,3,2,5,"#d87d36"); H(2,3,3,2,"#fff0d4"); H(9,3,2,2,"#fff0d4");
+  } else if(o.costume === "iron") {
+    H(-1,0,14,4,"#8ea9bb"); H(2,1,8,1,"#d9e9ee"); H(3,5,9,3,"#263e4c"); H(4,6,7,1,"#5ef4da"); H(0,4,2,6,"#718d9e"); H(11,4,2,6,"#718d9e");
+  } else if(o.costume === "owl") {
+    H(-1,0,14,4,"#9b774b"); H(0,-3,3,4,"#9b774b"); H(9,-3,3,4,"#9b774b"); H(-1,3,3,7,"#9b774b"); H(11,3,2,7,"#9b774b");
+    for(const x of [3,8]) { H(x,4,4,5,"#f1d9a0"); H(x+1,5,2,2,"#352d28"); } H(7,8,2,1,"#dba942");
+  } else if(o.costume === "dragon") {
+    H(-1,0,14,4,"#4e9d6e"); H(0,-4,2,5,"#edce87"); H(10,-4,2,5,"#edce87"); H(-1,3,3,6,"#4e9d6e"); H(11,3,2,6,"#4e9d6e"); H(3,1,2,1,"#b6d890");
+  } else if(o.costume === "cosmic") {
+    H(0,0,12,3,"#d8ad4d"); for(const [x,y] of [[1,-3],[5,-5],[9,-3]]) H(x,y,2,4-y,"#edce69"); H(5,1,2,1,"#79dbea"); H(11,1,4,1,"#f9e6b2");
+  }
   // Near arm last, in front of the body.
   line(g, OX + 2 + lean, OY + ttop + 1, OX + nearHand[0] + 1, OY + nearHand[1] + 1, limb, 2);
   P(2 + lean, ttop, 1, 2, shirt);
@@ -303,7 +320,7 @@ function drawFigure(g, o) {
 
 const cache = new Map();
 export function sprite(o) {
-  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.kit, o.rank, o.pose, o.frame, o.event, o.flip, o.face]);
+  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.kit, o.rank, o.pose, o.frame, o.event, o.flip, o.face, o.costume]);
   let c = cache.get(key);
   if (c) return c;
   const base = canvas(SPRITE_W, SPRITE_H);
@@ -327,17 +344,20 @@ export function shadow(g, x, y, w = 6) {
 // Athlete → sprite options.
 export function athleteLook(a, colors, extra = {}) {
   const shorts = colors.shorts === "trim" ? shade(colors.secondary, -0.1) : SHORTS_COLORS[colors.shorts];
-  return { look: a.look, shirt: colors.primary, collar: colors.secondary, kit: colors.kit, ...(shorts ? { shorts } : {}), rank: a.rank || 0, ...extra };
+  const form = SKILLS[appearanceSkill(a,extra.mode || "training")]?.costume;
+  const palette = {fox:["#ce7834","#f5dfb3"],iron:["#94afbf","#68e0d0"],owl:["#8a7049","#e6cb89"],dragon:["#4e9d6e","#e4b85e"],cosmic:["#6d579e","#efd16d"]}[extra.costume ?? form];
+  return { costume: form, look: a.look, shirt: colors.primary, collar: colors.secondary, kit: colors.kit, ...(shorts ? { shorts } : {}), rank: a.rank || 0, ...(palette ? {shirt:palette[0],collar:palette[1]} : {}), ...extra };
 }
 // Portrait: head and shoulders cropped from the idle figure.
 export function portrait(cv, a, colors, opts = {}) {
   const g = cv.getContext("2d");
   g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, cv.width, cv.height);
-  const c = sprite(athleteLook(a, colors, { pose: opts.pose || "idle", frame: 0, face: opts.face }));
-  const sx = OX - 8,
-    sy = OY - 24,
-    size = 16,
+  const look = athleteLook(a, colors, { pose: opts.pose || "idle", frame: 0, face: opts.face, mode: opts.mode || "training", ...(opts.costume !== undefined ? {costume:opts.costume} : {}) });
+  const c = sprite(look);
+  const size = look.costume ? 20 : 16,
+    sx = OX - size / 2,
+    sy = look.costume ? OY - 28 : OY - 24,
     scale = Math.floor(Math.min(cv.width, cv.height) / size);
   const off = (cv.width - size * scale) / 2;
   g.drawImage(c, sx, sy, size, size, Math.round(off), Math.round(cv.height - size * scale), size * scale, size * scale);

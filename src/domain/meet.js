@@ -9,6 +9,7 @@ import {
   effects,
   forecast,
   equippedSkills,
+  performanceStats,
   grantXp,
   xpNeeded,
   addItem,
@@ -387,7 +388,8 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= fx.sig;
     acts.unshift(sourceName(a, "sig"));
   }
-  const focus = a.stats[3], mastery=masteryOf(a,c.ev),discipline=disciplineModel(a,c.ev,c.m.wind);
+  const stats = performanceStats(a);
+  const focus = stats[3], mastery=masteryOf(a,c.ev),discipline=disciplineModel({...a,stats},c.ev,c.m.wind);
   const baseFoul={shot:0.075,discus:0.14,hammer:0.125,jav:0.12}[c.ev];
   let foul = Math.max(0.015,baseFoul-mastery*0.00065-focus*0.0002) * discipline.foul * T.foul * fx.foul * (leading && fx.leading !== 1 ? 0.5 : 1) * (afterFoul && fx.afterFoul !== 1 ? 0.7 : 1);
   foul *= quality === "perfect" ? 0.6 : quality === "poor" ? 1.5 : 1;

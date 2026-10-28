@@ -3,6 +3,11 @@ import { ITEMS } from "../game-content.js";
 
 // 16×16 item icons, shaded from a single base colour and outlined.
 const SHAPES = {
+  mask(g,c) {
+    g.fillStyle=c;g.fillRect(3,4,10,8);g.fillRect(2,2,3,4);g.fillRect(11,2,3,4);
+    g.fillStyle=shade(c,0.5);g.fillRect(4,5,3,3);g.fillRect(9,5,3,3);
+    g.fillStyle="#29382f";g.fillRect(5,6,2,2);g.fillRect(9,6,2,2);g.fillRect(7,10,2,1);
+  },
   ball(g, c) {
     ellipse(g, 8, 9, 5, 5, c);
     ellipse(g, 7, 8, 3, 3, shade(c, 0.25));
