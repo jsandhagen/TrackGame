@@ -1,5 +1,6 @@
+import { athleteDuty } from "./facility-duties.js";
 import { practiceMastery, masteryOf, masteryCap } from "./mastery.js";
-import { PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
+import { EVENT_IDS, PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
 import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random } from "./core.js";
 
 export const INSIGHT_START = 16;
@@ -56,16 +57,19 @@ export function facilityProblem(s, a, needs) {
   }
   return null;
 }
-export function planProblem(s, a, id) {
-  const p = PLANS[id];
-  if (!p) return "Unknown plan";
-  if (!p.course) return null;
+export function planRequirements(s,a,id) {
+  const p=PLANS[id];
+  if(!p) return "Unknown plan";
+  if(!p.course) return null;
   const meets=p.facility === "event" ? (p.cost>=24?4:2) : 0;
-  return (p.course && (a.eventMeets?.[a.trainingEvent||a.event]||0)<meets ? "Needs "+meets+" meets in this training event" : null) || facilityProblem(s,a,p.needs) || (!s.coaching.unlocked.includes(id) ? "Unlock for " + p.cost + " Insights" : null);
+  return ((a.eventMeets?.[a.trainingEvent||a.event]||0)<meets ? "Needs "+meets+" meets in this training event" : null) || facilityProblem(s,a,p.needs);
+}
+export function planProblem(s, a, id) {
+  return planRequirements(s,a,id) || (PLANS[id]?.course && !s.coaching.unlocked.includes(id) ? "Unlock for " + PLANS[id].cost + " Insights" : null);
 }
 export function unlockPlan(s, athleteId, id) {
   const a = s.roster.find((x) => x.id === athleteId), p = PLANS[id];
-  if (!a || !p?.course || s.match || s.pendingEvent || !["planning","season"].includes(s.phase) || s.coaching.unlocked.includes(id) || facilityProblem(s,a,p.needs) || (p.facility === "event" && (a.eventMeets?.[a.trainingEvent||a.event]||0)<(p.cost>=24?4:2)) || s.coaching.insights < p.cost) return false;
+  if (!a || !p?.course || s.match || s.pendingEvent || !["planning","season"].includes(s.phase) || s.coaching.unlocked.includes(id) || planRequirements(s,a,id) || s.coaching.insights < p.cost) return false;
   s.coaching.insights -= p.cost; s.coaching.unlocked.push(id);
   note(s,"Training plan unlocked: " + p.name + ". Available to athletes with the required facilities.","level");
   return true;
@@ -74,6 +78,30 @@ export function setTrainingPlan(s, athleteId, id) {
   const a = s.roster.find((x) => x.id === athleteId);
   if (!a || s.match || planProblem(s,a,id)) return false;
   a.plan = id; return true;
+}
+export function coachingTargets(s, scope = "entrants", selected = []) {
+  if (scope === "squad") return s.roster.map(a=>a.id);
+  if (scope === "group") return [...new Set(selected)].filter(id=>s.roster.some(a=>a.id===id));
+  return [...new Set(EVENT_IDS.flatMap(ev=>s.entries?.[ev] ?? (s.lineup[ev] ? [s.lineup[ev]] : [])))];
+}
+export function trainingPlanPreview(s, ids, id) {
+  const plan=PLANS[id], eligible=[], skipped=[];
+  const locked=!!plan?.course && !s.coaching.unlocked.includes(id);
+  if (!plan || !ids.length || s.match || s.pendingEvent || !["planning","season"].includes(s.phase)) return {eligible,skipped,cost:0,problem:"Choose athletes and finish any meet or club decision first."};
+  for (const athleteId of [...new Set(ids)]) {
+    const a=s.roster.find(a=>a.id===athleteId);
+    const problem=!a ? "Not in the squad" : a.injury ? "Recovering from injury" : athleteDuty(s,a.id) ? "Assigned to a facility duty" : locked ? planRequirements(s,a,id) : planProblem(s,a,id);
+    if(problem) skipped.push({id:athleteId,name:a?.name||"Unknown athlete",reason:problem}); else eligible.push(athleteId);
+  }
+  const cost=locked ? plan.cost : 0;
+  return {eligible,skipped,cost,problem:!eligible.length ? "No athletes in this group qualify for this plan." : s.coaching.insights<cost ? "Needs "+cost+" Coaching Insights to unlock." : null};
+}
+export function applyTrainingPlanGroup(s, ids, id) {
+  const preview=trainingPlanPreview(s,ids,id);
+  if(preview.problem) return {...preview,ok:false,applied:[]};
+  if(preview.cost && !unlockPlan(s,preview.eligible[0],id)) return {...preview,ok:false,applied:[]};
+  for(const athleteId of preview.eligible) setTrainingPlan(s,athleteId,id);
+  return {...preview,ok:true,applied:preview.eligible};
 }
 export function drillEnergy(s, id) {
   return Math.max(1, Math.round(DRILLS[id].energy * (1 - Math.min(0.18, facilityLevel(s,"spa") * 0.06))));

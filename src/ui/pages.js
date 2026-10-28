@@ -84,6 +84,7 @@ export function home(s, view) {
   <section class="card"><div class="card-title"><h2>${ico("target")} Season targets</h2>${btn("All goals", "page", 'data-page="club"', "text")}</div>
     ${G.openGoals(s, 3).map((g) => goalRow(s, g)).join("") || "<p class='hint'>Every target hit. Legendary.</p>"}
   </section>
+  <section class="card prep-controls">${preparationToggle(s)}${btn("Manage coaching plans", "page", 'data-page="train"', "text")}</section>
   <div class="section-title"><h2>Training</h2><label class="bulk">Everyone <select data-change="bulk">${new Set(s.roster.map((a) => a.plan)).size > 1 ? "<option disabled selected>Mixed</option>" : ""}${Object.entries(PLANS).filter(([id]) => s.roster.every((a) => !G.planProblem(s,a,id))).map(([id, p]) => `<option value="${id}" ${s.roster.every((a) => a.plan === id) ? "selected" : ""}>${p.name}</option>`).join("")}</select></label></div>
   <div class="roster-strip">${s.roster.map((a) => rosterRow(s, a)).join("")}</div>
   <p class="hint">Plans send everyone where the work happens: Power to the Strength Room, Technique to their ring or runway, Speed to the track, Focus to the film room. Tired legs rest on their own.</p>
@@ -100,7 +101,7 @@ function rosterRow(s, a) {
     <button class="who" data-act="athlete" data-id="${a.id}">${portrait(a)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].short} · OVR ${G.overall(a)} ${mood(a)}</small></span></button>
     ${stamina(a)}
     <select data-change="plan" data-id="${a.id}" aria-label="Training plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s,a,id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.name}</option>`).join("")}</select>
-    <span class="doing">${label && act !== a.plan ? chip(label, "#88b0d0") : ""}${alerts(s, a)}</span>
+    <span class="doing">${G.autoPrepActivity(s,a)?chip("Auto · "+PLANS[G.autoPrepActivity(s,a)].short,"#88b0d0"):""}${label && act !== a.plan ? chip(label, "#88b0d0") : ""}${alerts(s, a)}</span>
   </div>`;
 }
 
@@ -183,8 +184,8 @@ function athletePage(s, a, view) {
         const where = at ? (lvl ? name + " Lv " + lvl + (p.stat != null ? " · +" + lvl * 25 + "%" : "") : p.stat != null ? "No " + name + " yet · −20%" : "Clubhouse") : id === "balanced" ? "Laps of the track" : "Light drills";
         const problem = G.planProblem(s,a,id);
         const unlockable = p.course && !s.coaching.unlocked.includes(id);
-        const unlockProblem = (p.facility === "event" && (a.eventMeets[a.trainingEvent||a.event]||0)<(p.cost>=24?4:2) ? "Compete in this event to qualify for advanced coaching" : null) || G.facilityProblem(s,a,p.needs) || (s.coaching.insights < p.cost ? "Not enough Insights" : null);
-        return `<button class="plan ${a.plan === id ? "selected" : ""}" data-act="${unlockable ? "unlock-plan" : "plan"}" data-id="${a.id}" data-value="${id}" ${(unlockable ? unlockProblem : problem) ? "disabled" : ""}><strong>${p.name}</strong><small>${p.desc}</small><em>${unlockable ? "Unlock · " + p.cost + " Insights · " : ""}${problem && (!unlockable || unlockProblem) ? esc(unlockProblem || problem) : where}</em></button>`;
+        const unlockProblem = G.planRequirements(s,a,id) || (s.coaching.insights < p.cost ? "Not enough Insights" : null);
+        return `<button class="plan ${a.plan === id ? "selected" : ""}" data-act="${unlockable ? "unlock-plan" : "plan"}" data-id="${a.id}" data-value="${id}" ${(unlockable ? unlockProblem : problem) ? "disabled" : ""}><strong>${p.name}</strong><small>${p.desc}</small><em>${unlockable ? "Unlock & apply · " + p.cost + " Insights · " : ""}${problem && (!unlockable || unlockProblem) ? esc(unlockProblem || problem) : where}</em></button>`;
       })
       .join("")}</div>
     <p class="hint">${planForecast(s, a)}</p>
@@ -248,6 +249,7 @@ export function insightBanner(s) {
   return `<div class="insight-banner">${ico("idea")}<div><b>${s.coaching.insights}</b> Coaching Insights<small>The coach's notebook. +1 for every day of training, +4 to +9 from each meet review.</small></div></div>`;
 }
 function planForecast(s, a) {
+  if(G.autoPrepActivity(s,a)) return "Standard auto prep is active: "+PLANS[G.autoPrepActivity(s,a)].name+" now. Your saved "+PLANS[a.plan].name+" plan resumes when auto prep is turned off.";
   if (a.plan === "facilities") return "Automatic duties replace stat training. Rewards and stamina costs depend on the selected facility; athletes recover when no suitable site is available.";
   const perWeek = G.trainingGains(s, a, a.plan).map((g) => g * 5);
   return `Five days of ${esc(PLANS[a.plan].name)} add about ${perWeek.map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_NAMES[i] : "")).filter(Boolean).join(", ") || "less than one point"} and cost ${a.plan === "rest" ? "no" : Math.round(PLANS[a.plan].load * 13 * G.effects(s, a).stamina)} stamina a day.`;
@@ -305,11 +307,24 @@ function boostItems(s, a) {
     })
     .join("")}</div>`;
 }
+function preparationToggle(s) {
+  return `<label class="toggle"><input type="checkbox" data-change="auto-prep" ${s.settings.autoMeetPrep?"checked":""} ${s.match||s.pendingEvent?"disabled":""}> Standard auto meet prep</label><p class="hint">Entrants: all-round training, a full rest day before each meet, recovery below 40 stamina, and rest on meet day. Bench plans and duties continue. No automatic spending or item use. Manual coaching can achieve better results.</p>`;
+}
+function coachingPlanControls(s,view) {
+  const scope=view.planScope||"entrants", plan=PLANS[view.groupPlan]?view.groupPlan:"balanced";
+  const ids=G.coachingTargets(s,scope,trainees(s,view)), preview=G.trainingPlanPreview(s,ids,plan);
+  return `<section class="card prep-controls"><div class="card-title"><h2>${ico("calendar")} Meet preparation</h2><span class="chip">${s.settings.autoMeetPrep?"Standard auto":"Manual"}</span></div>${preparationToggle(s)}
+  ${s.settings.autoMeetPrep ? `<p class="prep-active">${s.phase === "season" && s.matchDay != null ? `Next meet: ${esc(G.shortDate(s.matchDay))} · Rest day: ${esc(G.shortDate(Math.max(1,s.matchDay-1)))}.` : "Book a meet to start the standard routine."} Saved manual plans resume when you turn this off.</p>` : ""}
+  <details class="group-plans" ${(view.showGroupPlans ?? !s.settings.autoMeetPrep)?"open":""}><summary>Apply a coaching plan to a group</summary><div class="group-plan-fields"><label>Athletes<select data-change="plan-scope">${[["entrants","Meet entrants"],["squad","Whole squad"],["group","Selected training group"]].map(([id,label])=>`<option value="${id}" ${scope===id?"selected":""}>${label}</option>`).join("")}</select></label><label>Daily plan<select data-change="group-plan">${Object.entries(PLANS).map(([id,p])=>`<option value="${id}" ${plan===id?"selected":""}>${p.name}${p.course&&!s.coaching.unlocked.includes(id)?" · unlock "+p.cost+" Insights":""}</option>`).join("")}</select></label></div><p class="hint">${esc(PLANS[plan].desc)} ${preview.eligible.length} / ${ids.length} athletes qualify. ${preview.cost ? "Unlock once for the club, then apply to eligible athletes." : "No Insights spent to assign this plan."}</p>
+  ${preview.skipped.length?`<p class="plan-skips">${preview.skipped.map(a=>`${esc(a.name)}: ${esc(a.reason)}`).join(" · ")}</p>`:""}
+  ${btn(preview.problem?esc(preview.problem):`${preview.cost?"Unlock & apply · "+preview.cost+" Insights":"Apply to "+preview.eligible.length+" athletes"}`,"apply-group-plan",`data-scope="${scope}" data-plan="${plan}" ${preview.problem?"disabled":""}`,"subtle")}
+  <small class="hint">${s.settings.autoMeetPrep?"Applying a plan switches back to manual preparation. ":""}Facility staff and injured athletes are skipped. Plans repeat each day; coached sessions below are optional.</small></details></section>`;
+}
 export function train(s, view) {
   const ids = trainees(s, view);
   const picked = ids.map((id) => s.roster.find((a) => a.id === id));
   const items = Object.keys(s.bag).filter((k) => ITEMS[k].kind === "use");
-  return `${insightBanner(s)}
+  return `${coachingPlanControls(s,view)}${insightBanner(s)}
   <div class="card-title step"><h2><span class="step-no">1</span> Training group</h2><small class="hint">Up to 3. Each partner adds 10%</small></div>
   <div class="trainee-strip">${s.roster
     .map((b) => {
@@ -323,11 +338,11 @@ export function train(s, view) {
   ${drillGrid(s, ids)}
   <div class="card-title"><h2>${ico("gift")} From the kit bag</h2>${btn("Kit shop", "page", 'data-page="shop"', "text")}</div>
   ${items.length ? `<div class="use-grid">${items.map((k) => `<button class="use-item rarity-${ITEMS[k].rarity}" data-act="use" data-item="${k}">${icon(k, 32)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${esc(ITEMS[k].desc)}</small></span></button>`).join("")}</div>` : `<p class="hint">Kit bag's empty. Drinks and shakes are in the kit shop.</p>`}
-  <div class="card-title"><h2>${ico("calendar")} Daily plans</h2></div>
+  <details class="card individual-plans"><summary>Individual daily plans</summary>
   <div class="plan-rows">${s.roster
-    .map((a) => `<label class="plan-row">${portrait(a)}<span><strong>${esc(a.name.split(" ")[0])}</strong><small>${esc(shortForecast(s, a))}</small></span><select data-change="plan" data-id="${a.id}" aria-label="Daily plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s, a, id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.short || p.name}</option>`).join("")}</select></label>`)
+    .map((a) => `<label class="plan-row">${portrait(a)}<span><strong>${esc(a.name.split(" ")[0])}</strong><small>${esc(G.autoPrepActivity(s,a) ? "Auto now: "+PLANS[G.autoPrepActivity(s,a)].short+" · saved: "+PLANS[a.plan].short : shortForecast(s, a))}</small></span><select data-change="plan" data-id="${a.id}" aria-label="Daily plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s, a, id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.short || p.name}</option>`).join("")}</select></label>`)
     .join("")}</div>
-  <p class="hint">Plans run every day the clock is ticking. Advanced blocks unlock with Insights on each athlete file.</p>`;
+  <p class="hint">These are saved manual plans. Auto prep overrides entrants while a meet is booked; turn it off for individual control.</p></details>`;
 }
 // What each athlete says after a session. Their background colours the best moments.
 const QUOTES = {

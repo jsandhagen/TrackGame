@@ -163,6 +163,8 @@ function windowHTML() {
   return [title, html];
 }
 function render(preserve = true) {
+  const groupPlans = $("#panel .group-plans");
+  if (groupPlans) view.showGroupPlans = groupPlans.open;
   const panel = $("#panel"),
     scroll = preserve ? panel.scrollTop : 0;
   hud();
@@ -703,8 +705,23 @@ $("#app").addEventListener("click", async (e) => {
       view.trainees = list.slice(-G.MAX_GROUP);
       break;
     }
+    case "apply-group-plan": {
+      const ids=G.coachingTargets(state,b.dataset.scope,P.trainees(state,view));
+      const result=G.applyTrainingPlanGroup(state,ids,b.dataset.plan);
+      if(result.ok) {
+        G.setAutoMeetPrep(state,false);
+        toast(PLANS[b.dataset.plan].name+" applied to "+result.applied.length+" athletes"+(result.skipped.length?" · "+result.skipped.length+" skipped":"")+".");
+        world.replan();
+      } else toast(result.problem||"Could not apply this plan.","warn");
+      break;
+    }
     case "unlock-plan":
-      if (G.unlockPlan(state,id,b.dataset.value)) toast("Unlocked " + PLANS[b.dataset.value].name + " for the club. Select it to begin.","level");
+      if (G.unlockPlan(state,id,b.dataset.value)) {
+        G.setTrainingPlan(state,id,b.dataset.value);
+        G.setAutoMeetPrep(state,false);
+        world.replan();
+        toast("Unlocked and assigned " + PLANS[b.dataset.value].name + ". Manual preparation is active.","level");
+      }
       break;
     case "plan": {
       const a = state.roster.find((x) => x.id === id);
@@ -935,7 +952,19 @@ $("#app").addEventListener("change", async (e) => {
   if (kind === "athlete-event" && G.setAthleteEvent(state, a?.id, el.value)) world.replan();
   if(kind === "training-event" && a && EVENTS[el.value] && !state.match) a.trainingEvent=el.value;
   if(kind === "approach" && a && !G.approachProblem(a,el.dataset.event,el.value)) a.approaches[el.dataset.event]=el.value;
-  if (kind === "bulk") state.roster.forEach((x) => G.setTrainingPlan(state,x.id,el.value));
+  if(kind === "auto-prep") {
+    G.setAutoMeetPrep(state,el.checked);
+    view.showGroupPlans=!state.settings.autoMeetPrep;
+    const details=$("#panel .group-plans"); if(details) details.open=view.showGroupPlans;
+    world.replan();
+  }
+  if(kind === "plan-scope") view.planScope=el.value;
+  if(kind === "group-plan") view.groupPlan=el.value;
+  if (kind === "bulk") {
+    const result=G.applyTrainingPlanGroup(state,state.roster.map(a=>a.id),el.value);
+    if(result.ok) { G.setAutoMeetPrep(state,false); if(result.skipped.length) toast(result.skipped.length+" athletes skipped: assigned staff or injured."); }
+    else toast(result.problem,"warn");
+  }
   if (kind === "plan" && a) G.setTrainingPlan(state,a.id,el.value);
   if (kind === "plan" || kind === "bulk") world.replan();
   if (kind === "booking-preparation") view.preparation = +el.value;
