@@ -454,12 +454,16 @@ export function createStadium(cv) {
     const judgeX = Math.min(W - 20, O.x + (landed && beat?.type === "throw" && beat.mark != null ? beat.mark : (e.min + e.max) / 2) * ppm + 10);
     figure(g, { ...OFFICIAL, pose: "idle", frame: Math.floor(now / 700) % 2 }, judgeX, centreY(judgeX) - 18, 1);
     const foulShown = beat?.type === "throw" && beat.foul && landed;
-    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 34, O.y - 22, 1);
-    if (foulShown) rect(g, O.x + 26, O.y - 48, 6, 4, "#e04a3a");
+    // People at the circle are drawn at double size, like a sports sim's close-up; the field
+    // judge out in the sector stays small with the distance.
+    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 44, O.y - 20, 2);
+    if (foulShown) rect(g, O.x + 30, O.y - 72, 10, 7, "#e04a3a");
     // Waiting athlete on the bench.
     if (waiting && throwing) {
-      rect(g, 12, O.y + 39, 36, 3, "#a07850");
-      figure(g, { ...athleteLook(waiting, waitingColors), pose: "sit", frame: Math.floor(now / 600) % 2 }, 30, O.y + 40, 1);
+      rect(g, 4, O.y + 50, 56, 5, "#a07850");
+      rect(g, 8, O.y + 55, 3, 6, "#7a5a3a");
+      rect(g, 52, O.y + 55, 3, 6, "#7a5a3a");
+      figure(g, { ...athleteLook(waiting, waitingColors), pose: "sit", frame: Math.floor(now / 600) % 2 }, 32, O.y + 52, 2);
     }
     // The thrower.
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
@@ -475,8 +479,8 @@ export function createStadium(cv) {
         else if (tt < T.tech) {
           pose = "throw";
           if (ev === "jav") {
-            if (f < 0.7) (pose = "carry"), (frame = Math.floor(f * 14) % 4), (x = 8 + f / 0.7 * (O.x - 12));
-            else (frame = 1), (x = O.x - 4);
+            if (f < 0.7) (pose = "carry"), (frame = Math.floor(f * 14) % 4), (x = 20 + f / 0.7 * (O.x - 28));
+            else (frame = 1), (x = O.x - 8);
           } else if (ev === "discus") {
             frame = f < 0.75 ? 1 : 2;
             flip = f < 0.75 && Math.floor(f * 8) % 2 === 1;
@@ -484,36 +488,36 @@ export function createStadium(cv) {
             frame = f < 0.4 ? 0 : 1;
             flip = f > 0.5 && f < 0.9 && Math.floor(f * 10) % 2 === 1;
             const th = Math.PI * 2 * 3 * f * f;
-            hammerBall = [O.x + 2 + Math.cos(th) * 14, O.y - 16 + Math.sin(th) * 5];
+            hammerBall = [O.x + 4 + Math.cos(th) * 26, O.y - 30 + Math.sin(th) * 9];
           } else frame = f < 0.5 ? 0 : 1;
-          if (ev === "shot" && f >= 0.5) x = O.x + 3;
-        } else if (tt < T.tech + 250) (pose = "throw"), (frame = 2), (x = ev === "jav" ? O.x - 4 : O.x + (ev === "shot" ? 3 : 0));
-        else if (tt < T.land) (pose = "throw"), (frame = 3), (x = ev === "jav" ? O.x - 4 : O.x);
+          if (ev === "shot" && f >= 0.5) x = O.x + 6;
+        } else if (tt < T.tech + 250) (pose = "throw"), (frame = 2), (x = ev === "jav" ? O.x - 8 : O.x + (ev === "shot" ? 6 : 0));
+        else if (tt < T.land) (pose = "throw"), (frame = 3), (x = ev === "jav" ? O.x - 8 : O.x);
         else {
           const good = beat.mark != null && (beat.newPb || beat.leading);
           pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
           frame = Math.floor(now / 220) % 2;
-          x = ev === "jav" ? O.x - 4 : O.x;
+          x = ev === "jav" ? O.x - 8 : O.x;
         }
       } else if (beat?.type === "throw") pose = "throw";
       if (beat?.type === "decide") (pose = "throw"), (frame = 0);
-      shadow(g, x, y, 5);
+      shadow(g, x, y, 9);
       if (hammerBall) {
-        line(g, x + 2, y - 16, hammerBall[0], hammerBall[1], "#d8d8c8");
-        ellipse(g, hammerBall[0], hammerBall[1], 2, 2, "#3a3e46");
+        line(g, x + 4, y - 30, hammerBall[0], hammerBall[1], "#d8d8c8");
+        ellipse(g, hammerBall[0], hammerBall[1], 3, 3, "#3a3e46");
       }
-      figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 1);
-      if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 10, y - 42, { color: "#f2c94c", scale: 2 });
+      figure(g, { ...athleteLook(active, activeColors), pose, frame, flip, event: ev }, x, y, 2);
+      if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 18, y - 76, { color: "#f2c94c", scale: 2 });
       // The thrower reacts once the mark is up: a speech bubble in their own voice.
-      if (beat?.type === "throw" && tt >= T.land + 150 && tt < T.land + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 40);
+      if (beat?.type === "throw" && tt >= T.land + 150 && tt < T.land + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
     // Projectile.
     if (beat?.type === "throw" && tt >= T.tech && tt < T.land + 600) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
-        sx = (ev === "jav" ? O.x - 4 : O.x) + 7,
-        sy = O.y - 22,
+        sx = (ev === "jav" ? O.x - 8 : O.x) + 14,
+        sy = O.y - 42,
         [ex, ey] = sector.point(dist, angle),
         peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev];
       const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];
@@ -600,13 +604,13 @@ export function createStadium(cv) {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 60 + n * 40, O.y + (n % 2) * 8, 1);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: "cheer", frame: Math.floor(now / 250 + n) % 2 }, W / 2 - 90 + n * 60, O.y + (n % 2) * 10, 2);
       });
     } else if (m.phase === "complete") {
       const ids = [...new Set(Object.values(m.lineup))];
       ids.forEach((id, n) => {
         const a = s.roster.find((x) => x.id === id);
-        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 60 + n * 40, O.y + (n % 2) * 8, 1);
+        if (a) figure(g, { ...athleteLook(a, s.colors), pose: m.score === m.against ? "idle" : "sad", frame: 0 }, W / 2 - 90 + n * 60, O.y + (n % 2) * 10, 2);
       });
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
