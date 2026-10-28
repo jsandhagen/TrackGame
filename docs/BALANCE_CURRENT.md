@@ -1,5 +1,7 @@
 # Current balance — club variety update
 
+> **Superseded.** The current difficulty curve, economy and per-stage measurements are in [distances, difficulty, money and landscape screens](DIFFICULTY_ECONOMY.md); re-check them with `node scripts/stage-audit.mjs`. The figures below describe the earlier club-variety balance.
+
 Run `AUDIT_SEEDS=6 AUDIT_SEASONS=40 node scripts/balance-audit.mjs`. [Raw results](balance-results-club-variety.json). These six-seed scripted samples establish progression paths and regressions, not human enjoyment or a representative player win rate.
 
 The engaged policy chooses physical training, skills, upgrades, recruits and equipment. The fully managed policy also directs secondary-event practice, coaches event delivery, selects developed approaches and assigns unused athletes to automatic economic duties. The idle policy auto-selects lineups and resolves events but never invests. All three enter the next available circuit tournament. The scripts retain their existing purchasing and building policies: they do not specifically buy the new event implements or optional specialist buildings, so these results are a conservative coverage check of the expanded content rather than a complete strategy comparison.
