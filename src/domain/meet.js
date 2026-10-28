@@ -8,6 +8,8 @@ import {
   count,
   effects,
   forecast,
+  forecastRaw,
+  realMark,
   equippedSkills,
   grantXp,
   xpNeeded,
@@ -91,20 +93,23 @@ export function autoLineup(s) {
   }
   s.lineup = lineup;
   s.entries = Object.fromEntries(EVENT_IDS.map((ev) => [ev, lineup[ev] ? [lineup[ev]] : []]));
-  // Match second-entry slots as a group, so an early choice cannot strand
+  // Match second, then third, entries as a group, so an early choice cannot strand
   // an athlete's spare event capacity and leave the last event short-handed.
-  const slots=healthy.flatMap(a=>Array.from({length:2-EVENT_IDS.filter(ev=>lineup[ev]===a.id).length},()=>a.id));
-  const matched=new Map();
-  function fill(ev,seen) {
-    const choices=slots.map((id,index)=>({id,index,a:healthy.find(a=>a.id===id)})).filter(x=>x.id!==lineup[ev]).sort((a,b)=>forecast(s,b.a,ev)-forecast(s,a.a,ev));
-    for(const slot of choices) {
-      if(seen.has(slot.index))continue;seen.add(slot.index);
-      if(!matched.has(slot.index)||fill(matched.get(slot.index),seen)){matched.set(slot.index,ev);return true;}
+  // A deep squad fills all three places per event, as rival clubs do.
+  for(const entry of [1,2]) {
+    const slots=healthy.flatMap(a=>Array.from({length:2-EVENT_IDS.filter(ev=>entriesOf(s,ev).includes(a.id)).length},()=>a.id));
+    const matched=new Map();
+    function fill(ev,seen) {
+      const choices=slots.map((id,index)=>({id,index,a:healthy.find(a=>a.id===id)})).filter(x=>!entriesOf(s,ev).includes(x.id)).sort((a,b)=>forecast(s,b.a,ev)-forecast(s,a.a,ev));
+      for(const slot of choices) {
+        if(seen.has(slot.index))continue;seen.add(slot.index);
+        if(!matched.has(slot.index)||fill(matched.get(slot.index),seen)){matched.set(slot.index,ev);return true;}
+      }
+      return false;
     }
-    return false;
+    for(const ev of EVENT_IDS)fill(ev,new Set());
+    for(const [slot,ev] of matched)assignEntry(s,ev,entriesOf(s,ev).length,slots[slot]);
   }
-  for(const ev of EVENT_IDS)fill(ev,new Set());
-  for(const [slot,ev] of matched)assignEntry(s,ev,1,slots[slot]);
   return true;
 }
 
@@ -300,7 +305,7 @@ export function autoTactic(s,side="home") {
       let expected=base*risk.foul;
       for(const [z,w] of samples) {
         const f={home:field.home.map(e=>({...e,marks:[...e.marks]})),away:field.away.map(e=>({...e,marks:[...e.marks]}))};
-        f[side].find(e=>e.id===c.athlete.id).marks.push(risk.center*(1+z*risk.sd));
+        f[side].find(e=>e.id===c.athlete.id).marks.push(risk.metres(z));
         expected+=(1-risk.foul)*w*margin(scoreField(f));
       }
       // Preserve readiness and confidence when extra risk cannot buy team points.
@@ -347,7 +352,9 @@ function riskModel(s, c, side, tactic, quality, sig) {
     first = c.k === 0,
     last = c.left === 1,
     afterFoul = c.k > 0 && c.own[c.k - 1] == null,
-    trailing = c.oppBest != null && (c.ownBest == null || c.ownBest < c.oppBest),
+    // Behind the other club's best in this event (field meets), or the head-to-head rival.
+    rivalBest = c.m.rotation ? best(c.m.fields[c.i][side === "home" ? "away" : "home"].flatMap((e) => e.marks)) : c.oppBest,
+    trailing = rivalBest != null && (c.ownBest == null || c.ownBest < rivalBest),
     leading = c.ownBest != null && ((c.m.rotation?c.fieldBest:c.oppBest) == null || c.ownBest > (c.m.rotation?c.fieldBest:c.oppBest));
   const acts = [];
   let mult = 1;
@@ -396,11 +403,12 @@ function riskModel(s, c, side, tactic, quality, sig) {
   const sd = T.sd * fx.variance * discipline.spread * (1.4 - mastery / 200) * (1.1-focus/500),
     mean = T.mean + (tactic === "attack" ? fx.attackBoost : 0),
     qm = quality === "perfect" ? 1.02 + (fx.perfect ? 0.01 : 0) : quality === "poor" ? 0.95 : 1;
-  const P = forecast(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
+  const P = forecastRaw(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
   const sky = WEATHER[c.m.weather] || {};
   if (sky.foul && !sig && !(first && fx.safeFirst)) foul = clamp(foul * sky.foul, 0.01, 0.5);
-  const center = P * mean * qm * mult * discipline.mark * (sky.mark || 1);
-  return { foul, sd, center, low: center * (1 - sd * 1.6), high: center * (1 + sd * 1.6), acts, fx, P, discipline, target:c.target };
+  const raw = P * mean * qm * mult * discipline.mark * (sky.mark || 1),
+    metres = (z) => realMark(c.ev, raw * (1 + z * sd));
+  return { foul, sd, raw, metres, center: metres(0), low: metres(-1.6), high: metres(1.6), acts, fx, P: realMark(c.ev, P), discipline, target:c.target };
 }
 
 function throwFor(s, side, tactic, quality, sig) {
@@ -411,7 +419,7 @@ function throwFor(s, side, tactic, quality, sig) {
   const r = riskModel(s, c, side, tactic, quality, sig);
   const foul = random(s) < r.foul,
     z = clamp(gauss(s), -2.4, 2.4),
-    mark = foul ? null : +(r.center * (1 + z * r.sd)).toFixed(2);
+    mark = foul ? null : +r.metres(z).toFixed(2);
   if (sig) (side === "home" ? m.sigUsed : m.rivalSig).push(a.id);
   a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.

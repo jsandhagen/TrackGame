@@ -10,6 +10,7 @@ import { DEVELOPMENT } from "./development.js";
 import { DRILLS } from "./coaching.js";
 import { WEATHER, weatherSeedFrom } from "./calendar.js";
 import { ALL_STAR_ID, ensureInvitations, clubById } from "./invitational.js";
+import { rivalBase, rivalMastery } from "./competition.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
 const int = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
@@ -358,7 +359,30 @@ export function validateCampaign(input) {
   s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
   if (s.pendingEvent && typeof s.pendingEvent.id !== "string") s.pendingEvent = null;
   if (s.match) checkMatch(s, ids);
+  rebalanceRivals(s);
   return s;
+}
+// Balance 2 put every rival on one difficulty curve. Older saves keep their named rivals,
+// lifted to the strength their stage now calls for and without the retired finals charm.
+export const BALANCE = 2;
+function rebalanceRivals(s) {
+  if ((s.balance || 1) >= BALANCE) return;
+  const pools = [...Object.entries(s.rivalClubs).map(([tier, clubs]) => [+tier, clubs]), [s.clubTier, s.clubs]];
+  const seen = new Set();
+  for (const [tier, clubs] of pools) for (const c of clubs) {
+    if (seen.has(c)) continue;
+    seen.add(c);
+    const stage = c.developedStage ?? (tier === s.clubTier ? s.clubStage : 0),
+      specialists = c.athletes.slice(0, 4),
+      mean = specialists.reduce((n, a) => n + a.stats.reduce((t, v) => t + v, 0) / 4, 0) / specialists.length,
+      lift = Math.max(0, rivalBase(tier, stage) + 2 - mean);
+    for (const a of c.athletes) {
+      a.stats = a.stats.map((v) => Math.min(100, v + lift));
+      a.mastery[a.event] = Math.max(a.mastery[a.event], rivalMastery(tier, stage));
+      if (a.gear?.charm === "medal") a.gear.charm = "chalk";
+    }
+  }
+  s.balance = BALANCE;
 }
 export const exportCampaign = (state) => ({
   format: "ring-sector-save",

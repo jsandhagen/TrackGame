@@ -6,21 +6,24 @@ export const STAT_COLORS = ["#e07a4f", "#5aa4c8", "#8cc152", "#b48ad8"];
 // Stats are stored as fractions; the player sees whole points from 1 to 100.
 export const showStat = (v) => Math.floor(v + 1e-6);
 
+// min: a raw beginner. max: a top-rated thrower before gear, skills and approach bonuses, which
+// carry the best World League throwers to real world-class marks. record: the senior men's world
+// record, which marks approach but never pass (see realMark).
 export const EVENTS = {
-  shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.56, 0.29, 0.07, 0.08], min: 6, max: 24, hint: "Drive through the ring. Power first, technique close behind." },
-  discus: { name: "Discus", short: "DISC", color: "#8ac4d0", weights: [0.22, 0.49, 0.18, 0.11], min: 16, max: 77, hint: "Rhythm and release. Technicians shine here." },
-  hammer: { name: "Hammer", short: "HAM", color: "#d8a1ae", weights: [0.34, 0.36, 0.24, 0.06], min: 18, max: 89, hint: "Build speed through the turns. Everything matters." },
-  jav: { name: "Javelin", short: "JAV", color: "#aac57d", weights: [0.16, 0.38, 0.38, 0.08], min: 18, max: 99, hint: "Turn approach speed into a clean release." },
+  shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.56, 0.29, 0.07, 0.08], min: 7, max: 20.5, record: 23.56, hint: "Drive through the ring. Power first, technique close behind." },
+  discus: { name: "Discus", short: "DISC", color: "#8ac4d0", weights: [0.22, 0.49, 0.18, 0.11], min: 18, max: 66, record: 74.35, hint: "Rhythm and release. Technicians shine here." },
+  hammer: { name: "Hammer", short: "HAM", color: "#d8a1ae", weights: [0.34, 0.36, 0.24, 0.06], min: 20, max: 79, record: 86.74, hint: "Build speed through the turns. Everything matters." },
+  jav: { name: "Javelin", short: "JAV", color: "#aac57d", weights: [0.16, 0.38, 0.38, 0.08], min: 22, max: 86, record: 98.48, hint: "Turn approach speed into a clean release." },
 };
 export const EVENT_IDS = ["shot", "discus", "hammer", "jav"];
 
 // Rank-ups are the long-term character arc: higher caps, more skill slots, a new look.
 export const RANKS = [
   { name: "Rookie", level: 1, cost: 0, cap: 0, slots: 1, wage: 40 },
-  { name: "Pro", level: 6, cost: 400, cap: 6, slots: 2, wage: 65 },
-  { name: "Ace", level: 12, cost: 1200, cap: 12, slots: 2, wage: 100 },
-  { name: "Star", level: 20, cost: 3000, cap: 20, slots: 3, wage: 150 },
-  { name: "Legend", level: 26, cost: 6500, cap: 28, slots: 3, wage: 220, title: true },
+  { name: "Pro", level: 6, cost: 400, cap: 6, slots: 2, wage: 75 },
+  { name: "Ace", level: 12, cost: 1200, cap: 12, slots: 2, wage: 130 },
+  { name: "Star", level: 20, cost: 3000, cap: 20, slots: 3, wage: 220 },
+  { name: "Legend", level: 26, cost: 6500, cap: 28, slots: 3, wage: 340, title: true },
 ];
 
 export const RARITY = {
@@ -168,14 +171,14 @@ export const SLOT_NAMES = { implement: "Implement", shoes: "Shoes", charm: "Char
 // The stadium: fixed installations that are upgraded in place.
 // cost[k] / league[k] = price and league needed to go from level k to k + 1.
 export const STADIUM = {
-  track: { name: "Track", levels: ["Grass loop", "Gravel track", "Synthetic track", "Championship track"], cost: [0, 650, 1600], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level. Enables acceleration drills; level 2 supports elastic-strength blocks." },
-  shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1000], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 1050], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 950], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  stands: { name: "Grandstand", levels: ["Open field", "Bleachers", "Covered main stand", "Stands all round", "Olympic stadium"], cost: [450, 1100, 2400, 5200], league: [0, 1, 3, 4], start: 0, max: 4, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level. From an open field to metal bleachers, a covered main stand, stands all round and finally an Olympic bowl with a ring roof." },
-  studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 800, 1500], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +25% per level. Enables video sessions and feedback plans; meet reviews generate extra Insights." },
-  lights: { name: "Floodlights", levels: ["None", "Floodlights", "Stadium lights"], cost: [900, 1800], league: [2, 3], start: 0, max: 2, desc: "Evening meets: +20% fans from home wins per level and a brighter crowd." },
+  track: { name: "Track", levels: ["Grass loop", "Gravel track", "Synthetic track", "Championship track"], cost: [0, 900, 2400], league: [0, 1, 3], start: 1, max: 3, desc: "Where speed work happens. Speed training +25% per level. Enables acceleration drills; level 2 supports elastic-strength blocks." },
+  shot: { name: "Shot put circle", event: "shot", levels: ["Not built", "Concrete circle", "Twin circles", "Competition circle"], cost: [200, 450, 1800], league: [0, 0, 2], start: 1, max: 3, desc: "Shot putters' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1900], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 2000], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 1800], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +25% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
+  stands: { name: "Grandstand", levels: ["Open field", "Bleachers", "Covered main stand", "Stands all round", "Olympic stadium"], cost: [450, 1500, 4000, 10000], league: [0, 1, 3, 4], start: 0, max: 4, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level. From an open field to metal bleachers, a covered main stand, stands all round and finally an Olympic bowl with a ring roof." },
+  studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 900, 2400], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +25% per level. Enables video sessions and feedback plans; meet reviews generate extra Insights." },
+  lights: { name: "Floodlights", levels: ["None", "Floodlights", "Stadium lights"], cost: [1200, 3000], league: [2, 3], start: 0, max: 2, desc: "Evening meets: +20% fans from home wins per level and a brighter crowd." },
 };
 export const STADIUM_IDS = Object.keys(STADIUM);
 export const THROW_SPOTS = ["shot", "discus", "hammer", "jav"];
@@ -185,8 +188,8 @@ export const FACILITIES = {
   club: { name: "Clubhouse", cost: 0, league: 0, fixed: true, color: "#c0784a", desc: "Home. Each level: +$60 weekly income and +1 daily condition." },
   gym: { name: "Strength Room", cost: 280, league: 0, stat: 0, color: "#d08a50", desc: "Power training +25% per level. Enables coached strength sessions; level 2 supports maximum-strength blocks." },
   spa: { name: "Recovery Spa", cost: 340, league: 0, color: "#6ab0b0", desc: "Rest recovers +12 stamina per level. Injuries heal faster. Reduces the stamina cost of coached sessions." },
-  cafe: { name: "Canteen Café", cost: 300, league: 0, color: "#e0a050", desc: "Visitors spend $2 per level. +1 daily condition." },
-  shop: { name: "Merch Stand", cost: 380, league: 0, color: "#d0605a", desc: "Visitors spend $3 per level. +1 fan a day per level." },
+  cafe: { name: "Canteen Café", cost: 300, league: 0, color: "#e0a050", desc: "Six in ten visitors buy: $2 each, +$1 per level. Serves up to 30 customers a day, +15 per level. +1 daily condition." },
+  shop: { name: "Merch Stand", cost: 380, league: 0, color: "#d0605a", desc: "Half of visitors buy: $3 each, +$1.50 per level. Serves up to 20 customers a day, +10 per level. +1 fan a day per level." },
   garden: { name: "Club Garden", cost: 150, league: 0, decor: true, color: "#78a858", desc: "+1 daily team condition per level. Visitors love it. You can plant more than one." },
   fountain: { name: "Fountain", cost: 220, league: 0, decor: true, color: "#7ac0e0", desc: "A landmark: more visitors, +1 daily condition. You can build more than one." },
   dorm: { name: "Dormitory", cost: 450, league: 0, color: "#a08a6a", desc: "Room for +2 athletes per level (base squad of 6)." },
@@ -242,11 +245,11 @@ export const GRADES = [
 export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1);
 
 export const LEAGUES = [
-  { name: "Community League", tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
-  { name: "County League", tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
-  { name: "Regional League", tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
-  { name: "National League", tag: "Your little club has made a name.", rating: 79, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
-  { name: "World League", tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
+  { name: "Community League", entry: 0, tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
+  { name: "County League", entry: 250, tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
+  { name: "Regional League", entry: 600, tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
+  { name: "National League", entry: 1500, tag: "Your little club has made a name.", rating: 79, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
+  { name: "World League", entry: 3000, tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
 ];
 
 export const CLUBS = [

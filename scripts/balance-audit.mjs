@@ -12,6 +12,17 @@ const STAND = ["discus", "hammer", "stands", "studio", "shot", "jav", "track", "
 const SKILL_PRIORITY = ["gymrat", "formfreak", "fasttwitch", "clutch", "icevein", "quickstudy", "hunter", "secondwind", "momentum", "workhorse", "bigstage", "highroller", "captain", "meteor", "cyclone", "tempest", "skyspear"];
 
 export function engaged(s) {
+  // Hold back the next entry fee and a week's bills; spend only what is above that.
+  const reserve = G.entryFee("league", G.nextCircuitEntry(s).tier) + G.wages(s) + G.upkeep(s);
+  s.money -= reserve;
+  try {
+    spend(s);
+  } finally {
+    s.money += reserve;
+  }
+  G.autoLineup(s);
+}
+function spend(s) {
   const plans = ["power", "technique", "speed", "focus"];
   for (const a of s.roster) {
     const w = EVENTS[a.event].weights;
@@ -58,7 +69,6 @@ export function engaged(s) {
     const meet = a.skills.filter((k) => ["meet", "team", "unique"].includes(SKILLS[k].cat)).slice(0, G.slotsOf(a));
     a.loadouts = { enabled: true, training, meet };
   }
-  G.autoLineup(s);
 }
 export function fullyManaged(s) {
   engaged(s);
@@ -80,6 +90,10 @@ function idle(s) {
   G.autoLineup(s);
 }
 
+// Enter the next league, or a free duel at the current level while the entry fee is out of reach.
+export function book(s) {
+  return G.enterCompetition(s, G.nextCircuitEntry(s)) || G.enterCompetition(s, { kind: "duel", tier: s.league, rival: s.season % 3 });
+}
 export function career(seed, policy) {
   const s = G.newGame(seed);
   const reached = [1, null, null, null, null],
@@ -88,7 +102,7 @@ export function career(seed, policy) {
     injuries = 0,
     minMoney = s.money;
   for (let season = 0; season < MAX && !title; season++) {
-    if (s.phase === "planning") G.enterCompetition(s, G.nextCircuitEntry(s));
+    if (s.phase === "planning") book(s);
     for (let guard = 0; guard < 400 && s.phase === "season"; guard++) {
       if (s.pendingEvent) {
         G.resolveEvent(s, Math.max(0, G.eventView(s).choices.findIndex((c) => c.ok)));

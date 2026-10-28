@@ -30,7 +30,7 @@ const centreY = (x) => O.y - (x - O.x) * 0.04;
 const sectorSlope = () => Math.min(0.17, 102 / Math.max(1, W - O.x));
 const upperY = (x) => O.y - (x - O.x) * sectorSlope();
 const lowerY = (x) => O.y + (x - O.x) * Math.min(0.09, 38 / Math.max(1, W - O.x));
-const ppmOf = (ev) => (W - O.x - 36) / EVENTS[ev].max;
+const ppmOf = (ev) => (W - O.x - 36) / EVENTS[ev].record;
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
 // Base milliseconds for each beat at 1× speed.
@@ -200,7 +200,7 @@ function stadiumBase(s, ev, venue) {
   const e = EVENTS[ev],
     ppm = ppmOf(ev),
     step = e.max > 40 ? 10 : 2;
-  for (let d = Math.ceil(e.min / step) * step; d < e.max; d += step) {
+  for (let d = Math.ceil(e.min / step) * step; d < e.record; d += step) {
     const x = O.x + d * ppm;
     line(g, x, upperY(x) + 1, x, lowerY(x) - 1, "rgba(244,244,232,0.45)");
     rect(g, x - 7, upperY(x) - 10, 15, 8, "#f4efe2");

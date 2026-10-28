@@ -10,12 +10,25 @@ export const CIRCUIT_FORMATS = [
 ];
 export const TITLE_GIFTS = ["scroll", "letter", "elixir"];
 export const circuitKey = (tier, stage) => `${tier}:${stage}`;
+// One smooth difficulty curve across all fifteen stages, Community Open to World Championship:
+// the event rating of a typical rival specialist. Each stage asks for about a season's growth
+// from a well-run club, so steps are big while athletes improve quickly and small near the top.
+export const RIVAL_RATING = [21, 37, 49, 63, 71, 76, 76, 79, 82, 82, 84, 86, 88, 90, 92];
+export function rivalMastery(tier, stage) {
+  return Math.min(95, 30 + 4.6 * (tier * 3 + stage));
+}
+// The base stat that, with that mastery, produces the target rating.
+export function rivalBase(tier, stage) {
+  return RIVAL_RATING[tier * 3 + stage] / (0.6 + 0.004 * rivalMastery(tier, stage)) - 2;
+}
 export const competitionTier = (s) => s.competition?.tier ?? s.league;
 export const competitionName = (s) => s.competition?.kind === "cup"
   ? s.invitations?.offer?.name || "Invitational"
   : s.competition?.kind === "duel"
   ? "Duel · " + CLUBS[s.competition.tier][s.competition.rival].name
   : LEAGUES[competitionTier(s)].name + " · " + CIRCUIT_STAGES[s.competition?.stage ?? 2];
+// Leagues above Community charge entry; duels are always free, so a club can always earn.
+export const entryFee = (kind, tier) => (kind === "league" ? LEAGUES[tier]?.entry || 0 : 0);
 export function entryProblem(s, kind, tier, stage = 0, rival = 0) {
   if (s.phase !== "planning" || s.match || s.competition) return "Finish your current competition first.";
   if (s.pendingEvent) return "Resolve the club decision first.";
@@ -24,6 +37,7 @@ export function entryProblem(s, kind, tier, stage = 0, rival = 0) {
   if (kind === "duel") return Number.isInteger(rival) && rival >= 0 && rival < CLUBS[tier].length ? null : "Unknown rival.";
   if (!Number.isInteger(stage) || stage < 0 || stage > 2) return "Unknown trophy.";
   if (stage > 0 && !s.circuit.cleared.includes(circuitKey(tier, stage - 1))) return "Win the " + CIRCUIT_STAGES[stage - 1] + " first.";
+  if (s.money < entryFee(kind, tier)) return "Entry costs $" + entryFee(kind, tier).toLocaleString() + ".";
   return null;
 }
 // Bring a level's clubs onto the calendar, keeping every club's people between visits.
@@ -42,9 +56,12 @@ export function switchTier(s, tier, strength, all) {
   // A club keeps its people. New stages develop their existing strengths.
   for(const c of s.clubs) {
     const previous=c.developedStage??(s.clubTier===tier?s.clubStage:strength);
-    if(strength>previous) for(const a of c.athletes) {
-      a.mastery[a.event]=Math.min(100,a.mastery[a.event]+(strength-previous)*2);
-      a.stats=a.stats.map((v,i)=>Math.min(100,v+(strength-previous)*(i===0?2:1.5)));
+    if(strength>previous) {
+      const lift=rivalBase(tier,strength)-rivalBase(tier,previous),practice=rivalMastery(tier,strength)-rivalMastery(tier,previous);
+      for(const a of c.athletes) {
+        a.mastery[a.event]=Math.min(100,a.mastery[a.event]+practice);
+        a.stats=a.stats.map(v=>Math.min(100,v+lift));
+      }
     }
     c.developedStage=Math.max(previous,strength);
   }
@@ -56,7 +73,9 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   const strength = kind === "duel" ? 0 : stage;
   switchTier(s, tier, strength, kind === "duel");
   s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });
-  s.competition = { kind, tier, stage: strength, rival, spacing, startDay: s.day + preparation };
+  const fee = entryFee(kind, tier);
+  s.money -= fee;
+  s.competition = { kind, tier, stage: strength, rival, spacing, startDay: s.day + preparation, fee };
   s.phase = "season";
   s.fixture = 0;
   s.results = [];
@@ -70,7 +89,8 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
 }
 export function cancelCompetition(s) {
   if (!s.competition || s.match || s.fixture !== 0 || s.results.length || s.day >= s.matchDay) return false;
-  note(s, "Booking cancelled. Your training and club progress stay.", "info");
+  s.money += s.competition.fee || 0;
+  note(s, "Booking cancelled" + (s.competition.fee ? " and the $" + s.competition.fee.toLocaleString() + " entry refunded" : "") + ". Your training and club progress stay.", "info");
   s.competition = null;
   s.matchDay = null;
   s.phase = "planning";

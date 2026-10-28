@@ -53,7 +53,7 @@ import {
 import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 
-import { competitionTier, competitionName, circuitKey, TITLE_GIFTS } from "./competition.js";
+import { competitionTier, competitionName, circuitKey, TITLE_GIFTS, rivalBase, rivalMastery } from "./competition.js";
 export * from "./competition.js";
 export * from "./development.js";
 export * from "./coaching.js";
@@ -88,6 +88,7 @@ export const DEFAULT_SETTINGS = { orientation: "auto", meetMode: "watch", manual
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
     v: 8,
+    balance: 2,
     rivalClubs: {},
     facilityDuties: {},
     coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0, drills: {} },
@@ -178,35 +179,38 @@ export function makeClubs(s, league, stage = 0, indices = [0, 1, 2]) {
     diff: 0,
     played: 0,
     athletes: [...EVENT_IDS,...(league>=2?[EVENT_IDS[index%4],EVENT_IDS[(index+2)%4]]:[])].map((event, i) => {
-      const star = bias[EVENT_IDS.indexOf(event)] >= 2;
+      const star = bias[EVENT_IDS.indexOf(event)] >= 2,
+        rarity = star && league >= 2 ? "epic" : league >= 1 && star ? "rare" : "common";
+      // Rarity marks a rival's star, but the difficulty curve already sets their strength.
       const a = createAthlete(s, event, {
-        base: LEAGUES[league].rating + stage * 3 + (index % 3) * 1.4 - 1 + bias[EVENT_IDS.indexOf(event)],
-        rarity: star && league >= 2 ? "epic" : league >= 1 && star ? "rare" : "common",
+        base: rivalBase(league, stage) + (index % 3) * 1.4 - 1 + bias[EVENT_IDS.indexOf(event)] - RARITY[rarity].bonus,
+        rarity,
         rank: Math.min(4, league),
         sp: 0,
         potential: 100,
       });
       a.potential = 100;
-      a.mastery[event]=Math.min(100,[30,56,70,82,90][league]+stage*2+(star?5:0));
+      a.mastery[event]=Math.min(100,rivalMastery(league,stage)+(star?5:0));
       a.eventMeets[event]=Math.max(0,league*4);
       const secondary=EVENT_IDS[(EVENT_IDS.indexOf(event)+3)%4];
       a.mastery[secondary]=Math.min(90,12+league*15);
       a.eventMeets[secondary]=league*3;
       a.profile=identity === "adaptable" ? "adaptable" : identity === "control" ? "consistent" : star ? "explosive" : "durable";
       if(identity === "adaptable" || identity === "depth") a.mastery[secondary] = Math.min(95,a.mastery[secondary]+10);
-      if(league>=2 && star) a.stats=a.stats.map((v,j)=>Math.min(100,v+(EVENTS[event].weights[j]>=0.3?4:0)));
+      if(league>=2 && star) a.stats=a.stats.map((v,j)=>Math.min(100,v+(EVENTS[event].weights[j]>=0.3?2:0)));
       a.skills = [];
       for (let n = 0; n < Math.min(league + (star ? 1 : 0), 3); n++) a.skills.push(pick(s, meetSkills));
       if (league >= 3 && i === 0) a.skills.push("captain");
       if (league >= 4 && star) a.skills.push({ shot: "meteor", discus: "cyclone", hammer: "tempest", jav: "skyspear" }[event]);
       if(league>=1) {
-        const style=identity === "power" || identity === "hammer" ?["opener","clutch",star?"highroller":"icevein"]:identity === "control"?["metronome","icevein","clutch"]:["hunter","clutch","bigstage"];
+        const style=identity === "power" || identity === "hammer" ?["opener","clutch",star?"highroller":"icevein"]:identity === "control"?["metronome","icevein","clutch"]:["hunter","clutch","highroller"];
         a.skills=style.slice(0,Math.min(3,league+1));
         if(league>=3&&i===0)a.skills.push("captain");
         if(league>=4&&star)a.skills.push({shot:"meteor",discus:"cyclone",hammer:"tempest",jav:"skyspear"}[event]);
         a.gear.implement=league>=3&&star?"carbon":star?"competition":"precision";
         if(league>=2)a.gear.shoes=index===2?"thunder":"spikes";
-        if(league>=3)a.gear.charm=index===1?"chalk":"medal";
+        // Big Stage is the clutch clubs' finals edge; rivals don't stack a finals charm on top.
+        if(league>=3)a.gear.charm="chalk";
         if(index===1)a.mastery[secondary]=Math.min(95,a.mastery[secondary]+8);
       }
       if(league >= 1) {
@@ -356,8 +360,7 @@ export function advanceDay(s) {
   report.visitors = visitors;
   s.plots.forEach((p, i) => {
     if (!p) return;
-    const amount =
-      p.type === "cafe" ? Math.round(visitors * 0.6 * 2 * p.level) : p.type === "shop" ? Math.round(visitors * 0.5 * 3 * p.level * (hasCombo(s, "matchday") ? 1.5 : 1)) : 0;
+    const amount = counterTakings(s, p.type, p.level, visitors);
     if (amount) {
       s.money += amount;
       report.spend.push({ plot: i, amount });
@@ -373,19 +376,34 @@ export function advanceDay(s) {
   report.event = rollStoryEvent(s);
   return report;
 }
+// The café and merch stand sell to a share of visitors, up to what their counters can serve.
+export function counterTakings(s, type, level, visitors = visitorsPerDay(s)) {
+  if (type === "cafe") return Math.round(Math.min(visitors * 0.6, 15 * (level + 1)) * (1 + level));
+  if (type === "shop") return Math.round(Math.min(visitors * 0.5, 10 * (level + 1)) * 1.5 * (1 + level) * (hasCombo(s, "matchday") ? 1.5 : 1));
+  return 0;
+}
+// Running costs: 3% of what each building and stadium upgrade cost, every week.
+export const upkeepOf = (type, level) => Math.round(FACILITIES[type].cost * 0.03 * level);
+export function upkeep(s) {
+  const buildings = s.plots.reduce((n, p) => n + (p && p.type !== "club" ? upkeepOf(p.type, p.level) : 0), 0);
+  const stadium = Object.entries(STADIUM).reduce((n, [k, d]) => n + d.cost.slice(d.start, s.stadium[k] || 0).reduce((t, c) => t + c, 0), 0);
+  return buildings + Math.round(stadium * 0.03);
+}
 export function weeklyIncome(s) {
   const sponsor = SPONSORS[s.sponsor] || SPONSORS.bakery;
   return Math.round((sponsor.weekly + 80 + 60 * (facilityLevel(s, "club") - 1) + 70 * facilityLevel(s, "stands")) * (hasCombo(s, "nightfever") ? 1.15 : 1));
 }
 export const wages = (s) => s.roster.reduce((n, a) => n + wageOf(a), 0);
+export const weeklyNet = (s) => weeklyIncome(s) - wages(s) - upkeep(s);
 function payWeek(s) {
   const income = weeklyIncome(s),
     paid = wages(s),
+    running = upkeep(s),
     sponsor = SPONSORS[s.sponsor];
-  s.money += income - paid;
+  s.money += income - paid - running;
   if (sponsor?.gift) addItem(s, sponsor.gift, 2);
-  note(s, "Payday: +$" + income + " income, −$" + paid + " wages" + (sponsor?.gift ? ", plus 2 " + ITEMS[sponsor.gift].name + "s" : "") + ".", "money");
-  return { income, wages: paid, net: income - paid };
+  note(s, "Payday: +$" + income + " income, −$" + paid + " wages" + (running ? ", −$" + running + " upkeep" : "") + (sponsor?.gift ? ", plus 2 " + ITEMS[sponsor.gift].name + "s" : "") + ".", "money");
+  return { income, wages: paid, upkeep: running, net: income - paid - running };
 }
 
 // ── Grounds ───────────────────────────────────────────────────────────

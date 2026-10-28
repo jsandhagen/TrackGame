@@ -2,13 +2,13 @@ import { FACILITIES, STADIUM } from '../game-content.js';
 import { clamp, grantXp, count } from './core.js';
 
 export const DUTIES = {
-  club: { name:'Club open day', desc:'Welcome visitors and help with community club sessions.', money:8, fans:1, stamina:6 },
-  cafe: { name:'Canteen service', desc:'Serve athletes and visiting supporters. Takings depend on visitors and service capacity.', sales:1.8, stamina:8 },
-  shop: { name:'Club kit stall', desc:'Sell club shirts and kit to visitors. More supporters sustain a busier stall.', sales:2.5, stamina:8 },
+  club: { name:'Club open day', desc:'Welcome visitors and help with community club sessions.', money:6, fans:1, stamina:6 },
+  cafe: { name:'Canteen service', desc:'Serve athletes and visiting supporters. Takings depend on visitors and service capacity.', sales:1.4, stamina:8 },
+  shop: { name:'Club kit stall', desc:'Sell club shirts and kit to visitors. More supporters sustain a busier stall.', sales:1.9, stamina:8 },
   gym: { name:'Training partner', desc:'Spot lifts, organise medicine-ball work and record useful coaching observations.', insights:1, stamina:8 },
   lab: { name:'Technique testing assistant', desc:'Help record and compare release and movement data for the coaches.', insights:2, stamina:6 },
   scout: { name:'Community throws clinic', desc:'Help run a local introductory throws session and grow the club following.', fans:3, stamina:8 },
-  workshop: { name:'Implement & kit service', desc:'Help inspect, clean and maintain equipment for local clubs.', money:12, stamina:8 },
+  workshop: { name:'Implement & kit service', desc:'Help inspect, clean and maintain equipment for local clubs.', money:9, stamina:8 },
   spa: { name:'Recovery support', desc:'Help organise mobility and recovery sessions. Resting teammates recover extra stamina.', recovery:2, stamina:6 },
   studio: { name:'Meet film review', desc:'Tag competition footage and collect observations for the coaching staff.', insights:2, stamina:4 },
 };

@@ -61,7 +61,7 @@ export const MOOD_MARK = [0.95, 0.975, 1, 1.02, 1.04];
 export const MOOD_TRAIN = [0.8, 0.9, 1, 1.1, 1.2];
 export const xpNeeded = (level) => 40 + level * 12;
 export const slotsOf = (a) => RANKS[a.rank || 0].slots;
-export const wageOf = (a) => RANKS[a.rank || 0].wage + RARITY[a.rarity || "common"].wage + Math.floor(a.level / 4) * 5;
+export const wageOf = (a) => RANKS[a.rank || 0].wage + RARITY[a.rarity || "common"].wage + Math.floor(a.level / 4) * 8;
 export const statTotal = (a) => a.stats.reduce((n, v) => n + v, 0);
 
 export function makeLook(s, extra = {}) {
@@ -209,20 +209,30 @@ export function effects(s, a, club = true, mode = s.match ? "meet" : "training",
 export function eventRating(a, event) {
   return a.stats.reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (0.60 + 0.40 * masteryOf(a,event)/100);
 }
-export function rawMark(a, event) {
+// Distances follow ability until 92% of the world record; beyond that each extra bit of ability
+// buys fewer centimetres, so no mark ever passes the record.
+export function realMark(event, m) {
+  const record = EVENTS[event].record,
+    knee = record * 0.92;
+  return m <= knee ? m : knee + (record - knee) * (1 - Math.exp(-(m - knee) / (record - knee)));
+}
+const baseMark = (a, event) => {
   const e = EVENTS[event];
   return e.min + (e.max - e.min) * Math.pow(clamp(eventRating(a, event), 0, 100) / 100, 1.12);
-}
-export function forecast(s, a, event, o = {}) {
+};
+export const rawMark = (a, event) => realMark(event, baseMark(a, event));
+// Unsaturated performance, for throws that stack further bonuses before converting to metres.
+export function forecastRaw(s, a, event, o = {}) {
   const fx = o.fx || effects(s, a, o.club !== false, "meet", event);
   return (
-    rawMark(a, event) *
+    baseMark(a, event) *
     MOOD_MARK[moodOf(a)] *
     (0.92 + (0.08 * clamp(a.stamina, 0, 100)) / 100) *
     fx.mark *
     (o.doubleDuty ? 0.97 : 1)
   );
 }
+export const forecast = (s, a, event, o = {}) => realMark(event, forecastRaw(s, a, event, o));
 
 export function xpMultiplier(s, a) {
   let m = effects(s, a).xp;

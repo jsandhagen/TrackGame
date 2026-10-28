@@ -76,6 +76,7 @@ test('away grounds grow with the level; finals go to the neutral showpiece', () 
   for (let tier = 0; tier < 5; tier++) {
     const s = G.newGame(30 + tier);
     s.league = 4;
+    s.money = 10000;
     for (let t = 0; t < tier; t++) for (let st = 0; st < 3; st++) s.circuit.cleared.push(t + ':' + st);
     assert(G.enterCompetition(s, { kind: 'league', tier, stage: 0, preparation: 3 }));
     assert.equal(G.meetVenue(s).home, true);
