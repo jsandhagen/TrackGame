@@ -393,7 +393,7 @@ function runTraining(ids, drill) {
   save();
   render();
   world.replan();
-  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · session Lv " + session.level, tone: "gold", cls: "training" });
+  dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · step " + G.tierOf(session.level - (session.tierUp ? 1 : 0)) + " of 5", tone: "gold", cls: "training" });
   const dlg = $("#dialog"),
     results = dlg.querySelector(".stage-results"),
     cv = dlg.querySelector(".stage-canvas");
@@ -407,11 +407,15 @@ function runTraining(ids, drill) {
     colors: state.colors,
     ctx: { gymLevel: G.facilityLevel(state, "gym"), trackColor: trackColorOf(Math.max(2, state.stadium.track), styleOf(state).track) },
     reduced: reduced(),
+    chemistry: session.chemistry,
+    upgrade: session.tierUp ? session.levelUp : null,
+    onChemistry: () => sfx("combo"),
     onReveal() {
       results.classList.add("show");
       dlg.querySelector(".stage-tap")?.remove();
       sfx(session.results.some((r) => r.quality === "excellent") ? "goal" : "stamp");
-      if (session.levelUp) setTimeout(() => sfx("combo"), 700);
+      if (session.levelUp) setTimeout(() => sfx(session.tierUp ? "level" : "combo"), 700);
+      if (session.coachLevelUp) setTimeout(() => sfx("goal"), 1300);
     },
   });
   cv.onclick = () => player.skip();
@@ -732,6 +736,9 @@ $("#app").addEventListener("click", async (e) => {
       return openWindow("train");
     case "page-tab":
       (view.tabs ??= {})[b.dataset.page] = b.dataset.tab;
+      break;
+    case "drill-family":
+      view.drillFamily = b.dataset.value;
       break;
     case "train-tab":
       view.trainTab = b.dataset.tab;

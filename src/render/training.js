@@ -15,7 +15,7 @@ const COACH = { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, shirt: "#2
 const QUALITY_COLOR = { good: "#8cc152", great: "#7cc8f0", excellent: "#f2c94c" };
 const QUALITY_TEXT = { good: "SOLID", great: "STRONG!", excellent: "BOMB!!" };
 // Coaching cues shouted mid-session.
-const CUES = { visualise: "BREATHE IN...", recovery: "NICE AND EASY", contest: "BEAT THAT!", lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!", indoor: "SMOOTH RELEASE!", peer: "WATCH THE RHYTHM", trial: "FEEL THE GRIP" };
+const CUES = { sandbag: "LIFT WITH THE LEGS!", ladder: "QUICK FEET!", shadow: "FEEL THE POSITIONS", visualise: "BREATHE IN...", recovery: "NICE AND EASY", contest: "BEAT THAT!", lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!", indoor: "SMOOTH RELEASE!", peer: "WATCH THE RHYTHM", trial: "FEEL THE GRIP" };
 const IMPLEMENT = { shot: "#6a6e78", discus: "#d8b060", hammer: "#5a5e68", jav: "#e8e0c8" };
 
 const slots = (n) => [[150], [118, 178], [96, 148, 200]][n - 1];
@@ -137,7 +137,23 @@ function lawn(g, ctx) {
   grass(g, 60);
   for (const x of ctx.xs) rect(g, x - 11, FLOOR - 1, 22, 4, "#5a8ab0");
 }
-const BACKDROPS = { visualise: lawn, recovery: lawn, contest: field, indoor, peer: studio, trial: testing, lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
+// Sandbags slumped on the grass, or a rope ladder laid out for footwork.
+function bags(g, ctx) {
+  lawn(g, ctx);
+  for (const x of [52, 214]) {
+    ellipse(g, x, FLOOR + 1, 9, 4, "#8a7048");
+    ellipse(g, x, FLOOR - 1, 8, 3, "#b89a68");
+  }
+}
+function ropes(g, ctx) {
+  track(g, ctx);
+  for (const x of ctx.xs) {
+    rect(g, x - 28, FLOOR - 4, 56, 1, "#f2e6c0");
+    rect(g, x - 28, FLOOR + 3, 56, 1, "#f2e6c0");
+    for (let k = -28; k <= 28; k += 8) rect(g, x + k, FLOOR - 4, 1, 8, "#f2e6c0");
+  }
+}
+const BACKDROPS = { sandbag: bags, ladder: ropes, shadow: field, visualise: lawn, recovery: lawn, contest: field, indoor, peer: studio, trial: testing, lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
 
 // ── Athlete actions per drill ───────────────────────────────────────────
 // Returns the pose to draw plus any props, given time t since the drill started.
@@ -151,6 +167,18 @@ function act(drill, i, t, ev) {
     case "acceleration": {
       const p = wave(t + off * 3, 1500);
       return { pose: "run", frame: Math.floor(t / 80) % 4, dx: -70 + p * 140, dust: true };
+    }
+    case "sandbag": {
+      const f = Math.floor((t + off) / 520) % 2;
+      return { pose: "lift", frame: f, face: f ? undefined : "strain", sweat: f === 0 };
+    }
+    case "ladder": {
+      const p = wave(t + off * 2, 900);
+      return { pose: "run", frame: Math.floor(t / 60) % 4, dx: -24 + (p < 0.5 ? p : 1 - p) * 96, dust: true };
+    }
+    case "shadow": {
+      const p = wave(t + off, 1300);
+      return { pose: "throw", event: ev, frame: p < 0.35 ? 0 : p < 0.55 ? 1 : p < 0.7 ? 2 : 3 };
     }
     case "visualise": {
       // Seated, eyes closed, a slow breath in and out.
@@ -202,9 +230,12 @@ function drawImplement(g, drill, ev, x, y, p) {
 
 function bubble(g, x, y, str, color = "#3a2a24") {
   const w = str.length * 6 + 6;
+  // Keep long calls inside the scene; the tail stays over the speaker.
+  const tail = x;
+  x = Math.max(w / 2 + 2, Math.min(SCENE_W - w / 2 - 2, x));
   rect(g, x - w / 2, y, w, 11, "#fffaf0");
   rect(g, x - w / 2, y + 11, w, 1, "#c8bfa0");
-  rect(g, x - 2, y + 11, 3, 3, "#fffaf0");
+  rect(g, tail - 2, y + 11, 3, 3, "#fffaf0");
   text(g, str, x, y + 2, { color, outline: null, align: "center" });
 }
 
@@ -221,7 +252,8 @@ export function playTraining(cv, opts) {
   let t0 = performance.now() - (opts.reduced ? SCENE.end : 0),
     raf = 0,
     stopped = false,
-    revealed = false;
+    revealed = false,
+    chemShown = false;
   const sparks = Array.from({ length: 24 }, (_, k) => ({ a: (k / 24) * Math.PI * 2, v: 0.6 + (k % 5) * 0.25 }));
 
   function draw(t) {
@@ -289,6 +321,29 @@ export function playTraining(cv, opts) {
         });
       }
     });
+    // Chemistry: sparks pass between the group mid-session, then its name pops up.
+    if (opts.chemistry && working && t > 1200) {
+      if (!chemShown) (chemShown = true), opts.onChemistry?.();
+      for (let i = 0; i + 1 < xs.length; i++)
+        for (let k = 0; k < 4; k++) {
+          const p = wave(t + k * 230, 920),
+            x = xs[i] + (xs[i + 1] - xs[i]) * p;
+          rect(o, x, FLOOR - 40 - Math.sin(p * Math.PI) * 10, 2, 2, ["#f2c94c", "#e7a0d8", "#fff6dc"][k % 3]);
+        }
+      const pop = Math.min(1, (t - 1200) / 200);
+      text(o, opts.chemistry.discovered ? "NEW CHEMISTRY!" : "CHEMISTRY!", SCENE_W / 2, 18 - (1 - pop) * 6, { color: "#e7a0d8", align: "center" });
+      text(o, opts.chemistry.name.toUpperCase(), SCENE_W / 2, 27, { color: "#fff6dc", align: "center" });
+    }
+    // A drill that climbs a step gets its own stamp once the ratings land.
+    if (opts.upgrade && t > SCENE.reveal + 900) {
+      const ut = t - SCENE.reveal - 900,
+        y = SCENE_H - 22 + Math.max(0, 12 - ut / 16);
+      rect(o, 20, y, SCENE_W - 40, 21, "#14261e");
+      rect(o, 20, y, SCENE_W - 40, 1, "#f2c94c");
+      rect(o, 20, y + 20, SCENE_W - 40, 1, "#f2c94c");
+      text(o, "TRAINING UPGRADED!", SCENE_W / 2, y + 3, { color: Math.floor(ut / 200) % 2 ? "#f2c94c" : "#fff6dc", align: "center" });
+      text(o, opts.upgrade.toUpperCase(), SCENE_W / 2, y + 12, { color: "#fff6dc", align: "center" });
+    }
     // Session bar across the top while the drill runs.
     if (!reveal) {
       const p = Math.max(0, Math.min(1, (t - SCENE.intro) / (SCENE.work - SCENE.intro)));

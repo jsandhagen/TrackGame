@@ -4731,3 +4731,51 @@ button.drill:not(:disabled):hover { border-color: var(--gold); }
 .competition-card small .ico { width: 14px; height: 14px; vertical-align: -2px; }
 .next-tier { display: flex; align-items: center; gap: 5px; column-span: all; }
 .next-tier .ico { width: 14px; height: 14px; }
+/* Training ladders: stars for the step, a gold card from step four. */
+.tier { color: #e2a92a; letter-spacing: -1px; font-size: 11px; margin-right: 4px; }
+.tier i { font-style: normal; color: #d9d0b4; }
+button.drill.high-tier { background: linear-gradient(#b8862a 0 4px, #fff8e2 4px); }
+.drill-cost .money { color: #8a6a1a; }
+.gain.chem { box-shadow: 0 0 0 2px #f2c94c, inset 0 -2px 0 #0002; }
+.session-tools { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.fam-filter { display: flex; gap: 3px; flex-wrap: wrap; flex: 1; }
+.fam-filter button { border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 2px 8px; font: 600 11px var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.fam-filter button.active { background: var(--frame); border-color: var(--frame); color: #f2d070; }
+.coach-badge { display: inline-flex; align-items: center; gap: 4px; font: 600 11px var(--display); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.coach-badge .ico { width: 16px; height: 16px; }
+.coach-badge .bar { width: 44px; height: 5px; }
+.chem-line { display: inline-flex; align-items: center; gap: 4px; }
+.chem-line .ico { width: 14px; height: 14px; }
+.chem-line.known { color: #a8741a; }
+.chem-line.hunch { color: #7a5aa8; font-style: italic; }
+.chem-book { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; column-span: all; }
+.chem { display: grid; gap: 1px; padding: 6px 8px; border: 2px dashed var(--line); border-radius: 9px; background: #f4efe0; }
+.chem strong { font: 600 13px var(--display); letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); }
+.chem small { font-size: 11px; color: var(--muted); }
+.chem em { font-size: 10.5px; font-style: normal; font-weight: 700; color: #7a5aa8; }
+.chem.known { border-style: solid; border-color: #e2b04a; background: #fff6d8; }
+.chem.known strong { color: var(--ink); }
+.chem.known em { color: #a8741a; }
+/* Session results: the upgrade fanfare, chemistry and the head coach. */
+.levelup-banner.upgrade { display: flex; align-items: center; justify-content: center; gap: 8px; text-align: left; font-size: 14px; }
+.levelup-banner.upgrade small { display: block; font: 700 11px var(--display); letter-spacing: 0.12em; }
+.levelup-banner.upgrade em { display: block; font-size: 11px; font-weight: 600; font-style: normal; }
+.levelup-banner.upgrade .tier i { color: #c9a050; }
+.levelup-banner.coach { background: linear-gradient(90deg, #cfe0f0, #eef6fc, #cfe0f0); border-color: #5a8ab0; color: #1e3a52; margin-top: 6px; }
+.chem-banner { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; padding: 6px 10px; border-radius: 10px; border: 2px solid #b48ad8; background: #f4ecfc; color: #4a2a6a; font-size: 13px; animation: pop-in 0.4s 0.2s ease-out both; }
+.chem-banner small { display: block; font: 700 11px var(--display); letter-spacing: 0.12em; }
+.chem-banner.new { background: linear-gradient(90deg, #e4d0f8, #fbf4ff, #e4d0f8); animation: pop-in 0.4s 0.2s ease-out both, pulse 1.4s 0.6s 2; }
+.chem-banner .ico { width: 20px; height: 20px; }
+.levelup-banner.upgrade .tier i { color: rgba(74, 42, 8, 0.25); }
+.drill-name strong { white-space: normal; overflow-wrap: anywhere; }
+.drill-cost .money { font-size: 12px; }
+.drill-lv { display: flex; align-items: center; flex-wrap: wrap; }
+.xp-bar .bar { width: 46px; height: 5px; }
+.tools-insights { display: none; align-items: center; gap: 3px; font: 700 15px var(--display); }
+.tools-insights .ico { width: 18px; height: 18px; }
+@media (max-aspect-ratio: 1/1) {
+  .train-tabs .tab-insights { display: none; }
+  .tools-insights { display: inline-flex; }
+  .fam-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex-basis: 100%; }
+  .fam-filter button { flex: none; }
+}

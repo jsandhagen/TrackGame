@@ -95,3 +95,37 @@ test('coached sessions outpace a day of the matching daily plan',()=>{
  const s=G.newGame(13),a=s.roster[0];
  assert(G.drillGains(s,a,'lifting')[0]>2*G.trainingGains(s,a,'power')[0]);
 });
+test('drills climb a five-step ladder: each step costs more, gives more per Insight and the fourth is paid in money',()=>{
+ const s=G.newGame(14),a=s.roster[0];s.coaching.insights=500;s.money=100000;
+ const step1=G.drillGains(s,a,'lifting')[0],cost1=G.sessionCost(s,'lifting',1).insights;
+ s.coaching.drills.lifting=3;assert.equal(G.tierOf(G.drillLevel(s,'lifting')),2);
+ const step2=G.drillGains(s,a,'lifting')[0],cost2=G.sessionCost(s,'lifting',1).insights;
+ assert(step2>step1&&cost2>cost1);assert(step2/cost2>step1/cost1,'a higher step is better value');
+ s.coaching.drills.lifting=8;assert(G.drillGains(s,a,'lifting')[2]>0,'step three also works a second stat');
+ s.coaching.drills.lifting=15;const paid=G.sessionCost(s,'lifting',1);assert.equal(paid.insights,0);assert(paid.money>0);
+ const money=s.money,insights=s.coaching.insights;const out=G.coachGroup(s,[a.id],'lifting');assert(out);
+ assert.equal(s.money,money-paid.money);assert.equal(s.coaching.insights,insights);
+ s.day++;s.money=0;assert.match(G.groupProblem(s,[a.id],'lifting'),/\$/);
+ s.coaching.drills.lifting=2;s.money=money;s.day++;const up=G.coachGroup(s,[a.id],'lifting');assert(up.tierUp);assert.equal(up.levelUp,G.DRILL_NAMES.lifting[1]);
+});
+test('training chemistry boosts the right stat, is discovered once and survives a save',()=>{
+ const s=G.newGame(15);s.coaching.insights=500;
+ const [mara,tomas,noor,kofi]=s.roster;// farm, gymnast, dancer, sprinter
+ assert.equal(G.chemistryOf(s,[tomas.id,noor.id]).key,'bodycontrol');
+ assert.equal(G.chemistryOf(s,[tomas.id,noor.id,kofi.id]).key,'fasthands','a trio beats a pair');
+ assert.equal(G.chemistryOf(s,[mara.id]),null);
+ const plain=G.drillGains(s,tomas,'shadow',2)[1],boosted=G.drillGains(s,tomas,'shadow',2,G.chemistryOf(s,[tomas.id,noor.id]))[1];
+ assert(Math.abs(boosted/plain-1.3)<1e-9);
+ const out=G.coachGroup(s,[tomas.id,noor.id],'shadow');assert(out.chemistry.discovered);assert.deepEqual(s.coaching.chemistry,['bodycontrol']);
+ s.day++;const again=G.coachGroup(s,[tomas.id,noor.id],'shadow');assert(!again.chemistry.discovered);
+ assert.deepEqual(validateCampaign(exportCampaign(s)).coaching.chemistry,['bodycontrol']);
+ const old=structuredClone(s);delete old.coaching.chemistry;assert.deepEqual(validateCampaign(old).coaching.chemistry,[]);
+ const bad=structuredClone(s);bad.coaching.chemistry=['nope'];assert.throws(()=>validateCampaign(bad));
+ const html=P.train(s,{trainTab:'chemistry'});assert.match(html,/Body Control/);assert.match(html,/\?\?\?/);
+});
+test('the head coach levels up with athletes coached, and stats near their limit grow more slowly',()=>{
+ const s=G.newGame(16),a=s.roster[0];
+ assert.equal(G.coachLevel(s),1);const before=G.drillGains(s,a,'lifting')[0];
+ s.counters.coachedSessions=G.coachThreshold(1);assert.equal(G.coachLevel(s),2);assert(G.drillGains(s,a,'lifting')[0]>before);
+ const fresh=G.drillGains(s,a,'lifting')[0];a.stats[0]=G.capOf(a)-5;assert(G.drillGains(s,a,'lifting')[0]<fresh);
+});

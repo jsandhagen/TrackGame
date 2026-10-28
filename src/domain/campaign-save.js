@@ -7,7 +7,7 @@ import { syncMarks } from "./meet.js";
 import { statTotal, slotsOf } from "./core.js";
 import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
-import { DRILLS } from "./coaching.js";
+import { DRILLS, CHEMISTRY } from "./coaching.js";
 import { WEATHER, weatherSeedFrom } from "./calendar.js";
 import { ALL_STAR_ID, ensureInvitations, clubById } from "./invitational.js";
 import { rivalBase, rivalMastery } from "./competition.js";
@@ -291,6 +291,8 @@ export function validateCampaign(input) {
   if (!s.coaching || !int(s.coaching.insights,0,1e9) || !int(s.coaching.practiceDays,0,1e9) || !Array.isArray(s.coaching.unlocked) || new Set(s.coaching.unlocked).size !== s.coaching.unlocked.length || s.coaching.unlocked.some((id) => !PLANS[id]?.course)) bad();
   for (const a of s.roster || []) if (PLANS[a.plan]?.course && !s.coaching.unlocked.includes(a.plan)) bad();
   s.coaching.drills ??= {};
+  s.coaching.chemistry ??= [];
+  if (!Array.isArray(s.coaching.chemistry) || new Set(s.coaching.chemistry).size !== s.coaching.chemistry.length || s.coaching.chemistry.some((k) => !CHEMISTRY.some((c) => c.key === k))) bad();
   s.coaching.spare ??= 0;
   if (!num(s.coaching.spare, 0, 1)) bad();
   if (typeof s.coaching.drills !== "object" || Array.isArray(s.coaching.drills) || Object.entries(s.coaching.drills).some(([k, n]) => !DRILLS[k] || !int(n, 0, 1e7))) bad();

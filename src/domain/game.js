@@ -93,7 +93,7 @@ export function newGame(seed = Date.now() >>> 0) {
     balance: 2,
     rivalClubs: {},
     facilityDuties: {},
-    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0, drills: {} },
+    coaching: { insights: INSIGHT_START, unlocked: [], practiceDays: 0, drills: {}, chemistry: [] },
     rng: seed >>> 0 || 1,
     weatherSeed: weatherSeedFrom(seed),
     nextId: 1,
