@@ -192,9 +192,9 @@ export const FACILITIES = {
   shop: { name: "Merch Stand", cost: 380, league: 0, color: "#d0605a", desc: "Half of visitors buy: $3 each, +$1.50 per level. Serves up to 20 customers a day, +10 per level. +1 fan a day per level." },
   garden: { name: "Club Garden", cost: 150, league: 0, decor: true, color: "#78a858", desc: "+1 daily team condition per level. Visitors love it. You can plant more than one." },
   fountain: { name: "Fountain", cost: 220, league: 0, decor: true, color: "#7ac0e0", desc: "A landmark: more visitors, +1 daily condition. You can build more than one." },
-  dorm: { name: "Dormitory", cost: 450, league: 0, color: "#a08a6a", desc: "Room for +2 athletes per level (base squad of 6)." },
-  scout: { name: "Scout Office", cost: 500, league: 1, color: "#7a8a5a", desc: "Rarer recruits and −15% scouting cost per level." },
-  workshop: { name: "Kit Workshop", cost: 560, league: 1, color: "#9a7a5a", desc: "Forge gear: +0.6% distance per forge level. −10% forge cost per level." },
+  dorm: { name: "Dormitory", cost: 450, league: 0, maxLevel: 3, color: "#a08a6a", desc: "Room for +2 athletes per level (base squad of 6)." },
+  scout: { name: "Scout Office", cost: 500, league: 1, maxLevel: 3, color: "#7a8a5a", desc: "Rarer recruits and −15% scouting cost per level." },
+  workshop: { name: "Kit Workshop", cost: 560, league: 1, maxLevel: 3, color: "#9a7a5a", desc: "Forge gear: +0.6% distance per forge level. −10% forge cost per level." },
   library: { name: "Coaches' Library", cost: 380, league: 0, color: "#8a5a48", desc: "Coaching manuals, notebooks and old meet programmes. +0.5 Coaching Insights a day per level." },
   lab: { name: "Sports Lab", cost: 800, league: 2, color: "#7ab0d0", desc: "XP +10% per level. +0.6 Coaching Insights a day per level from movement data." },
   institute: { name: "Sports Science Institute", cost: 2400, league: 2, color: "#5a7ab0", desc: "Research staff study the squad's training. +1.5 Coaching Insights a day per level." },
@@ -236,6 +236,8 @@ export const COMBOS = [
 
 // One clear scale: every stat runs 1–100, with a letter grade.
 export const GRADES = [
+  ["SSS", 130, "#d04ad8"],
+  ["SS", 110, "#e07a2a"],
   ["S", 90, "#e2a43a"],
   ["A", 80, "#e0604a"],
   ["B", 70, "#d0803a"],

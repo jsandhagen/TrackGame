@@ -3,19 +3,59 @@ import assert from 'node:assert/strict';
 import * as G from '../src/domain/game.js';
 import { EVENTS, EVENT_IDS, LEAGUES, STADIUM } from '../src/game-content.js';
 
-test('distances keep rising past the world record towards a ceiling 5% beyond it', () => {
+test('past the record, marks keep rising ever more slowly, with no ceiling', () => {
   for (const ev of EVENT_IDS) {
     const { record } = EVENTS[ev];
     assert.equal(G.realMark(ev, record * 0.8), record * 0.8, 'ordinary marks are untouched');
-    let last = 0;
-    for (const raw of [record * 0.95, record, record * 1.1, record * 1.3, record * 3]) {
+    let last = 0, step = Infinity;
+    for (let raw = record; raw <= record * 4; raw += record * 0.25) {
       const m = G.realMark(ev, raw);
-      assert(m < record * G.MARK_CEILING && m > last, ev + ' keeps rising but stays under the ceiling');
+      assert(m > last, ev + ' keeps rising');
+      if (last) { assert(m - last < step, ev + ' each step buys less'); step = m - last; }
       last = m;
     }
     assert(G.realMark(ev, record) < record, 'matching the record in raw ability is not enough');
     assert(G.realMark(ev, record * 1.1) > record, 'a big enough edge breaks it');
   }
+  assert(G.realMark('jav', 260) > 150 && G.realMark('jav', 120) < 115, '150 m javelin is a very long way off');
+});
+
+test('Legends earn stars without end: each lifts the ceiling past 100 and costs more', () => {
+  const s = G.newGame(2);
+  const a = s.roster[0];
+  a.rank = 4; a.potential = 100; a.level = 60; s.money = 1e7;
+  const caps = [], costs = [];
+  for (let n = 0; n < 5; n++) { caps.push(G.capOf(a)); costs.push(G.promoteCost(a)); assert(G.promote(s, a.id)); }
+  assert.equal(a.stars, 5);
+  assert.equal(G.rankName(a), 'Legend ★5');
+  assert(G.capOf(a) > 100 && caps.every((c, n) => n === 0 || c > caps[n - 1]));
+  assert(costs.every((c, n) => n === 0 || c > costs[n - 1]));
+  a.level = G.starLevel(a) - 1;
+  assert.match(G.promoteProblem(s, a), /Needs level/);
+});
+
+test('buildings keep levelling past 3 at a rising price; squad-size and discount buildings stop at 3', () => {
+  const s = G.newGame(4);
+  s.money = 1e7;
+  const gym = s.plots.findIndex((p) => p?.type === 'gym');
+  const prices = [];
+  while (s.plots[gym].level < 7) { prices.push(G.upgradeCost('gym', s.plots[gym].level)); assert(G.upgrade(s, gym)); }
+  assert(prices.every((c, n) => n === 0 || c > prices[n - 1]));
+  s.plots[8] = { type: 'dorm', level: 3 };
+  assert(!G.upgrade(s, 8));
+  const a = s.roster.find((x) => x.event === 'shot');
+  assert(G.trainingGains(s, a, 'power')[0] > 0);
+});
+
+test('coached sessions keep earning star levels after the named five', () => {
+  const s = G.newGame(6);
+  s.coaching.drills = { lifting: 25 };
+  assert.equal(G.drillLevel(s, 'lifting'), 5);
+  s.coaching.drills.lifting = 40;
+  assert.equal(G.drillLevel(s, 'lifting'), 6);
+  assert.match(G.drillName(s, 'lifting'), /★1$/);
+  s.coaching.drills.lifting = 40 + 15 * 10;
+  assert.equal(G.drillLevel(s, 'lifting'), 16);
 });
 
 test('World Championship rivals throw world-class marks but not world records', () => {

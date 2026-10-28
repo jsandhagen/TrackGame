@@ -13,7 +13,7 @@ export const circuitKey = (tier, stage) => `${tier}:${stage}`;
 // One smooth difficulty curve across all fifteen stages, Community Open to World Championship:
 // the event rating of a typical rival specialist. Each stage asks for about a season's growth
 // from a well-run club, so steps are big while athletes improve quickly and small near the top.
-export const RIVAL_RATING = [21, 37, 49, 63, 71, 76, 76, 79, 82, 82, 84, 86, 88, 90, 92];
+export const RIVAL_RATING = [21, 37, 49, 63, 71, 76, 79, 82, 85, 87, 89, 91, 93, 94, 97];
 export function rivalMastery(tier, stage) {
   return Math.min(95, 30 + 4.6 * (tier * 3 + stage));
 }

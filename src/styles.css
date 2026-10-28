@@ -653,7 +653,8 @@ button.hud-date {
   font-size: 12px;
   border-bottom-width: 3px;
 }
-#panel > .button:not(.text) {
+#panel > .button:not(.text),
+.panel-body > .button:not(.text) {
   width: 100%;
   margin: 6px 0;
 }
@@ -4490,3 +4491,80 @@ dialog > .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscr
 .group-plans > small { display: block; }
 .plan-skips { font-size: 10px; color: #8a613b; margin: 5px 0; }
 .individual-plans > summary { font: 700 14px var(--display); cursor: pointer; }
+/* Stats past 100: the bar fills gold. */
+.track.beyond i { background: linear-gradient(90deg, var(--c), #f2c94c) !important; }
+/* ── Wide landscape sheets ──────────────────────────────────────────────
+   Phones on their side: windows become near-full-screen sheets beside the
+   menu rail, and their content flows into balanced columns. Card lists span
+   the sheet with their own multi-column grids. */
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  #window:not(.center) {
+    left: calc(max(8px, env(safe-area-inset-left)) + var(--rail) + 8px);
+    right: max(8px, env(safe-area-inset-right));
+    width: auto;
+  }
+  #app.has-window #tools { display: none; }
+  #app.has-window #toasts { top: auto; bottom: calc(max(8px, env(safe-area-inset-bottom)) + 52px); left: 50%; transform: translateX(-50%); width: min(420px, 70vw); }
+  .panel-body:not(.page-meet):not(.page-athlete) { column-width: 270px; column-gap: 12px; }
+  .panel-body > * { break-inside: avoid; }
+  .panel-body > :is(.card-title, .section-title, h3) { break-after: avoid; }
+  .panel-body > :is(.squad-grid, .item-grid, .use-grid, .build-list, .drill-grid, .plan-rows, .roster-strip, .trainee-strip, .mini-cards,
+    .stadium-list, .plot-list, .competition-grid, .lineup, .tabs, .row-head, .wallet, nav, .duel-list, .sponsors, .palettes, .records,
+    .trophies, .journey, .table-wrap, .circuit-tier, .calendar-intro, .invitation, .entry-slots, .look-row, .modes, .quick-items, .scorebook-grid) { column-span: all; }
+  .panel-body :is(.squad-grid, .item-grid, .use-grid, .build-list, .drill-grid, .plan-rows, .roster-strip, .mini-cards, .stadium-list, .duel-list, .sponsors) {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px;
+  }
+  .panel-body .squad-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .panel-body .plot-list { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .panel-body .trainee-strip { display: flex; flex-wrap: wrap; }
+  .panel-body .lineup { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 6px; }
+  .panel-body .competition-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .panel-body .calendar-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* The athlete file: profile and tabs on the left, the tab's content in columns on the right. */
+  .athlete-page { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .athlete-side { position: sticky; top: 0; display: grid; gap: 6px; }
+  .athlete-side .profile { flex-direction: column; align-items: flex-start; text-align: left; }
+  .athlete-side .athlete-tabs { position: static; flex-direction: column; align-items: stretch; padding: 0; }
+  .athlete-side .athlete-tabs button { text-align: left; border-radius: 8px; padding: 6px 10px; }
+  .athlete-body { column-width: 250px; column-gap: 12px; }
+  .athlete-body > * { break-inside: avoid; }
+  .athlete-body > :is(.drill-grid, .plan-grid, .slots, .gear-slots, .use-grid, .records, .facts) { column-span: all; }
+  .athlete-body :is(.drill-grid, .plan-grid, .use-grid, .gear-slots, .slots) { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  /* A heading sits with the full-width list it introduces. */
+  .panel-body > :is(.card-title, .section-title, h3):has(+ :is(.squad-grid, .item-grid, .use-grid, .build-list, .drill-grid, .plan-rows, .roster-strip, .trainee-strip, .mini-cards,
+    .stadium-list, .plot-list, .competition-grid, .lineup, .duel-list, .sponsors, .palettes, .records, .trophies, .look-row, .modes, .quick-items)) { column-span: all; }
+  .panel-body > .hint:has(+ :is(.item-grid, .duel-list, .drill-grid)) { column-span: all; }
+  /* Compact athlete profile so the tabs stay on screen. */
+  .athlete-side .profile { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; padding: 6px; margin: 0; align-items: center; }
+  .athlete-side .profile > .portrait { width: 44px; height: 44px; grid-row: span 2; }
+  .athlete-side .profile h1 { font-size: 15px; margin: 2px 0 0; }
+  .athlete-side .profile p { font-size: 10px; }
+  .athlete-side .profile > div .chip { font-size: 9px; }
+  .athlete-side .profile .ovr { grid-column: 2; justify-self: start; transform: scale(0.85); transform-origin: left center; }
+  .athlete-side .athlete-tabs button { padding: 4px 10px; min-height: 0; font-size: 12px; }
+  .athlete-side > .button.text { margin: 0; padding: 0; min-height: 0; }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  .panel-body > .insight-banner { column-span: all; }
+  /* Preparation controls use the width: the toggle beside the group-plan form. */
+  .page-train > .prep-controls { column-span: all; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 14px; align-items: start; }
+  .page-train > .prep-controls > .card-title { grid-column: 1 / -1; }
+  #window .athlete-side .profile { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; padding: 6px; margin: 0; align-items: center; text-align: left; }
+  #window .athlete-side .profile .portrait.large { width: 44px; height: 44px; grid-row: span 2; }
+  #window .athlete-side .profile h1 { font-size: 15px; }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  .page-train > .prep-controls { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+  .page-train > .prep-controls > :not(.card-title):not(.group-plans) { grid-column: 1; }
+  .page-train > .prep-controls > .group-plans { grid-column: 2; grid-row: 2 / span 4; margin: 0; }
+  #window .athlete-side .athlete-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  #window .athlete-side .athlete-tabs button { padding: 3px 6px; font-size: 11px; }
+  .panel-body .lineup { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  #app.has-window #toasts { left: auto; right: max(14px, env(safe-area-inset-right)); transform: none; width: min(300px, 45vw); }
+  .panel-body .calendar-options select { min-height: 32px; padding: 4px 8px; }
+  .panel-body .calendar-intro { padding: 8px 10px; }
+}

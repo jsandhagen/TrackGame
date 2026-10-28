@@ -53,7 +53,7 @@ export const grade = (v) => {
 };
 const ovrBadge = (a) => `<span class="ovr"><small>OVR</small><b>${G.overall(a)}</b>${grade(G.overall(a))}</span>`;
 export const mood = (a) => `<span class="mood-wrap" title="${G.MOODS[G.moodOf(a)]} condition">${moodIco(G.moodOf(a))}</span>`;
-const rankChip = (a) => chip(RANKS[a.rank].name, ["#9aa58f", "#5aa4c8", "#8cc152", "#e2b04a", "#b060d0"][a.rank], "rank");
+const rankChip = (a) => chip(G.rankName(a), ["#9aa58f", "#5aa4c8", "#8cc152", "#e2b04a", "#b060d0"][a.rank], "rank");
 const rarityChip = (a) => (a.rarity !== "common" ? chip(RARITY[a.rarity].name, RARITY[a.rarity].color, "rarity") : "");
 const eventChip = (ev) => chip(EVENTS[ev].short, EVENTS[ev].color);
 const stamina = (a) => `<span class="mini-stat" title="Stamina ${Math.round(a.stamina)}">${ico("bolt")}${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span>`;
@@ -146,7 +146,7 @@ export function statRows(a, compact = false) {
   const cap = G.capOf(a);
   return `<div class="stats">${a.stats
     .map(
-      (v, i) => `<div class="stat"><span>${STAT_NAMES[i]}</span><span class="track"><i style="width:${v}%;--c:${STAT_COLORS[i]}"></i><s style="left:${cap}%" title="Current limit ${Math.floor(cap)}"></s></span><b>${showStat(v)}</b>${grade(v)}</div>`,
+      (v, i) => `<div class="stat"><span>${STAT_NAMES[i]}</span><span class="track ${v > 100 ? "beyond" : ""}"><i style="width:${Math.min(100, v)}%;--c:${STAT_COLORS[i]}"></i><s style="left:${Math.min(100, cap)}%" title="Current limit ${Math.floor(cap)}"></s></span><b>${showStat(v)}</b>${grade(v)}</div>`,
     )
     .join("")}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
 }
@@ -169,8 +169,8 @@ function athletePage(s, a, view) {
     <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
     ${athleteDutyPicker(s,a)}
     <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, approach, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
-    <article class="card rank-card"><div class="card-title"><h2>${RANKS[a.rank].name}${next ? " to " + next.name : ""}</h2>${rankChip(a)}</div>
-      ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : "<p>The highest honour in the sport.</p>"}
+    <article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
+      ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>
     <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}</div>
     <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Projected <b>${mark(G.forecast(s, a, a.event))}</b></span></div>`;
@@ -236,9 +236,9 @@ function athletePage(s, a, view) {
     <div class="card-title"><h2>Career moments</h2></div>${a.career.length ? a.career.map((c) => `<div class="history"><span>Season ${c.season} · ${esc(c.label)}</span><b>${c.mark ? mark(c.mark) : ico("star")}</b></div>`).join("") : "<p class='hint'>The first official meet starts the story.</p>"}
     <details class="danger"><summary>Release contract</summary><p class="hint">${esc(a.name)} leaves the squad; their gear returns to the bag and their marks stay in club history.</p>${btn("Release " + esc(a.name.split(" ")[0]), "release-contract", `data-id="${a.id}" ${s.roster.length <= 4 ? "disabled" : ""}`, "subtle")}</details>`;
   }
-  return `${btn("‹ Squad", "back-squad", "", "text")}
+  return `<div class="athlete-page"><aside class="athlete-side">${btn("‹ Squad", "back-squad", "", "text")}
   <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)}</h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
-  <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav>${body}`;
+  <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav></aside><div class="athlete-body">${body}</div></div>`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
 const DRILL_ICONS = { indoor: "target", peer: "video", trial: "ball", lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
@@ -269,9 +269,9 @@ function drillGrid(s, ids) {
     .map(([id, d]) => {
       const problem = G.groupProblem(s, ids, id),
         level = G.drillLevel(s, id),
-        next = G.DRILL_LEVELS[level],
+        next = G.drillThreshold(level),
         xp = G.drillXp(s, id),
-        prev = G.DRILL_LEVELS[level - 1];
+        prev = G.drillThreshold(level - 1);
       const avg = [0, 1, 2, 3].map((i) => (group.length ? group.reduce((sum, a) => sum + G.drillGains(s, a, id, n)[i], 0) / group.length : 0));
       const ev = lead ? EVENTS[lead.trainingEvent || lead.event] : null;
       const pills = avg.map((g, i) => (d.gains[i] ? `<span class="gain" style="--c:${STAT_COLORS[i]}">${STAT_SHORT[i]} ${!group.length ? "↑" : g > 0.05 ? plus(g) : "max"}</span>` : "")).join("") + (["delivery", "review"].includes(id) ? `<span class="gain" style="--c:${ev?.color || "#c8a050"}">Mastery</span>` : "");
@@ -383,13 +383,13 @@ export function trainingStage(s, session, befores) {
     })
     .join("");
   const level = session.level,
-    next = G.DRILL_LEVELS[level],
-    prev = G.DRILL_LEVELS[level - 1];
+    next = G.drillThreshold(level),
+    prev = G.drillThreshold(level - 1);
   return `<div class="stage"><canvas class="stage-canvas" width="480" height="240" aria-label="Training scene"></canvas><span class="stage-tap">Tap to skip ▸</span></div>
   <div class="stage-results">
     ${session.levelUp ? `<div class="levelup-banner">${ico("levelup")} New session unlocked: <b>${esc(session.levelUp)}</b> (Lv ${level}, +8% gains)</div>` : ""}
     ${rows}
-    <div class="drill-xp">${ico("dumbbell")} <span>${esc(G.DRILL_NAMES[session.drill][level - 1])} · Lv ${level}</span>${next != null ? `<span class="bar"><i style="width:${((session.xp - prev) / (next - prev)) * 100}%;--bar:#f2c94c"></i></span><small>${next - session.xp} reps to Lv ${level + 1}</small>` : "<small>Mastered</small>"}<small>${ico("idea")} −${session.cost}</small></div>
+    <div class="drill-xp">${ico("dumbbell")} <span>${esc(session.name)} · Lv ${level}</span>${next != null ? `<span class="bar"><i style="width:${((session.xp - prev) / (next - prev)) * 100}%;--bar:#f2c94c"></i></span><small>${next - session.xp} reps to Lv ${level + 1}</small>` : "<small>Mastered</small>"}<small>${ico("idea")} −${session.cost}</small></div>
   </div>`;
 }
 function growRows(a, before) {
@@ -472,10 +472,10 @@ export function build(s, view) {
       const d = FACILITIES[p.type],
         cost = G.upgradeCost(p.type, p.level),
         combos = G.combos(s).filter((c) => !c.stadium && (c.a === p.type || c.b === p.type) && G.neighbours(i).some((j) => [c.a, c.b].includes(s.plots[j]?.type)));
-      focus = `<article class="card facility"><div class="facility-head"><canvas class="building" width="104" height="66" data-building="${p.type}:${p.level}"></canvas><div><span class="eyebrow">LEVEL ${p.level} / 3${p.type !== "club" ? " · UPKEEP " + cash(G.upkeepOf(p.type, p.level)) + "/WK" : ""}</span><h2>${d.name}</h2><p>${d.desc}</p></div></div>
+      focus = `<article class="card facility"><div class="facility-head"><canvas class="building" width="104" height="66" data-building="${p.type}:${p.level}"></canvas><div><span class="eyebrow">LEVEL ${p.level}${G.maxLevelOf(p.type) <= 3 ? " / 3" : p.level >= 5 ? " · LANDMARK +" + Math.floor(p.level / 5) : p.level >= 3 ? " · LANDMARK AT 5" : ""}${p.type !== "club" ? " · UPKEEP " + cash(G.upkeepOf(p.type, p.level)) + "/WK" : ""}</span><h2>${d.name}</h2><p>${d.desc}</p></div></div>
         ${facilityStaffPicker(s,"plot:"+i)}
         ${combos.length ? `<p class="combo-line">${combos.map((c) => ico("spark") + " " + c.name + ": " + c.desc).join("<br>")}</p>` : ""}
-        <div class="inline">${btn(p.level >= 3 ? "Fully upgraded" : "Upgrade · " + cash(cost), "upgrade", `data-index="${i}" ${p.level >= 3 || s.money < cost ? "disabled" : ""}`)}${i !== CLUB_PLOT ? btn(view.moving === i ? "Cancel move" : "Move / swap", "move", `data-index="${i}"`, "subtle") : ""}${i !== CLUB_PLOT ? btn("Clear · +" + cash(d.cost / 2), "sell", `data-index="${i}"`, "subtle") : ""}</div></article>`;
+        <div class="inline">${btn(p.level >= G.maxLevelOf(p.type) ? "Fully upgraded" : (p.level >= 3 ? "Push to Lv " + (p.level + 1) + " · " : "Upgrade · ") + cash(cost), "upgrade", `data-index="${i}" ${p.level >= G.maxLevelOf(p.type) || s.money < cost ? "disabled" : ""}`)}${i !== CLUB_PLOT ? btn(view.moving === i ? "Cancel move" : "Move / swap", "move", `data-index="${i}"`, "subtle") : ""}${i !== CLUB_PLOT ? btn("Clear · +" + cash(d.cost / 2), "sell", `data-index="${i}"`, "subtle") : ""}</div></article>`;
     } else
       focus = `<div class="card-title"><h2>Build on this plot</h2>${btn("Close", "deselect", "", "text")}</div><div class="build-list">${Object.entries(FACILITIES)
         .filter(([id, d]) => id !== "club" && (d.decor || !s.plots.some((q) => q?.type === id)))
@@ -534,7 +534,7 @@ export function shop(s, view) {
     ${uses.length ? `<div class="card-title"><h2>Fuel & recovery</h2></div><div class="item-grid">${uses.map((k) => itemCard(s, k, "use")).join("")}</div>` : ""}
     ${gear.length ? `<div class="card-title"><h2>Spare gear</h2></div><div class="item-grid">${gear.map((k) => itemCard(s, k, "equip")).join("")}</div>` : ""}
     ${worn.length ? `<div class="card-title"><h2>Being worn</h2></div>${worn.map(([k, a]) => `<div class="history"><span>${esc(ITEMS[k].name)}${s.forge[k] ? " +" + s.forge[k] : ""}</span><b>${esc(a.name)}</b></div>`).join("")}` : ""}
-    ${G.facilityLevel(s, "workshop") ? `<div class="card-title"><h2>Kit Workshop · forging</h2></div><p class="hint">Each forge level adds +0.6% distance to every copy of that item.</p><div class="item-grid">${[...new Set([...gear, ...worn.map(([k]) => k)])].map((k) => `<div class="item-card rarity-${ITEMS[k].rarity}">${icon(k)}<span><strong>${ITEMS[k].name}${s.forge[k] ? " +" + s.forge[k] : ""}</strong><small>${(s.forge[k] || 0) >= 3 ? "Fully forged." : "Next: +" + ((s.forge[k] || 0) + 1)}</small></span>${btn((s.forge[k] || 0) >= 3 ? "Max" : "Forge · " + cash(G.forgeCost(s, k)), "forge", `data-item="${k}" ${(s.forge[k] || 0) >= 3 || s.money < G.forgeCost(s, k) ? "disabled" : ""}`, "subtle small")}</div>`).join("")}</div>` : `<p class="hint">Build a Kit Workshop to forge your gear.</p>`}`;
+    ${G.facilityLevel(s, "workshop") ? `<div class="card-title"><h2>Kit Workshop · forging</h2></div><p class="hint">Each forge level adds +0.6% distance to every copy of that item.</p><div class="item-grid">${[...new Set([...gear, ...worn.map(([k]) => k)])].map((k) => `<div class="item-card rarity-${ITEMS[k].rarity}">${icon(k)}<span><strong>${ITEMS[k].name}${s.forge[k] ? " +" + s.forge[k] : ""}</strong><small>Next: +${(s.forge[k] || 0) + 1}</small></span>${btn("Forge · " + cash(G.forgeCost(s, k)), "forge", `data-item="${k}" ${s.money < G.forgeCost(s, k) ? "disabled" : ""}`, "subtle small")}</div>`).join("")}</div>` : `<p class="hint">Build a Kit Workshop to forge your gear.</p>`}`;
   }
   return `<div class="wallet"><span>${ico("coin")} <b>${cash(s.money)}</b></span><span>${ico("idea")} <b>${s.coaching.insights}</b> Insights</span></div><nav class="tabs"><button data-act="shop-tab" data-tab="shop" class="${tab === "shop" ? "active" : ""}">Shop</button><button data-act="shop-tab" data-tab="bag" class="${tab === "bag" ? "active" : ""}">Kit bag · ${Object.values(s.bag).reduce((n, v) => n + v, 0)}</button></nav>${body}`;
 }

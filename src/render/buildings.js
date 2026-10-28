@@ -166,7 +166,7 @@ export function drawFacility(g, type, level, x, y, o = {}) {
   const b = y + 52,
     season = o.season ?? 1,
     colors = o.colors || { primary: "#2f6b52", secondary: "#e2b04a" },
-    L = level;
+    L = Math.min(level, 3);
   // Small serviced courtyards visually connect buildings to the street.
   if(!["garden","fountain","statue"].includes(type)) {
     pad(g,x+7,b-8,88,17,season===3?"#e2e3df":"#c5baa2");
@@ -431,6 +431,8 @@ export function drawFacility(g, type, level, x, y, o = {}) {
     },
   };
   (drawers[type] || drawers.club)();
+  // Levels past 3 keep the full building and wear their extra levels as a star badge.
+  if (level > 3) sign(g, x + 88, y + 4, "★" + (level - 3), "#b0802a");
   SNOW = false;
   GROUND = -999;
 }

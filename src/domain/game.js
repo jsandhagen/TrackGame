@@ -49,6 +49,8 @@ import {
   slotsOf,
   hasCombo,
   planFacility,
+  rankName,
+  STAR_CAP,
 } from "./core.js";
 import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
@@ -424,7 +426,9 @@ function payWeek(s) {
 }
 
 // ── Grounds ───────────────────────────────────────────────────────────
-export const upgradeCost = (type, level) => (type === "club" ? 500 * level : Math.round(FACILITIES[type].cost * 0.9 * level));
+// Levels past 3 keep their effect growing, at a price that grows by 50% a level.
+export const maxLevelOf = (type) => FACILITIES[type]?.maxLevel ?? 99;
+export const upgradeCost = (type, level) => Math.round((type === "club" ? 500 * level : FACILITIES[type].cost * 0.9 * level) * (level >= 3 ? 1.5 ** (level - 2) : 1));
 export function canBuild(s, index, type) {
   const d = FACILITIES[type];
   return (
@@ -452,7 +456,7 @@ export function build(s, index, type) {
 }
 export function upgrade(s, index) {
   const p = s.plots[index];
-  if (!p || p.level >= 3 || s.match) return false;
+  if (!p || p.level >= maxLevelOf(p.type) || s.match) return false;
   const cost = upgradeCost(p.type, p.level);
   if (s.money < cost) return false;
   s.money -= cost;
@@ -598,11 +602,11 @@ export function unequipItem(s, athleteId, slot) {
 }
 export function forgeCost(s, id) {
   const lvl = s.forge[id] || 0;
-  return Math.round((ITEMS[id].price || 700) * 0.5 * (lvl + 1) * (1 - 0.1 * facilityLevel(s, "workshop")) * (hasCombo(s, "techhub") ? 0.75 : 1));
+  return Math.round((ITEMS[id].price || 700) * 0.5 * (lvl + 1) * (lvl >= 3 ? 1.4 ** (lvl - 2) : 1) * (1 - 0.1 * facilityLevel(s, "workshop")) * (hasCombo(s, "techhub") ? 0.75 : 1));
 }
 export function forgeItem(s, id) {
   const lvl = s.forge[id] || 0;
-  if (!facilityLevel(s, "workshop") || ITEMS[id]?.kind !== "gear" || lvl >= 3 || !ownedCount(s, id) || s.money < forgeCost(s, id)) return false;
+  if (!facilityLevel(s, "workshop") || ITEMS[id]?.kind !== "gear" || !ownedCount(s, id) || s.money < forgeCost(s, id)) return false;
   s.money -= forgeCost(s, id);
   s.forge[id] = lvl + 1;
   count(s, "forged");
@@ -635,14 +639,21 @@ export function toggleSkill(s, athleteId, id) {
   else return false;
   return true;
 }
+// After Legend, stars: each one costs more and asks for more levels, with no last one.
+export const starLevel = (a) => RANKS[4].level + 3 * ((a.stars || 0) + 1);
+export const starCost = (a) => Math.round(8000 * 1.4 ** (a.stars || 0));
 export function promoteCost(a) {
-  return a.promoteFree ? 0 : RANKS[a.rank + 1]?.cost ?? Infinity;
+  if (a.promoteFree) return 0;
+  return a.rank >= 4 ? starCost(a) : RANKS[a.rank + 1].cost;
 }
 export function promoteProblem(s, a) {
   const next = RANKS[a.rank + 1];
-  if (!next) return "Already a Legend.";
-  if (a.level < next.level) return "Needs level " + next.level + ".";
-  if (next.title && !s.trophies.length) return "Needs a league title.";
+  if (!next) {
+    if (a.level < starLevel(a)) return "Needs level " + starLevel(a) + " for ★" + ((a.stars || 0) + 1) + ".";
+  } else {
+    if (a.level < next.level) return "Needs level " + next.level + ".";
+    if (next.title && !s.trophies.length) return "Needs a league title.";
+  }
   if (s.money < promoteCost(a)) return "Needs $" + promoteCost(a).toLocaleString() + ".";
   return null;
 }
@@ -651,13 +662,15 @@ export function promote(s, athleteId) {
   if (!a || s.match || promoteProblem(s, a)) return false;
   s.money -= promoteCost(a);
   a.promoteFree = false;
-  a.rank++;
+  const star = a.rank >= 4;
+  if (star) a.stars = (a.stars || 0) + 1;
+  else a.rank++;
   a.stats = a.stats.map((v) => Math.min(capOf(a), v + 1));
   a.condition = 100;
   a.sp += 1;
-  a.career.unshift({ season: s.season, label: "Promoted to " + RANKS[a.rank].name });
+  a.career.unshift({ season: s.season, label: "Promoted to " + rankName(a) });
   count(s, "promotions");
-  note(s, a.name + " is now a " + RANKS[a.rank].name + "! New cap, new skill slot" + (RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? "" : "s") + " and a new look.", "rank");
+  note(s, star ? a.name + " earns " + rankName(a) + "! Their ceiling rises another " + STAR_CAP + " points." : a.name + " is now a " + RANKS[a.rank].name + "! New cap, new skill slot" + (RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? "" : "s") + " and a new look.", "rank");
   checkGoals(s);
   return true;
 }

@@ -35,8 +35,14 @@ export const QUALITY = {
 };
 export const MAX_GROUP = 3;
 export const drillXp = (s, id) => s.coaching.drills?.[id] || 0;
-export const drillLevel = (s, id) => DRILL_LEVELS.filter((n) => drillXp(s, id) >= n).length;
-export const drillName = (s, id) => DRILL_NAMES[id][drillLevel(s, id) - 1];
+// Past the five named levels, every 15 more sessions earns a ★ level, without end.
+export const drillThreshold = (level) => (level < DRILL_LEVELS.length ? DRILL_LEVELS[level] : DRILL_LEVELS.at(-1) + 15 * (level - DRILL_LEVELS.length + 1));
+export const drillLevel = (s, id) => {
+  let level = 0;
+  while (drillXp(s, id) >= drillThreshold(level)) level++;
+  return level;
+};
+export const drillName = (s, id, level = drillLevel(s, id)) => DRILL_NAMES[id][Math.min(level, DRILL_NAMES[id].length) - 1] + (level > DRILL_NAMES[id].length ? " ★" + (level - DRILL_NAMES[id].length) : "");
 // Training partners: each extra athlete adds 10% to everyone's gains; the group shares one bill.
 export const groupBonus = (n) => 1 + 0.1 * (n - 1);
 export const groupCost = (id, n) => Math.round(DRILLS[id].cost * (1 + 0.5 * (n - 1)));
@@ -163,8 +169,8 @@ export function coachGroup(s, ids, id) {
   s.coaching.drills[id] = drillXp(s, id) + 1;
   const after = drillLevel(s, id);
   note(s, results.map((r) => s.roster.find((a) => a.id === r.id).name.split(" ")[0]).join(", ") + ": " + name + ".", "level");
-  if (after > level) note(s, "New session unlocked: " + DRILL_NAMES[id][after - 1] + " (Lv " + after + ").", "level");
-  return { drill: id, name, level: after, levelUp: after > level ? DRILL_NAMES[id][after - 1] : null, xp: drillXp(s, id), cost, results };
+  if (after > level) note(s, "New session unlocked: " + drillName(s, id, after) + " (Lv " + after + ").", "level");
+  return { drill: id, name, level: after, levelUp: after > level ? drillName(s, id, after) : null, xp: drillXp(s, id), cost, results };
 }
 // Single-athlete session (the athlete screen and automation).
 export function coachSession(s, athleteId, id) {

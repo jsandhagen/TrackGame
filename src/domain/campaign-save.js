@@ -186,13 +186,14 @@ function fromV5(s) {
 
 function checkAthlete(a, ids, rival = false) {
   if (!a || !int(a.id, 1, 1e9) || ids.has(a.id) || !word(a.name) || !EVENT_IDS.includes(a.event)) bad();
-  if (!Array.isArray(a.stats) || a.stats.length !== 4 || a.stats.some((v) => !num(v, 0, 100))) bad();
+  if (!Array.isArray(a.stats) || a.stats.length !== 4 || a.stats.some((v) => !num(v, 0, 1e4))) bad();
+  if (a.stars != null && (!int(a.stars, 0, 1e4) || (a.stars && a.rank !== 4))) bad();
   for (const k of ["stamina", "condition"]) if (!num(a[k], 0, 100)) bad();
   if (!num(a.level, 1, 1e5) || !num(a.xp, 0, 1e9) || !num(a.sp, 0, 1e5) || !int(a.rank, 0, 4) || !num(a.potential, 1, 100)) bad();
   if (!BACKGROUNDS[a.background] || !RARITY[a.rarity] || !PLANS[a.plan]) bad();
   if (!Array.isArray(a.skills) || a.skills.some((k) => !SKILLS[k]) || !Array.isArray(a.equipped) || a.equipped.some((k) => !a.skills.includes(k))) bad();
   if (!a.gear || GEAR_SLOTS.some((slot) => a.gear[slot] != null && ITEMS[a.gear[slot]]?.slot !== slot)) bad();
-  if (!a.pb || typeof a.pb !== "object" || Object.entries(a.pb).some(([ev, m]) => !EVENT_IDS.includes(ev) || !num(m, 0, 200))) bad();
+  if (!a.pb || typeof a.pb !== "object" || Object.entries(a.pb).some(([ev, m]) => !EVENT_IDS.includes(ev) || !num(m, 0, 1e4))) bad();
   if (!Array.isArray(a.career) || !int(a.injury, 0, 100) || !a.look || !color(a.look.skin) || !color(a.look.hair)) bad();
   if (a.secret != null && !SECRETS[a.secret]) bad();
   if (a.buff != null && !num(a.buff, 1, 1.2)) bad();
@@ -297,7 +298,7 @@ export function validateCampaign(input) {
   s.weatherSeed ??= weatherSeedFrom(s.rng);
   if (!int(s.weatherSeed, 0, 2 ** 32 - 1)) bad();
   if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
-  for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, 3))) bad();
+  for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, FACILITIES[p.type].maxLevel ?? 99))) bad();
   const types = s.plots.filter(Boolean).map((p) => p.type).filter((k) => !FACILITIES[k].decor);
   if (new Set(types).size !== types.length) bad();
   if (!s.stadium || Object.keys(STADIUM).some((k) => !int(s.stadium[k], 0, STADIUM[k].max))) bad();
@@ -352,7 +353,7 @@ export function validateCampaign(input) {
   for (const a of s.prospects) checkAthlete(a, prospectIds, true);
   for (const key of ["results", "history", "trophies", "log", "discovered", "goals", "secretsOffered", "secretsSigned", "awardHistory", "alumni"]) if (!Array.isArray(s[key])) bad();
   if (!s.bag || Object.entries(s.bag).some(([k, n]) => !ITEMS[k] || !int(n, 1, 9999))) bad();
-  if (!s.forge || Object.entries(s.forge).some(([k, n]) => !ITEMS[k] || !int(n, 0, 3))) bad();
+  if (!s.forge || Object.entries(s.forge).some(([k, n]) => !ITEMS[k] || !int(n, 0, 999))) bad();
   if (!s.counters || Object.values(s.counters).some((n) => !num(n, 0, 1e9))) bad();
   if (!s.records || typeof s.records !== "object") bad();
   s.worldRecords ??= {};

@@ -192,7 +192,8 @@ function render(preserve = true) {
     $("#winTitle").textContent = win[0];
     $(".win-close").innerHTML = ico("close");
     $(".win-close").hidden = !!m;
-    panel.innerHTML = win[1];
+    // A page class lets wide layouts arrange each window's content.
+    panel.innerHTML = `<div class="panel-body page-${m ? "meet" : view.window}${view.window === "squad" && view.athlete != null ? " page-athlete" : ""}">${win[1]}</div>`;
     panel.scrollTop = scroll;
   } else panel.innerHTML = "";
   quickAction();
@@ -753,7 +754,8 @@ $("#app").addEventListener("click", async (e) => {
       const a = state.roster.find((x) => x.id === id);
       if (G.promote(state, id)) {
         sfx("goal");
-        dialog("A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now a <b>${RANKS[a.rank].name}</b>. Their limit is higher, every stat gains a point${RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
+        const star = (a.stars || 0) > 0;
+        dialog(star ? G.rankName(a) + "!" : "A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now <b>${esc(G.rankName(a))}</b>. Their limit is higher, every stat gains a point${!star && RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
       }
       break;
     }

@@ -2,7 +2,7 @@ import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord } from "../domain/game.js";
 
 // The scene keeps a fixed 270px-tall layout; its width follows the screen.
 let W = 480;
@@ -30,7 +30,10 @@ const centreY = (x) => O.y - (x - O.x) * 0.04;
 const sectorSlope = () => Math.min(0.17, 102 / Math.max(1, W - O.x));
 const upperY = (x) => O.y - (x - O.x) * sectorSlope();
 const lowerY = (x) => O.y + (x - O.x) * Math.min(0.09, 38 / Math.max(1, W - O.x));
-const ppmOf = (ev) => (W - O.x - 36) / (EVENTS[ev].record * 1.06);
+// The sector reaches just past the world record, or past the club's own record once it goes further.
+let SPAN = 100;
+const spanOf = (s, ev) => Math.max(EVENTS[ev].record * 1.06, worldRecord(s, ev) * 1.08);
+const ppmOf = () => (W - O.x - 36) / SPAN;
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
 // Base milliseconds for each beat at 1× speed.
@@ -199,8 +202,8 @@ function stadiumBase(s, ev, venue) {
   line(g, O.x, O.y, W, lowerY(W), "#f4f4e8");
   const e = EVENTS[ev],
     ppm = ppmOf(ev),
-    step = e.max > 40 ? 10 : 2;
-  for (let d = Math.ceil(e.min / step) * step; d < e.record; d += step) {
+    step = SPAN > 140 ? 20 : e.max > 40 ? 10 : SPAN > 30 ? 4 : 2;
+  for (let d = Math.ceil(e.min / step) * step; d < SPAN; d += step) {
     const x = O.x + d * ppm;
     line(g, x, upperY(x) + 1, x, lowerY(x) - 1, "rgba(244,244,232,0.45)");
     rect(g, x - 7, upperY(x) - 10, 15, 8, "#f4efe2");
@@ -347,7 +350,7 @@ export function createStadium(cv) {
       bi = beat?.eventIndex ?? m.eventIndex,
       ev = EVENT_IDS[bi],
       e = EVENTS[ev],
-      ppm = ppmOf(ev);
+      ppm = ((SPAN = spanOf(s, ev)), ppmOf(ev));
     const LH = Math.ceil(ch / scale),
       top = Math.round(LH - H - insetBottom / scale);
     if (off.height !== LH) off.height = LH;
@@ -357,7 +360,7 @@ export function createStadium(cv) {
     g.fillStyle = "#6aa04e";
     g.fillRect(0, top + H - 1, W, LH - H - top + 1);
     g.translate(0, top);
-    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W;
+    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN;
     if (k !== key) {
       base = stadiumBase(s, ev, venue);
       key = k;

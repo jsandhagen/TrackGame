@@ -54,7 +54,10 @@ export const primaryStat = (event) => {
   const w = EVENTS[event].weights;
   return w.indexOf(Math.max(...w));
 };
-export const capOf = (a) => Math.min(100, a.potential + RANKS[a.rank || 0].cap);
+// Legends keep climbing: each star past Legend lifts the ceiling, without limit.
+export const STAR_CAP = 4;
+export const capOf = (a) => Math.min(100, a.potential + RANKS[a.rank || 0].cap) + STAR_CAP * (a.stars || 0);
+export const rankName = (a) => RANKS[a.rank || 0].name + (a.stars ? " ★" + a.stars : "");
 export const moodOf = (a) => clamp(Math.floor(a.condition / 20), 0, 4);
 export const MOODS = ["Awful", "Low", "Okay", "Good", "Great"];
 export const MOOD_MARK = [0.95, 0.975, 1, 1.02, 1.04];
@@ -145,8 +148,10 @@ export function combos(s) {
   );
 }
 export const hasCombo = (s, key) => combos(s).some((c) => c.key === key);
+// Every fifth level of a building is a landmark: its effects count one level extra.
+export const landmarkLevel = (level) => level + Math.floor(level / 5);
 export const facilityLevel = (s, type) =>
-  STADIUM[type] ? s.stadium?.[type] || 0 : s.plots.reduce((n, p) => n + (p?.type === type ? p.level : 0), 0);
+  STADIUM[type] ? s.stadium?.[type] || 0 : s.plots.reduce((n, p) => n + (p?.type === type ? landmarkLevel(p.level) : 0), 0);
 // The facility a training plan uses for this athlete.
 export function planFacility(plan, a) {
   return plan.facility === "event" ? (a.trainingEvent || a.event) : plan.facility;
@@ -209,21 +214,21 @@ export function effects(s, a, club = true, mode = s.match ? "meet" : "training",
 export function eventRating(a, event) {
   return a.stats.reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (0.60 + 0.40 * masteryOf(a,event)/100);
 }
-// Distances follow ability until 92% of the world record; beyond that each extra bit of ability
-// buys fewer centimetres, towards a ceiling 5% past the record. Breaking a world record takes
-// a fully built club stacking everything it has, and every centimetre after that is harder still.
-export const MARK_CEILING = 1.05;
+// Distances follow ability until 92% of the world record. Beyond that the curve flattens to a
+// square root: breaking a record takes a fully built club stacking everything it has, and every
+// metre after that costs more than the last, without ever stopping. A club that invests for a
+// very long time can keep pushing.
 export function realMark(event, m) {
   const record = EVENTS[event].record,
     knee = record * 0.92,
-    room = record * MARK_CEILING - knee;
-  return m <= knee ? m : knee + room * (1 - Math.exp(-(m - knee) / room));
+    room = record * 0.13;
+  return m <= knee ? m : knee + 2 * room * (Math.sqrt(1 + (m - knee) / room) - 1);
 }
 // The current world record: the real one until a club throw beats it.
 export const worldRecord = (s, event) => Math.max(EVENTS[event].record, s.worldRecords?.[event]?.mark || 0);
 const baseMark = (a, event) => {
   const e = EVENTS[event];
-  return e.min + (e.max - e.min) * Math.pow(clamp(eventRating(a, event), 0, 100) / 100, 1.12);
+  return e.min + (e.max - e.min) * Math.pow(Math.max(0, eventRating(a, event)) / 100, 1.12);
 };
 export const rawMark = (a, event) => realMark(event, baseMark(a, event));
 // Unsaturated performance, for throws that stack further bonuses before converting to metres.
