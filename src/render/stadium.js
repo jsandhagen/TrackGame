@@ -1,6 +1,6 @@
 import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel.js";
 import { text, fit } from "./font.js";
-import { figure, sprite, shadow, athleteLook, OX, OY } from "./sprites.js";
+import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, formOf } from "../domain/game.js";
 import { throwMotion } from "./throw-motion.js";
@@ -590,8 +590,9 @@ export function createStadium(cv) {
         });
       shadow(g, x, y, 9);
       const ball = mo?.ball && [x + mo.ball.dx, y + mo.ball.dy, mo.ball.behind],
+        [gx, gy] = gripOf({ pose, frame, flip, event: ev }),
         chain = () => {
-          line(g, x + 2, y - 24, ball[0], ball[1], "#d8d8c8");
+          line(g, x + gx * 2, y + gy * 2, ball[0], ball[1], "#d8d8c8");
           ellipse(g, ball[0], ball[1], 3, 3, "#3a3e46");
           px(g, ball[0] - 1, ball[1] - 1, "#8a8e98");
         };

@@ -380,7 +380,7 @@ function targetFor(s, a, index, now, activity, counts) {
       west = ev === "hammer" || ev === "jav";
     if (ev === "jav" && built && n === 0) {
       const t = (now / 2200) % 1;
-      return { x: sp.x + 24 - t * 46, y: sp.y + 1, pose: t < 0.85 ? "carry" : "throw", event: "jav", frame: t < 0.85 ? Math.floor(now / 110) % 4 : 2, flip: true, follow: true };
+      return { x: sp.x + 24 - t * 46, y: sp.y + 1, pose: t < 0.85 ? "carry" : "throw", event: "jav", frame: t < 0.85 ? runFrame(t * 46) : 2, flip: true, follow: true };
     }
     const off = [[0, 2], [14, 12], [-14, 12], [22, 4]][n % 4];
     return { x: sp.x + (west ? -off[0] : off[0]), y: sp.y + off[1], pose: built ? "throw" : "drill", event: ev, frame: Math.floor(now / 420 + index) % 4, flip: west };

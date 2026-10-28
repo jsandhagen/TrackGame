@@ -9,7 +9,7 @@ const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i
 test('every event and form level produces valid frames and stays near the circle or on the runway', () => {
   for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) for (const phase of phases)
     for (const m of sample(ev, level, phase)) {
-      assert(Number.isInteger(m.frame) && m.frame >= 0 && m.frame < 8, `${ev}/${level}/${phase} frame ${m.frame}`);
+      assert(Number.isInteger(m.frame) && m.frame >= 0 && m.frame < 10, `${ev}/${level}/${phase} frame ${m.frame}`);
       assert(Number.isFinite(m.dx) && Number.isFinite(m.dy));
       if (ev === 'jav') assert(m.dx >= -96 && m.dx <= 12); else assert(Math.abs(m.dx) <= 30, `${ev} leaves the circle: ${m.dx}`);
     }
@@ -25,8 +25,9 @@ test('better form means a more complete technique', () => {
   assert(flips('hammer', 3) > flips('hammer', 0));
   // Javelin: a longer run-up and crossover steps.
   assert(throwMotion('jav', 2, 'ready', 0).dx < throwMotion('jav', 0, 'ready', 0).dx);
-  assert(sample('jav', 2, 'technique').some((m) => m.frame === 4 || m.frame === 5));
-  assert(!sample('jav', 0, 'technique').some((m) => m.frame === 4 || m.frame === 5));
+  const crossover = (m) => !m.run && (m.frame === 4 || m.frame === 5);
+  assert(sample('jav', 2, 'technique').some(crossover));
+  assert(!sample('jav', 0, 'technique').some(crossover));
   // The best throwers blur through their turns.
   assert(throwMotion('discus', 3, 'technique', 0.5).ghost); assert(!throwMotion('discus', 2, 'technique', 0.5).ghost);
 });

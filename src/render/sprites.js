@@ -50,12 +50,6 @@ const POSES = {
     { feet: [[-4, -1], [1, -1]], hands: [[-5, -10], [5, -22]], face: "happy" },
     { feet: [[-4, -1], [1, -1]], hands: [[-5, -10], [7, -21]], face: "happy" },
   ],
-  carry: [
-    { feet: [[-5, -1], [2, -1]], hands: [[3, -10], [3, -30]], item: "jav" },
-    { feet: [[-2, -2], [-1, -1]], hands: [[0, -10], [3, -28]], item: "jav", dy: -1 },
-    { feet: [[2, -1], [-5, -1]], hands: [[-4, -10], [3, -28]], item: "jav" },
-    { feet: [[-1, -1], [-2, -2]], hands: [[0, -10], [3, -28]], item: "jav", dy: -1 },
-  ],
   jog: null,
 };
 // Running is drawn side-on, in profile, like a pixel-art run cycle: contact (front foot lands,
@@ -64,60 +58,99 @@ const POSES = {
 // than standing so the stride shows. Legs are [knee, foot] from the ground; arms are
 // [elbow, hand] from the shoulder, swinging against the legs.
 const STRIDE = [
-  { legs: [[[-1, -3], [-4, -4]], [[2, -4], [3, -1]]], arms: [[[2, 3], [5, 1]], [[-3, 1], [-5, 3]]], dy: -3 },
-  { legs: [[[2, -4], [-3, -5]], [[1, -3], [0, -1]]], arms: [[[1, 3], [-1, 5]], [[-2, 2], [0, 5]]], dy: -1.5 },
-  { legs: [[[3, -5], [2, -3]], [[-1, -3], [-4, -2]]], arms: [[[-3, 1], [-5, 3]], [[2, 3], [5, 1]]], dy: -4 },
+  { legs: [[[-1, -3], [-4, -4]], [[2, -4], [3, -1]]], arms: [[[2, 3], [5, 1]], [[-3, 1], [-5, 3]]], y: -2 },
+  { legs: [[[2, -4], [-3, -5]], [[1, -3], [0, -1]]], arms: [[[1, 3], [-1, 5]], [[-2, 2], [0, 5]]], y: -1 },
+  { legs: [[[3, -5], [2, -3]], [[-1, -3], [-4, -2]]], arms: [[[-3, 1], [-5, 3]], [[2, 3], [5, 1]]], y: -3 },
 ];
 const swap = (f) => ({ ...f, legs: [f.legs[1], f.legs[0]], arms: [f.arms[1], f.arms[0]] });
-POSES.run = [...STRIDE, ...STRIDE.map(swap)].map((f) => ({ ...f, side: true, lean: 2 }));
+POSES.run = [...STRIDE, ...STRIDE.map(swap)].map((f) => ({ ...f, lean: 1 }));
 POSES.jog = POSES.run;
-// Event throws: frames are ready, wind, release, follow.
+// Throws, drawn like the runs: jointed and mostly side-on, for a right-handed thrower whose
+// throwing arm is the near arm when facing the sector (to the right). Frames a turn passes through
+// face the camera ("front") or away ("back"); frames meant to face away from the sector are drawn
+// facing right and flipped by the caller, so there the right arm is the far one.
+// Frames 0–3 are ready, wind (the power position), release and follow-through; the rest are the
+// event's technique: see throw-motion.js.
 const THROWS = {
   shot: [
-    { feet: [[-5, -1], [2, -1]], hands: [[-7, -15], [3, -18]], item: "shot", crouch: 1 },
-    { feet: [[-6, -1], [1, -1]], hands: [[-8, -12], [2, -17]], item: "shot", crouch: 3, lean: -1, face: "strain" },
-    { feet: [[-4, -2], [3, -1]], hands: [[-6, -12], [8, -23]], lean: 2, face: "strain" },
-    { feet: [[-4, -4], [3, -1]], hands: [[-6, -16], [6, -15]], lean: 2 },
-    // Back of the circle, bent low with the shot at the neck; the glide; a spin step.
-    { feet: [[-6, -1], [3, -1]], hands: [[-7, -12], [-3, -17]], item: "shot", crouch: 4, lean: 2, face: "strain" },
-    { feet: [[-9, -1], [4, -2]], hands: [[-8, -12], [-3, -17]], item: "shot", crouch: 3, lean: 1, face: "strain" },
-    { feet: [[-2, -2], [2, -1]], hands: [[-9, -15], [3, -18]], item: "shot", crouch: 2, dy: -1, face: "strain" },
-    { feet: [[2, -1], [-3, -2]], hands: [[-9, -15], [3, -18]], item: "shot", crouch: 2, face: "strain" },
+    // Side-on to the sector, shot tucked under the jaw with the elbow up, left arm reaching out.
+    { view: "front", y: -1, lean: -1, legs: [[[-4, -3], [-6, -1]], [[2, -3], [3, -1]]], arms: [[[-3, -1], [-1, -3]], [[3, 0], [6, -1]]], hold: 0, item: "shot" },
+    // Power position: low over the bent right leg, left leg long toward the toe board.
+    { view: "front", y: 0, lean: -2, legs: [[[-5, -3], [-6, -1]], [[2, -3], [4, -1]]], arms: [[[-3, -1], [-1, -3]], [[3, 1], [5, 3]]], hold: 0, item: "shot", face: "strain" },
+    // The put: hips through, tall on a braced left leg, the arm punched out and up.
+    { y: -2, lean: 1, legs: [[[3, -4], [3, -1]], [[0, -3], [-3, -2]]], arms: [[[-1, 2], [0, 4]], [[4, -3], [8, -6]]], under: true, face: "strain" },
+    // The reverse: feet switch, the right foot stops at the board and the left kicks back.
+    { y: 0, lean: 2, legs: [[[-2, -4], [-5, -4]], [[2, -3], [2, -1]]], arms: [[[-3, 0], [-6, 1]], [[1, 3], [3, 4]]] },
+    // Glide start at the back, facing away: folded over the right leg (far, once flipped).
+    { y: 1, lean: 3, legs: [[[2, -3], [0, -1]], [[0, -3], [-3, -2]]], arms: [[[1, 1], [3, -1]], [[1, 3], [2, 5]]], hold: 0, item: "shot", face: "strain" },
+    // The glide: the left leg drives low toward the board, the right pulls under.
+    { y: 1, lean: 3, legs: [[[1, -2], [-1, -2]], [[-3, -3], [-7, -2]]], arms: [[[1, 1], [3, -1]], [[1, 3], [2, 5]]], hold: 0, item: "shot", face: "strain" },
+    // Rotational: turning to face us, the left arm wide…
+    { view: "front", y: 0, legs: [[[-4, -3], [-5, -1]], [[3, -4], [4, -3]]], arms: [[[-3, -1], [-1, -3]], [[3, 0], [6, 0]]], hold: 0, item: "shot", face: "strain" },
+    // …facing away, the shot at the right side of the neck…
+    { view: "back", y: -1, legs: [[[-3, -4], [-4, -2]], [[1, -3], [1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [2, -2]]], hold: 1, item: "shot" },
+    // …and driving across the circle toward the sector.
+    { y: -2, legs: [[[-1, -3], [-3, -2]], [[3, -4], [2, -3]]], arms: [[[2, 0], [5, 0]], [[1, 1], [3, -1]]], hold: 1, item: "shot", face: "strain" },
   ],
   discus: [
-    { feet: [[-5, -1], [2, -1]], hands: [[5, -14], [-9, -13]], item: "disc", crouch: 1 },
-    { feet: [[-5, -1], [2, -1]], hands: [[-9, -13], [6, -14]], item: "disc", crouch: 2, face: "strain" },
-    { feet: [[-4, -2], [3, -1]], hands: [[-6, -13], [9, -14]], lean: 1, face: "strain" },
-    { feet: [[-3, -3], [3, -1]], hands: [[-5, -12], [6, -11]], lean: 1 },
-    // Pre-swings back and forward, then two spin steps with the arm long.
-    { feet: [[-5, -1], [2, -1]], hands: [[-4, -12], [-11, -14]], item: "disc", crouch: 1 },
-    { feet: [[-5, -1], [2, -1]], hands: [[-6, -12], [10, -15]], item: "disc", crouch: 1 },
-    { feet: [[-2, -2], [3, -1]], hands: [[-10, -16], [11, -16]], item: "disc", crouch: 2, dy: -1, face: "strain" },
-    { feet: [[1, -1], [-3, -2]], hands: [[-10, -15], [11, -15]], item: "disc", crouch: 2, face: "strain" },
+    // Side-on, the discus hanging in the right hand.
+    { view: "front", y: -1, legs: [[[-4, -3], [-5, -1]], [[2, -3], [3, -1]]], arms: [[[-1, 3], [-2, 6]], [[1, 3], [2, 6]]], hold: 0, item: "disc" },
+    // Wound up: the arm long and far back at shoulder height, the left arm across the chest.
+    { view: "front", y: 0, lean: -1, legs: [[[-5, -3], [-6, -1]], [[2, -3], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[1, 2], [-2, 2]]], hold: 0, item: "disc", face: "strain" },
+    // Release: the arm sweeps through long at shoulder height over a braced left leg.
+    { y: -2, lean: 1, legs: [[[3, -3], [3, -1]], [[0, -3], [-2, -2]]], arms: [[[-2, 1], [-1, 3]], [[3, 0], [6, 0]]], face: "strain" },
+    // Follow-through: the arm wraps across and the right foot comes round to the front.
+    { y: -1, lean: 1, legs: [[[-1, -3], [-3, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 0], [-5, 1]], [[2, 2], [1, 4]]] },
+    // Pre-swings at the back of the circle, facing away: back…
+    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-3, 0], [-6, 0]], [[1, 2], [2, 1]]], hold: 0, item: "disc" },
+    // …and forward to the left hand.
+    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[2, 1], [4, 1]], [[2, 2], [4, 2]]], hold: 0, item: "disc" },
+    // The turn: round to face us on the left foot, the right leg sweeping wide, the arm trailing…
+    { view: "front", y: 0, legs: [[[-4, -3], [-6, -3]], [[2, -3], [2, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
+    // …a sprint across the circle toward the sector…
+    { y: -2, legs: [[[-1, -3], [-3, -3]], [[3, -4], [2, -3]]], arms: [[[2, 0], [4, 1]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
+    // …landing on the right foot facing away…
+    { view: "back", y: 0, legs: [[[-3, -3], [-5, -2]], [[2, -3], [1, -1]]], arms: [[[-3, 0], [-5, 1]], [[3, 0], [6, 0]]], hold: 1, item: "disc" },
+    // …and the left foot down with the back to the sector, the arm still trailing.
+    { y: 0, legs: [[[1, -3], [0, -1]], [[-1, -3], [-3, -2]]], arms: [[[-3, 0], [-6, 0]], [[2, 0], [4, 1]]], hold: 0, item: "disc", face: "strain" },
   ],
   hammer: [
-    { feet: [[-5, -1], [2, -1]], hands: [[1, -11], [2, -11]], crouch: 1 },
-    { feet: [[-5, -1], [2, -1]], hands: [[0, -21], [1, -21]], face: "strain" },
-    { feet: [[-4, -2], [3, -1]], hands: [[3, -22], [5, -23]], lean: 1, face: "strain" },
-    { feet: [[-3, -3], [3, -1]], hands: [[-2, -18], [2, -19]], lean: 1 },
-    // Winds dip low in front; turns sit back against the pull with the arms long.
-    { feet: [[-5, -1], [2, -1]], hands: [[-1, -10], [0, -10]], crouch: 2 },
-    { feet: [[-2, -2], [3, -1]], hands: [[6, -15], [8, -15]], crouch: 2, lean: -1, face: "strain" },
-    { feet: [[2, -1], [-3, -2]], hands: [[6, -15], [8, -15]], crouch: 2, lean: -1, dy: -1, face: "strain" },
-    { feet: [[-2, -2], [3, -1]], hands: [[-6, -15], [-8, -15]], crouch: 2, lean: 1, face: "strain" },
+    // Back to the sector, the head resting behind on the right.
+    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-1, 3], [-3, 5]], [[-1, 3], [-3, 5]]], item: "handle" },
+    // A wind: hands over the head as the ball passes high behind.
+    { y: -1, lean: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-4, -4], [-7, -9]], [[-4, -4], [-7, -9]]], item: "handle", under: true, face: "strain" },
+    // Release over the left shoulder, facing us, arms long and high toward the sector.
+    { view: "front", y: -2, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -4], [3, -1]]], arms: [[[5, -6], [11, -12]], [[3, -5], [6, -12]]], under: true, face: "strain" },
+    // Follow: leaning back, arms still up, watching it go.
+    { view: "front", y: -1, lean: -2, legs: [[[-3, -3], [-4, -1]], [[2, -3], [4, -2]]], arms: [[[5, -6], [10, -13]], [[3, -6], [5, -13]]], under: true },
+    // The low point of a wind, arms long in front.
+    { y: 0, lean: 1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[2, 2], [4, 3]], [[2, 2], [4, 3]]], item: "handle" },
+    // Turns: sitting back against the pull with the arms long toward the ball. Toward the sector…
+    { y: 0, lean: -1, legs: [[[1, -3], [0, -1]], [[2, -3], [2, -2]]], arms: [[[3, 1], [6, 2]], [[3, 1], [6, 2]]], item: "handle", face: "strain" },
+    // …facing us…
+    { view: "front", y: 0, legs: [[[-4, -3], [-5, -1]], [[2, -3], [3, -1]]], arms: [[[1, 3], [3, 5]], [[-1, 3], [-3, 5]]], item: "handle", face: "strain" },
+    // …and facing away.
+    { view: "back", y: 0, legs: [[[-4, -3], [-5, -1]], [[2, -3], [3, -1]]], arms: [[[1, 3], [3, 5]], [[-1, 3], [-3, 5]]], item: "handle" },
   ],
   jav: [
-    { feet: [[-5, -1], [2, -1]], hands: [[-3, -11], [3, -28]], item: "jav" },
-    { feet: [[-6, -1], [2, -1]], hands: [[5, -12], [-8, -17]], item: "javback", crouch: 1, lean: -2, face: "strain" },
-    { feet: [[-4, -2], [3, -1]], hands: [[-6, -12], [6, -24]], lean: 2, face: "strain" },
-    { feet: [[-4, -4], [3, -1]], hands: [[-4, -12], [5, -14]], lean: 2 },
-    // Crossover steps with the javelin drawn back, then the block on a straight front leg.
-    { feet: [[3, -3], [-5, -1]], hands: [[5, -12], [-8, -17]], item: "javback", lean: -1, dy: -1 },
-    { feet: [[-5, -1], [3, -2]], hands: [[5, -12], [-8, -17]], item: "javback", lean: -1 },
-    { feet: [[-8, -1], [5, -1]], hands: [[5, -14], [-7, -18]], item: "javback", lean: -2, crouch: 1, face: "strain" },
-    { feet: [[-8, -1], [5, -1]], hands: [[5, -14], [-7, -18]], item: "javback", lean: -2, crouch: 1, face: "strain" },
+    // Javelin over the shoulder, palm up, the hand just behind the head.
+    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[1, 2], [3, 3]], [[-4, 0], [-6, -4]]], item: "jav", under: true },
+    // Withdrawal: the arm straight back, the javelin along it pointing up the runway.
+    { y: -1, lean: -1, legs: [[[2, -3], [3, -1]], [[-1, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
+    // Release: the arm whips high over the shoulder as the body arches over the block.
+    { y: -1, lean: 1, legs: [[[3, -3], [4, -1]], [[-1, -3], [-4, -2]]], arms: [[[0, 2], [-1, 3]], [[3, -6], [8, -12]]], under: true, face: "strain" },
+    // Follow-through: the right leg comes through to stop short of the line.
+    { y: 0, lean: 3, legs: [[[-1, -3], [-3, -2]], [[3, -3], [3, -1]]], arms: [[[-2, 1], [-4, 2]], [[2, 2], [3, 4]]] },
+    // Crossover: the right leg bounds across in front, the javelin held back…
+    { y: -2, lean: -1, legs: [[[-1, -3], [-3, -2]], [[3, -4], [2, -3]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
+    // …and lands, the left swinging through behind.
+    { y: -1, lean: -1, legs: [[[-1, -3], [-3, -3]], [[2, -3], [2, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
+    // The block: the left leg planted long and straight, leaning back, the arm still drawn.
+    { y: 0, lean: -2, legs: [[[4, -3], [5, -1]], [[0, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true, face: "strain" },
   ],
 };
+// Carrying the javelin on the run-up: the run cycle with the throwing hand held up by the head.
+POSES.carry = POSES.run.map((f) => ({ ...f, arms: [f.arms[0], THROWS.jav[0].arms[1]], item: "jav", under: true }));
 export const THROW_FRAMES = { ready: 0, wind: 1, release: 2, follow: 3 };
 
 function poseData(pose, frame, event) {
@@ -159,26 +192,83 @@ function drawFigure(g, o) {
     collar = o.collar || "#e2b04a",
     shorts = o.shorts || shade(shirt, -0.55),
     rank = o.rank || 0;
-  const dy = Math.round(((p.dy || 0) + (p.crouch || 0)) * 0.7) + (kid ? 1 : 0),
-    lean = Math.round((p.lean || 0) * 0.7);
+  // Jointed poses bend at the knee and elbow and give their offsets in whole pixels. They are
+  // drawn side-on (profile, facing right), from the front or from behind.
+  const jointed = !!p.legs,
+    view = jointed ? p.view || "side" : "front",
+    side = view === "side",
+    back = view === "back";
+  const dy = (jointed ? p.y || 0 : Math.round(((p.dy || 0) + (p.crouch || 0)) * 0.7)) + (kid ? 1 : 0),
+    lean = jointed ? p.lean || 0 : Math.round((p.lean || 0) * 0.7),
+    hl = jointed ? Math.round(lean / 2) : lean; // the hips follow half the lean
   const tb = -4 + dy, // hip line
     ttop = tb - 6; // top of the shirt
   const hx = -6 + lean,
     hy = ttop - 11 + (p.drop || 0);
   const far = shade(limb, -0.18);
-  // Side-on poses are drawn in profile with limbs that bend at the knee and elbow.
-  const side = !!p.side,
-    hip = [-1 + lean, tb - 1],
-    shoulder = [-1 + lean, ttop + 1],
-    fromShoulder = ([x, y]) => [shoulder[0] + x, shoulder[1] + y];
-  const [farFoot, nearFoot] = side ? p.legs.map((l) => l[1]) : p.feet.map(footAt),
-    [farHand, nearHand] = side ? p.arms.map((a) => fromShoulder(a[1])) : p.hands.map(handAt).map(([x, y]) => [x + Math.round(lean / 2), y + dy]);
+  const hips = side ? [[-1 + hl, tb - 1], [-1 + hl, tb - 1]] : [[-3 + hl, tb - 1], [1 + hl, tb - 1]],
+    shoulders = side ? [[-1 + lean, ttop + 1], [-1 + lean, ttop + 1]] : [[-4 + lean, ttop + 1], [2 + lean, ttop + 1]],
+    at = (k, [x, y]) => [shoulders[k][0] + x, shoulders[k][1] + y];
+  const feet = jointed ? p.legs.map((l) => l[1]) : p.feet.map(footAt),
+    hands = jointed ? p.arms.map((a, k) => at(k, a[1])) : p.hands.map(handAt).map(([x, y]) => [x + Math.round(lean / 2), y + dy]),
+    hold = p.hold ?? 1;
+  // In profile the far limbs are shaded; from the front or behind both are lit.
+  const tone = (k) => (side && !k ? far : limb);
   // A bent limb as 2px segments through sprite points.
   const joint = (pts, c) => {
     for (let i = 1; i < pts.length; i++) line(g, OX + pts[i - 1][0] + 0.5, OY + pts[i - 1][1] + 0.5, OX + pts[i][0] + 0.5, OY + pts[i][1] + 0.5, c, 2);
   };
-  const leg = (k) => joint([hip, p.legs[k][0], [p.legs[k][1][0], p.legs[k][1][1] - 1]], k ? limb : far),
-    arm = (k) => joint([shoulder, fromShoulder(p.arms[k][0]), fromShoulder(p.arms[k][1])], k ? limb : far);
+  const leg = (k) => {
+    if (jointed) joint([hips[k], p.legs[k][0], [feet[k][0], feet[k][1] - 1]], tone(k));
+    else if (k) line(g, OX + 1 + lean / 2, OY + tb, OX + feet[1][0] + 1, OY + feet[1][1] - 1, limb, 2);
+    else line(g, OX - 2 + lean / 2, OY + tb, OX + feet[0][0] + 1, OY + feet[0][1] - 1, far, 2);
+    P(feet[k][0], feet[k][1], 3, 1, k ? SHOE : shade(SHOE, -0.2));
+    if (k) P(feet[k][0] + 2, feet[k][1], 1, 1, collar);
+  };
+  const arm = (k) => {
+    if (jointed) joint([shoulders[k], at(k, p.arms[k][0]), hands[k]], tone(k));
+    else if (k) {
+      line(g, OX + 2 + lean, OY + ttop + 1, OX + hands[1][0] + 1, OY + hands[1][1] + 1, limb, 2);
+      P(2 + lean, ttop, 1, 2, shirt);
+    } else line(g, OX - 3 + lean, OY + ttop + 1, OX + hands[0][0] + 1, OY + hands[0][1] + 1, far, 2);
+    P(hands[k][0], hands[k][1], 2, 2, k || !side ? limb : far);
+    if (k && rank >= 1) P(hands[k][0], hands[k][1] + 2, 2, 1, collar);
+    if (k === hold) item(hands[k]);
+  };
+  // Whatever the athlete holds, drawn with the hand that holds it.
+  const item = ([nx, ny]) => {
+    switch (p.item) {
+      case "shot":
+        ellipse(g, OX + nx + 2, OY + ny, 2, 2, "#585c66");
+        P(nx + 1, ny - 1, 1, 1, "#9aa0aa");
+        break;
+      case "disc":
+        P(nx - 1, ny - 1, 4, 2, "#d8c890");
+        P(nx, ny - 1, 2, 1, "#8a7a50");
+        break;
+      case "handle":
+        P(nx, ny, 2, 2, "#3a3e46");
+        break;
+      case "jav":
+        line(g, OX + nx - 8, OY + ny + 2, OX + nx + 15, OY + ny - 3, "#efe6c8");
+        P(nx + 14, ny - 3, 2, 1, "#6a6a70");
+        P(nx, ny, 2, 1, "#b0503a");
+        break;
+      case "javback":
+        line(g, OX + nx - 6, OY + ny + 3, OX + nx + 16, OY + ny - 6, "#efe6c8");
+        P(nx + 15, ny - 6, 2, 1, "#6a6a70");
+        P(nx, ny, 2, 1, "#b0503a");
+        break;
+      case "barbell":
+        line(g, OX - 11, OY + ny, OX + 10, OY + ny, "#8a8e96");
+        for (const x of [-12, 9]) P(x, ny - 2, 2, 5, "#3a3e46");
+        break;
+      case "tablet":
+        P(nx - 1, ny - 2, 5, 4, "#3a3e4a");
+        P(nx, ny - 1, 3, 2, "#6ad0e0");
+        break;
+    }
+  };
 
   if (rank >= 4) {
     g.fillStyle = shade(shirt, -0.35);
@@ -189,22 +279,14 @@ function drawFigure(g, o) {
     P(-6 + lean, ttop + flap, 3, 2, collar);
     P(-8 + lean, ttop + 1 + flap, 2, 2, collar);
   }
-  // Far leg and arm, slightly darker.
-  if (side) leg(0), arm(0);
-  else {
-    line(g, OX - 2 + lean / 2, OY + tb, OX + farFoot[0] + 1, OY + farFoot[1] - 1, far, 2);
-    line(g, OX - 3 + lean, OY + ttop + 1, OX + farHand[0] + 1, OY + farHand[1] + 1, far, 2);
-  }
-  P(farFoot[0], farFoot[1], 3, 1, shade(SHOE, -0.2));
-  P(farHand[0], farHand[1], 2, 2, far);
-  // Near leg.
-  if (side) leg(1);
-  else line(g, OX + 1 + lean / 2, OY + tb, OX + nearFoot[0] + 1, OY + nearFoot[1] - 1, limb, 2);
-  P(nearFoot[0], nearFoot[1], 3, 1, SHOE);
-  P(nearFoot[0] + 2, nearFoot[1], 1, 1, collar);
+  // Limbs behind the body: the far leg and arm, or from behind both arms.
+  leg(0);
+  if (side || !jointed) arm(0);
+  if (back) arm(0), arm(1);
+  leg(1);
   // Shorts and shirt.
-  P(-3 + lean, tb - 2, 6, 2, shorts);
-  if (p.sit) P(-3 + lean, tb - 1, 7, 2, shorts);
+  P(-3 + hl, tb - 2, 6, 2, shorts);
+  if (p.sit) P(-3 + hl, tb - 1, 7, 2, shorts);
   P(-3 + lean, ttop, 6, 4, shirt);
   P(-3 + lean, ttop, 1, 4, shade(shirt, 0.2));
   P(2 + lean, ttop, 1, 4, shade(shirt, -0.22));
@@ -217,6 +299,11 @@ function drawFigure(g, o) {
   P(-1 + lean, ttop, 3, 1, collar);
   if (rank >= 3) P(0 + lean, ttop + 2, 1, 1, GOLD);
   if (special === "scarf") P(-3 + lean, ttop, 6, 2, collar);
+
+  // An arm raised past the big head goes behind it so the hand shows beyond, rather than a
+  // skin-on-skin arm across the face.
+  const front = () => (side || !jointed ? arm(1) : !back && (arm(0), arm(1)));
+  if (p.under) front();
 
   // Head.
   const H = (x, y, w, h, c) => P(hx + x, hy + y, w, h, c);
@@ -272,13 +359,18 @@ function drawFigure(g, o) {
       H(3, -3, 2, 1, hairHi);
     }
   }
+  // From behind the hair covers the whole head.
+  if (back && !metal) {
+    if (kid) mask(collar, 0, 4), mask(hair, 4, 10);
+    else mask(hair, 0, 10);
+  }
   // In profile the hair covers the back of the head down to an ear.
   if (side && !fur && !metal) {
     H(0, 3, 4, 5, hair);
     H(1, 8, 2, 1, hair);
     H(4, 6, 1, 2, shade(skin, -0.15));
   }
-  if (special === "beard") {
+  if (special === "beard" && !back) {
     H(5, 8, 7, 3, hair);
     H(6, 8, 5, 1, shade(hair, -0.2));
   }
@@ -290,7 +382,8 @@ function drawFigure(g, o) {
   const face = p.face || o.face,
     eyes = side ? [9] : [5, 9],
     mx = side ? 3 : 0;
-  if (metal) {
+  if (back);
+  else if (metal) {
     H(side ? 6 : 3, 5, side ? 6 : 9, 2, "#4ad0e8");
     H(side ? 8 : 4, 5, 3, 1, "#c8f8ff");
   } else {
@@ -321,42 +414,8 @@ function drawFigure(g, o) {
       for (const x of side ? [7, 11] : [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
     }
   }
-  // Near arm last, in front of the body.
-  if (side) arm(1);
-  else {
-    line(g, OX + 2 + lean, OY + ttop + 1, OX + nearHand[0] + 1, OY + nearHand[1] + 1, limb, 2);
-    P(2 + lean, ttop, 1, 2, shirt);
-  }
-  P(nearHand[0], nearHand[1], 2, 2, limb);
-  if (rank >= 1) P(nearHand[0], nearHand[1] + 2, 2, 1, collar);
-  const [nx, ny] = nearHand;
-  switch (p.item) {
-    case "shot":
-      ellipse(g, OX + nx + 2, OY + ny, 2, 2, "#585c66");
-      P(nx + 1, ny - 1, 1, 1, "#9aa0aa");
-      break;
-    case "disc":
-      P(nx - 1, ny - 1, 4, 2, "#d8c890");
-      P(nx, ny - 1, 2, 1, "#8a7a50");
-      break;
-    case "jav":
-      line(g, OX + nx - 9, OY + ny + 2, OX + nx + 10, OY + ny - 2, "#efe6c8");
-      P(nx + 9, ny - 2, 2, 1, "#6a6a70");
-      P(nx, ny, 2, 1, "#b0503a");
-      break;
-    case "javback":
-      line(g, OX + nx - 8, OY + ny + 3, OX + nx + 11, OY + ny - 4, "#efe6c8");
-      P(nx + 10, ny - 4, 2, 1, "#6a6a70");
-      break;
-    case "barbell":
-      line(g, OX - 11, OY + ny, OX + 10, OY + ny, "#8a8e96");
-      for (const x of [-12, 9]) P(x, ny - 2, 2, 5, "#3a3e46");
-      break;
-    case "tablet":
-      P(nx - 1, ny - 2, 5, 4, "#3a3e4a");
-      P(nx, ny - 1, 3, 2, "#6ad0e0");
-      break;
-  }
+  // Arms in front of the body: the near arm, or from the front both.
+  if (!p.under) front();
 }
 
 const cache = new Map();
@@ -380,6 +439,15 @@ export const runFrame = (dist) => {
   const n = POSES.run.length;
   return ((Math.floor(dist / RUN_STRIDE) % n) + n) % n;
 };
+// Where a jointed pose's holding hand is, from the feet at scale 1: hammer chains hang from it.
+export function gripOf(o) {
+  const p = poseData(o.pose, o.frame || 0, o.event);
+  if (!p.legs) return [1, -12];
+  const k = p.hold ?? 1,
+    ttop = -10 + (p.y || 0),
+    x = (p.view && p.view !== "side" ? (k ? 2 : -4) : -1) + (p.lean || 0) + p.arms[k][1][0] + 1;
+  return [o.flip ? -1 - x : x, ttop + 1 + p.arms[k][1][1] + 1];
+}
 // Draw a figure with its feet at (x, y). Scale must be an integer to stay crisp.
 export function figure(g, o, x, y, scale = 1) {
   const c = sprite(o);
