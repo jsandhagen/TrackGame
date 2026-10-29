@@ -134,11 +134,11 @@ const THROWS = {
   ],
   jav: [
     // Javelin over the shoulder, palm up, the hand just behind the head.
-    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[1, 2], [3, 3]], [[-4, 0], [-6, -4]]], item: "jav", under: true },
+    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[1, 2], [3, 3]], [[-4, 0], [-6, -2]]], item: "jav", under: true },
     // Withdrawal: the arm straight back, the javelin along it pointing up the runway.
     { y: -1, lean: -1, legs: [[[2, -3], [3, -1]], [[-1, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
-    // Release: the arm whips high over the shoulder as the body arches over the block.
-    { y: -1, lean: 1, legs: [[[3, -3], [4, -1]], [[-1, -3], [-4, -2]]], arms: [[[0, 2], [-1, 3]], [[3, -6], [8, -12]]], under: true, face: "strain" },
+    // Release up top: tall over the braced left leg, the hand high above the head and forward.
+    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[2, -6], [6, -13]]], under: true, face: "strain" },
     // Follow-through: the right leg comes through to stop short of the line.
     { y: 0, lean: 3, legs: [[[-1, -3], [-3, -2]], [[3, -3], [3, -1]]], arms: [[[-2, 1], [-4, 2]], [[2, 2], [3, 4]]] },
     // Crossover: the right leg bounds across in front, the javelin held back…
@@ -147,6 +147,8 @@ const THROWS = {
     { y: -1, lean: -1, legs: [[[-1, -3], [-3, -3]], [[2, -3], [2, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
     // The block: the left leg planted long and straight, leaning back, the arm still drawn.
     { y: 0, lean: -2, legs: [[[4, -3], [5, -1]], [[0, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true, face: "strain" },
+    // Delivery: the elbow leads and the javelin comes over the top, above the head, angled up.
+    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[1, -6], [2, -16]]], item: "javup", under: true, face: "strain" },
   ],
 };
 // Carrying the javelin on the run-up: the run cycle with the throwing hand held up by the head.
@@ -233,9 +235,17 @@ function drawFigure(g, o) {
     } else line(g, OX - 3 + lean, OY + ttop + 1, OX + hands[0][0] + 1, OY + hands[0][1] + 1, far, 2);
     P(hands[k][0], hands[k][1], 2, 2, k || !side ? limb : far);
     if (k && rank >= 1) P(hands[k][0], hands[k][1] + 2, 2, 1, collar);
-    if (k === hold) item(hands[k]);
+    if (k === hold && !javelin) item(hands[k]);
   };
-  // Whatever the athlete holds, drawn with the hand that holds it.
+  // Whatever the athlete holds, drawn with the hand that holds it. A javelin lies in front of
+  // everything, face included, with a dark underside so it reads against skin.
+  const javelin = p.item?.startsWith("jav"),
+    shaft = (x0, y0, x1, y1, [nx, ny]) => {
+      line(g, OX + nx + x0, OY + ny + y0 + 1, OX + nx + x1, OY + ny + y1 + 1, "#6a5a40");
+      line(g, OX + nx + x0, OY + ny + y0, OX + nx + x1, OY + ny + y1, "#efe6c8");
+      P(nx + x1 - 1, ny + y1, 2, 1, "#6a6a70");
+      P(nx, ny, 2, 1, "#b0503a");
+    };
   const item = ([nx, ny]) => {
     switch (p.item) {
       case "shot":
@@ -250,14 +260,13 @@ function drawFigure(g, o) {
         P(nx, ny, 2, 2, "#3a3e46");
         break;
       case "jav":
-        line(g, OX + nx - 8, OY + ny + 2, OX + nx + 15, OY + ny - 3, "#efe6c8");
-        P(nx + 14, ny - 3, 2, 1, "#6a6a70");
-        P(nx, ny, 2, 1, "#b0503a");
+        shaft(-8, 2, 15, -3, [nx, ny]);
         break;
       case "javback":
-        line(g, OX + nx - 6, OY + ny + 3, OX + nx + 16, OY + ny - 6, "#efe6c8");
-        P(nx + 15, ny - 6, 2, 1, "#6a6a70");
-        P(nx, ny, 2, 1, "#b0503a");
+        shaft(-6, 3, 16, -6, [nx, ny]);
+        break;
+      case "javup":
+        shaft(-9, 4, 13, -9, [nx, ny]);
         break;
       case "barbell":
         line(g, OX - 11, OY + ny, OX + 10, OY + ny, "#8a8e96");
@@ -416,6 +425,7 @@ function drawFigure(g, o) {
   }
   // Arms in front of the body: the near arm, or from the front both.
   if (!p.under) front();
+  if (javelin) item(hands[hold]);
 }
 
 const cache = new Map();

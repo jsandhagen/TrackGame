@@ -615,8 +615,11 @@ export function createStadium(cv) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
-        sx = (ev === "jav" ? O.x - 8 : O.x) + 14,
-        sy = O.y - 42,
+        rel = throwMotion(ev, 0, "release", 0),
+        [gx, gy] = gripOf({ pose: "throw", frame: rel.frame, event: ev }),
+        // It leaves from the release hand: above the head for the javelin.
+        sx = O.x + rel.dx + gx * 2,
+        sy = O.y + rel.dy + gy * 2,
         [ex, ey] = sector.point(dist, angle),
         peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev];
       const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];
@@ -628,10 +631,12 @@ export function createStadium(cv) {
           px(g, tx2, ty2, `rgba(255,255,255,${0.5 - k * 0.12})`);
         }
         if (ev === "jav") {
+          // As long as the one in the hand when it leaves, shrinking as it flies away.
           const [nx, ny] = pos(Math.min(1, f + 0.02)),
-            ang = Math.atan2(ny - y, nx - x);
-          line(g, x - Math.cos(ang) * 8, y - Math.sin(ang) * 8, x + Math.cos(ang) * 8, y + Math.sin(ang) * 8, "#efe6c8");
-          px(g, x + Math.cos(ang) * 8, y + Math.sin(ang) * 8, "#5a5a62");
+            ang = Math.atan2(ny - y, nx - x),
+            half = 22 - 13 * f;
+          line(g, x - Math.cos(ang) * half, y - Math.sin(ang) * half, x + Math.cos(ang) * half, y + Math.sin(ang) * half, "#efe6c8");
+          px(g, x + Math.cos(ang) * half, y + Math.sin(ang) * half, "#5a5a62");
         } else if (ev === "discus") {
           ellipse(g, x, y, 3, 1, "#3a3020");
           ellipse(g, x, y, 2, 1, "#d8c890");

@@ -116,7 +116,8 @@ function orbit(th, r, flatten) {
   return { dx: Math.cos(th) * r, dy: -28 - Math.cos(th) * (12 - flatten * 4) + Math.sin(th) * 4, behind: Math.sin(th) < 0 };
 }
 
-// Javelin frames: 4 and 5 the crossover steps, 6 the block. The run-up uses the "carry" pose.
+// Javelin frames: 4 and 5 the crossover steps, 6 the block, 7 the delivery over the top. The
+// run-up uses the "carry" pose.
 function javelin(m, level, phase, p, foul) {
   const slope = (dx) => Math.round(-dx * 0.1);
   if (phase === "ready") return Object.assign(m, { frame: 0, dx: level ? 20 - 96 : -70, dy: slope(level ? 20 - 96 : -70) });
@@ -135,10 +136,11 @@ function javelin(m, level, phase, p, foul) {
   if (level === 0) {
     // A short run with the javelin over the shoulder, then draw it back, block and throw.
     if (p < 0.75) return run(-70, -14, p / 0.75);
-    return Object.assign(m, p < 0.88 ? { frame: 1, dx: -12, dy: slope(-12) } : { frame: 6, dx: -9, dy: slope(-9) });
+    if (p < 0.86) return Object.assign(m, { frame: 1, dx: -12, dy: slope(-12) });
+    return Object.assign(m, p < 0.93 ? { frame: 6, dx: -9, dy: slope(-9) } : { frame: 7, dx: -7, dy: slope(-7) });
   }
   // Full run-up from the end of the runway, withdrawal into crossover steps, then the block.
-  const [runEnd, crossEnd] = level === 1 ? [0.65, 0.88] : [0.55, 0.88],
+  const [runEnd, crossEnd] = level === 1 ? [0.62, 0.84] : [0.52, 0.84],
     start = 20 - 96;
   if (p < runEnd) return run(start, -36, p / runEnd);
   if (p < crossEnd) {
@@ -147,5 +149,5 @@ function javelin(m, level, phase, p, foul) {
       step = Math.floor(q * (level === 1 ? 4 : 6));
     return Object.assign(m, { frame: step === 0 ? 1 : 4 + ((step - 1) % 2), dx, dy: slope(dx) - (step % 2 ? 1 : 0) });
   }
-  return Object.assign(m, { frame: 6, dx: -8, dy: slope(-8) });
+  return Object.assign(m, p < 0.93 ? { frame: 6, dx: -8, dy: slope(-8) } : { frame: 7, dx: -7, dy: slope(-7) });
 }
