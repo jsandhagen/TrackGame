@@ -3,7 +3,7 @@ import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, formOf } from "../domain/game.js";
-import { throwMotion } from "./throw-motion.js";
+import { throwMotion, throwReleasePoint } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
@@ -616,11 +616,9 @@ export function createStadium(cv) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
-        rel = throwMotion(ev, 0, "release", 0),
-        [gx, gy] = gripOf({ pose: "throw", frame: rel.frame, event: ev }),
-        // It leaves from the release hand: above the head for the javelin.
-        sx = O.x + rel.dx + gx * 2,
-        sy = O.y + rel.dy + gy * 2,
+        [rx, ry] = throwReleasePoint(ev, formOf(active, ev)),
+        sx = O.x + rx,
+        sy = O.y + ry,
         [ex, ey] = sector.point(dist, angle),
         peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev];
       const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];

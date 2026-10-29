@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../src/domain/game.js';
-import { throwMotion } from '../src/render/throw-motion.js';
-import { frontFootOf, gripOf } from '../src/render/sprites.js';
+import { throwMotion, throwReleasePoint } from '../src/render/throw-motion.js';
+import { frontFootOf, gripOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
 const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i) => throwMotion(ev, level, phase, i / n));
@@ -10,7 +10,7 @@ const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i
 test('every event and form level produces valid frames and stays near the circle or on the runway', () => {
   for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) for (const phase of phases)
     for (const m of sample(ev, level, phase)) {
-      assert(Number.isInteger(m.frame) && m.frame >= 0 && m.frame < 10, `${ev}/${level}/${phase} frame ${m.frame}`);
+      assert(Number.isInteger(m.frame) && m.frame >= 0 && m.frame < THROW_FRAME_COUNTS[ev], `${ev}/${level}/${phase} frame ${m.frame}`);
       assert(Number.isFinite(m.dx) && Number.isFinite(m.dy));
       if (ev === 'jav') assert(m.dx >= -96 && m.dx <= 12); else assert(Math.abs(m.dx) <= 30, `${ev} leaves the circle: ${m.dx}`);
     }
@@ -75,6 +75,57 @@ test('skilled hammer follow-through preserves the turning footwork and releases 
     assert(follow.some(m => m.frame === 7), 'recovery turns away from the camera');
     assert(follow.every(m => m.released && !m.ball), 'empty hands throughout the recovery turn');
     assert.equal(follow.at(-1).frame, 3, 'plants and settles after the turn');
+  }
+});
+
+test('contact timing joins preparation, delivery and recovery without body jumps', () => {
+  for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) {
+    for (let i = 0; i < phases.length - 1; i++) {
+      const a = throwMotion(ev, level, phases[i], 1), b = throwMotion(ev, level, phases[i + 1], 0);
+      assert(Math.abs(a.dx - b.dx) < 0.01 && Math.abs(a.dy - b.dy) < 0.01, `${ev}/${level}: ${phases[i]} jumps to ${phases[i + 1]}`);
+    }
+    const technique = sample(ev, level, 'technique', 1000);
+    for (let i = 1; i < technique.length; i++)
+      assert(Math.abs(technique[i].dx - technique[i - 1].dx) < 1, `${ev}/${level}: body teleports during approach`);
+  }
+});
+
+test('the shot and discus drive through planted positions before release, then sweep and settle', () => {
+  for (const ev of ['shot', 'discus']) for (let level = 0; level < 4; level++) {
+    const technique = sample(ev, level, 'technique', 200), follow = sample(ev, level, 'follow');
+    assert(technique.some(m => m.frame === (ev === 'shot' ? 10 : 11)), 'leg drive precedes the strike');
+    assert(technique.every(m => !m.released), 'the implement stays held until release');
+    assert(follow.every(m => m.released && m.frame !== 2), 'empty arm continues moving after release');
+    assert(new Set(follow.map(m => m.frame)).size >= 2, 'sweep and balanced recovery are distinct');
+  }
+  for (const level of [1, 2, 3]) {
+    const frames = sample('shot', level, 'technique', 200).map(m => m.frame);
+    assert(frames.indexOf(9) < frames.indexOf(10), 'closed centre catch precedes leg extension');
+  }
+});
+
+test('hammer turns alternate foot contacts and launch from the hammer head', () => {
+  for (let level = 0; level < 4; level++) {
+    const turns = sample('hammer', level, 'technique', 400).slice(160);
+    assert(turns.some(m => m.frame === 12), 'double support against the pull');
+    assert(turns.some(m => m.frame === 10 || m.frame === 11), 'single support while the right foot travels');
+    assert(turns.every(m => m.dy === 0), 'the planted foot stays on the circle');
+    const last = throwMotion('hammer', level, 'technique', 1);
+    assert.deepEqual(throwReleasePoint('hammer', level), [last.dx + last.ball.dx, last.dy + last.ball.dy]);
+    const release = throwMotion('hammer', level, 'release', 0);
+    assert(release.released && !release.ball, 'only the flight draws the released hammer');
+  }
+  for (const ev of ['shot', 'discus', 'jav']) for (let level = 0; level < 4; level++) {
+    const m = throwMotion(ev, level, 'release', 0), [x, y] = gripOf({ pose: 'throw', event: ev, frame: m.frame });
+    assert.deepEqual(throwReleasePoint(ev, level), [m.dx + x * 2, m.dy + y * 2]);
+  }
+});
+
+test('javelin blocks before the elbow-led delivery and advanced approaches add an impulse stride', () => {
+  for (let level = 0; level < 4; level++) {
+    const frames = sample('jav', level, 'technique', 400).filter(m => !m.run).map(m => m.frame);
+    assert(frames.indexOf(6) < frames.indexOf(11) && frames.indexOf(11) < frames.indexOf(7), 'block, hip drive, then overarm delivery');
+    assert.equal(frames.includes(10), level >= 2, 'the long impulse is reserved for developed approaches');
   }
 });
 
