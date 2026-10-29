@@ -79,7 +79,10 @@ POSES.walk = [...WALK, ...WALK.map(swap)];
 // event's technique: see throw-motion.js.
 // Keep the throwing arm extended behind the shoulder from withdrawal through the block.
 // The near arm belongs to the throwing hand; the other arm points along the runway.
-const JAVELIN_DRAWN_ARMS = [[[5, 0], [8, -2]], [[-5, -2], [-11, -4]]];
+const JAVELIN_WITHDRAWN = {
+  shoulders: [[1, 1], [-2, 0]],
+  arms: [[[3, 0], [6, -2]], [[-3, -1], [-7, -2]]],
+};
 const THROWS = {
   shot: [
     // Side-on to the sector, shot tucked under the jaw with the elbow up, left arm reaching out.
@@ -131,10 +134,10 @@ const THROWS = {
     { view: "front", y: -1, legs: [[[-4, -3], [-5, -1]], [[2, -3], [3, -1]]], arms: [[[-1, 3], [-2, 6]], [[1, 3], [2, 6]]], hold: 0, item: "disc" },
     // Wound up in the power position: sitting over the bent right leg, the arm long and far back at
     // shoulder height, the bent left arm leading before it closes during the hip drive.
-    { view: "front", y: 1, lean: -2, hip: -2, legs: [[[-4, -2], [-4, -1]], [[2, -3], [4, -1]]], arms: [[[-4, 0], [-8, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 1, lean: -2, hip: -2, legs: [[[-4, -2], [-4, -1]], [[2, -3], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
     // Release: tall over a braced left leg, the right foot pivoting on its toe, the arm long at
     // shoulder height and the free arm tucked in to stop the left side.
-    { y: -2, lean: 2, hip: 2, legs: [[[3, -4], [3, -1]], [[0, -3], [-3, -2]]], arms: [[[-2, 2], [0, 3]], [[4, -1], [8, -2]]], face: "strain" },
+    { y: -2, lean: 2, hip: 2, shoulders: [[-3, 1], [0, 0]], legs: [[[3, -4], [3, -1]], [[0, -3], [-3, -2]]], arms: [[[-2, 2], [0, 3]], [[3, -1], [6, -2]]], face: "strain" },
     // Follow-through: the arm wraps across and the right foot comes round to the front.
     { y: 0, lean: 1, legs: [[[-1, -3], [-3, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 0], [-5, 1]], [[2, 2], [1, 4]]] },
     // Pre-swings at the back of the circle, facing away, knees soft: back behind the right hip…
@@ -143,24 +146,24 @@ const THROWS = {
     { y: 0, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[2, 1], [4, 1]], [[2, 2], [4, 2]]], hold: 0, item: "disc" },
     // The entry: round to face us on the bent left leg, the right leg sweeping wide and low, the
     // discus arm trailing far behind…
-    { view: "front", y: 1, legs: [[[-6, -3], [-8, -3]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 1, lean: 1, hip: 2, legs: [[[-6, -3], [-8, -3]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
     // …a low drive across the circle toward the sector, right knee leading…
-    { y: 0, lean: 1, hip: 2, legs: [[[-2, -3], [-5, -2]], [[4, -3], [2, -2]]], arms: [[[3, -1], [5, -3]], [[-4, 0], [-8, 0]]], hold: 1, item: "disc", face: "strain" },
+    { y: 0, lean: 1, hip: 2, legs: [[[-2, -3], [-5, -2]], [[4, -3], [2, -2]]], arms: [[[3, -1], [5, -3]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
     // …landing on the ball of the right foot facing away, the left leg close…
-    { view: "back", y: 2, lean: 0, hip: 1, legs: [[[-2, -3], [-3, -3]], [[2, -2], [1, -1]]], arms: [[[-3, -1], [-5, -2]], [[4, 0], [8, 0]]], hold: 1, item: "disc" },
+    { view: "back", y: 2, lean: 0, hip: 1, legs: [[[-2, -3], [-3, -3]], [[2, -2], [1, -1]]], arms: [[[-3, -1], [-5, -2]], [[3, 0], [6, 0]]], hold: 1, item: "disc" },
     // …and the left foot down with the back to the sector, the arm still trailing.
-    { y: 1, lean: 1, hip: -1, legs: [[[1, -2], [0, -1]], [[-2, -3], [-5, -1]]], arms: [[[-4, 0], [-8, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
+    { y: 1, lean: 1, hip: -1, legs: [[[1, -2], [0, -1]], [[-2, -3], [-5, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
     // Right-foot pivot: the free leg sweeps round while the discus stays behind the hips.
-    { view: "back", y: 2, hip: 1, legs: [[[-4, -3], [-5, -3]], [[2, -2], [1, -1]]], arms: [[[-3, -1], [-5, -2]], [[4, 0], [8, 0]]], hold: 1, item: "disc", face: "strain" },
+    { view: "back", y: 2, hip: 1, legs: [[[-4, -3], [-5, -3]], [[2, -2], [1, -1]]], arms: [[[-3, -1], [-5, -2]], [[3, 0], [6, 0]]], hold: 1, item: "disc", face: "strain" },
     // Left foot down, hips opening first and rising; the long throwing arm is still trailing.
-    { view: "front", y: 0, lean: -1, hip: 2, legs: [[[-2, -3], [-4, -2]], [[3, -3], [4, -1]]], arms: [[[-4, 0], [-8, 0]], [[2, 1], [0, 2]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 0, lean: -1, hip: 2, shoulders: [[-3, 1], [1, 0]], legs: [[[-2, -3], [-4, -2]], [[3, -3], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[2, 1], [0, 2]]], hold: 0, item: "disc", face: "strain" },
     // The shoulders finish their turn and the empty throwing arm wraps across the chest.
     { view: "front", y: -1, lean: 1, legs: [[[-3, -4], [-5, -3]], [[2, -3], [2, -1]]], arms: [[[2, 1], [5, 2]], [[-2, 1], [-5, 2]]] },
     // Settle after the reverse instead of holding a one-legged release pose.
     { view: "front", y: 0, legs: [[[-3, -3], [-4, -1]], [[2, -3], [3, -1]]], arms: [[[-1, 3], [-2, 5]], [[1, 3], [2, 5]]] },
     // The strike: hips and chest open to the sector over the braced left leg, the right foot
     // turning on its toe, the throwing arm last, still long behind at shoulder height.
-    { y: -1, lean: 1, hip: 2, legs: [[[3, -4], [3, -1]], [[0, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-4, 0], [-8, 0]]], hold: 1, item: "disc", face: "strain" },
+    { y: -1, lean: 1, hip: 2, shoulders: [[-3, 1], [-1, 0]], legs: [[[3, -4], [3, -1]], [[0, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
     // After the reverse the turn carries on, away from us, on the right foot…
     { view: "back", y: 0, legs: [[[-4, -3], [-5, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 1], [-5, 2]], [[3, 1], [5, 2]]] },
     // …and stops with the back to the sector, both feet down, inside the circle.
@@ -168,14 +171,14 @@ const THROWS = {
     // The backswing wound right round, the chest turned away from us and the discus far back.
     { view: "back", y: 1, legs: [[[-4, -3], [-5, -1]], [[3, -3], [4, -1]]], arms: [[[2, 1], [3, 1]], [[4, 0], [7, 0]]], hold: 1, item: "disc" },
     // Entry: weight onto the bent left leg, the right foot still pushing from the back.
-    { view: "front", y: 1, legs: [[[-3, -3], [-5, -1]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 1, lean: 1, hip: 2, legs: [[[-3, -3], [-5, -1]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
     // The right knee swings through toward the middle as the left leg drives.
-    { view: "front", y: 0, legs: [[[0, -3], [-1, -2]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 0, lean: 1, hip: 2, legs: [[[0, -3], [-1, -2]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
     // South African start: facing the sector at the rear, weight over the left support leg,
     // right foot behind. The discus stays drawn back while the free arm leads into the ring.
-    { y: 1, lean: 2, hip: 2, legs: [[[2, -2], [2, -1]], [[-3, -3], [-6, -2]]], arms: [[[5, 0], [8, -2]], [[-4, 0], [-8, 0]]], hold: 1, item: "disc" },
+    { y: 1, lean: 2, hip: 2, shoulders: [[0, 1], [-2, 1]], legs: [[[2, -2], [2, -1]], [[-3, -3], [-6, -2]]], arms: [[[3, 0], [6, -2]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc" },
     // Step through from that stance: push off the left and drive the right knee to the middle.
-    { y: 1, lean: 2, hip: 2, legs: [[[0, -3], [-2, -1]], [[4, -4], [1, -3]]], arms: [[[5, 0], [8, -2]], [[-4, 0], [-8, 0]]], hold: 1, item: "disc", face: "strain" },
+    { y: 1, lean: 2, hip: 2, shoulders: [[0, 1], [-2, 1]], legs: [[[0, -3], [-2, -1]], [[4, -4], [1, -3]]], arms: [[[3, 0], [6, -2]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
   ],
   hammer: [
     // Back to the sector, the head resting behind on the right.
@@ -218,54 +221,54 @@ const THROWS = {
     // Javelin over the shoulder, palm up, the hand just behind the head.
     { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[1, 2], [3, 3]], [[-4, 0], [-6, -2]]], item: "jav" },
     // Withdrawal: the arm straight back, the javelin along it pointing up the runway.
-    { y: -1, lean: -1, legs: [[[2, -3], [3, -1]], [[-1, -3], [-3, -1]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -1, legs: [[[2, -3], [3, -1]], [[-1, -3], [-3, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Overarm release above the braced left leg, the chest already past it; the elbow leads
     // without stretching the arm and the right toe drags behind.
-    { y: -2, lean: 2, legs: [[[3, -4], [4, -1]], [[0, -3], [-4, -2]]], arms: [[[0, 2], [-1, 3]], [[0, -5], [3, -10]]], face: "strain" },
+    { y: -2, lean: 2, hip: 2, shoulders: [[-3, 1], [1, -1]], legs: [[[3, -4], [4, -1]], [[0, -3], [-4, -2]]], arms: [[[0, 2], [-1, 3]], [[0, -3], [1, -7]]], face: "strain" },
     // Recover upright over the right foot, safely behind the arc, with the throwing arm down.
     { y: 0, lean: 1, legs: [[[-1, -3], [-3, -2]], [[2, -3], [2, -1]]], arms: [[[-2, 1], [-4, 2]], [[1, 3], [0, 5]]] },
     // Crossover: the right leg bounds across in front of the hips, the shoulders leaning back and
     // the javelin held long behind…
-    { y: -1, lean: -2, hip: 0, legs: [[[0, -3], [0, -1]], [[4, -4], [3, -3]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -2, hip: 0, legs: [[[0, -3], [0, -1]], [[4, -4], [3, -3]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // …and lands, the left swinging through behind.
-    { y: -1, lean: -2, hip: 1, legs: [[[-1, -3], [-3, -3]], [[2, -3], [3, -1]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -2, hip: 1, legs: [[[-1, -3], [-3, -3]], [[2, -3], [3, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // The block: the left leg planted long and straight ahead, the right knee bent under a body
     // leaning well back, the arm still long behind.
-    { y: 1, lean: -3, hip: 1, legs: [[[3, -3], [6, -1]], [[0, -2], [-2, -1]]], arms: JAVELIN_DRAWN_ARMS, item: "javback", face: "strain" },
+    { y: 1, lean: -3, hip: 1, legs: [[[3, -3], [6, -1]], [[0, -2], [-2, -1]]], ...JAVELIN_WITHDRAWN, item: "javback", face: "strain" },
     // Delivery: chest and elbow come through over the braced leg, the javelin angled up beside
     // the top of the head.
-    { y: -2, lean: 1, legs: [[[3, -4], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[-1, -5], [1, -10]]], item: "javup", face: "strain" },
+    { y: -2, lean: 1, hip: 2, shoulders: [[-3, 1], [0, -1]], legs: [[[3, -4], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[0, -3], [1, -7]]], item: "javup", face: "strain" },
     // The arm whips forward and down while the chest folds over the block leg.
-    { y: 0, lean: 4, legs: [[[3, -3], [4, -1]], [[-1, -4], [-4, -3]]], arms: [[[-2, 1], [-4, 2]], [[4, -1], [7, 1]]] },
+    { y: 0, lean: 4, shoulders: [[-3, 1], [1, 1]], legs: [[[3, -3], [4, -1]], [[-1, -4], [-4, -3]]], arms: [[[-2, 1], [-4, 2]], [[3, -1], [6, 1]]] },
     // Reverse: the right leg catches the body, left leg kicks back, arm wraps across the torso.
     { y: 1, lean: 3, legs: [[[-2, -4], [-5, -4]], [[3, -3], [3, -1]]], arms: [[[-2, 0], [-4, 1]], [[2, 3], [-1, 5]]] },
     // Impulse stride: a low, long crossover, the body leaning far back over the right leg with
     // the javelin still drawn.
-    { y: 0, lean: -3, hip: 1, legs: [[[-2, -3], [-5, -2]], [[4, -3], [5, -2]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: 0, lean: -3, hip: 1, legs: [[[-2, -3], [-5, -2]], [[4, -3], [5, -2]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Hips drive past the planted left leg and the chest arches open before the elbow comes over
     // the shoulder.
-    { y: -1, lean: -1, hip: 3, legs: [[[3, -4], [5, -1]], [[1, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-3, -3], [-4, -6]]], item: "javup", face: "strain" },
+    { y: -1, lean: -1, hip: 3, shoulders: [[-3, 1], [0, 0]], legs: [[[3, -4], [5, -1]], [[1, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-2, -2], [-3, -5]]], item: "javup", face: "strain" },
     // Withdrawal on a left-foot contact: the long throwing arm stays behind while the feet
     // continue forward. Also starts the short, already-withdrawn three-step approach.
-    { y: -1, lean: -1, legs: [[[3, -3], [4, -1]], [[-1, -3], [-4, -3]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -1, legs: [[[3, -3], [4, -1]], [[-1, -3], [-4, -3]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Left foot passes through between right-foot crossover contacts; the shaft stays level.
-    { y: -1, lean: -2, hip: 1, legs: [[[1, -3], [0, -3]], [[1, -3], [1, -1]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -2, hip: 1, legs: [[[1, -3], [0, -3]], [[1, -3], [1, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Elite impulse: a visibly longer, low split stride, with the hips ahead of the shoulder.
-    { y: 0, lean: -3, hip: 1, legs: [[[-3, -3], [-7, -2]], [[4, -3], [7, -2]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: 0, lean: -3, hip: 1, legs: [[[-3, -3], [-7, -2]], [[4, -3], [7, -2]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Right knee crosses in front of the planted left leg before the foot reaches forward.
-    { y: -1, lean: -2, hip: 1, legs: [[[1, -3], [2, -1]], [[2, -4], [-1, -3]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -2, hip: 1, legs: [[[1, -3], [2, -1]], [[2, -4], [-1, -3]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Right-foot contact: the left foot lifts behind, with little vertical movement.
-    { y: -1, lean: -2, hip: 1, legs: [[[-2, -3], [-2, -2]], [[3, -3], [5, -1]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -2, hip: 1, legs: [[[-2, -3], [-2, -2]], [[3, -3], [5, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Left foot reaches through into the next support while the right heel comes up.
-    { y: -1, lean: -2, hip: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-1, -2]]], arms: JAVELIN_DRAWN_ARMS, item: "javback" },
+    { y: -1, lean: -2, hip: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-1, -2]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // Withdrawal begins during the left contact; the hand travels back before the first cross.
-    { y: -1, lean: -1, legs: [[[3, -3], [4, -1]], [[-1, -3], [-4, -3]]], arms: [[[5, 0], [8, -2]], [[-4, -2], [-8, -3]]], item: "javwithdraw" },
+    { y: -1, lean: -1, shoulders: [[1, 1], [-1, 0]], legs: [[[3, -3], [4, -1]], [[-1, -3], [-4, -3]]], arms: [[[3, 0], [6, -2]], [[-3, -1], [-5, -2]]], item: "javwithdraw" },
     // Block established: the free elbow pulls down beside the ribs while the throwing hand
     // stays back. The pelvis moves ahead of the chest before the elbow-led strike.
-    { y: 0, lean: -2, hip: 2, legs: [[[3, -4], [6, -1]], [[1, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-5, -2], [-11, -4]]], item: "javback", face: "strain" },
+    { y: 0, lean: -2, hip: 2, shoulders: JAVELIN_WITHDRAWN.shoulders, legs: [[[3, -4], [6, -1]], [[1, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], JAVELIN_WITHDRAWN.arms[1]], item: "javback", face: "strain" },
     // Final right-foot catch under the pelvis. The left leg reaches ahead but is still off the
     // runway; the right foot stays here as the left plants into the block.
-    { y: 1, lean: -3, hip: 0, legs: [[[3, -3], [5, -2]], [[0, -2], [-1, -1]]], arms: JAVELIN_DRAWN_ARMS, item: "javback", face: "strain" },
+    { y: 1, lean: -3, hip: 0, legs: [[[3, -3], [5, -2]], [[0, -2], [-1, -1]]], ...JAVELIN_WITHDRAWN, item: "javback", face: "strain" },
   ],
 };
 // Carrying the javelin on the run-up: the run cycle with the throwing hand held up by the head.
@@ -280,6 +283,18 @@ function poseData(pose, frame, event) {
   }
   const list = POSES[pose] || POSES.idle;
   return list[frame % list.length];
+}
+
+// Shoulder anchors rotate with the chest, independently of arm length and pelvis travel.
+// The same joint positions drive drawing, implement attachments and proportion checks.
+function poseArmJoints(p, dy = p.y || 0, lean = p.lean || 0) {
+  const side = !p.view || p.view === "side";
+  return p.arms.map(([elbow, hand], k) => {
+    const [sx, sy] = p.shoulders?.[k] || [side ? -1 : k ? 2 : -4, 1];
+    const shoulder = [sx + lean, -10 + dy + sy];
+    const at = ([x, y]) => [shoulder[0] + x, shoulder[1] + y];
+    return [shoulder, at(elbow), at(hand)];
+  });
 }
 
 // Pose tables were authored for a taller body; scale them onto the chibi proportions.
@@ -327,10 +342,9 @@ function drawFigure(g, o) {
     hy = ttop - 11 + (p.drop || 0);
   const far = shade(limb, -0.18);
   const hips = side ? [[-1 + hl, tb - 1], [-1 + hl, tb - 1]] : [[-3 + hl, tb - 1], [1 + hl, tb - 1]],
-    shoulders = side ? [[-1 + lean, ttop + 1], [-1 + lean, ttop + 1]] : [[-4 + lean, ttop + 1], [2 + lean, ttop + 1]],
-    at = (k, [x, y]) => [shoulders[k][0] + x, shoulders[k][1] + y];
+    arms = jointed ? poseArmJoints(p, dy, lean) : null;
   const feet = jointed ? p.legs.map((l) => l[1]) : p.feet.map(footAt),
-    hands = jointed ? p.arms.map((a, k) => at(k, a[1])) : p.hands.map(handAt).map(([x, y]) => [x + Math.round(lean / 2), y + dy]),
+    hands = jointed ? arms.map((joints) => joints[2]) : p.hands.map(handAt).map(([x, y]) => [x + Math.round(lean / 2), y + dy]),
     hold = p.hold ?? 1;
   // In profile the far limbs are shaded; from the front or behind both are lit.
   const tone = (k) => (side && !k ? far : limb);
@@ -346,7 +360,7 @@ function drawFigure(g, o) {
     if (k) P(feet[k][0] + 2, feet[k][1], 1, 1, collar);
   };
   const arm = (k, edged) => {
-    const pts = jointed && [shoulders[k], at(k, p.arms[k][0]), hands[k]];
+    const pts = jointed && arms[k];
     // An arm raised in front of the big head gets a dark edge, so it reads against the face.
     if (edged && jointed && Math.min(pts[1][1], pts[2][1]) < ttop) {
       for (let i = 1; i < 3; i++) line(g, OX + pts[i - 1][0] + 0.5, OY + pts[i - 1][1] + 0.5, OX + pts[i][0] + 0.5, OY + pts[i][1] + 0.5, OUTLINE, 4);
@@ -392,10 +406,10 @@ function drawFigure(g, o) {
         break;
       case "javback":
         // Drawn nearly level behind the head, with the tip close to eye height.
-        shaft(-6, 1, 17, -1, [nx, ny]);
+        shaft(-9, 1, 14, -1, [nx, ny]);
         break;
       case "javwithdraw":
-        shaft(-7, 2, 16, -3, [nx, ny]);
+        shaft(-10, 2, 13, -3, [nx, ny]);
         break;
       case "javup":
         shaft(-9, 4, 13, -9, [nx, ny]);
@@ -591,10 +605,13 @@ export const walkFrame = (dist) => ((Math.floor(dist / WALK_STRIDE) % 4) + 4) % 
 export function gripOf(o) {
   const p = poseData(o.pose, o.frame || 0, o.event);
   if (!p.legs) return [1, -12];
-  const k = p.hold ?? 1,
-    ttop = -10 + (p.y || 0),
-    x = (p.view && p.view !== "side" ? (k ? 2 : -4) : -1) + (p.lean || 0) + p.arms[k][1][0] + 1;
-  return [o.flip ? -1 - x : x, ttop + 1 + p.arms[k][1][1] + 1];
+  const [hx, hy] = poseArmJoints(p)[p.hold ?? 1][2], x = hx + 1;
+  return [o.flip ? -1 - x : x, hy + 1];
+}
+// [far, near] arms as [shoulder, elbow, hand], unflipped, from the sprite origin at scale 1.
+export function armJointsOf(o) {
+  const p = poseData(o.pose, o.frame || 0, o.event);
+  return p.legs ? poseArmJoints(p) : null;
 }
 // The implement's centre can sit below the palm, as with the discus's overhand grip.
 export function implementPointOf(o) {

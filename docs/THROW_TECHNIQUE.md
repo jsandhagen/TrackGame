@@ -34,6 +34,8 @@ The following videos were inspected as sequences of actual frames, including the
 
 Explicit pelvis offsets in the delivery poses let the hips lead a still-closed chest, rather than moving the head, trunk and hips backward together. The javelin has separate passing and contact poses and a free-arm closing pose between the block and hip drive. The discus catches over a bent right leg, then rises onto the braced left side. The implement launch point accounts for the disc sitting below the palm.
 
+Arm proportions match the small torso and legs: the drawn javelin arm reaches about seven sprite pixels from its shoulder, and the extended discus arm about six. Both upper arm and forearm stay compact through the release and recovery. Separate shoulder anchors show the javelin's closed chest during crossovers, then the throwing shoulder coming forward and rising as the hips drive. Discus shoulders open into the strike while the free arm folds in. The javelin's shaft retains its length and drawn-back position with the grip nearer its balance point. Rendering and implement attachment positions use the same shoulder, elbow and hand geometry.
+
 ## Sources
 
 - [Peter Taylor / Australian Athletics, coaching the shot put](https://coachathletics.com.au/coaching-education/coaching-aspects-of-the-shot-put-technique-for-young-athletes). The illustrated five phases separate the low glide, closed transition, leg-driven delivery and late recovery. The article includes Storl photographs.

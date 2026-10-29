@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
-import { frontFootOf, feetOf, gripOf, implementPointOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
+import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
 const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i) => throwMotion(ev, level, phase, i / n));
@@ -167,8 +167,8 @@ test('javelin crossovers keep a long withdrawn throwing arm and alternate ground
   for (let level = 0; level < 4; level++) {
     const approach = sample('jav', level, 'technique', 1000).filter(m => !m.run);
     for (const m of approach.filter(m => ![7, 11, 18].includes(m.frame))) {
-      const [x, y] = gripOf({ pose: 'throw', event: 'jav', frame: m.frame });
-      assert(x <= -11 && y <= -11, 'throwing hand remains behind and above the shoulder line through the block');
+      const [shoulder, , hand] = armJointsOf({ pose: 'throw', event: 'jav', frame: m.frame })[1];
+      assert(shoulder[0] - hand[0] >= 6 && hand[1] < shoulder[1], 'compact throwing arm stays withdrawn behind and above its shoulder through the block');
     }
     const contacts = approach.filter(m => [12, 15, 16, 13, 17, 20].includes(m.frame));
     assert(contacts.some(m => feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[0][1] === -1), 'left support');
@@ -180,6 +180,26 @@ test('javelin crossovers keep a long withdrawn throwing arm and alternate ground
     const rightFoot = finalSupport.map(m => m.dx + 2 * feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[1][0]);
     assert(Math.max(...rightFoot) - Math.min(...rightFoot) <= 2.01, 'rear foot stays at its catch position while the pelvis advances and the left leg blocks');
   }
+});
+
+test('discus and javelin arms keep compact proportions through preparation, delivery and recovery', () => {
+  const length = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  for (const event of ['discus', 'jav']) for (let frame = 0; frame < THROW_FRAME_COUNTS[event]; frame++) {
+    const o = { pose: 'throw', event, frame };
+    for (const [shoulder, elbow, hand] of armJointsOf(o)) {
+      assert(length(shoulder, elbow) <= 4.5 && length(elbow, hand) <= 4.5, `${event}/${frame}: compact upper arm and forearm`);
+      assert(length(shoulder, elbow) + length(elbow, hand) <= 8, `${event}/${frame}: no stretched reach`);
+    }
+    if (event === 'jav') {
+      const hand = armJointsOf(o)[1][2];
+      assert.deepEqual(gripOf(o), hand.map(v => v + 1), 'implement follows the hand when the shoulder rotates');
+    }
+  }
+  const shoulderSpan = frame => {
+    const arms = armJointsOf({ pose: 'throw', event: 'jav', frame });
+    return arms[1][0][0] - arms[0][0][0];
+  };
+  assert(shoulderSpan(6) < 0 && shoulderSpan(2) > 0, 'throwing shoulder turns from behind the free shoulder to in front during delivery');
 });
 
 test('the discus sits below the overhand grip and its launch point mirrors with the sprite', () => {
