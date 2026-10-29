@@ -36,6 +36,8 @@ One, two and three arrows select continuous playback at 1×, 2× and 8×. A trai
 
 Meet deliveries build to release over 2–3 seconds at the one-arrow pace, with more time for hammer winds and turns. Implement flight lasts 0.4–1.4 seconds according to the measured distance. Short throws have lower arcs, and projectiles accelerate downward toward landing. The athlete's recovery finishes independently of the flight. Release sound, impact, result reveal and the scoreboard share the animation's timing at every speed.
 
+Sector fouls retain the attempt's rolled flight distance, using the thrower's ability, tactic and conditions. That distance sets the landing point, flight time and arc while the official mark remains X. It earns no points or records and survives a mid-throw save. Older saves can omit this visual distance.
+
 Quiet notifications default on. Routine goals, levels and discoveries stay in journals and reports. Coached results appear inline in Training; items and promotions use brief confirmations rather than growth dialogs. Real choices still pause, while ordinary stories have a seven-day minimum gap and a reduced daily chance. Settings can restore detailed celebrations.
 
 Every visiting club has a separate bench/standing area and pennant, with its own colours. Captain and celebration effects remain within that club. The MVP award has a dedicated solid, shaded five-point star.

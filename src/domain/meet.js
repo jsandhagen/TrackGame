@@ -485,7 +485,8 @@ function throwFor(s, side, tactic, quality, sig) {
   const r = riskModel(s, c, side, tactic, quality, sig);
   const foul = random(s) < r.foul,
     z = clamp(gauss(s), -2.4, 2.4),
-    mark = foul ? null : +r.metres(z).toFixed(2);
+    flightDistance = +r.metres(z).toFixed(2),
+    mark = foul ? null : flightDistance;
   if (sig) (side === "home" ? m.sigUsed : m.rivalSig).push(a.id);
   a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.
@@ -517,6 +518,8 @@ function throwFor(s, side, tactic, quality, sig) {
     athleteId: a.id,
     name: a.name,
     mark,
+    // Keep the actual flight for sector fouls without turning it into a legal mark.
+    flightDistance,
     foul,
     tactic,
     quality,

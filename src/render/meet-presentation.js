@@ -23,7 +23,8 @@ export const throwOffset = beat => SETUP_MS + (hasCutIn(beat) ? CUTIN_MS : 0);
 // rather than stretching a short put across the same time as a long javelin.
 export function throwTiming(beat = {}) {
   const event = EVENTS[beat?.event] ? beat.event : EVENT_IDS[beat?.eventIndex] || "shot";
-  const distance = Number.isFinite(beat?.mark) && beat.mark > 0 ? beat.mark : EVENTS[event].min;
+  const measured = Number.isFinite(beat?.mark) && beat.mark > 0 ? beat.mark : beat?.flightDistance;
+  const distance = Number.isFinite(measured) && measured > 0 ? measured : EVENTS[event].min;
   const releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event];
   const flightMs = Math.round(Math.max(400, Math.min(1400, Math.sqrt(distance) * 140)));
   return {

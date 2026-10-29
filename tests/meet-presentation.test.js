@@ -5,7 +5,46 @@ import * as P from '../src/ui/pages.js';
 import {validateCampaign, exportCampaign} from '../src/domain/campaign-save.js';
 import {advanceBeatClock, beatDuration, throwOffset, throwTiming, throwPhase, flightPoint, RESULT_MS, HIGHLIGHT_MS, hasCutIn, throwResult} from '../src/render/meet-presentation.js';
 import {playbackRate} from '../src/platform/pacing.js';
-import {EVENTS} from '../src/game-content.js';
+import {EVENTS,EVENT_IDS} from '../src/game-content.js';
+
+test('sector-foul flights scale with the thrower, stay unscored and survive saving',()=>{
+ for(const event of EVENT_IDS) {
+  const flights=[];
+  for(const ability of [15,95]) {
+   const s=G.newGame(31);G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
+   const m=s.match;m.eventIndex=EVENT_IDS.indexOf(event);m.entryIndex=0;m.turnSide='home';m.phase='decide';m.started[m.eventIndex]=true;
+   const a=G.homeAthlete(s);a.stats.fill(ability);a.mastery[event]=ability;a.stamina=100;a.condition=100;a.skills=[];a.equipped=[];
+   const records=structuredClone(s.worldRecords),pb=structuredClone(a.pb);
+   // The first roll is below the minimum foul probability, with the usual distance roll after it.
+   s.rng=1972;
+   const rngCheck={rng:s.rng};assert(G.random(rngCheck)<0.01);G.gauss(rngCheck);
+   const beat=G.decideThrow(s,'attack','poor');
+   assert(beat.foul);assert.equal(beat.mark,null);assert(beat.flightDistance>0);
+   assert.equal(s.rng,rngCheck.rng,'foul visuals do not consume extra randomness');
+   assert.deepEqual(m.fields[m.eventIndex].home[0].marks,[null]);
+   assert.equal(G.fieldLeaderboard(s).find(row=>row.side==='home'&&row.id===a.id).points,0);
+   assert.deepEqual(a.pb,pb);assert.deepEqual(s.worldRecords,records);
+   assert.equal(throwTiming(beat).distance,beat.flightDistance);
+   assert.equal(throwResult(beat).headline,'Foul');
+   flights.push(beat.flightDistance);
+   const copy=validateCampaign(exportCampaign(s));
+   assert.deepEqual(copy.match.last,beat);assert.deepEqual(throwTiming(copy.match.last),throwTiming(beat));
+   if(event==='shot'&&ability===95) {
+    for(const invalid of [-1,201,NaN,Infinity,'20']) {
+     const bad=structuredClone(s);bad.match.last.flightDistance=invalid;
+     assert.throws(()=>validateCampaign(bad));
+    }
+    const legacy=structuredClone(s);delete legacy.match.last.flightDistance;
+    assert(validateCampaign(legacy),'older saves can omit the visual distance');
+    assert(G.simulateMatch(s));assert(G.simulateMatch(copy));assert.deepEqual(copy.match,s.match);
+   }
+  }
+  assert(flights[1]>flights[0]*1.5,`${event}: a stronger thrower sends a sector foul farther`);
+  const short=throwTiming({event,mark:null,foul:true,flightDistance:flights[0]}),long=throwTiming({event,mark:null,foul:true,flightDistance:flights[1]});
+  assert(long.flightMs>short.flightMs);assert(long.arcHeight>short.arcHeight);
+ }
+ assert.equal(throwTiming({event:'shot',mark:9,flightDistance:20}).distance,9,'legal marks retain their measured landing');
+});
 
 test('deliveries build before release and short marks have shorter, lower flights',()=>{
  for(const [event,content] of Object.entries(EVENTS)) {

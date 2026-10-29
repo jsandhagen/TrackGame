@@ -263,6 +263,7 @@ function checkMatch(s, ids) {
     if (m.leagueChampionship) rescore(m);
   }
   if (!Array.isArray(m.sigUsed) || !Array.isArray(m.rivalSig)) bad();
+  if (m.last?.flightDistance != null && !num(m.last.flightDistance,0,200)) bad();
   if (m.weather != null && !WEATHER[m.weather]) bad();
 }
 
