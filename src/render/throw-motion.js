@@ -26,12 +26,29 @@ function track(m, p, keys) {
   return Object.assign(m, { frame, flip, dx: lerp(dx, next[2], q), dy: lerp(dy, next[4] || 0, q) });
 }
 
+// Recovery styles: how a thrower finishes once the implement has gone. Technique decides the
+// throw; the finish is the athlete's own. 0 is the event's classic finish, 1 bouncier (an extra
+// hop or a longer turn), 2 composed (a blocked finish with no reverse, or a plant).
+export const RECOVERY_STYLES = ["Classic", "Bouncy", "Composed"];
+const BACKGROUND_STYLE = { dancer: 0, gymnast: 0, clown: 1, showboat: 1, sprinter: 1, chess: 2, poker: 2, marathon: 2 };
+export function recoveryStyle(athlete) {
+  const own = BACKGROUND_STYLE[athlete?.background];
+  return own ?? (Math.abs(Math.round(Number(athlete?.id) || 0)) % 3);
+}
+// A quick hop on the support foot between progress a and b of the recovery.
+const hop = (m, p, a, b, h = 4) => {
+  if (p > a && p < b) m.dy -= Math.sin((Math.PI * (p - a)) / (b - a)) * h;
+  return m;
+};
+
 // phase: "ready" | "technique" | "release" | "follow"; p: progress through that phase, 0–1.
-export function throwMotion(ev, level, phase, p, { foul = false } = {}) {
+export function throwMotion(ev, level, phase, p, { foul = false, style = 0 } = {}) {
   p = Math.max(0, Math.min(1, p));
   const m = { frame: 0, flip: false, dx: 0, dy: 0, ball: null, released: phase === "release" || phase === "follow", ghost: level >= 3 && phase === "technique" };
+  // A foul carries the thrower over the front whatever their style.
+  if (foul) style = 0;
   if (ev === "jav") {
-    javelin(m, level, phase, p, foul);
+    javelin(m, level, phase, p, foul, style);
     const before = m.dx;
     // Legal deliveries stop with the outlined shoe behind the near edge of the arc (dx = 0).
     // Keep this guard tied to the sprite geometry as new technique/recovery poses are added.
@@ -39,9 +56,9 @@ export function throwMotion(ev, level, phase, p, { foul = false } = {}) {
     m.dy += Math.round(-m.dx * 0.1) - Math.round(-before * 0.1);
     return m;
   }
-  if (ev === "hammer") return hammer(m, level, phase, p, foul);
-  if (ev === "discus") return discus(m, level, phase, p, foul);
-  return shot(m, level, phase, p, foul);
+  if (ev === "hammer") return hammer(m, level, phase, p, foul, style);
+  if (ev === "discus") return discus(m, level, phase, p, foul, style);
+  return shot(m, level, phase, p, foul, style);
 }
 
 function finish(m, p, foul, at) {
@@ -54,12 +71,19 @@ function finish(m, p, foul, at) {
 // Shot frames: 4 glide crouch and 5 glide drive (both facing away), 6 turning to face us,
 // 7 facing away, 8 driving across toward the sector, 9 the closed centre catch, 10 leg drive,
 // 13 the tall glide start, 14 the rotational stance and 15 its wind.
-function shot(m, level, phase, p, foul) {
+function shot(m, level, phase, p, foul, style) {
   if (phase === "ready") return Object.assign(m, level ? { frame: level === 3 ? 14 : 13, flip: true, dx: BACK } : { frame: 0 });
   if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : 11, dx: 6 });
   if (phase === "follow") {
     finish(m, p, foul, 6);
-    m.frame = p < 0.16 ? 11 : p < 0.64 && level >= 2 ? 3 : 12;
+    m.frame = 11;
+    if (p < 0.16) return m;
+    // Bouncy: a reverse with a hop on the right foot. Composed: no reverse, the finish held tall
+    // over the left leg. Classic: gliders reverse; rotational throwers let the turn run on.
+    if (style === 1) return hop(Object.assign(m, { frame: p < 0.7 ? 3 : 12 }), p, 0.3, 0.55, 5);
+    if (style === 2) return Object.assign(m, { frame: p < 0.6 ? 16 : 12 });
+    if (level === 3) return Object.assign(m, p < 0.45 ? { frame: 3 } : p < 0.7 ? { frame: 17 } : { frame: 18, flip: true });
+    m.frame = p < 0.64 && level >= 2 ? 3 : 12;
     return m;
   }
   // Standing delivery uses the same late leg/hip/arm sequence, without crossing the circle: sink
@@ -86,15 +110,18 @@ function shot(m, level, phase, p, foul) {
 // swinging through), 7 the drive across toward the sector, 8 and 10 facing away on the right foot,
 // 9 back to the sector again, 1 and 11 the power position opening, 14 the strike. After release,
 // 3, 15 and 16 carry the turn round and stop it.
-function discus(m, level, phase, p, foul) {
+function discus(m, level, phase, p, foul, style) {
   if (phase === "ready") return Object.assign(m, level ? { frame: 4, flip: true, dx: BACK + 4 } : { frame: 0 });
-  if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : level >= 2 ? 3 : 12, dx: 4 });
+  const reverses = style === 1 || (style === 0 && level >= 2);
+  if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : reverses ? 3 : 12, dx: 4 });
   if (phase === "follow") {
     finish(m, p, foul, 4);
-    // Spinners reverse and let the turn run on round to the back of the circle; a standing or
-    // half-turn thrower just wraps the arm across and settles.
-    if (level >= 2) Object.assign(m, p < 0.3 ? { frame: 3 } : p < 0.6 ? { frame: 15 } : { frame: 16, flip: true });
-    else m.frame = p < 0.3 ? 12 : 13;
+    // Classic: spinners reverse and let the turn run on round to the back of the circle; a standing
+    // or half-turn thrower wraps the arm across and settles. Bouncy: a reverse with a hop on the
+    // right foot. Composed: no reverse, the arm wrapping across over planted feet.
+    if (style === 1) return hop(Object.assign(m, { frame: p < 0.6 ? 3 : 13 }), p, 0.28, 0.52, 5);
+    if (reverses) Object.assign(m, p < 0.3 ? { frame: 3 } : p < 0.6 ? { frame: 15 } : { frame: 16, flip: true });
+    else m.frame = p < (style === 2 ? 0.4 : 0.3) ? 12 : 13;
     return m;
   }
   // Standing throw: swing back and forward, wind up, sling it.
@@ -128,7 +155,7 @@ const facing = (th) => {
   const k = ((Math.round(th / (Math.PI / 2)) % 4) + 4) % 4;
   return [{ frame: 5 }, { frame: 6 }, { frame: 5, flip: true }, { frame: 7 }][k];
 };
-function hammer(m, level, phase, p, foul) {
+function hammer(m, level, phase, p, foul, style) {
   const turns = [2, 3, 4, 4][level],
     winds = 2,
     split = level === 3 ? 0.3 : 0.38;
@@ -140,10 +167,13 @@ function hammer(m, level, phase, p, foul) {
     finish(m, p, foul, 4);
     // Keep the original turning footwork after release, then plant and recover. See the Sedykh
     // photosequence in docs/THROW_TECHNIQUE.md: foot contacts and hip rotation drive the turn.
-    if (level >= 2 && !foul && p >= 0.16 && p < 0.6)
-      return Object.assign(m, facing(Math.PI / 2 - ((p - 0.16) / 0.44) * Math.PI * 1.5));
-    m.frame = p < 0.16 ? 8 : p < 0.8 ? 9 : 3;
-    return m;
+    // Classic: three quarters of a turn more. Bouncy: a turn and a quarter, or for a standing
+    // finish a hop back off the front of the circle. Composed: no turn, a plant and sit back.
+    const [from, to, spin] = style === 1 ? [0.12, 0.7, 2.5] : [0.16, 0.6, 1.5];
+    if (level >= 2 && style !== 2 && !foul && p >= from && p < to)
+      return Object.assign(m, facing(Math.PI / 2 - ((p - from) / (to - from)) * Math.PI * spin));
+    m.frame = p < (style === 2 ? 0.24 : from) ? 8 : p < 0.8 || style === 2 ? 9 : 3;
+    return style === 1 && level < 2 ? hop(m, p, 0.16, 0.4, 3) : m;
   }
   if (p < split) {
     // Winds, back to the sector: the ball circles the head, low in front and high behind.
@@ -186,16 +216,18 @@ function orbit(th, r, steepen) {
 
 // Javelin frames: 4 and 5 the crossover steps, 6 the block, 7 the delivery over the top,
 // 8 the arm sweeping down and 9 the reverse that catches the run-up. The run-up uses "carry".
-function javelin(m, level, phase, p, foul) {
+function javelin(m, level, phase, p, foul, style) {
   const slope = (dx) => Math.round(-dx * 0.1);
   if (phase === "ready") return Object.assign(m, { frame: 0, dx: level ? 20 - 96 : -70, dy: slope(level ? 20 - 96 : -70) });
   if (phase === "release") return Object.assign(m, { frame: 2, dx: -20, dy: slope(-20) });
   if (phase === "follow") {
     const r = finish(m, p, foul, -20);
-    r.frame = p < 0.22 ? 8 : p < 0.55 ? 9 : 3;
-    r.dx = foul ? lerp(-20, 4, p * 1.5) : lerp(-20, -16, ease(Math.min(1, p / 0.55)));
+    // Classic: fold over the block, reverse onto the right foot and stand. Bouncy: hop again on
+    // the right foot after the reverse. Composed: hold the fold over the block, then rise.
+    r.frame = style === 2 ? (p < 0.4 ? 8 : 3) : p < 0.22 ? 8 : p < (style === 1 ? 0.72 : 0.55) ? 9 : 3;
+    r.dx = foul ? lerp(-20, 4, p * 1.5) : lerp(-20, style === 2 ? -18 : -16, ease(Math.min(1, p / 0.55)));
     r.dy = slope(r.dx);
-    return r;
+    return style === 1 ? hop(r, p, 0.46, 0.7, 4) : r;
   }
   // The run, its stride locked to the ground at double size.
   const run = (from, to, q) => {

@@ -29,6 +29,19 @@ These are selected movement cues, not motion capture or measured reproductions o
 - [USTFCCCA, keeping speed through the javelin throw (2019)](https://www.ustfccca.org/assets/symposiums/2019/Keeping_Speed_Through_the_Javelin_Throw_OctoviousGillespie.pdf). Withdrawal with the shoulders turned side-on and the arm long and level, an active push into the final crossover and an active block.
 - [World Athletics men's javelin biomechanical report, London 2017](https://worldathletics.org/download/download?filename=8540e126-0766-428e-8a04-fcedbf63b167.pdf&urlslug=Men%27s+javelin+throw+-+2017+IAAF+World+Championships+Biomechanical+report) and [Neeraj Chopra's Tokyo delivery photograph](https://img.etimg.com/photo/msid-85266739/the-epic-moment-.jpg). Javelin moves from withdrawal and crossover into a planted left-leg block, elbow-led delivery, forward/downward arm sweep and right-leg catch. Compact arm segments fit the game's large-headed proportions.
 
+## Recovery styles
+
+Technique comes from form; the finish after release is the athlete's own, so two throwers at the same level still look different. `recoveryStyle` in `src/render/throw-motion.js` gives each athlete one style for every event: dancers and ex-gymnasts are Classic, class clowns, showboats and former sprinters Bouncy, chess prodigies, poker faces and marathoners Composed, and everyone else by id.
+
+| Event | Classic | Bouncy | Composed |
+| --- | --- | --- | --- |
+| Shot | Gliders reverse; rotational throwers let the turn run on to the back of the circle | Reverse with a hop on the right foot | No reverse: the finish held tall over the left leg |
+| Discus | Spinners reverse and turn on to the back of the circle | Reverse with a hop on the right foot | No reverse: the arm wraps across over planted feet |
+| Hammer | Three quarters of a turn more, then plant | A turn and a quarter, or a hop back for standing finishes | No turn: plant and sit back |
+| Javelin | Fold over the block, reverse and stand | A second hop on the right foot after the reverse | Hold the fold over the block, then rise |
+
+Fouls use the same finish for everyone, carrying over the front. The style only changes the recovery: it does not alter distance, timing, saves or form. The study page has a Recovery selector.
+
 ## Animation and review
 
 Contact timings in `src/render/throw-motion.js` separate preparation, travel, catch, leg drive and the strike. Shot and discus no longer hold a release pose throughout their release interval: the empty arm sweeps across before the recovery settles. Hammer feet stay on the circle through planted support; the knee bend lives in the sprite pose rather than moving the whole character off the floor. Advanced hammer recovery still turns after release.

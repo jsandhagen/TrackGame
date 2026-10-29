@@ -110,6 +110,12 @@ const THROWS = {
     { y: 0, legs: [[[1, -3], [0, -1]], [[1, -3], [2, -1]]], arms: [[[1, 1], [3, -1]], [[2, -1], [5, -2]]], hold: 0, item: "shot" },
     // Rotational wind: the shoulders wind right, round to face away from us, over bent knees.
     { view: "back", y: 1, legs: [[[-4, -3], [-5, -1]], [[3, -3], [4, -1]]], arms: [[[-2, 1], [-3, 2]], [[-1, 0], [-4, 0]]], hold: 1, item: "shot" },
+    // A blocked finish without a reverse: still tall over the left leg, the arm following the shot.
+    { y: -2, lean: 1, legs: [[[2, -4], [3, -1]], [[0, -3], [-3, -1]]], arms: [[[-2, 2], [0, 3]], [[4, -2], [7, -3]]] },
+    // Letting the turn run on after the reverse: away from us on the right foot…
+    { view: "back", y: 0, legs: [[[-4, -3], [-5, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 1], [-5, 2]], [[3, 1], [5, 2]]] },
+    // …and stopping with the back to the sector, both feet down.
+    { y: 0, legs: [[[1, -3], [0, -1]], [[-1, -3], [-3, -1]]], arms: [[[1, 2], [2, 4]], [[1, 3], [1, 5]]] },
   ],
   discus: [
     // Side-on, the discus hanging in the right hand.

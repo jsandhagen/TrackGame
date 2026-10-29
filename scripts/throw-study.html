@@ -19,6 +19,7 @@
 <div class="controls">
   <button id="play" type="button">Pause</button>
   <label>Speed <select id="speed"><option value="0.25">¼×</option><option value="0.5" selected>½×</option><option value="1">1×</option><option value="2">2×</option></select></label>
+  <label>Recovery <select id="style"><option value="0">Classic</option><option value="1">Bouncy</option><option value="2">Composed</option></select></label>
   <label><input id="foul" type="checkbox"> Foul</label>
   <input id="time" type="range" min="0" max="4000" value="0" aria-label="Throw time">
   <output id="phase"></output>
@@ -33,7 +34,7 @@
 
   const cv = document.querySelector('#study'), g = cv.getContext('2d'),
     slider = document.querySelector('#time'), play = document.querySelector('#play'),
-    speed = document.querySelector('#speed'), foul = document.querySelector('#foul'),
+    speed = document.querySelector('#speed'), foul = document.querySelector('#foul'), style = document.querySelector('#style'),
     status = document.querySelector('#phase'),
     events = ['shot', 'discus', 'hammer', 'jav'],
     names = ['Shot put · Storl / Crouser', 'Discus · Perković / Alekna / Ståhl', 'Hammer · Sedykh / Fajdek', 'Javelin · Chopra'];
@@ -41,7 +42,7 @@
   g.imageSmoothingEnabled = false;
   play.onclick = () => { paused = !paused; play.textContent = paused ? 'Play' : 'Pause'; };
   slider.oninput = () => { elapsed = Number(slider.value); paused = true; play.textContent = 'Play'; draw(elapsed); };
-  foul.onchange = () => draw(elapsed);
+  foul.onchange = style.onchange = () => draw(elapsed);
 
   function phaseAt(ev, t) {
     const release = ev === 'hammer' || ev === 'jav' ? 100 : 250;
@@ -54,7 +55,7 @@
     events.forEach((ev, row) => {
       for (let level = 0; level < 4; level++) {
         const left = level * 270, top = row * 160, ox = left + 164, oy = top + 124,
-          [phase, p] = phaseAt(ev, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked }),
+          [phase, p] = phaseAt(ev, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked, style: Number(style.value) }),
           pose = m.run ? 'carry' : 'throw', x = ox + m.dx, y = oy + m.dy;
         g.fillStyle = (row + level) % 2 ? '#293e32' : '#304635';
         g.fillRect(left + 2, top + 2, 266, 156);
