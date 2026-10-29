@@ -661,13 +661,15 @@ export function settleMatch(s) {
     rewards.items.push("scroll");
   }
   let mvpScore = -1;
-  const participants = new Set();
+  const participants = new Set(),
+    attempts = new Map();
   for (const [i, ev] of EVENT_IDS.entries()) {
     const field = m.fields?.[i]?.home || [{ id:m.lineup[ev], marks:m.homeMarks[i] }];
     for (const entry of field) {
       const a = s.roster.find((x) => x.id === entry.id);
       if (!a) continue;
       participants.add(a.id);
+      attempts.set(a.id, (attempts.get(a.id) || 0) + entry.marks.length);
       const masteryGain=competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
       rewards.mastery.push({id:a.id,name:a.name,event:ev,gain:masteryGain,mastery:masteryOf(a,ev)});
       const mark = best(entry.marks), old = a.pb[ev] || 0;
@@ -687,7 +689,8 @@ export function settleMatch(s) {
   for (const id of participants) {
     const a = s.roster.find((x) => x.id === id);
     const before = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
-    a.meets++; addStamina(a, -15); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
+    // A meet takes 15 stamina in all; what the attempts already took counts toward it.
+    a.meets++; addStamina(a, -Math.max(0, 15 - attempts.get(id) * THROW_STAMINA)); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
     grantXp(s,a,30*(m.kind === "duel" ? 0.7:1),rewards.levelUps);
     rewards.development.push(...checkDevelopment(s,a));
     const after = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
