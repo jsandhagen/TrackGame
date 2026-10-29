@@ -4896,6 +4896,7 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .pick-list {
   display: grid;
   gap: 5px;
+  container-type: inline-size;
 }
 .pick-row {
   display: grid;
@@ -5009,9 +5010,9 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
   display: flex;
   gap: 6px;
 }
-@media (max-width: 620px) {
+@container (max-width: 620px) {
   .pick-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(85px, 0.8fr);
     gap: 4px 6px;
   }
   .pick-row .sheet-stats {

@@ -548,8 +548,9 @@ export function createStadium(cv) {
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
       // The throw follows the athlete's form: see throw-motion.js.
       const level = formOf(active, ev),
+        releaseMs = ev === "jav" || ev === "hammer" ? 100 : 250,
         phaseAt = (t) =>
-          t < T.prep ? ["ready", t / T.prep] : t < T.tech ? ["technique", (t - T.prep) / (T.tech - T.prep)] : t < T.tech + 250 ? ["release", (t - T.tech) / 250] : ["follow", (t - T.tech - 250) / (T.land - T.tech - 250)],
+          t < T.prep ? ["ready", t / T.prep] : t < T.tech ? ["technique", (t - T.prep) / (T.tech - T.prep)] : t < T.tech + releaseMs ? ["release", (t - T.tech) / releaseMs] : ["follow", (t - T.tech - releaseMs) / (T.land - T.tech - releaseMs)],
         motionAt = (t) => throwMotion(ev, level, ...phaseAt(t), { foul: !!beat?.foul });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
@@ -597,7 +598,7 @@ export function createStadium(cv) {
           px(g, ball[0] - 1, ball[1] - 1, "#8a8e98");
         };
       if (ball && ball[2]) chain();
-      figure(g, { ...look, pose, frame, flip, event: ev }, x, y, 2);
+      figure(g, { ...look, pose, frame, flip, event: ev, released: mo?.released }, x, y, 2);
       if (ball && !ball[2]) chain();
       // Motion lines as the implement leaves the hand.
       if (beat?.type === "throw" && tt >= T.tech - 60 && tt < T.tech + 220 && !view.reduced) {

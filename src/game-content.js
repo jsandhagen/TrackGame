@@ -74,7 +74,7 @@ export const ATHLETE_TYPES = {
 // Training menu. Each focused plan sends the athlete to its facility on the grounds.
 export const PLANS = {
   facilities: { name: "Use facilities automatically", short: "Use facilities", load: 0, cond: 0, facilityRole: true, desc: "Choose available club duties automatically to earn money, Coaching Insights or support the squad. Rest when tired; prepare for meets when selected." },
-  balanced: { name: "All-round", short: "All-round", load: 0.85, cond: 0, desc: "General preparation: mobility, strength circuits, short runs and throwing drills." },
+  balanced: { name: "All-round", short: "All-round", load: 0.45, cond: 0, desc: "Light daily preparation: mobility, strength circuits, short runs and throwing drills. Leaves energy for coached sessions." },
   power: { name: "Power", short: "Power", stat: 0, facility: "gym", load: 1, cond: -1, desc: "Lifting in the Strength Room." },
   technique: { name: "Technique", short: "Technique", stat: 1, facility: "event", load: 1, cond: -1, desc: "Throwing drills at their own circle, cage or runway." },
   speed: { name: "Speed", short: "Speed", stat: 2, facility: "track", load: 1, cond: -1, desc: "Sprints and bounds on the track." },

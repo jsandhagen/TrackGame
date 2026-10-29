@@ -126,3 +126,25 @@ test('the head coach levels up with athletes coached, and stats near their limit
  s.counters.coachedSessions=G.coachThreshold(1);assert.equal(G.coachLevel(s),2);assert(G.drillGains(s,a,'lifting')[0]>before);
  const fresh=G.drillGains(s,a,'lifting')[0];a.stats[0]=G.capOf(a)-5;assert(G.drillGains(s,a,'lifting')[0]<fresh);
 });
+
+test('session cards distinguish strong and light stat emphasis on the same scale across family filters',()=>{
+ const s=G.newGame(17);
+ const card=(html,id)=>[...html.matchAll(/<button class="drill [^]*?<\/button>/g)].map(m=>m[0]).find(button=>button.includes(`data-drill="${id}"`));
+ const html=P.train(s,{}), power=P.train(s,{drillFamily:'power'}), speed=P.train(s,{drillFamily:'speed'});
+ assert.match(html,/Training emphasis: \+ light · \+\+ moderate · \+\+\+ strong/);
+ for(const source of [html,power]) assert.match(card(source,'lifting'),/Power: strong training emphasis[^]*?POW \+\+\+/);
+ for(const source of [html,speed]) assert.match(card(source,'acceleration'),/Power: light training emphasis[^]*?POW \+<\/span>/);
+ assert.match(card(html,'sandbag'),/Speed: light training emphasis/);
+});
+
+test('athlete session previews compare emphasis without revealing the rating-dependent points',()=>{
+ const s=G.newGame(18),a=s.roster[0];
+ const strength=P.train(s,{drill:'lifting',trainees:[a.id]});
+ const speed=P.train(s,{drill:'acceleration',trainees:[a.id]});
+ assert.match(strength,/POW \+\+\+<\/span>/);
+ assert.match(speed,/POW \+<\/span>/);
+ for(const html of [strength,speed]) {
+  assert(!/>[A-Z]{3} \+\d/.test(html),'points stay a surprise');
+  assert.match(html,/Training emphasis: \+ light · \+\+ moderate · \+\+\+ strong/);
+ }
+});
