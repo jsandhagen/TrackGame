@@ -614,9 +614,9 @@ export function createStadium(cv) {
     // The near side of the cage passes in front of whoever is in the circle.
     if (ev === "discus" || ev === "hammer") cage(g, "front");
     // Projectile: drawn large with a light rim so it reads against sky, crowd and grass, with a
-    // short trail, its shadow running along the ground toward the landing, and a ring closing in
-    // on the spot where it will come down. After landing, a flag in the thrower's colours and a
-    // tape back to the circle stay up while the result shows.
+    // short trail and its shadow running along the ground. Nothing marks the landing spot before
+    // it comes down, so the distance stays a surprise. After landing, a flag in the thrower's
+    // colours and a tape back to the circle stay up while the result shows.
     if (beat?.type === "throw" && tt >= T.tech && el < beatDuration(beat)) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
@@ -634,12 +634,6 @@ export function createStadium(cv) {
           gx = O.x + (ex - O.x) * f,
           gy = O.y + (ey - O.y) * f,
           height = Math.max(0, gy - y);
-        // Where it will land: a ring that tightens as the implement comes down.
-        if (f > 0.4) {
-          const close = view.reduced ? 0 : 1 - (f - 0.4) / 0.6;
-          ring(g, ex, ey, 5 + close * 7, 2 + close * 3, RIM);
-          ring(g, ex, ey, 4 + close * 7, 1.5 + close * 3, "rgba(30,40,30,0.7)");
-        }
         // Its shadow on the ground: smaller and fainter the higher it is.
         const sh = Math.max(2, 4.5 - height / 20);
         ellipse(g, gx, gy, sh + 1, Math.max(1, sh / 2), `rgba(20,40,20,${Math.max(0.4, 0.6 - height / 200).toFixed(2)})`);
