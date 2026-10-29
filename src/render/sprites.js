@@ -430,21 +430,24 @@ function drawFigure(g, o) {
   if (p.sit) P(-3 + hl, tb - 1, 7, 2, shorts);
   // Explicit pelvis offsets let the lower body lead a still-closed chest. Connect the shirt
   // to those hips rather than translating the whole athlete into a backward lean.
+  const torsoX = (row) => p.hip == null ? lean : Math.round(lean + (hl - lean) * row / 4);
   for (let row = 0; row < 4; row++) {
-    const x = p.hip == null ? lean : Math.round(lean + (hl - lean) * row / 4);
+    const x = torsoX(row);
     P(-3 + x, ttop + row, 6, 1, shirt);
     P(-3 + x, ttop + row, 1, 1, shade(shirt, 0.2));
     P(2 + x, ttop + row, 1, 1, shade(shirt, -0.22));
   }
   // Kit patterns use the trim colour over the shirt.
-  const trim = (x, y, w, h) => P(x + lean, ttop + y, w, h, collar);
-  if (o.kit === "stripes") trim(-2, 1, 1, 3), trim(0, 1, 1, 3), P(2 + lean, ttop + 1, 1, 3, shade(collar, -0.22));
+  const trim = (x, y, w, h, color = collar) => {
+    for (let row = y; row < y + h; row++) P(x + torsoX(row), ttop + row, w, 1, color);
+  };
+  if (o.kit === "stripes") trim(-2, 1, 1, 3), trim(0, 1, 1, 3), trim(2, 1, 1, 3, shade(collar, -0.22));
   else if (o.kit === "hoops") trim(-3, 2, 6, 1);
   else if (o.kit === "sash") trim(-3, 1, 2, 1), trim(-2, 2, 2, 1), trim(-1, 3, 2, 1);
-  else if (o.kit === "halves") trim(0, 1, 2, 3), P(2 + lean, ttop + 1, 1, 3, shade(collar, -0.22));
+  else if (o.kit === "halves") trim(0, 1, 2, 3), trim(2, 1, 1, 3, shade(collar, -0.22));
   P(-1 + lean, ttop, 3, 1, collar);
-  if (rank >= 3) P(0 + lean, ttop + 2, 1, 1, GOLD);
-  if (special === "scarf") P(-3 + lean, ttop, 6, 2, collar);
+  if (rank >= 3) P(torsoX(2), ttop + 2, 1, 1, GOLD);
+  if (special === "scarf") trim(-3, 0, 6, 2);
 
   // Head.
   const H = (x, y, w, h, c) => P(hx + x, hy + y, w, h, c);
