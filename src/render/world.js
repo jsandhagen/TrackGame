@@ -45,7 +45,8 @@ function practice(ev, level, style, t, west) {
       m = throwLoop(ev, level, u - k * LOOP_MS, { style }),
       down = m.sinceRelease >= 800;
     return {
-      ...toMap(m), pose: m.run ? "carry" : "throw", frame: m.frame, flip: west ? !m.flip : m.flip, released: m.released,
+      ...toMap(m), pose: m.pose || (m.run ? "carry" : "throw"), frame: m.frame, flip: west ? !m.flip : m.flip, released: m.released,
+      blend: m.blend && { ...m.blend, flip: west ? !m.blend.flip : m.blend.flip },
       ball: m.ball && { dx: (dir * m.ball.dx) / 2, dy: m.ball.dy / 2, behind: m.ball.behind },
       launch: m.sinceRelease >= 0 && !down && { t: m.sinceRelease, from, to: landing(k) },
       lying: lying(k + (down ? 1 : 0)),
@@ -758,7 +759,7 @@ export function createWorld(cv) {
         draw: () => {
           const fx = p.x + ox,
             fy = p.y + oy,
-            look = { ...athleteLook(a, s.colors), pose, frame, flip, event: target.event || a.event, released: still && target.released };
+            look = { ...athleteLook(a, s.colors), pose, frame, flip, blend: still ? target.blend : null, event: target.event || a.event, released: still && target.released };
           shadow(g, fx, fy, 5);
           // The hammer head on its wire, behind or in front of the thrower.
           const ball = still && target.ball,

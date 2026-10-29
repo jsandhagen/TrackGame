@@ -134,10 +134,10 @@ const THROWS = {
     { view: "front", y: -1, legs: [[[-4, -3], [-5, -1]], [[2, -3], [3, -1]]], arms: [[[-1, 3], [-2, 6]], [[1, 3], [2, 6]]], hold: 0, item: "disc" },
     // Wound up in the power position: sitting over the bent right leg, the arm long and far back at
     // shoulder height, the bent left arm leading before it closes during the hip drive.
-    { view: "front", y: 1, lean: -2, hip: -2, legs: [[[-4, -2], [-4, -1]], [[2, -3], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 1, lean: -2, hip: -2, legs: [[[-1, -2], [0, -1]], [[4, -3], [6, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
     // Release: tall over a braced left leg, the right foot pivoting on its toe, the arm long at
     // shoulder height and the free arm tucked in to stop the left side.
-    { y: -2, lean: 2, hip: 2, shoulders: [[-3, 1], [0, 0]], legs: [[[3, -4], [3, -1]], [[0, -3], [-3, -2]]], arms: [[[-2, 2], [0, 3]], [[3, -1], [6, -2]]], face: "strain" },
+    { y: -2, lean: 2, hip: 2, shoulders: [[-3, 1], [0, 0]], legs: [[[3, -4], [4, -1]], [[0, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[3, -1], [6, -2]]], face: "strain" },
     // Follow-through: the arm wraps across and the right foot comes round to the front.
     { y: 0, lean: 1, legs: [[[-1, -3], [-3, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 0], [-5, 1]], [[2, 2], [1, 4]]] },
     // Pre-swings at the back of the circle, facing away, knees soft: back behind the right hip…
@@ -146,24 +146,24 @@ const THROWS = {
     { y: 0, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[2, 1], [4, 1]], [[2, 2], [4, 2]]], hold: 0, item: "disc" },
     // The entry: round to face us on the bent left leg, the right leg sweeping wide and low, the
     // discus arm trailing far behind…
-    { view: "front", y: 1, lean: 1, hip: 2, legs: [[[-6, -3], [-8, -3]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 1, lean: 1, hip: 2, legs: [[[-6, -3], [-8, -3]], [[2, -2], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
     // …a low drive across the circle toward the sector, right knee leading…
     { y: 0, lean: 1, hip: 2, legs: [[[-2, -3], [-5, -2]], [[4, -3], [2, -2]]], arms: [[[3, -1], [5, -3]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
     // …landing on the ball of the right foot facing away, the left leg close…
     { view: "back", y: 2, lean: 0, hip: 1, legs: [[[-2, -3], [-3, -3]], [[2, -2], [1, -1]]], arms: [[[-3, -1], [-5, -2]], [[3, 0], [6, 0]]], hold: 1, item: "disc" },
     // …and the left foot down with the back to the sector, the arm still trailing.
-    { y: 1, lean: 1, hip: -1, legs: [[[1, -2], [0, -1]], [[-2, -3], [-5, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
+    { y: 1, lean: 1, hip: -1, legs: [[[-1, -2], [-3, -1]], [[-5, -3], [-9, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [5, -3]]], hold: 0, item: "disc", face: "strain" },
     // Right-foot pivot: the free leg sweeps round while the discus stays behind the hips.
     { view: "back", y: 2, hip: 1, legs: [[[-4, -3], [-5, -3]], [[2, -2], [1, -1]]], arms: [[[-3, -1], [-5, -2]], [[3, 0], [6, 0]]], hold: 1, item: "disc", face: "strain" },
     // Left foot down, hips opening first and rising; the long throwing arm is still trailing.
-    { view: "front", y: 0, lean: -1, hip: 2, shoulders: [[-3, 1], [1, 0]], legs: [[[-2, -3], [-4, -2]], [[3, -3], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[2, 1], [0, 2]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 0, lean: -1, hip: 2, shoulders: [[-3, 1], [1, 0]], legs: [[[0, -3], [-1, -2]], [[4, -3], [5, -1]]], arms: [[[-3, 0], [-6, 0]], [[2, 1], [0, 2]]], hold: 0, item: "disc", face: "strain" },
     // The shoulders finish their turn and the empty throwing arm wraps across the chest.
     { view: "front", y: -1, lean: 1, legs: [[[-3, -4], [-5, -3]], [[2, -3], [2, -1]]], arms: [[[2, 1], [5, 2]], [[-2, 1], [-5, 2]]] },
     // Settle after the reverse instead of holding a one-legged release pose.
     { view: "front", y: 0, legs: [[[-3, -3], [-4, -1]], [[2, -3], [3, -1]]], arms: [[[-1, 3], [-2, 5]], [[1, 3], [2, 5]]] },
     // The strike: hips and chest open to the sector over the braced left leg, the right foot
     // turning on its toe, the throwing arm last, still long behind at shoulder height.
-    { y: -1, lean: 1, hip: 2, shoulders: [[-3, 1], [-1, 0]], legs: [[[3, -4], [3, -1]], [[0, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
+    { y: -1, lean: 1, hip: 2, shoulders: [[-3, 1], [-1, 0]], legs: [[[3, -4], [4, -1]], [[0, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
     // After the reverse the turn carries on, away from us, on the right foot…
     { view: "back", y: 0, legs: [[[-4, -3], [-5, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 1], [-5, 2]], [[3, 1], [5, 2]]] },
     // …and stops with the back to the sector, both feet down, inside the circle.
@@ -171,14 +171,20 @@ const THROWS = {
     // The backswing wound right round, the chest turned away from us and the discus far back.
     { view: "back", y: 1, legs: [[[-4, -3], [-5, -1]], [[3, -3], [4, -1]]], arms: [[[2, 1], [3, 1]], [[4, 0], [7, 0]]], hold: 1, item: "disc" },
     // Entry: weight onto the bent left leg, the right foot still pushing from the back.
-    { view: "front", y: 1, lean: 1, hip: 2, legs: [[[-3, -3], [-5, -1]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 1, lean: 1, hip: 2, legs: [[[-3, -3], [-5, -1]], [[2, -2], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
     // The right knee swings through toward the middle as the left leg drives.
-    { view: "front", y: 0, lean: 1, hip: 2, legs: [[[0, -3], [-1, -2]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
+    { view: "front", y: 0, lean: 1, hip: 2, legs: [[[0, -3], [-1, -2]], [[2, -2], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
     // South African start: facing the sector at the rear, weight over the left support leg,
     // right foot behind. The discus stays drawn back while the free arm leads into the ring.
     { y: 1, lean: 2, hip: 2, shoulders: [[0, 1], [-2, 1]], legs: [[[2, -2], [2, -1]], [[-3, -3], [-6, -2]]], arms: [[[3, 0], [6, -2]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc" },
     // Step through from that stance: push off the left and drive the right knee to the middle.
     { y: 1, lean: 2, hip: 2, shoulders: [[0, 1], [-2, 1]], legs: [[[0, -3], [-2, -1]], [[4, -4], [1, -3]]], arms: [[[3, 0], [6, -2]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
+    // Full-throw wind: the rear-facing stance and forward swing share exactly the same feet.
+    // These are flipped by the motion; the right foot stays behind and the left toward entry.
+    { y: 1, legs: [[[1, -3], [2, -1]], [[-5, -3], [-7, -1]]], arms: [[[-3, 1], [-6, 1]], [[2, 1], [4, 1]]], hold: 0, item: "disc" },
+    { y: 1, legs: [[[1, -3], [2, -1]], [[-5, -3], [-7, -1]]], arms: [[[2, 1], [5, 1]], [[2, 1], [5, 1]]], hold: 0, item: "disc" },
+    // Maximum backswing: only the upper body winds round; the planted shoes do not swap.
+    { view: "back", y: 1, lean: -1, hip: -2, legs: [[[3, -3], [4, -1]], [[-3, -3], [-5, -1]]], arms: [[[1, 0], [2, 1]], [[3, 0], [6, 0]]], hold: 1, item: "disc" },
   ],
   hammer: [
     // Back to the sector, the head resting behind on the right.
@@ -297,6 +303,40 @@ function poseArmJoints(p, dy = p.y || 0, lean = p.lean || 0) {
   });
 }
 
+const SHAFTS = { jav: [-8, 2, 15, -3], javback: [-9, 1, 14, -1], javwithdraw: [-10, 2, 13, -3], javup: [-9, 4, 13, -9] };
+const mixNumber = (a, b, t) => a + (b - a) * t;
+const mixPoint = (a, b, t) => a.map((v, i) => mixNumber(v, b[i], t));
+function poseHips(p) {
+  const h = p.hip ?? Math.round((p.lean || 0) / 2), y = -5 + (p.y || 0);
+  return !p.view || p.view === "side" ? [[-1 + h, y], [-1 + h, y]] : [[-3 + h, y], [1 + h, y]];
+}
+// Interpolate joints, not finished pictures. Keep anatomical left/right identities when a
+// turn changes drawing order or facing; otherwise a planted foot would switch to the free leg.
+function resolvedPose(o) {
+  const a = poseData(o.pose, o.frame || 0, o.event), blend = o.blend;
+  if (!blend || !a.legs) return a;
+  const b = poseData(blend.pose || o.pose, blend.frame, o.event);
+  if (!b.legs) return a;
+  const t = Math.max(0, Math.min(1, blend.t)), mirrored = !!o.flip !== !!blend.flip,
+    rightA = a.hold ?? 1, rightB = b.hold ?? 1,
+    index = k => k === rightA ? rightB : 1 - rightB,
+    point = (v, width = 2) => [mirrored ? -width - v[0] : v[0], v[1]],
+    scalar = v => mirrored ? -v : v,
+    y = mixNumber(a.y || 0, b.y || 0, t), lean = mixNumber(a.lean || 0, scalar(b.lean || 0), t),
+    aa = poseArmJoints(a), ba = poseArmJoints(b), ah = poseHips(a), bh = poseHips(b),
+    joints = aa.map((arm, k) => arm.map((v, j) => mixPoint(v, point(ba[index(k)][j]), t))),
+    chosen = t < 0.5 ? a : b;
+  const p = { ...chosen, y, lean, hip: mixNumber(a.hip ?? Math.round((a.lean || 0) / 2), scalar(b.hip ?? Math.round((b.lean || 0) / 2)), t),
+    hold: rightA, item: a.item || b.item,
+    hips: ah.map((v, k) => mixPoint(v, point(bh[index(k)]), t)),
+    legs: a.legs.map((leg, k) => leg.map((v, j) => mixPoint(v, point(b.legs[index(k)][j], j ? 3 : 2), t))),
+    shoulders: joints.map(([s]) => [s[0] - lean, s[1] + 10 - y]),
+    arms: joints.map(([s, e, h]) => [e, h].map(v => [v[0] - s[0], v[1] - s[1]])) };
+  const sa = SHAFTS[a.item], sb = SHAFTS[b.item] || sa;
+  if (sa && sb) p.shaft = sa.map((v, i) => mixNumber(v, i % 2 ? sb[i] : scalar(sb[i]), t));
+  return p;
+}
+
 // Pose tables were authored for a taller body; scale them onto the chibi proportions.
 // Raised hands move out beside (or above) the big head so they stay visible.
 function handAt([x, y]) {
@@ -312,10 +352,10 @@ const HEAD = [[2, 8], [1, 10], [0, 12], [0, 12], [0, 12], [0, 12], [0, 12], [0, 
 function drawFigure(g, o) {
   const look = o.look || {},
     special = look.special,
-    p = poseData(o.pose, o.frame || 0, o.event);
+    p = resolvedPose(o);
   const P = (x, y, w, h, c) => {
     g.fillStyle = c;
-    g.fillRect(OX + x, OY + y, w, h);
+    g.fillRect(Math.round(OX + x), Math.round(OY + y), w, h);
   };
   const fur = special === "yeti",
     metal = special === "robot",
@@ -341,7 +381,7 @@ function drawFigure(g, o) {
   const hx = -6 + lean,
     hy = ttop - 11 + (p.drop || 0);
   const far = shade(limb, -0.18);
-  const hips = side ? [[-1 + hl, tb - 1], [-1 + hl, tb - 1]] : [[-3 + hl, tb - 1], [1 + hl, tb - 1]],
+  const hips = p.hips ? p.hips.map(([x, y]) => [x, y + (kid ? 1 : 0)]) : side ? [[-1 + hl, tb - 1], [-1 + hl, tb - 1]] : [[-3 + hl, tb - 1], [1 + hl, tb - 1]],
     arms = jointed ? poseArmJoints(p, dy, lean) : null;
   const feet = jointed ? p.legs.map((l) => l[1]) : p.feet.map(footAt),
     hands = jointed ? arms.map((joints) => joints[2]) : p.hands.map(handAt).map(([x, y]) => [x + Math.round(lean / 2), y + dy]),
@@ -402,17 +442,10 @@ function drawFigure(g, o) {
         P(nx, ny, 2, 2, "#3a3e46");
         break;
       case "jav":
-        shaft(-8, 2, 15, -3, [nx, ny]);
-        break;
       case "javback":
-        // Drawn nearly level behind the head, with the tip close to eye height.
-        shaft(-9, 1, 14, -1, [nx, ny]);
-        break;
       case "javwithdraw":
-        shaft(-10, 2, 13, -3, [nx, ny]);
-        break;
       case "javup":
-        shaft(-9, 4, 13, -9, [nx, ny]);
+        shaft(...(p.shaft || SHAFTS[p.item]), [nx, ny]);
         break;
       case "barbell":
         line(g, OX - 11, OY + ny, OX + 10, OY + ny, "#8a8e96");
@@ -580,7 +613,9 @@ function drawFigure(g, o) {
 
 const cache = new Map();
 export function sprite(o) {
-  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.kit, o.rank, o.pose, o.frame, o.event, o.flip, o.face, o.released]);
+  // Bound the moving-pose cache while retaining many in-betweens per contact interval.
+  if (o.blend) o = { ...o, blend: { ...o.blend, t: Math.round(o.blend.t * 32) / 32 } };
+  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.kit, o.rank, o.pose, o.frame, o.event, o.flip, o.face, o.released, o.blend]);
   let c = cache.get(key);
   if (c) return c;
   const base = canvas(SPRITE_W, SPRITE_H);
@@ -603,14 +638,14 @@ export const WALK_STRIDE = 3;
 export const walkFrame = (dist) => ((Math.floor(dist / WALK_STRIDE) % 4) + 4) % 4;
 // Where a jointed pose's holding hand is, from the feet at scale 1: hammer chains hang from it.
 export function gripOf(o) {
-  const p = poseData(o.pose, o.frame || 0, o.event);
+  const p = resolvedPose(o);
   if (!p.legs) return [1, -12];
   const [hx, hy] = poseArmJoints(p)[p.hold ?? 1][2], x = hx + 1;
-  return [o.flip ? -1 - x : x, hy + 1];
+  return [o.flip ? -x : x, hy + 1];
 }
 // [far, near] arms as [shoulder, elbow, hand], unflipped, from the sprite origin at scale 1.
 export function armJointsOf(o) {
-  const p = poseData(o.pose, o.frame || 0, o.event);
+  const p = resolvedPose(o);
   return p.legs ? poseArmJoints(p) : null;
 }
 // The implement's centre can sit below the palm, as with the discus's overhand grip.
@@ -625,7 +660,7 @@ export function frontFootOf(o) {
 }
 // The [far, near] shoes of a pose, unflipped, from the sprite origin at scale 1.
 export function feetOf(o) {
-  const p = poseData(o.pose, o.frame || 0, o.event);
+  const p = resolvedPose(o);
   return p.legs ? p.legs.map((l) => l[1]) : p.feet.map(footAt);
 }
 // Draw a figure with its feet at (x, y). Scale must be an integer to stay crisp.

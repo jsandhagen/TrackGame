@@ -67,7 +67,7 @@
         const left = col * width, top = row * height, scale = comparing ? 4 : 2, factor = scale / 2;
         const ox = left + (comparing ? 360 : 164), oy = top + (comparing ? 282 : 124),
           [phase, p] = phaseAt(ev, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked, style: Number(style.value) }),
-          pose = m.run ? 'carry' : 'throw', x = ox + m.dx * factor, y = oy + m.dy * factor;
+          pose = m.pose || (m.run ? 'carry' : 'throw'), x = ox + m.dx * factor, y = oy + m.dy * factor;
         g.fillStyle = col % 2 ? '#293e32' : '#304635';
         g.fillRect(left + 2, top + 2, width - 4, height - 4);
         g.fillStyle = '#f4ecda'; g.font = `${comparing ? 19 : 12}px system-ui`;
@@ -78,13 +78,13 @@
           line(g, ox, oy - 8, ox, oy + 8, '#f4ecda', 2);
         } else ellipse(g, ox - 5*factor, oy + 2*factor, 37*factor, 10*factor, '#9da291');
         shadow(g, x, y + 1, 10*factor);
-        const [gx, gy] = gripOf({ pose, event: ev, frame: m.frame, flip: m.flip }),
+        const [gx, gy] = gripOf({ pose, event: ev, frame: m.frame, flip: m.flip, blend: m.blend }),
           chain = () => {
             line(g, x + gx * scale, y + gy * scale, x + m.ball.dx*factor, y + m.ball.dy*factor, '#d8d8c8');
             ellipse(g, x + m.ball.dx*factor, y + m.ball.dy*factor, 3*factor, 3*factor, '#929aa1');
           };
         if (m.ball?.behind) chain();
-        figure(g, { pose, event: ev, frame: m.frame, flip: m.flip, released: m.released,
+        figure(g, { pose, event: ev, frame: m.frame, flip: m.flip, blend: m.blend, released: m.released,
           shirt: comparing ? '#4d9e86' : ['#4d9e86', '#d17b66', '#719bc0', '#ba8cbd'][level], collar: '#efc76a',
           look: { skin: '#d8a47e', hair: '#47352d', style: comparing ? 0 : level } }, x, y, scale);
         if (m.ball && !m.ball.behind) chain();

@@ -575,7 +575,7 @@ export function createStadium(cv) {
         mo = null;
       if (beat?.type === "throw" && tt >= 0 && tt < Math.max(timing.landAt, recoveredAt)) {
         mo = motionAt(tt);
-        pose = mo.run ? "carry" : "throw";
+        pose = mo.pose || (mo.run ? "carry" : "throw");
         ({ frame, flip } = mo);
         x = O.x + mo.dx;
         y = O.y + mo.dy;
@@ -601,19 +601,19 @@ export function createStadium(cv) {
         [[0.07, 0.28], [0.14, 0.14]].forEach(([back, alpha]) => {
           const g2 = motionAt(Math.max(timing.readyMs, tt - back * (timing.releaseAt - timing.readyMs)));
           g.globalAlpha = alpha;
-          figure(g, { ...look, pose: g2.run ? "carry" : "throw", frame: g2.frame, flip: g2.flip, event: ev }, O.x + g2.dx, O.y + g2.dy, 2);
+          figure(g, { ...look, pose: g2.pose || (g2.run ? "carry" : "throw"), frame: g2.frame, flip: g2.flip, blend: g2.blend, event: ev }, O.x + g2.dx, O.y + g2.dy, 2);
           g.globalAlpha = 1;
         });
       shadow(g, x, y, 9);
       const ball = mo?.ball && [x + mo.ball.dx, y + mo.ball.dy, mo.ball.behind],
-        [gx, gy] = gripOf({ pose, frame, flip, event: ev }),
+        [gx, gy] = gripOf({ pose, frame, flip, blend: mo?.blend, event: ev }),
         chain = () => {
           line(g, x + gx * 2, y + gy * 2, ball[0], ball[1], "#d8d8c8");
           ellipse(g, ball[0], ball[1], 3, 3, "#3a3e46");
           px(g, ball[0] - 1, ball[1] - 1, "#8a8e98");
         };
       if (ball && ball[2]) chain();
-      figure(g, { ...look, pose, frame, flip, event: ev, released: mo?.released }, x, y, 2);
+      figure(g, { ...look, pose, frame, flip, blend: mo?.blend, event: ev, released: mo?.released }, x, y, 2);
       if (ball && !ball[2]) chain();
       // Motion lines as the implement leaves the hand.
       if (beat?.type === "throw" && tt >= timing.releaseAt - 60 && tt < timing.releaseAt + 220 && !view.reduced) {
