@@ -52,59 +52,78 @@ function finish(m, p, foul, at) {
 }
 
 // Shot frames: 4 glide crouch and 5 glide drive (both facing away), 6 turning to face us,
-// 7 facing away, 8 driving across toward the sector.
+// 7 facing away, 8 driving across toward the sector, 9 the closed centre catch, 10 leg drive,
+// 13 the tall glide start, 14 the rotational stance and 15 its wind.
 function shot(m, level, phase, p, foul) {
-  if (phase === "ready") return Object.assign(m, level ? { frame: 4, flip: true, dx: BACK } : { frame: 0 });
+  if (phase === "ready") return Object.assign(m, level ? { frame: level === 3 ? 14 : 13, flip: true, dx: BACK } : { frame: 0 });
   if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : 11, dx: 6 });
   if (phase === "follow") {
     finish(m, p, foul, 6);
     m.frame = p < 0.16 ? 11 : p < 0.64 && level >= 2 ? 3 : 12;
     return m;
   }
-  // Standing delivery uses the same late leg/hip/arm sequence, without crossing the circle.
-  if (level === 0) return track(m, p, [[0, 0, 0], [0.3, 1, 0], [0.72, 1, 0], [0.87, 10, 4], [1, 10, 6]]);
+  // Standing delivery uses the same late leg/hip/arm sequence, without crossing the circle: sink
+  // slowly into the power position, then drive.
+  if (level === 0) return track(m, p, [[0, 0, 0], [0.3, 1, 0], [0.74, 1, 0], [0.88, 10, 4], [1, 10, 6]]);
   if (level === 3) {
-    // Crouser reference: wide sweep, a low flight, right-foot catch with the chest closed,
-    // left foot down, then hips and the strike. The shot stays at the neck until release.
-    return track(m, p, [[0, 4, BACK, true], [0.12, 6, BACK], [0.34, 8, -12, false, -1],
-      [0.48, 7, -4], [0.6, 9, -1, true], [0.7, 1, 0], [0.86, 10, 4], [1, 10, 6]]);
+    // Crouser reference: a slow wind, then ever faster. Pivot on the left with a wide, low sweep
+    // of the right leg, a short low flight, the right foot down in the middle with the chest
+    // still closed, the left foot down almost at once, then hips and the strike. The shot stays
+    // at the neck until release.
+    return track(m, p, [[0, 14, BACK, true], [0.1, 15, BACK], [0.32, 14, BACK, true],
+      [0.38, 6, BACK + 1], [0.56, 8, -10, false, -3], [0.64, 7, -4], [0.7, 9, -1, true],
+      [0.76, 1, 0], [0.87, 10, 4], [1, 10, 6]]);
   }
-  // Storl reference: drive low, pull the right foot under, keep the shoulders back on landing.
-  const drive = level === 2 ? 0.35 : 0.3, catchAt = level === 2 ? 0.54 : 0.6;
-  return track(m, p, [[0, 4, BACK, true], [drive, 5, BACK, true], [catchAt, 9, -2, true],
-    [catchAt + 0.1, 1, 0], [0.88, 10, 4], [1, 10, 6]]);
+  // Storl reference: start tall, fold down over the right leg, then kick the left leg low toward
+  // the board and pull the right foot under. Land with the shoulders back, and only then drive.
+  const fold = level === 2 ? 0.2 : 0.22, drive = level === 2 ? 0.44 : 0.48, catchAt = level === 2 ? 0.56 : 0.62;
+  return track(m, p, [[0, 13, BACK, true], [fold, 4, BACK, true], [drive, 5, BACK, true, 0],
+    [drive + 0.06, 5, -8, true, -2], [catchAt, 9, -2, true], [catchAt + 0.08, 1, 0], [0.88, 10, 4], [1, 10, 6]]);
 }
 
-// Discus frames: 4 and 5 pre-swings back and forward (facing away), 6 turning to face us, 7 the
-// sprint across toward the sector, 8 facing away, 9 back to the sector again.
+// Discus frames: 4 and 5 pre-swings back and forward (facing away), 17 the backswing wound right
+// round, 18, 6 and 19 the entry on the left foot (weight over, right leg sweeping wide, right knee
+// swinging through), 7 the drive across toward the sector, 8 and 10 facing away on the right foot,
+// 9 back to the sector again, 1 and 11 the power position opening, 14 the strike. After release,
+// 3, 15 and 16 carry the turn round and stop it.
 function discus(m, level, phase, p, foul) {
   if (phase === "ready") return Object.assign(m, level ? { frame: 4, flip: true, dx: BACK + 4 } : { frame: 0 });
-  if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : 12, dx: 4 });
+  if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : level >= 2 ? 3 : 12, dx: 4 });
   if (phase === "follow") {
     finish(m, p, foul, 4);
-    m.frame = p < 0.18 ? 12 : p < 0.7 && level >= 2 ? 3 : 13;
+    // Spinners reverse and let the turn run on round to the back of the circle; a standing or
+    // half-turn thrower just wraps the arm across and settles.
+    if (level >= 2) Object.assign(m, p < 0.3 ? { frame: 3 } : p < 0.6 ? { frame: 15 } : { frame: 16, flip: true });
+    else m.frame = p < 0.3 ? 12 : 13;
     return m;
   }
-  const swing = (q, n, a, b) => (Math.floor(q * n * 2) % 2 ? b : a);
   // Standing throw: swing back and forward, wind up, sling it.
   if (level === 0) {
-    if (p < 0.6) return Object.assign(m, { frame: swing(p / 0.6, 1, 0, 1) });
-    return track(m, p, [[0.6, 1, 0], [0.85, 11, 2], [1, 11, 4]]);
+    if (p < 0.6) return Object.assign(m, { frame: p < 0.3 ? 0 : 1 });
+    return track(m, p, [[0.6, 1, 0], [0.84, 11, 2], [0.93, 14, 3], [1, 14, 4]]);
   }
   // Pre-swings with the back to the sector, then a half turn or a turn and a half into the power
   // position.
-  const s = level === 1 ? 0.35 : 0.2, start = BACK + 4;
-  if (p < s) return Object.assign(m, { frame: swing(p / s, level === 1 ? 2 : 1, 4, 5), flip: true, dx: start });
-  if (level === 1) return track(m, p, [[s, 6, start], [0.64, 10, -2], [0.76, 1, 0], [0.9, 11, 2], [1, 11, 4]]);
-  // Perkovic reference: sweep wide into single support, cross low, pivot on the right,
-  // plant the left and unwind with the discus still behind the chest.
-  const flight = level === 3 ? 0.49 : 0.44;
-  return track(m, p, [[s, 6, start], [flight, 7, -10, false, -1], [0.6, 8, -3],
-    [0.66, 10, -1], [0.73, 9, 0, true], [0.8, 1, 0], [0.9, 11, 2], [1, 11, 4]]);
+  const start = BACK + 4;
+  if (level === 1) {
+    if (p < 0.35) return Object.assign(m, { frame: pick([5, 4, 5, 4], p / 0.35), flip: true, dx: start });
+    return track(m, p, [[0.35, 6, start], [0.64, 10, -2], [0.76, 1, 0], [0.88, 11, 2], [0.94, 14, 3], [1, 14, 4]]);
+  }
+  // Perkovic, Alekna and Stahl reference: forward, then a long backswing wound right round, so
+  // the entry starts from the discus's furthest point back. A slow, wide entry on the bent left
+  // leg, then a low, quick drive with only a brief flight, a right-foot pivot in the middle, the
+  // left foot down straight after and an unwinding in which the hips, then the chest, then the
+  // long arm come through. Slow to fast.
+  const flight = level === 3 ? 0.52 : 0.5;
+  return track(m, p, [[0, 5, start, true], [0.1, 17, start], [0.22, 4, start, true],
+    [0.26, 18, start], [0.33, 6, start + 1], [flight - 0.07, 19, -12], [flight, 7, -9, false, -2],
+    [flight + 0.08, 8, -3], [flight + 0.13, 10, -1], [flight + 0.19, 9, 0, true],
+    [0.78, 1, 0], [0.86, 11, 2], [0.94, 14, 3], [1, 14, 4]]);
 }
 
 // Hammer frames: 4 the low point of a wind, 5 a turn side-on (flipped when facing away from the
-// sector), 6 a turn facing us, 7 a turn facing away. Through the turns the thrower faces the ball.
+// sector), 6 a turn facing us, 7 a turn facing away. Through the turns the thrower faces the ball:
+// 12 sitting in double support, 10 and 16 in single support, 17 landing back in double support.
 const facing = (th) => {
   const k = ((Math.round(th / (Math.PI / 2)) % 4) + 4) % 4;
   return [{ frame: 5 }, { frame: 6 }, { frame: 5, flip: true }, { frame: 7 }][k];
@@ -113,7 +132,9 @@ function hammer(m, level, phase, p, foul) {
   const turns = [2, 3, 4, 4][level],
     winds = 2,
     split = level === 3 ? 0.3 : 0.38;
-  if (phase === "ready") return Object.assign(m, { frame: 0, flip: true, dx: BACK + 2, ball: orbit(Math.PI, 20, 0) });
+  // The head rests on the ground behind the right foot before the first wind lifts it.
+  const rest = { dx: 14, dy: -2, behind: true };
+  if (phase === "ready") return Object.assign(m, { frame: 0, flip: true, dx: BACK + 2, ball: rest });
   if (phase === "release") return Object.assign(m, { frame: 2, dx: 4 });
   if (phase === "follow") {
     finish(m, p, foul, 4);
@@ -127,24 +148,40 @@ function hammer(m, level, phase, p, foul) {
   if (p < split) {
     // Winds, back to the sector: the ball circles the head, low in front and high behind.
     const th = Math.PI - Math.PI * 2 * winds * (p / split);
-    const frame = pick([1, 15, 4, 14], ((th / (Math.PI * 2)) % 1 + 1) % 1);
-    return Object.assign(m, { frame, flip: true, dx: BACK + 2, ball: orbit(th, 22, 0) });
+    const frame = pick([1, 15, 4, 14], ((th / (Math.PI * 2)) % 1 + 1) % 1),
+      ball = orbit(th, 24, 0), lift = ease(Math.min(1, p / split / 0.2));
+    // The first wind swings the head up off the ground behind the thrower and round in front.
+    if (lift < 1) {
+      for (const key of ["dx", "dy"]) ball[key] = lerp(rest[key], ball[key], lift);
+      ball.behind = lift < 0.6;
+    }
+    return Object.assign(m, { frame: lift < 0.5 ? 0 : frame, flip: true, dx: BACK + 2, ball });
   }
   // Turns: spinning across the circle, faster each turn, the ball swinging wide, to let go as it
-  // rises on the sector side.
+  // rises on the sector side. Sedykh and Fajdek reference: each turn is about half double support
+  // (hips low, the hammer dropping through its low point at the back of the circle) and half
+  // single support on the left foot (hips higher, the hammer over its high point toward the
+  // sector), so the frame follows the ball's side of the circle.
+  // Let go an eighth of a turn before the high point, as the head rises past about head height.
   const q = (p - split) / (1 - split),
-    rot = (turns - 0.5) * (0.55 * q + 0.45 * q * q),
+    span = turns - 0.625,
+    rot = span * (0.55 * q + 0.45 * q * q),
     th = Math.PI - Math.PI * 2 * rot,
     k = ((Math.round(th / (Math.PI / 2)) % 4) + 4) % 4,
-    f = [{ frame: 12 }, { frame: 10 }, { frame: 12, flip: true }, { frame: 11 }][k];
+    f = [{ frame: 16 }, { frame: 10 }, { frame: 12, flip: true }, { frame: 17 }][k],
+    // Most of the travel across the circle happens while the right foot is off the ground.
+    stride = (r) => r - Math.sin(Math.PI * 2 * r) * 0.12,
+    step = stride(rot) / stride(span);
   // Hips sink and rise in the poses; the planted foot stays on the ground rather than bobbing.
-  return Object.assign(m, q >= 0.96 ? { frame: 13 } : f, { dx: lerp(BACK + 2, 4, q), ball: orbit(th, 30, q) });
+  return Object.assign(m, q >= 0.96 ? { frame: 13 } : f, { dx: lerp(BACK + 2, 4, step), ball: orbit(th, lerp(24, 32, q), q) });
 }
 // The hammer head: a horizontal swing (th = 0 toward the sector, π/2 toward the camera) on a
 // tilted plane, low on the far side of the circle from the sector and high on the sector side,
-// with depth so the ball passes behind the thrower.
-function orbit(th, r, flatten) {
-  return { dx: Math.cos(th) * r, dy: -28 - Math.cos(th) * (12 - flatten * 4) + Math.sin(th) * 4, behind: Math.sin(th) < 0 };
+// with depth so the ball passes behind the thrower. The radius is as long as the cage allows at
+// the back of the circle and grows as the thrower crosses it (wire and arms reach about the
+// thrower's height). The plane steepens through the turns until the low point skims the ground.
+function orbit(th, r, steepen) {
+  return { dx: Math.cos(th) * r, dy: -24 - Math.cos(th) * (12 + steepen * 8) + Math.sin(th) * 4, behind: Math.sin(th) < 0 };
 }
 
 // Javelin frames: 4 and 5 the crossover steps, 6 the block, 7 the delivery over the top,
@@ -185,7 +222,8 @@ function javelin(m, level, phase, p, foul) {
   }
   // Chopra reference: the impulse stride precedes a firm left block; hips then elbow lead.
   // More advanced approaches show the long impulse stride, rather than simply more running.
-  const r = track(m, p, [[crossEnd, 6, -26], [0.91, 11, -24], [0.97, 7, -20], [1, 7, -20]]);
+  // The block to release is the quickest part of the throw.
+  const r = track(m, p, [[crossEnd, 6, -26], [0.92, 11, -24], [0.97, 7, -20], [1, 7, -20]]);
   r.dy = slope(r.dx);
   return r;
 }
