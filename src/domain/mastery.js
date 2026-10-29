@@ -54,7 +54,7 @@ export const FORMS={
  shot:['Standing put','Glide','Power glide','Rotational'],
  discus:['Standing throw','Half turn','One and a half turns','Fast spin'],
  hammer:['Two turns','Three turns','Four turns','Four fast turns'],
- jav:['Short approach','Full approach','Crossover approach','Elite approach'],
+ jav:['Three-step approach','Full approach','Crossover approach','Elite approach'],
 };
 export const FORM_STEPS=[0,34,50,68];
 export const formScore=(a,ev)=>((a.stats?.[1]??20)+masteryOf(a,ev))/2;

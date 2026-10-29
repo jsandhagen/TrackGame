@@ -168,6 +168,11 @@ const THROWS = {
     { view: "front", y: 1, legs: [[[-3, -3], [-5, -1]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
     // The right knee swings through toward the middle as the left leg drives.
     { view: "front", y: 0, legs: [[[0, -3], [-1, -2]], [[2, -2], [3, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
+    // South African start: facing the sector at the rear, weight over the left support leg,
+    // right foot behind. The discus stays drawn back while the free arm leads into the ring.
+    { y: 1, lean: 1, legs: [[[2, -3], [4, -1]], [[-3, -3], [-6, -2]]], arms: [[[3, 0], [6, 0]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc" },
+    // Step through from that stance: push off the left and drive the right knee to the middle.
+    { y: 0, lean: 1, legs: [[[-2, -3], [-4, -1]], [[4, -3], [2, -3]]], arms: [[[3, 0], [6, 0]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
   ],
   hammer: [
     // Back to the sector, the head resting behind on the right.
@@ -237,6 +242,13 @@ const THROWS = {
     // Hips drive past the planted left leg and the chest arches open before the elbow comes over
     // the shoulder.
     { y: -1, lean: -1, legs: [[[4, -3], [5, -1]], [[1, -3], [-2, -2]]], arms: [[[1, 1], [2, 2]], [[-3, -3], [-4, -6]]], item: "javup", face: "strain" },
+    // Withdrawal on a left-foot contact: the long throwing arm stays behind while the feet
+    // continue forward. Also starts the short, already-withdrawn three-step approach.
+    { y: -1, lean: -1, legs: [[[3, -3], [5, -1]], [[-1, -3], [-3, -3]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
+    // Left foot passes through between right-foot crossover contacts; the shaft stays level.
+    { y: -1, lean: -2, legs: [[[1, -3], [2, -2]], [[-2, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
+    // Elite impulse: a visibly longer, low split stride, with the hips ahead of the shoulder.
+    { y: 0, lean: -3, legs: [[[-3, -3], [-7, -2]], [[4, -3], [7, -2]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
   ],
 };
 // Carrying the javelin on the run-up: the run cycle with the throwing hand held up by the head.

@@ -28,9 +28,43 @@ test('better form means a more complete technique', () => {
   assert(throwMotion('jav', 2, 'ready', 0).dx < throwMotion('jav', 0, 'ready', 0).dx);
   const crossover = (m) => !m.run && (m.frame === 4 || m.frame === 5);
   assert(sample('jav', 2, 'technique').some(crossover));
-  assert(!sample('jav', 0, 'technique').some(crossover));
+  assert(sample('jav', 0, 'technique').every(m=>!m.run), 'three-step form starts withdrawn instead of copying the full run-up');
   // The best throwers blur through their turns.
   assert(throwMotion('discus', 3, 'technique', 0.5).ghost); assert(!throwMotion('discus', 2, 'technique', 0.5).ghost);
+});
+
+test('discus South African starts facing the sector and the full throw adds the rear-facing entry',()=>{
+ const half=sample('discus',1,'technique',500),full=sample('discus',2,'technique',500);
+ const range=list=>Math.max(...list.map(m=>m.dx))-Math.min(...list.map(m=>m.dx));
+ assert(!throwMotion('discus',1,'ready',0).flip,'South African starts facing the sector');
+ assert(throwMotion('discus',2,'ready',0).flip,'full turn starts facing the rear');
+ assert(range(half)>=20 && range(full)>=24,'both techniques drive from the rear into the middle');
+ assert(!half.some(m=>[6,17,18,19].includes(m.frame)),'the rear wind and wide left-foot entry belong to the full throw');
+ assert(half.some(m=>m.frame===21)&&half.some(m=>m.frame===7&&m.dy<0),'South African steps through and drives low onto the right foot');
+ assert(half.findIndex(m=>m.frame===7)<full.findIndex(m=>m.frame===7),'the facing-sector drill omits the extra entry turn');
+ assert(full.some(m=>m.frame===7&&m.dy<0),'full throw drives low across the circle');
+ for(const list of [half,full]) {
+  const frames=list.map(m=>m.frame);
+  assert(frames.indexOf(10)<frames.indexOf(9),'right-foot pivot precedes the left-foot plant');
+  assert(frames.indexOf(9)<frames.indexOf(11)&&frames.indexOf(11)<frames.indexOf(14),'plant, hips, then the long-arm strike');
+ }
+});
+
+test('javelin three-step and full approaches have different starts, travel and footwork',()=>{
+ const short=sample('jav',0,'technique',500),full=sample('jav',1,'technique',500);
+ assert(short.every(m=>!m.run),'short approach has three withdrawn steps, without an overhead carry run');
+ assert(full.some(m=>m.run),'full approach adds a cyclic overhead-carry run');
+ const range=list=>Math.max(...list.map(m=>m.dx))-Math.min(...list.map(m=>m.dx));
+ assert(range(full)>2*range(short),'full approach covers visibly more runway');
+ assert(throwMotion('jav',0,'ready',0).dx-throwMotion('jav',1,'ready',0).dx>=30);
+ for(const level of [1,2,3]) {
+  const all=sample('jav',level,'technique',1000),steps=all.filter(m=>!m.run&&[12,4,5,13,10,14].includes(m.frame));
+  assert(range(steps)>=24,'crossovers move down the runway instead of shuffling in place');
+  const firstWithdrawal=all.findIndex(m=>!m.run);
+  assert(all.slice(0,firstWithdrawal).every(m=>m.run));
+  assert(all.slice(firstWithdrawal).every(m=>!m.run),'the javelin stays drawn after withdrawal');
+  assert(all.every(m=>!m.flip&&!m.released),'approach stays aimed at the sector and retains the javelin');
+ }
 });
 
 test('the hammer ball swings round and passes behind the thrower; fouls carry over the front', () => {
@@ -125,7 +159,7 @@ test('javelin blocks before the elbow-led delivery and advanced approaches add a
   for (let level = 0; level < 4; level++) {
     const frames = sample('jav', level, 'technique', 400).filter(m => !m.run).map(m => m.frame);
     assert(frames.indexOf(6) < frames.indexOf(11) && frames.indexOf(11) < frames.indexOf(7), 'block, hip drive, then overarm delivery');
-    assert.equal(frames.includes(10), level >= 2, 'the long impulse is reserved for developed approaches');
+    assert.equal(frames.includes(10)||frames.includes(14), level >= 2, 'the long impulse is reserved for developed approaches');
   }
 });
 
@@ -179,7 +213,7 @@ test('hammer turns split between double and single support, starting from the gr
 test('javelin leans further back into the block after an impulse stride', () => {
   const lean = (frame) => gripOf({ pose: 'throw', event: 'jav', frame })[0];
   assert(lean(6) < lean(5), 'block leans further back than the crossover');
-  assert(sample('jav', 3, 'technique', 400).some(m => m.frame === 10), 'impulse stride');
+  assert(sample('jav', 3, 'technique', 400).some(m => m.frame === 14), 'long elite impulse stride');
 });
 
 test('hammer stays inside the cage, steepens through the turns and lets go on the rise', () => {

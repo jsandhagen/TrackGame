@@ -18,6 +18,7 @@
 <p>All four events and form levels. Slow down or scrub to inspect foot contacts, delivery and recovery.</p>
 <div class="controls">
   <button id="play" type="button">Pause</button>
+  <label>Compare <select id="focus"><option value="all">All events</option><option value="discus">Discus · half / full</option><option value="jav">Javelin · three-step / full</option><option value="jav-developed">Javelin · crossover / elite</option></select></label>
   <label>Speed <select id="speed"><option value="0.25">¼×</option><option value="0.5" selected>½×</option><option value="1">1×</option><option value="2">2×</option></select></label>
   <label>Recovery <select id="style"><option value="0">Classic</option><option value="1">Bouncy</option><option value="2">Composed</option></select></label>
   <label><input id="foul" type="checkbox"> Foul</label>
@@ -31,67 +32,82 @@
   import { throwMotion, throwReleasePoint } from '../src/render/throw-motion.js';
   import { FORMS } from '../src/domain/mastery.js';
   import { ellipse, line } from '../src/render/pixel.js';
+  import { throwTiming, throwPhase, flightPoint } from '../src/render/meet-presentation.js';
 
   const cv = document.querySelector('#study'), g = cv.getContext('2d'),
     slider = document.querySelector('#time'), play = document.querySelector('#play'),
     speed = document.querySelector('#speed'), foul = document.querySelector('#foul'), style = document.querySelector('#style'),
+    focus = document.querySelector('#focus'),
     status = document.querySelector('#phase'),
     events = ['shot', 'discus', 'hammer', 'jav'],
     names = ['Shot put · Storl / Crouser', 'Discus · Perković / Alekna / Ståhl', 'Hammer · Sedykh / Fajdek', 'Javelin · Chopra'];
+  const timingOf = ev => throwTiming({event: ev, mark: {shot: 9, discus: 30, hammer: 35, jav: 35}[ev]});
+  const duration = Math.max(...events.map(ev => { const t=timingOf(ev); return t.releaseAt+t.releaseMs+t.recoveryMs; })) + 400;
+  slider.max = duration;
+  const requested = new URLSearchParams(location.search).get('focus');
+  if ([...focus.options].some(o=>o.value===requested)) focus.value=requested;
   let paused = false, elapsed = 0, last = performance.now();
   g.imageSmoothingEnabled = false;
   play.onclick = () => { paused = !paused; play.textContent = paused ? 'Play' : 'Pause'; };
   slider.oninput = () => { elapsed = Number(slider.value); paused = true; play.textContent = 'Play'; draw(elapsed); };
-  foul.onchange = style.onchange = () => draw(elapsed);
+  foul.onchange = style.onchange = focus.onchange = () => draw(elapsed);
 
   function phaseAt(ev, t) {
-    const release = ev === 'hammer' || ev === 'jav' ? 100 : 250;
-    return t < 400 ? ['ready', t / 400] : t < 2600 ? ['technique', (t - 400) / 2200]
-      : t < 2600 + release ? ['release', (t - 2600) / release]
-      : ['follow', (t - 2600 - release) / (1400 - release)];
+    return throwPhase(timingOf(ev), t);
   }
   function draw(t) {
+    const comparing = focus.value !== 'all', ev = focus.value.startsWith('jav') ? 'jav' : 'discus';
+    const levels = focus.value === 'discus' ? [1,2] : focus.value === 'jav-developed' ? [2,3] : [0,1];
+    const cells = comparing ? levels.map((level,col)=>({ev,level,col,row:0})) : events.flatMap((ev,row)=>[0,1,2,3].map((level,col)=>({ev,level,col,row})));
+    if (cv.height !== (comparing ? 400 : 640)) cv.height = comparing ? 400 : 640;
+    g.imageSmoothingEnabled = false;
     g.fillStyle = '#172a27'; g.fillRect(0, 0, cv.width, cv.height);
-    events.forEach((ev, row) => {
-      for (let level = 0; level < 4; level++) {
-        const left = level * 270, top = row * 160, ox = left + 164, oy = top + 124,
+    cells.forEach(({ev,level,col,row}) => {
+        const width = comparing ? 540 : 270, height = comparing ? 400 : 160;
+        const left = col * width, top = row * height, scale = comparing ? 4 : 2, factor = scale / 2;
+        const ox = left + (comparing ? 360 : 164), oy = top + (comparing ? 282 : 124),
           [phase, p] = phaseAt(ev, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked, style: Number(style.value) }),
-          pose = m.run ? 'carry' : 'throw', x = ox + m.dx, y = oy + m.dy;
-        g.fillStyle = (row + level) % 2 ? '#293e32' : '#304635';
-        g.fillRect(left + 2, top + 2, 266, 156);
-        g.fillStyle = '#f4ecda'; g.font = '12px system-ui';
-        g.fillText(names[row], left + 12, top + 22);
-        g.fillStyle = '#efc76a'; g.fillText(`${level} · ${FORMS[ev][level]}`, left + 12, top + 40);
+          pose = m.run ? 'carry' : 'throw', x = ox + m.dx * factor, y = oy + m.dy * factor;
+        g.fillStyle = col % 2 ? '#293e32' : '#304635';
+        g.fillRect(left + 2, top + 2, width - 4, height - 4);
+        g.fillStyle = '#f4ecda'; g.font = `${comparing ? 19 : 12}px system-ui`;
+        g.fillText(names[events.indexOf(ev)], left + 12, top + (comparing ? 34 : 22));
+        g.fillStyle = '#efc76a'; g.fillText(`${level} · ${FORMS[ev][level]}`, left + 12, top + (comparing ? 64 : 40));
         if (ev === 'jav') {
-          line(g, left + 4, oy + 12, ox + 20, oy - 2, '#b79a73');
+          line(g, left + 16, oy + (ox-left-16)*.1, ox + 20, oy - 2, '#b79a73');
           line(g, ox, oy - 8, ox, oy + 8, '#f4ecda', 2);
-        } else ellipse(g, ox - 5, oy + 2, 37, 10, '#9da291');
-        shadow(g, x, y + 1, 10);
+        } else ellipse(g, ox - 5*factor, oy + 2*factor, 37*factor, 10*factor, '#9da291');
+        shadow(g, x, y + 1, 10*factor);
         const [gx, gy] = gripOf({ pose, event: ev, frame: m.frame, flip: m.flip }),
           chain = () => {
-            line(g, x + gx * 2, y + gy * 2, x + m.ball.dx, y + m.ball.dy, '#d8d8c8');
-            ellipse(g, x + m.ball.dx, y + m.ball.dy, 3, 3, '#929aa1');
+            line(g, x + gx * scale, y + gy * scale, x + m.ball.dx*factor, y + m.ball.dy*factor, '#d8d8c8');
+            ellipse(g, x + m.ball.dx*factor, y + m.ball.dy*factor, 3*factor, 3*factor, '#929aa1');
           };
         if (m.ball?.behind) chain();
         figure(g, { pose, event: ev, frame: m.frame, flip: m.flip, released: m.released,
-          shirt: ['#4d9e86', '#d17b66', '#719bc0', '#ba8cbd'][level], collar: '#efc76a',
-          look: { skin: '#d8a47e', hair: '#47352d', style: level } }, x, y, 2);
+          shirt: comparing ? '#4d9e86' : ['#4d9e86', '#d17b66', '#719bc0', '#ba8cbd'][level], collar: '#efc76a',
+          look: { skin: '#d8a47e', hair: '#47352d', style: comparing ? 0 : level } }, x, y, scale);
         if (m.ball && !m.ball.behind) chain();
-        if (t >= 2600) {
-          const [rx, ry] = throwReleasePoint(ev, level), q = Math.min(1, (t - 2600) / 1400),
-            bx = ox + rx + q * 90, by = oy + ry - Math.sin(q * Math.PI) * 25 + q * 36;
-          if (ev === 'jav') line(g, bx - 13, by + 3, bx + 13, by - 3, '#efe6c8', 2);
-          else ellipse(g, bx, by, 3, ev === 'discus' ? 1 : 3, ev === 'discus' ? '#d8c890' : '#929aa1');
+        const timing = timingOf(ev);
+        if (t >= timing.releaseAt) {
+          const [rx, ry] = throwReleasePoint(ev, level), q = Math.min(1, (t - timing.releaseAt) / timing.flightMs),
+            [bx,by] = flightPoint([ox+rx*factor,oy+ry*factor],[left+width-24,oy-8],q,timing.arcHeight*factor);
+          if (ev === 'jav') line(g, bx - 13*factor, by + 3*factor, bx + 13*factor, by - 3*factor, '#efe6c8', 2);
+          else ellipse(g, bx, by, 3*factor, (ev === 'discus' ? 1 : 3)*factor, ev === 'discus' ? '#d8c890' : '#929aa1');
         }
-        g.fillStyle = '#bfccbd'; g.fillText(`${phase} · pose ${m.frame}`, left + 12, top + 147);
-      }
+        g.fillStyle = '#bfccbd'; g.fillText(`${phase} · pose ${m.frame}`, left + 12, top + height - (comparing ? 48 : 13));
+        if (comparing) {
+          g.font='14px system-ui';
+          const cue = ev === 'discus' ? level === 1 ? 'Facing sector → right-foot drive → turn → delivery' : 'Rear wind → sweep → right-foot catch → delivery' : level === 0 ? 'Already withdrawn → three steps → block' : level === 1 ? 'Carry run → withdrawal → crossovers → block' : level === 2 ? 'Earlier withdrawal → impulse stride → block' : 'Earlier withdrawal → long low impulse → block';
+          g.fillText(cue,left+12,top+height-18);
+        }
     });
     status.value = `${(t / 1000).toFixed(2)} s`;
   }
   // Deterministic scrubbing is also useful for browser-based contact sheets.
   window.drawThrowStudy = (t) => { elapsed = t; paused = true; play.textContent = 'Play'; slider.value = t; draw(t); };
   function tick(now) {
-    if (!paused) elapsed = (elapsed + (now - last) * Number(speed.value)) % 4000;
+    if (!paused) elapsed = (elapsed + (now - last) * Number(speed.value)) % duration;
     last = now; slider.value = elapsed; draw(elapsed); requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);

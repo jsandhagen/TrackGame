@@ -111,7 +111,7 @@ function shot(m, level, phase, p, foul, style) {
 // 9 back to the sector again, 1 and 11 the power position opening, 14 the strike. After release,
 // 3, 15 and 16 carry the turn round and stop it.
 function discus(m, level, phase, p, foul, style) {
-  if (phase === "ready") return Object.assign(m, level ? { frame: 4, flip: true, dx: BACK + 4 } : { frame: 0 });
+  if (phase === "ready") return Object.assign(m, level === 1 ? { frame: 20, dx: -18 } : level ? { frame: 4, flip: true, dx: -20 } : { frame: 0 });
   const reverses = style === 1 || (style === 0 && level >= 2);
   if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : reverses ? 3 : 12, dx: 4 });
   if (phase === "follow") {
@@ -129,23 +129,23 @@ function discus(m, level, phase, p, foul, style) {
     if (p < 0.6) return Object.assign(m, { frame: p < 0.3 ? 0 : 1 });
     return track(m, p, [[0.6, 1, 0], [0.84, 11, 2], [0.93, 14, 3], [1, 14, 4]]);
   }
-  // Pre-swings with the back to the sector, then a half turn or a turn and a half into the power
-  // position.
-  const start = BACK + 4;
+  // South African / sprint-turn drill: start at the rear facing the sector, right foot behind
+  // the left support leg. Step through, drive onto the right foot in the middle, then turn and
+  // plant the left before delivery. It omits the full throw's rear-facing wind and left sweep.
   if (level === 1) {
-    if (p < 0.35) return Object.assign(m, { frame: pick([5, 4, 5, 4], p / 0.35), flip: true, dx: start });
-    return track(m, p, [[0.35, 6, start], [0.64, 10, -2], [0.76, 1, 0], [0.88, 11, 2], [0.94, 14, 3], [1, 14, 4]]);
+    return track(m, p, [[0, 20, -18], [0.16, 20, -18], [0.28, 21, -16], [0.42, 7, -8, false, -2],
+      [0.52, 8, -3], [0.63, 10, -2], [0.73, 9, 0, true], [0.8, 1, 0], [0.88, 11, 2], [0.95, 14, 4], [1, 14, 4]]);
   }
   // Perkovic, Alekna and Stahl reference: forward, then a long backswing wound right round, so
   // the entry starts from the discus's furthest point back. A slow, wide entry on the bent left
   // leg, then a low, quick drive with only a brief flight, a right-foot pivot in the middle, the
   // left foot down straight after and an unwinding in which the hips, then the chest, then the
   // long arm come through. Slow to fast.
-  const flight = level === 3 ? 0.52 : 0.5;
+  const start = -20, flight = level === 3 ? 0.52 : 0.54;
   return track(m, p, [[0, 5, start, true], [0.1, 17, start], [0.22, 4, start, true],
-    [0.26, 18, start], [0.33, 6, start + 1], [flight - 0.07, 19, -12], [flight, 7, -9, false, -2],
-    [flight + 0.08, 8, -3], [flight + 0.13, 10, -1], [flight + 0.19, 9, 0, true],
-    [0.78, 1, 0], [0.86, 11, 2], [0.94, 14, 3], [1, 14, 4]]);
+    [0.28, 18, start], [0.36, 6, start + 2], [flight - 0.07, 19, -14], [flight, 7, -8, false, -2],
+    [flight + 0.06, 8, -3], [flight + 0.12, 10, -2], [flight + 0.19, 9, 0, true],
+    [0.8, 1, 0], [0.88, 11, 2], [0.95, 14, 4], [1, 14, 4]]);
 }
 
 // Hammer frames: 4 the low point of a wind, 5 a turn side-on (flipped when facing away from the
@@ -218,7 +218,8 @@ function orbit(th, r, steepen) {
 // 8 the arm sweeping down and 9 the reverse that catches the run-up. The run-up uses "carry".
 function javelin(m, level, phase, p, foul, style) {
   const slope = (dx) => Math.round(-dx * 0.1);
-  if (phase === "ready") return Object.assign(m, { frame: 0, dx: level ? 20 - 96 : -70, dy: slope(level ? 20 - 96 : -70) });
+  const start = level ? -80 : -44;
+  if (phase === "ready") return Object.assign(m, { frame: level ? 0 : 1, dx: start, dy: slope(start) });
   if (phase === "release") return Object.assign(m, { frame: 2, dx: -20, dy: slope(-20) });
   if (phase === "follow") {
     const r = finish(m, p, foul, -20);
@@ -235,28 +236,29 @@ function javelin(m, level, phase, p, foul, style) {
     return Object.assign(m, { frame: runFrame((dx - from) / 2), run: true, dx, dy: slope(dx) });
   };
   if (level === 0) {
-    // A short run with the javelin over the shoulder, then draw it back, block and throw.
-    if (p < 0.75) return run(-70, -28, p / 0.75);
-    const r = track(m, p, [[0.75, 1, -28], [0.85, 6, -24], [0.93, 11, -24], [0.97, 7, -20], [1, 7, -20]]);
+    // Three-step teaching progression: already withdrawn, left-right-left into the block.
+    // It has a compact crossover, but none of the full approach's overhead-carry running.
+    const r = track(m, p, [[0, 1, start], [0.16, 12, -42], [0.34, 4, -36], [0.48, 5, -30],
+      [0.67, 6, -26], [0.86, 11, -24], [0.95, 7, -20], [1, 7, -20]]);
     r.dy = slope(r.dx);
     return r;
   }
-  // Full run-up from the end of the runway, withdrawal into crossover steps, then the block.
-  const [runEnd, crossEnd] = level === 1 ? [0.62, 0.84] : [0.52, 0.84],
-    start = 20 - 96;
-  if (p < runEnd) return run(start, -36, p / runEnd);
-  if (p < crossEnd) {
-    const q = (p - runEnd) / (crossEnd - runEnd),
-      dx = lerp(-36, -26, q),
-      steps = level === 1 ? [1, 4, 5] : [1, 4, 5, 4, 10, 5],
-      frame = pick(steps, q);
-    return Object.assign(m, { frame, dx, dy: slope(dx) });
-  }
+  // Carry overhead during a cyclic run, then withdraw on a left contact. Crossovers travel
+  // down the runway, rather than changing legs almost in place. The right foot lands before
+  // the left block; the drawn arm stays behind the advancing hips until the final delivery.
+  const runEnd = level === 1 ? 0.38 : 0.3, withdrawAt = level === 1 ? -52 : -60;
+  if (p < runEnd) return run(start, withdrawAt, Math.pow(p / runEnd, 1.25));
   // Chopra reference: the impulse stride precedes a firm left block; hips then elbow lead.
   // More advanced approaches show the long impulse stride, rather than simply more running.
   // The block to release is the quickest part of the throw.
-  const r = track(m, p, [[crossEnd, 6, -26], [0.92, 11, -24], [0.97, 7, -20], [1, 7, -20]]);
-  r.dy = slope(r.dx);
+  const keys = level === 1
+    ? [[runEnd, 12, withdrawAt], [0.48, 4, -46], [0.56, 5, -40], [0.64, 13, -34],
+      [0.72, 4, -30], [0.8, 5, -26], [0.85, 6, -26], [0.92, 11, -24], [0.97, 7, -20], [1, 7, -20]]
+    : [[runEnd, 12, withdrawAt], [0.4, 4, -52], [0.48, 5, -46], [0.56, 13, -40],
+      [0.64, 4, -36], [0.72, 5, -32], [0.79, level === 3 ? 14 : 10, -27, false, -1],
+      [0.85, 5, -26], [0.88, 6, -26], [0.93, 11, -24], [0.98, 7, -20], [1, 7, -20]];
+  const r = track(m, p, keys);
+  r.dy += slope(r.dx);
   return r;
 }
 
