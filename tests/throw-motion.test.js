@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../src/domain/game.js';
-import { throwMotion, throwReleasePoint } from '../src/render/throw-motion.js';
+import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
 import { frontFootOf, gripOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
@@ -201,4 +201,28 @@ test('discus swings back before the entry and keeps turning after the reverse', 
     const follow = sample('discus', level, 'follow').map(m => m.frame);
     assert(follow.indexOf(3) < follow.indexOf(15) && follow.indexOf(15) < follow.indexOf(16), 'reverse, keep turning, then stop');
   }
+});
+
+test('recovery styles give athletes different finishes without breaking the throw', () => {
+  for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) {
+    const finishes = [0, 1, 2].map(style => sample(ev, level, 'follow', 80).map((_, i) => throwMotion(ev, level, 'follow', i / 80, { style })));
+    const key = (list) => list.map(m => `${m.frame}${m.flip ? 'F' : ''}:${Math.round(m.dy)}`).join(',');
+    assert.equal(new Set(finishes.map(key)).size, 3, `${ev}/${level}: three distinct recoveries`);
+    for (const [style, list] of finishes.entries()) {
+      assert(list.every(m => m.released && m.frame !== 2 && Number.isInteger(m.frame) && m.frame < THROW_FRAME_COUNTS[ev]), `${ev}/${level}/${style}: valid empty-handed frames`);
+      assert(Math.abs(list[0].dx - throwMotion(ev, level, 'release', 1, { style }).dx) < 0.01, `${ev}/${level}/${style}: no jump on release`);
+      assert(Math.abs(list.at(-1).dy - throwMotion(ev, level, 'follow', 1).dy) < 0.01, `${ev}/${level}/${style}: lands back on the ground`);
+      if (ev === 'jav') for (const m of list) assert(m.dx + 2 * frontFootOf({ pose: 'throw', event: ev, frame: m.frame }) <= -2, `jav/${level}/${style}: stays behind the arc`);
+    }
+    const fouls = [0, 1, 2].map(style => key(sample(ev, level, 'follow', 40).map((_, i) => throwMotion(ev, level, 'follow', i / 40, { style, foul: true }))));
+    assert.equal(new Set(fouls).size, 1, 'a foul looks the same whoever throws');
+  }
+});
+
+test('an athlete keeps one recovery style, led by their background', () => {
+  assert.equal(recoveryStyle({ id: 4, background: 'dancer' }), 0);
+  assert.equal(recoveryStyle({ id: 4, background: 'clown' }), 1);
+  assert.equal(recoveryStyle({ id: 4, background: 'chess' }), 2);
+  assert.deepEqual([3, 4, 5].map(id => recoveryStyle({ id, background: 'farm' })), [0, 1, 2]);
+  assert.equal(recoveryStyle(undefined), 0);
 });

@@ -3,7 +3,7 @@ import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, formOf } from "../domain/game.js";
-import { throwMotion, throwReleasePoint } from "./throw-motion.js";
+import { throwMotion, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
@@ -551,7 +551,9 @@ export function createStadium(cv) {
         releaseMs = ev === "jav" || ev === "hammer" ? 100 : 250,
         phaseAt = (t) =>
           t < T.prep ? ["ready", t / T.prep] : t < T.tech ? ["technique", (t - T.prep) / (T.tech - T.prep)] : t < T.tech + releaseMs ? ["release", (t - T.tech) / releaseMs] : ["follow", (t - T.tech - releaseMs) / (T.land - T.tech - releaseMs)],
-        motionAt = (t) => throwMotion(ev, level, ...phaseAt(t), { foul: !!beat?.foul });
+        // Technique comes from form; the finish after release is the athlete's own.
+        style = recoveryStyle(active),
+        motionAt = (t) => throwMotion(ev, level, ...phaseAt(t), { foul: !!beat?.foul, style });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
         flip = false,
@@ -568,7 +570,7 @@ export function createStadium(cv) {
         const good = beat.mark != null && (beat.newPb || beat.leading);
         pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
         frame = Math.floor(now / 220) % 2;
-        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul });
+        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style });
         x = O.x + end.dx;
         y = O.y + end.dy;
       } else {
