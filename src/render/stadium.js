@@ -4,7 +4,7 @@ import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.j
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
-import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
+import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
 import { line as voiceLine, throwSituation } from "../domain/voice.js";
@@ -92,8 +92,6 @@ function distanceArc(g, metres, color, dashed = false) {
   for (let i = 1; i < points.length; i++) if (!dashed || i % 4 < 2) line(g, ...points[i - 1], ...points[i], color);
 }
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
-
-const T = { prep: 250, tech: 1000, land: LAND_MS };
 
 function skyFor(venue) {
   const w = venue.weather,
@@ -437,10 +435,11 @@ export function createStadium(cv) {
     const el = view.elapsed ?? 99999;
     const hasCut = hasCutIn(beat);
     const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
-    const landed = !(beat?.type === "throw") || tt >= T.land;
+    const timing = throwTiming(beat);
+    const landed = !(beat?.type === "throw") || tt >= timing.landAt;
     // Big moments land with a jolt: a short, decaying shake of the whole scene.
     const big = beat?.type === "throw" && beat.mark != null && (beat.worldRecord || (beat.newPb && beat.previousPb > 0) || beat.tookLead || (beat.side === "home" && beat.scoringSwing > 0)),
-      sinceLand = tt - T.land,
+      sinceLand = tt - timing.landAt,
       jolt = big && !view.reduced && sinceLand >= 0 && sinceLand < 280 ? (1 - sinceLand / 280) * (beat.worldRecord ? 4 : 2) : 0;
     g.translate(Math.round(Math.sin(sinceLand * 0.9) * jolt), top + Math.round(Math.cos(sinceLand * 1.3) * jolt));
     const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN;
@@ -564,25 +563,23 @@ export function createStadium(cv) {
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
       // The throw follows the athlete's form: see throw-motion.js.
       const level = formOf(active, ev),
-        releaseMs = ev === "jav" || ev === "hammer" ? 100 : 250,
-        phaseAt = (t) =>
-          t < T.prep ? ["ready", t / T.prep] : t < T.tech ? ["technique", (t - T.prep) / (T.tech - T.prep)] : t < T.tech + releaseMs ? ["release", (t - T.tech) / releaseMs] : ["follow", (t - T.tech - releaseMs) / (T.land - T.tech - releaseMs)],
+        recoveredAt = timing.releaseAt + timing.releaseMs + timing.recoveryMs,
         // Technique comes from form; the finish after release is the athlete's own.
         style = recoveryStyle(active),
-        motionAt = (t) => throwMotion(ev, level, ...phaseAt(t), { foul: !!beat?.foul, style });
+        motionAt = (t) => throwMotion(ev, level, ...throwPhase(timing, t), { foul: !!beat?.foul, style });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
         flip = false,
         x = O.x,
         y = O.y,
         mo = null;
-      if (beat?.type === "throw" && tt >= 0 && tt < T.land) {
+      if (beat?.type === "throw" && tt >= 0 && tt < Math.max(timing.landAt, recoveredAt)) {
         mo = motionAt(tt);
         pose = mo.run ? "carry" : "throw";
         ({ frame, flip } = mo);
         x = O.x + mo.dx;
         y = O.y + mo.dy;
-      } else if (beat?.type === "throw" && tt >= T.land) {
+      } else if (beat?.type === "throw" && tt >= timing.landAt) {
         const good = beat.mark != null && (beat.newPb || beat.leading);
         pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
         frame = Math.floor(now / 220) % 2;
@@ -602,7 +599,7 @@ export function createStadium(cv) {
       // The best throwers leave a blur of afterimages through the turns.
       if (mo?.ghost && !view.reduced)
         [[0.07, 0.28], [0.14, 0.14]].forEach(([back, alpha]) => {
-          const g2 = motionAt(Math.max(T.prep, tt - back * (T.tech - T.prep)));
+          const g2 = motionAt(Math.max(timing.readyMs, tt - back * (timing.releaseAt - timing.readyMs)));
           g.globalAlpha = alpha;
           figure(g, { ...look, pose: g2.run ? "carry" : "throw", frame: g2.frame, flip: g2.flip, event: ev }, O.x + g2.dx, O.y + g2.dy, 2);
           g.globalAlpha = 1;
@@ -619,13 +616,13 @@ export function createStadium(cv) {
       figure(g, { ...look, pose, frame, flip, event: ev, released: mo?.released }, x, y, 2);
       if (ball && !ball[2]) chain();
       // Motion lines as the implement leaves the hand.
-      if (beat?.type === "throw" && tt >= T.tech - 60 && tt < T.tech + 220 && !view.reduced) {
-        const a = 1 - Math.max(0, tt - T.tech + 60) / 280;
+      if (beat?.type === "throw" && tt >= timing.releaseAt - 60 && tt < timing.releaseAt + 220 && !view.reduced) {
+        const a = 1 - Math.max(0, tt - timing.releaseAt + 60) / 280;
         for (let k = 0; k < 3; k++) line(g, x + 14 + k * 2, y - 50 + k * 9, x + 28 + k * 3, y - 54 + k * 9, `rgba(255,255,255,${(0.75 * a).toFixed(2)})`);
       }
       if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 18, y - 76, { color: "#f2c94c", scale: 2 });
       // The thrower reacts once the mark is up: a speech bubble in their own voice.
-      if (beat?.type === "throw" && tt >= T.land + 150 && tt < T.land + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
+      if (beat?.type === "throw" && tt >= Math.max(timing.landAt + 150, recoveredAt) && tt < timing.landAt + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
     // The near side of the cage passes in front of whoever is in the circle.
     if (ev === "discus" || ev === "hammer") cage(g, "front");
@@ -633,18 +630,17 @@ export function createStadium(cv) {
     // short trail and its shadow running along the ground. Nothing marks the landing spot before
     // it comes down, so the distance stays a surprise. After landing, a flag in the thrower's
     // colours and a tape back to the circle stay up while the result shows.
-    if (beat?.type === "throw" && tt >= T.tech && el < beatDuration(beat)) {
-      const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
-        dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
+    if (beat?.type === "throw" && tt >= timing.releaseAt && el < beatDuration(beat)) {
+      const f = Math.min(1, (tt - timing.releaseAt) / timing.flightMs),
+        dist = timing.distance,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
         [rx, ry] = throwReleasePoint(ev, formOf(active, ev)),
         sx = O.x + rx,
         sy = O.y + ry,
         [ex, ey] = sector.point(dist, angle),
-        peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev],
         team = beat.side === "home" ? s.colors.primary : m.color,
         RIM = "#fff6dc";
-      const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];
+      const pos = (q) => flightPoint([sx, sy], [ex, ey], q, timing.arcHeight);
       if (f < 1) {
         const [x, y] = pos(f),
           gx = O.x + (ex - O.x) * f,
@@ -685,7 +681,7 @@ export function createStadium(cv) {
         }
       } else {
         // Impact: a ring of turf and dust thrown up around the landing, heavier for the shot and hammer.
-        const dt = tt - T.land,
+        const dt = tt - timing.landAt,
           heavy = ev === "shot" || ev === "hammer" ? 1.6 : 1.2,
           fade = Math.max(0, 1 - dt / 800);
         if (!beat.foul) {

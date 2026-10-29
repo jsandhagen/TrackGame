@@ -34,6 +34,8 @@ The game deliberately uses a six-athlete final for a tighter field. [World Athle
 
 One, two and three arrows select continuous playback at 1×, 2× and 8×. A training day lasts 30, 15 or 3.75 seconds respectively. Every speed presents setup, flight, landing and results, updates the scoreboard and can be paused or changed mid-sequence. Coach/clutch decisions always wait for the player. Highlights never secretly accelerate the one-arrow pace. There is no Skip control; three arrows runs the normal sequence very fast. Training still stops at meet day and real club decisions.
 
+Meet deliveries build to release over 2–3 seconds at the one-arrow pace, with more time for hammer winds and turns. Implement flight lasts 0.4–1.4 seconds according to the measured distance. Short throws have lower arcs, and projectiles accelerate downward toward landing. The athlete's recovery finishes independently of the flight. Release sound, impact, result reveal and the scoreboard share the animation's timing at every speed.
+
 Quiet notifications default on. Routine goals, levels and discoveries stay in journals and reports. Coached results appear inline in Training; items and promotions use brief confirmations rather than growth dialogs. Real choices still pause, while ordinary stories have a seven-day minimum gap and a reduced daily chance. Settings can restore detailed celebrations.
 
 Every visiting club has a separate bench/standing area and pennant, with its own colours. Captain and celebration effects remain within that club. The MVP award has a dedicated solid, shaded five-point star.

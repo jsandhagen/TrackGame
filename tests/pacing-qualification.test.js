@@ -4,7 +4,7 @@ import * as G from './helpers/developed-club.js';
 import * as P from '../src/ui/pages.js';
 import {EVENT_IDS} from '../src/game-content.js';
 import {DAY_MS,playbackSpeed,playbackRate} from '../src/platform/pacing.js';
-import {advanceBeatClock,beatDuration,throwOffset,LAND_MS} from '../src/render/meet-presentation.js';
+import {advanceBeatClock,beatDuration,throwOffset,throwTiming} from '../src/render/meet-presentation.js';
 import {validateCampaign,exportCampaign} from '../src/domain/campaign-save.js';
 
 function prepare(s) {
@@ -17,7 +17,7 @@ function prepare(s) {
 
 test('watching has full preparation, flight and result time even with highlights enabled',()=>{
   const beat={type:'throw',athleteId:1,attempt:0};
-  const duration=beatDuration(beat),landing=throwOffset(beat)+LAND_MS;
+  const duration=beatDuration(beat),landing=throwOffset(beat)+throwTiming(beat).landAt;
   assert(duration>=7000);
   for(const highlights of [false,true]) {
     assert.equal(advanceBeatClock(beat,0,1000,1,{highlights}),1000);

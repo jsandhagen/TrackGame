@@ -9,7 +9,7 @@ import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, 
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium } from "./render/stadium.js";
-import { beatDuration, SETUP_MS, LAND_MS, hasCutIn, throwOffset, advanceBeatClock } from "./render/meet-presentation.js";
+import { beatDuration, SETUP_MS, hasCutIn, throwOffset, throwTiming, advanceBeatClock } from "./render/meet-presentation.js";
 import { playTraining } from "./render/training.js";
 import { portrait as paintPortrait } from "./render/sprites.js";
 import { paintIcon } from "./render/icons.js";
@@ -597,10 +597,10 @@ function startBeat(beat) {
   const cue = (at, fn) => presenter.cues.push({ at, fn });
   if (beat.type === "throw") {
     view.hide = { side: beat.side, eventIndex: beat.eventIndex, attempt: beat.attempt };
-    const offset = throwOffset(beat);
+    const offset = throwOffset(beat), timing = throwTiming(beat);
     if (hasCutIn(beat)) cue(SETUP_MS, () => sfx("skill"));
-    cue(offset + 1000, () => sfx("whoosh"));
-    cue(offset + LAND_MS, () => {
+    cue(offset + timing.releaseAt, () => sfx("whoosh"));
+    cue(offset + timing.landAt, () => {
       view.hide = null;
       sfx(beat.mark == null ? "foul" : "land");
       if (beat.side === "home" && beat.mark != null && (beat.newPb || beat.leading || beat.scoringSwing>0)) sfx("cheer");

@@ -3,13 +3,44 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import * as P from '../src/ui/pages.js';
 import {validateCampaign, exportCampaign} from '../src/domain/campaign-save.js';
-import {advanceBeatClock, beatDuration, throwOffset, LAND_MS, RESULT_MS, HIGHLIGHT_MS, ROUTINE_MS, hasCutIn, throwResult} from '../src/render/meet-presentation.js';
+import {advanceBeatClock, beatDuration, throwOffset, throwTiming, throwPhase, flightPoint, RESULT_MS, HIGHLIGHT_MS, hasCutIn, throwResult} from '../src/render/meet-presentation.js';
 import {playbackRate} from '../src/platform/pacing.js';
+import {EVENTS} from '../src/game-content.js';
+
+test('deliveries build before release and short marks have shorter, lower flights',()=>{
+ for(const [event,content] of Object.entries(EVENTS)) {
+  const short=throwTiming({event,mark:content.min}),long=throwTiming({event,mark:content.record});
+  assert(short.releaseAt-short.readyMs>=1700,`${event}: wind-up is readable`);
+  assert.equal(short.releaseAt,long.releaseAt,'distance never accelerates the thrower');
+  assert(short.flightMs<long.flightMs);assert(short.arcHeight<long.arcHeight);
+  assert(short.flightMs<900,`${event}: a novice throw does not float`);
+  assert(long.flightMs<=1400);
+  assert.equal(throwPhase(short,short.releaseAt-1)[0],'technique');
+  assert.deepEqual(throwPhase(short,short.releaseAt),['release',0]);
+  const recovering=throwPhase(short,short.landAt);
+  assert.equal(recovering[0],'follow');assert(recovering[1]<1,'a short flight does not rush the recovery');
+  assert.deepEqual(throwPhase(short,short.releaseAt+short.releaseMs+short.recoveryMs),['follow',1]);
+  const foul=throwTiming({event,mark:null,foul:true});
+  assert(Number.isFinite(foul.landAt));assert(foul.landAt>foul.releaseAt);
+ }
+ assert(throwTiming({event:'shot',mark:9}).flightMs<500);
+ assert(throwTiming({event:'hammer'}).releaseAt>throwTiming({event:'shot'}).releaseAt,'hammer winds and turns have more time');
+});
+
+test('projectiles leave the hand, follow a falling arc and finish at the measured mark',()=>{
+ const start=[20,-40],end=[220,0],height=40;
+ assert.deepEqual(flightPoint(start,end,0,height),start);
+ assert.deepEqual(flightPoint(start,end,1,height),end);
+ const samples=Array.from({length:5},(_,i)=>flightPoint(start,end,i/4,height));
+ const steps=samples.slice(1).map((p,i)=>p[1]-samples[i][1]);
+ assert(steps.every((v,i)=>!i||v>steps[i-1]),'downward velocity increases toward impact');
+ assert.deepEqual(samples.map(p=>p[0]),[20,70,120,170,220]);
+});
 
 test('all arrow speeds preserve setup, flight and results without hidden highlight acceleration', () => {
- for (const speed of [1,2,3]) for (const highlights of [false,true]) for (const important of [false,true]) {
-  const beat={type:'throw',athleteId:1,attempt:1,activations:['Captain'],newPb:important,previousPb:important?12:0};
-  const landing=throwOffset(beat)+LAND_MS, duration=beatDuration(beat);
+ for (const speed of [1,2,3]) for (const highlights of [false,true]) for (const important of [false,true]) for(const [event,content] of Object.entries(EVENTS)) for(const mark of [null,content.min,content.record]) {
+  const beat={type:'throw',event,mark,athleteId:1,attempt:1,activations:['Captain'],newPb:important,previousPb:important?12:0};
+  const landing=throwOffset(beat)+throwTiming(beat).landAt, duration=beatDuration(beat);
   let elapsed=0,time=0,landedAt=null;
   while(elapsed<duration) {
    elapsed=advanceBeatClock(beat,elapsed,10,speed,{highlights});time+=10;
