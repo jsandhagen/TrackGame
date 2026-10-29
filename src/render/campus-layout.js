@@ -9,6 +9,7 @@ export const LOTS = [
 const LOT_STREETS = ["row","north","north","north","blvd","blvd","row","row","blvd","row","row","row","row"];
 export const streetOf = i => STREETS[LOT_STREETS[i]];
 export const baseOf = i => LOTS[i][1] + 66;
+export const parcelBounds = i => ({x:LOTS[i][0]+3,y:LOTS[i][1]+8,w:LOT_W-6,h:streetOf(i)-12-(LOTS[i][1]+8)});
 export const front = i => [LOTS[i][0] + 30, baseOf(i) + 10];
 export const POCKET_PARK = { x:16, y:548, w:146, h:70 };
 export const PARKING = [

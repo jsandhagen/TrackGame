@@ -44,6 +44,16 @@ The tutorial explains the duels, entry standards, 3+3 structure, six-athlete cut
 
 During league duels, the live panel shows the current event standard and a Standards toggle opens named qualification progress. An incoming mark stays concealed until it lands. The meet report also has a Qualification tab. Scoreboards show at most ten athletes; all attempts remain available in the expandable throw series.
 
+## Compact grounds and buildings
+
+The city strip in front of the stadium is about a third shallower, with the boulevard and lower building row moved 60 map pixels closer. The thirteen save slots keep their identities. Gates, walking routes, parking, the bus stop, selection and drawing share the compact geometry.
+
+Map facilities and neighbouring houses use oblique building volumes with shaded side walls, roof planes, brick, timber or metal courses, and tiled or seamed roofs. Doors connect to courtyard paths and parcel gates. Lawns, paving and asphalt have their own textures. Courtyards, driveways and cast shadows stop at parcel boundaries; only narrow gate aprons connect to the public sidewalk. Selection bounds also stop before the sidewalk.
+
+Buildings, trees, fences and people share depth ordering, so people walking behind a structure are hidden by its walls. Animated flags, café steam and fountain water belong to their building. Menu previews remain independent of the map architecture.
+
+Ground-paint regression checks exercise every facility, upgrade, plot and season, including residential driveways, and reject any paint on the carriageways. Native browser Canvas checks also compare every asphalt pixel before and after those ground layers. Browser reviews cover all facilities, level-one and level-three buildings, close views, winter and all thirteen selection targets.
+
 ## Saves and verification
 
 The new fields are optional additions to schema 8. Established careers retain unlocked systems; existing booked leagues and active legacy finals finish with their original rules. New championships preserve qualifiers, preliminary marks, final order and affiliations across saves. Scores are recomputed from throw series on import. Old continuous 3×/4× settings load as 1×, so they cannot trigger Skip.

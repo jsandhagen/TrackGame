@@ -1,7 +1,9 @@
-import { rect, ellipse, line, shade, hash, px } from './pixel.js';
-import { box, gable, windowAt, tree, bush, bench, lamp } from './buildings.js';
+import { rect, poly, line, shade, hash, px } from './pixel.js';
+import { windowAt, tree, bush, bench, lamp } from './buildings.js';
 import { text } from './font.js';
 import { MAP_W, MAP_H, STREETS, LOWER_LOT_TOP, POCKET_PARK, PARKING } from './campus-layout.js';
+import { withinGround, surface } from './terrain.js';
+import { drawBuildingVolume, projectedFootprint } from './facility-scene.js';
 const BOULEVARD = STREETS.blvd;
 
 // Carriageways are a single connected network. Walking routes use their sidewalks.
@@ -56,7 +58,7 @@ export function drawStreetNetwork(g, season) {
     const [x, y, w, h] = roadRect(r);
     rect(g, x - 1, y - 1, w + 2, h + 2, '#b7b5a8');
     rect(g, x, y, w, h, '#737c7b');
-    for (let i = 0; i < w * h / 55; i++) px(g, x + hash(i * 3 + x) * w, y + hash(i * 7 + y) * h, '#6e7776');
+    for (let i = 0; i < w * h / 18; i++) px(g, x + hash(i * 3 + x) * (w-1), y + hash(i * 7 + y) * (h-1), i%3?'#6a7473':'#828a85');
   }
   // Remove kerbs inside the crossing streets, including the approach's T-junction.
   for (const j of JUNCTIONS) {
@@ -104,46 +106,58 @@ export function drawResidentialLots(g,season,items) {
   const colors=['#d7cab3','#c2d1c8','#dfc3a3','#c4b8a5','#d9d4bc','#b4c8ce','#d1b49a','#c4caba','#e1c8ae'];
   for(const lot of RESIDENTIAL_LOTS) {
     const {x,y,w,h,seed}=lot, large=w>60, base=large?y+69:y+48, front=y+h;
-    rect(g,x,y,w,h,green(season));
-    rect(g,x,y,w,1,'#b2b99a');rect(g,x,y,1,h,'#bdbea4');rect(g,x+w-1,y,1,h,'#93a17f');
-    // Rear and side fences define the parcel even when the garden is mostly lawn.
-    fence(g,x+1,y+4,w-3,'#b8aa8c');
-    rect(g,x+1,y+4,1,h-7,'#b2a68e');rect(g,x+w-2,y+4,1,h-7,'#b2a68e');
     const doorX=x+(large?27:21), driveX=large?x+62:x+w-14;
-    walk(g,doorX,base,5,front-base+8,season);
-    if(lot.kind!=='bakery') {
-      rect(g,driveX,base-10,large?14:10,front-base+(large?30:24),'#b8b7a7');
-      rect(g,driveX+2,base-10,1,front-base+(large?30:24),'#aaa999');
-      if(seed%2===0) uprightCar(g,driveX+1,front-23,['#a56650','#718ba1','#c2ad69'][seed%3]);
-    }
+    const lx=x+(large?12:4),buildingW=large?43:34,buildingH=seed%3===1?27:lot.kind==='bakery'?25:20;
+    const home={x:lx,y:base,w:buildingW,h:buildingH,d:18,wall:colors[seed],roof:['#8b6350','#617784','#8a7456'][seed%3],material:seed%2?'timber':'brick',gable:6};
+    const garage={x:lx+48,y:base+3,w:20,h:13,d:17,wall:'#c0b9a3',roof:'#6b7879',material:'stone',gable:4};
+    withinGround(g,lot,()=>{
+      surface(g,x,y,w,h,green(season),'lawn',seed);
+      rect(g,x,y,w,1,'#b2b99a');rect(g,x,y,1,h,'#bdbea4');rect(g,x+w-1,y,1,h,'#93a17f');
+      rect(g,x+1,y+4,1,h-7,'#b2a68e');rect(g,x+w-2,y+4,1,h-7,'#b2a68e');
+      if(large) surface(g,x+7,y+12,25,20,stone(season),'paving',seed);
+      for(const block of large?[home,garage]:[home]) {
+        const f=projectedFootprint(block);
+        surface(g,f.x-2,f.y-2,f.w+4,f.h+5,stone(season),'paving',seed);
+        poly(g,[[f.x,base],[f.x+f.w+9,base+4],[f.x+f.w+13,f.y+3],[f.x+7,f.y]],'rgba(30,43,31,.19)');
+      }
+      walk(g,doorX,base,5,front-base,season);
+      if(lot.kind!=='bakery') {
+        // Stop at the property edge; the old length painted over the road.
+        rect(g,driveX,base-10,large?14:10,front-(base-10),'#b8b7a7');
+        rect(g,driveX+2,base-10,1,front-(base-10),'#aaa999');
+      }
+    });
+    // Gate aprons end at the sidewalk, before the kerb and carriageway.
+    walk(g,doorX,front,5,(large?BOULEVARD:130)-front,season);
+    if(lot.kind!=='bakery') walk(g,driveX,front,large?14:10,(large?BOULEVARD:130)-front,season);
+    items.push({y:y+4,draw:g=>fence(g,x+1,y+4,w-3,'#b8aa8c')});
+    if(lot.kind!=='bakery' && seed%2===0) items.push({y:front-5,draw:g=>uprightCar(g,driveX+1,front-23,['#a56650','#718ba1','#c2ad69'][seed%3])});
     const fenceColor=seed%2?'#c4bda6':'#e1dac3';
     // Gate and driveway openings are real gaps, not paint over the footpath.
     const gate=doorX-x-1;
     const edges=lot.kind==='bakery'?[[0,gate],[gate+8,w]]:[[0,gate],[gate+8,driveX-x],[driveX-x+(large?14:10),w]];
-    for(const [left,right] of edges) if(right>left) fence(g,x+left,front,right-left,fenceColor);
-    rect(g,doorX-3,front-6,2,7,shade(fenceColor,-0.12));rect(g,doorX+7,front-6,2,7,fenceColor);
-    rect(g,x+7,front-8,1,7,'#7d725c');rect(g,x+5,front-9,6,3,'#6a8c84');
+    items.push({y:front,draw:g=>{
+      for(const [left,right] of edges) if(right>left) fence(g,x+left,front,right-left,fenceColor);
+      rect(g,doorX-3,front-6,2,7,shade(fenceColor,-0.12));rect(g,doorX+7,front-6,2,7,fenceColor);
+      rect(g,x+7,front-8,1,7,'#7d725c');rect(g,x+5,front-9,6,3,'#6a8c84');
+    }});
     for(const dx of large?[8,66]:[7,36]) items.push({y:front-5,draw:g=>bush(g,x+dx,front-5,season)});
     if(large) {
       items.push({y:y+20,draw:g=>tree(g,x+70,y+20,.7,season,seed)});
-      walk(g,x+7,y+12,25,20,season); // backyard patio
       items.push({y:y+25,draw:g=>bench(g,x+10,y+25)});
     }
     items.push({y:base,draw:g=>{
-      const lx=x+(large?12:4), buildingW=large?43:34, buildingH=seed%3===1?27:20;
-      box(g,lx,base,buildingW,buildingH,18,colors[seed],{shadow:false});
-      gable(g,lx,base-buildingH,buildingW,18,6,['#8b6350','#617784','#8a7456'][seed%3]);
-      if(season===3) {rect(g,lx+3,base-buildingH-6,buildingW-3,2,'#f0f3ef');}
+      drawBuildingVolume(g,home,season);
       for(let row=0;row<(buildingH>20?2:1);row++) for(let n=0;n<2;n++) windowAt(g,lx+4+n*23,base-13-row*10,5,5,seed%3===0);
       rect(g,doorX,base-11,6,11,'#657b70');rect(g,doorX+1,base-10,4,3,'#b7d4d4');px(g,doorX+4,base-5,'#ead29a');
       rect(g,doorX-2,base,10,2,'#c3b99e');
       rect(g,lx+buildingW-5,base-buildingH-12,3,7,'#956f57');
       if(lot.kind==='bakery') {
         for(let xx=lx-1;xx<lx+buildingW+1;xx+=4) rect(g,xx,base-14,4,4,xx%8?'#efe5c6':'#9b6252');
-        rect(g,lx+2,base-buildingH-2,30,7,'#80614d');text(g,'BAKERY',lx+3,base-buildingH-1,{scale:.7,color:'#f4ead5',outline:null});
+        rect(g,lx-2,base-buildingH+2,38,9,'#80614d');text(g,'BAKERY',lx,base-buildingH+3,{color:'#f4ead5',outline:null});
       }
       if(large) {
-        box(g,lx+48,base+3,20,13,17,'#c0b9a3',{shadow:false});gable(g,lx+48,base-10,20,17,4,'#6b7879');
+        drawBuildingVolume(g,garage,season);
         rect(g,lx+51,base-6,13,9,'#969e96');for(let yy=base-4;yy<base+2;yy+=3)rect(g,lx+51,yy,13,1,'#77867e');
       }
       // Bins and flower boxes belong to the house, not the sidewalk.
@@ -154,10 +168,12 @@ export function drawResidentialLots(g,season,items) {
 }
 export function drawClubParcel(g,x,top,w,front,open,season,index) {
   const color=open?green(season):shade(green(season),-.08);
-  rect(g,x+1,top+8,w-2,front-top-8,color);
+  withinGround(g,{x:x+1,y:top+8,w:w-2,h:front-top-8},()=>surface(g,x+1,top+8,w-2,front-top-8,color,'lawn',index));
   rect(g,x+1,top+8,w-2,1,open?'#c4c3a7':'#a9ad94');
   rect(g,x+1,top+8,1,front-top-8,'#a2ac90');
   rect(g,x+w-1,top+8,1,front-top-8,'#a2ac90');
+}
+export function drawClubFront(g,x,w,front,open,index) {
   const c=open?'#bfc1a7':'#a7ae95';
   for(const [a,b] of [[2,24],[39,w-2]]) fence(g,x+a,front,b-a,c);
   for(const dx of [23,38]) {rect(g,x+dx,front-6,2,8,open?'#b5ad96':'#9b9e87');rect(g,x+dx-1,front-7,4,1,'#e0d8c0');}
@@ -167,7 +183,7 @@ export function drawClubParcel(g,x,top,w,front,open,season,index) {
 }
 export function drawPocketPark(g,season,items) {
   const {x,y,w,h}=POCKET_PARK;
-  rect(g,x,y,w,h,green(season));
+  withinGround(g,POCKET_PARK,()=>surface(g,x,y,w,h,green(season),'lawn'));
   walk(g,x+6,y+7,w-12,h-14,season);rect(g,x+13,y+14,w-26,h-28,green(season));
   walk(g,x+21,536,7,20,season);walk(g,x+112,y+h-9,7,27,season);
   for(const [a,b] of [[0,20],[31,w]])fence(g,x+a,y,b-a,'#b8ba9c');

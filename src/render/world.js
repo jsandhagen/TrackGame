@@ -1,12 +1,14 @@
 import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
-import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
-import { MAP_W, MAP_H, LOTS, LOT_W, STREETS, LOWER_LOT_TOP, streetOf, baseOf, front, PARKING, POCKET_PARK, BUS_BAY, BUS_STOP } from "./campus-layout.js";
+import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
+import { MAP_W, MAP_H, LOTS, LOT_W, STREETS, LOWER_LOT_TOP, streetOf, baseOf, front, parcelBounds, PARKING, POCKET_PARK, BUS_BAY, BUS_STOP } from "./campus-layout.js";
 export { MAP_W, MAP_H, LOTS } from "./campus-layout.js";
 import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
 import { throwLoop, throwMotion, throwReleasePoint, recoveryStyle, THROW_LOOP } from "./throw-motion.js";
-import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
+import { lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
+import { facilityModel, drawFacilityGround, drawFacilityStructure } from "./facility-scene.js";
+import { surface } from "./terrain.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
 import { formOf, plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
@@ -264,7 +266,7 @@ function baseWorld(s) {
   const c = canvas(MAP_W, MAP_H),
     g = c.getContext("2d"),
     season = seasonOf(s);
-  rect(g, 0, 0, MAP_W, MAP_H, GRASS[season]);
+  surface(g, 0, 0, MAP_W, MAP_H, GRASS[season], 'lawn');
   // Soft patches and tufts so the grass isn't flat.
   for (let i = 0; i < 70; i++) ellipse(g, hash(i * 17) * MAP_W, hash(i * 23 + 5) * MAP_H, 18 + hash(i) * 30, 8 + hash(i + 1) * 12, shade(GRASS[season], i % 2 ? 0.05 : -0.04));
   for (let i = 0; i < 1800; i++) {
@@ -324,11 +326,18 @@ function baseWorld(s) {
       open = plotUnlocked(s, i),
       p = s.plots[i];
     drawClubParcel(g,x,top,LOT_W,street-12,open,season,i);
-    vpaving(g, x + 26, b, 10, street - 6 - b, season);
-    if (open) for (const bx of [x + 6, x + LOT_W - 6]) items.push({ y: b + 12, draw: (g) => bush(g, bx, b + 12, season) });
+    // Only the narrow gate connection enters public paving. All private ground
+    // and cast shadows are clipped inside the parcel, before the sidewalk.
+    vpaving(g, x + 27, street - 12, 8, 7, season);
+    if (open) for (const bx of [x + 9, x + LOT_W - 9]) items.push({ y: b + 8, draw: (g) => bush(g, bx, b + 8, season) });
     if (!open) items.push({ y: b, draw: (g) => lockedPlot(g, x + 2, top + 14, LEAGUES[leagueForPlot(i)].name.split(" ")[0].toUpperCase(), season) });
     else if (!p) items.push({ y: b, draw: (g) => emptyPlot(g, x + 2, top + 14) });
-    else items.push({ y: b, draw: (g) => drawFacility(g, p.type, p.level, x + 2, top + 14, { season, colors: s.colors }) });
+    else {
+      const model=facilityModel(p.type,p.level,i);
+      drawFacilityGround(g,model,season);
+      items.push({y:model.depth,draw:(g,now)=>drawFacilityStructure(g,model,season,s.colors,now)});
+    }
+    items.push({y:street-12,draw:g=>drawClubFront(g,x,LOT_W,street-12,open,i)});
   });
   // Bus shelter, bicycles and wayfinding are placed outside walking routes.
   items.push({y:ROW+66,draw:g=>{
@@ -368,8 +377,7 @@ function baseWorld(s) {
   grove(items, AVENUE + 10, ROW + 30, 760, BLVD - 80, 3, 801, season, clear, 0.2);
   items.filter((it) => it.y < BOWL.y + 30).sort((a, b) => a.y - b.y).forEach((it) => it.draw(g));
   drawArena(g, s, season);
-  items.filter((it) => it.y >= BOWL.y + 30).sort((a, b) => a.y - b.y).forEach((it) => it.draw(g));
-  return c;
+  return {image:c,scenery:items.filter(it=>it.y>=BOWL.y+30)};
 }
 
 // Where an athlete stands for today's activity, in map coordinates.
@@ -669,20 +677,8 @@ export function createWorld(cv) {
       key = k;
     }
     g.imageSmoothingEnabled = false;
-    g.drawImage(base, 0, 0);
+    g.drawImage(base.image, 0, 0);
     animateArena(g, s, now, Math.min(0.85, 0.06 + s.fans / 3000));
-    LOTS.forEach(([x, top], i) => {
-      const p = s.plots[i];
-      if (!p) return;
-      animateFacility(g, p.type, p.level, x + 2, top + 14, now);
-      if (p.type === "club" || p.type === "shop") {
-        const fx = x + 2 + (p.type === "club" ? 12 : 58 + (p.level > 1 ? 12 : 0)) + 1,
-          fy = top + 66 - (p.type === "club" ? (p.level > 2 ? 34 : 24) : 18),
-          wave = Math.round(Math.sin(now / 300 + i));
-        rect(g, fx, fy, 8, 2, s.colors.primary);
-        rect(g, fx, fy + 2 + wave, 8, 2, s.colors.secondary);
-      }
-    });
     // Selection highlight.
     const pulse = Math.floor(now / 250) % 2;
     const box = (x, y, w, h, col) => {
@@ -693,17 +689,18 @@ export function createWorld(cv) {
       g.fillRect(x + w - 1, y, 1, h);
       for (const [cx, cy] of [[x, y], [x + w - 3, y], [x, y + h - 3], [x + w - 3, y + h - 3]]) g.fillRect(cx, cy, 3, 3);
     };
-    const lotBox = (i, col) => box(LOTS[i][0] + 4, LOTS[i][1] + 14, LOT_W - 8, 70, col);
+    const lotBox = (i, col) => {const {x,y,w,h}=parcelBounds(i);box(x,y,w,h,col);};
     if (o.moving != null) for (let i = 0; i < LOTS.length; i++) if (i !== CLUB_PLOT && i !== o.moving && plotUnlocked(s, i)) lotBox(i, pulse ? "#9fe0ff" : "#5ab0e0");
     if (o.selected?.kind === "plot") lotBox(o.selected.index, pulse ? "#fff2a0" : "#f2c94c");
     if (o.selected?.kind === "stadium") {
       const [x, y, w, h] = SPOTS[o.selected.key].hit;
       box(x, y, w, h, pulse ? "#fff2a0" : "#f2c94c");
     }
-    // People, depth-sorted by their feet.
+    // Buildings, fences, trees and people share one ground-depth order. A person
+    // behind a wall is hidden; a person in front of its door stays visible.
     const want = Math.min(28, visitorsPerDay(s));
     if (visitors.length !== want) visitors = makeVisitors(s, want);
-    const list = [];
+    const list = base.scenery.map(it=>({y:it.y,draw:()=>it.draw(g,now)}));
     for (const v of visitors) {
       const moving = stepVisitor(v, s, now);
       list.push({ y: v.y, draw: () => (shadow(g, v.x, v.y, 4), figure(g, { look: v.look, shirt: v.shirt, collar: "#f4efe2", pose: moving ? "walk" : "idle", frame: moving ? walkFrame(v.walked || 0) : Math.floor(now / 600 + v.seed) % 2, flip: v.flip }, v.x, v.y)) });
@@ -1012,8 +1009,8 @@ export function createWorld(cv) {
     const [x, y] = toWorld(clientX, clientY);
     for (const [id, p] of people) if (Math.abs(x - p.x) < 7 && y > p.y - 22 && y < p.y + 2) return { kind: "athlete", id };
     for (let i = 0; i < LOTS.length; i++) {
-      const [lx, top] = LOTS[i];
-      if (x >= lx + 4 && x < lx + LOT_W - 4 && y >= top + 14 && y < top + 84) return { kind: "plot", index: i };
+      const {x:lx,y:top,w,h}=parcelBounds(i);
+      if (x >= lx && x < lx+w && y >= top && y < top+h) return { kind: "plot", index: i };
     }
     for (const [key, sp] of Object.entries(SPOTS)) {
       const [hx, hy, hw, hh] = sp.hit;
