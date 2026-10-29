@@ -133,6 +133,7 @@ export function newGame(seed = Date.now() >>> 0) {
     secretsOffered: [],
     secretsSigned: [],
     pendingEvent: null,
+    recentStoryEvents: [],
     lastEventDay: 1,
     saleDay: 0,
     records: {},
