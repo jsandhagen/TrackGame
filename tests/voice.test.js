@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as G from '../src/domain/game.js';
+import * as G from './helpers/developed-club.js';
 import * as P from '../src/ui/pages.js';
 import { line, idleSituation, emoteFor, throwSituation } from '../src/domain/voice.js';
 import { measure } from '../src/render/font.js';

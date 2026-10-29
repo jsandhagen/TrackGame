@@ -1,12 +1,13 @@
 import { LEAGUES, CLUBS } from "../game-content.js";
 import { makeClubs } from "./game.js";
 import { note } from "./core.js";
+import { firstMeet } from "./progression.js";
 
 export const CIRCUIT_STAGES = ["Open", "Challenger", "Championship"];
 export const CIRCUIT_FORMATS = [
-  "Three attempts each; the top four earn three more in the final. Two fixtures at home.",
-  "Three attempts each; the top four earn three more in the final.",
-  "Three attempts each; the top four earn three more in the final. Two fixtures on the road.",
+  "Three club duels, then a league championship: qualifying marks required, three preliminary throws and three more for the top six. Two duels at home.",
+  "Three club duels, then a league championship: qualifying marks required, three preliminary throws and three more for the top six.",
+  "Three club duels, then a league championship: qualifying marks required, three preliminary throws and three more for the top six. Two duels on the road.",
 ];
 export const TITLE_GIFTS = ["scroll", "letter", "elixir"];
 export const circuitKey = (tier, stage) => `${tier}:${stage}`;
@@ -30,6 +31,7 @@ export const competitionName = (s) => s.competition?.kind === "cup"
 // Leagues above Community charge entry; duels are always free, so a club can always earn.
 export const entryFee = (kind, tier) => (kind === "league" ? LEAGUES[tier]?.entry || 0 : 0);
 export function entryProblem(s, kind, tier, stage = 0, rival = 0) {
+  if (firstMeet(s) && (kind !== "duel" || tier !== 0 || rival !== 0)) return "Start with your first Community duel.";
   if (s.phase !== "planning" || s.match || s.competition) return "Finish your current competition first.";
   if (s.pendingEvent) return "Resolve the club decision first.";
   if (!["league", "duel"].includes(kind) || !Number.isInteger(tier) || tier < 0 || tier > 4) return "Unknown competition.";
@@ -54,7 +56,7 @@ export function switchTier(s, tier, strength, all) {
   const offset = (strength * 2 + Math.floor((s.season-1)/3)) % pool.length;
   s.clubs = all ? pool : Array.from({length:3},(_,i) => pool[(offset+i)%pool.length]);
   // A club keeps its people. New stages develop their existing strengths.
-  for(const c of s.clubs) {
+  for(const c of pool) {
     const previous=c.developedStage??(s.clubTier===tier?s.clubStage:strength);
     if(strength>previous) {
       const lift=rivalBase(tier,strength)-rivalBase(tier,previous),practice=rivalMastery(tier,strength)-rivalMastery(tier,previous);
@@ -75,14 +77,15 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });
   const fee = entryFee(kind, tier);
   s.money -= fee;
-  s.competition = { kind, tier, stage: strength, rival, spacing, startDay: s.day + preparation, fee };
+  const startDay = firstMeet(s) ? Math.max(s.day, 4) : s.day + preparation;
+  s.competition = { kind, tier, stage: strength, rival, spacing, startDay, fee, ...(kind === "league" ? { format: "championship", qualifyingMarks: {} } : {}) };
   s.phase = "season";
   s.fixture = 0;
   s.results = [];
   s.champion = false;
   s.lastAwards = null;
   s.finalOpponent = null;
-  s.matchDay = s.day + preparation;
+  s.matchDay = startDay;
   s.sponsorLocked = false;
   note(s, "Booked " + competitionName(s) + " for day " + s.matchDay + ".", "meet");
   return true;
@@ -108,7 +111,11 @@ export function upcomingMeets(s) {
   if (!c || s.phase !== "season" || s.matchDay == null) return [];
   if (c.kind !== "league") return [{ day: s.matchDay, label: competitionName(s), rival: (c.kind === "duel" ? s.clubs.find((x) => x.id === c.rival) : null)?.name }];
   const out = [];
-  for (let f = s.fixture; f < 3; f++) out.push({ day: s.matchDay + (f - s.fixture) * c.spacing, label: "Fixture " + (f + 1) + " / 3", rival: s.clubs[f]?.name });
+  for (let f = s.fixture; f < 3; f++) out.push({ day: s.matchDay + (f - s.fixture) * c.spacing, label: "League duel " + (f + 1) + " / 3", rival: s.clubs[f]?.name });
+  if (c.format === "championship") {
+    out.push({ day: s.matchDay + (3 - s.fixture) * c.spacing, label: "League championship · 3 + 3 throws", rival: "Best throwers from every division club", projected: s.fixture < 3 });
+    return out;
+  }
   out.push({ day: s.matchDay + (3 - s.fixture) * c.spacing, label: s.fixture === 3 ? "League final" : "League final (top two)", rival: s.fixture === 3 ? s.clubs.find((x) => x.id === s.finalOpponent)?.name : null, projected: s.fixture < 3 });
   return out;
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as G from '../src/domain/game.js';
+import * as G from './helpers/developed-club.js';
 import { EVENTS, EVENT_IDS, LEAGUES, STADIUM } from '../src/game-content.js';
 
 test('past the record, marks keep rising ever more slowly, with no ceiling', () => {

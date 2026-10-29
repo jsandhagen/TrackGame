@@ -57,6 +57,10 @@ import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 
 import { competitionTier, competitionName, circuitKey, TITLE_GIFTS, rivalBase, rivalMastery } from "./competition.js";
 export * from "./competition.js";
+export * from "./progression.js";
+export * from "./qualification.js";
+import { seedChampionshipLineup } from "./qualification.js";
+import { firstMeet, systemUnlocked, systemProblem } from "./progression.js";
 export * from "./development.js";
 export * from "./coaching.js";
 export * from "./mastery.js";
@@ -85,11 +89,12 @@ export function setAthleteEvent(s, id, event) {
   return true;
 }
 
-export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: true, speed: 2, meetSpeed: 1, sound: true, reducedMotion: false, highlights: true };
+export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: true, quietMode: true, speed: 1, meetSpeed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
     v: 8,
+    onboarding: { meets: 0 },
     balance: 2,
     rivalClubs: {},
     facilityDuties: {},
@@ -162,8 +167,8 @@ export function newGame(seed = Date.now() >>> 0) {
   s.clubs = makeClubs(s, 0);
   s.rivalClubs[0]=s.clubs;
   autoLineup(s);
-  scout(s, true);
-  note(s, "Welcome home, Coach! Choose a duel or enter a league from the Meets board.", "story");
+  // Scouting is introduced after the sixth meet.
+  note(s, "Welcome home, Coach! Meet your four throwers, then book your first duel. We will learn the rest after competing.", "story");
   ensureInvitations(s);
   return ensureCustom(s);
 }
@@ -326,6 +331,7 @@ export function restAmount(s, a, fx = effects(s, a)) {
 }
 export function advanceDay(s) {
   if (s.match || !["planning", "season"].includes(s.phase) || (s.matchDay != null && s.day >= s.matchDay) || s.pendingEvent) return { ok: false };
+  if (firstMeet(s) && !s.competition && s.day >= 4) return { ok: false, reason: "The squad is ready. Book your first duel from Meets." };
   s.day++;
   count(s, "days");
   const weather = weatherToday(s),
@@ -402,6 +408,18 @@ export function advanceDay(s) {
   report.event = rollStoryEvent(s);
   return report;
 }
+// Skip advances a bounded preparation window and stops for an actual decision.
+export function skipPreparation(s) {
+  if (s.match || s.pendingEvent || !["planning","season"].includes(s.phase)) return {days:0,reason:"Finish the current meet or decision first."};
+  const target=s.matchDay ?? s.day+7, start=s.day;
+  for (let guard=0;s.day<target && guard<30;guard++) {
+    const report=advanceDay(s);
+    if (!report.ok || s.pendingEvent) break;
+  }
+  if (s.day>start) note(s,"Skipped "+(s.day-start)+" preparation days. See the journal for training and club news.","info");
+  return {days:s.day-start,meetReady:s.matchDay!=null && s.day>=s.matchDay,decision:!!s.pendingEvent};
+}
+
 // The café and merch stand sell to a share of visitors, up to what their counters can serve.
 export function counterTakings(s, type, level, visitors = visitorsPerDay(s)) {
   if (type === "cafe") return Math.round(Math.min(visitors * 0.6, 15 * (level + 1)) * (1 + level));
@@ -441,6 +459,7 @@ export const upgradeCost = (type, level) => Math.round((type === "club" ? 500 * 
 export function canBuild(s, index, type) {
   const d = FACILITIES[type];
   return (
+    systemUnlocked(s, "build") &&
     !!d &&
     type !== "club" &&
     index >= 0 &&
@@ -465,7 +484,7 @@ export function build(s, index, type) {
 }
 export function upgrade(s, index) {
   const p = s.plots[index];
-  if (!p || p.level >= maxLevelOf(p.type) || s.match) return false;
+  if (!systemUnlocked(s, "build") || !p || p.level >= maxLevelOf(p.type) || s.match) return false;
   const cost = upgradeCost(p.type, p.level);
   if (s.money < cost) return false;
   s.money -= cost;
@@ -478,6 +497,7 @@ export function upgrade(s, index) {
 }
 // Stadium installations upgrade in place; level 0 means not yet built.
 export function stadiumProblem(s, key) {
+  if (!systemUnlocked(s, "build")) return systemProblem(s, "build");
   const d = STADIUM[key],
     lvl = s.stadium[key];
   if (!d) return "Unknown";
@@ -501,14 +521,14 @@ export function upgradeStadium(s, key) {
   return { level: lvl + 1, discoveries };
 }
 export function moveFacility(s, from, to) {
-  if (s.match || from === to || [from, to].some((i) => i < 0 || i >= PLOT_COUNT || i === CLUB_PLOT || !plotUnlocked(s, i)) || !s.plots[from]) return false;
+  if (!systemUnlocked(s, "build") || s.match || from === to || [from, to].some((i) => i < 0 || i >= PLOT_COUNT || i === CLUB_PLOT || !plotUnlocked(s, i)) || !s.plots[from]) return false;
   [s.plots[from], s.plots[to]] = [s.plots[to], s.plots[from]];
   moveDuties(s,from,to);
   return { discoveries: discover(s) };
 }
 export function sellFacility(s, index) {
   const p = s.plots[index];
-  if (!p || p.type === "club" || s.match) return false;
+  if (!systemUnlocked(s, "build") || !p || p.type === "club" || s.match) return false;
   const refund = Math.round(FACILITIES[p.type].cost * 0.5);
   s.money += refund;
   s.plots[index] = null;
@@ -520,6 +540,7 @@ export function sellFacility(s, index) {
 // ── Items ─────────────────────────────────────────────────────────────
 export const itemPrice = (s, id) => Math.round(ITEMS[id].price * (s.saleDay === s.day ? 0.7 : 1));
 export function shopStock(s) {
+  if (!systemUnlocked(s, "kit")) return [];
   const tier = shopTier(s, SHOP_TIERS);
   return Object.keys(ITEMS).filter((k) => ITEMS[k].price != null && ITEMS[k].tier <= tier);
 }
@@ -532,6 +553,7 @@ export function buyItem(s, id) {
 }
 // Why a consumable would be wasted on this athlete (or squad), checked before buying or using it.
 export function itemProblem(s, id, athleteId) {
+  if (!systemUnlocked(s, "kit")) return systemProblem(s, "kit");
   const d = ITEMS[id];
   if (!d || d.kind !== "use") return "Not a consumable";
   if (s.match) return "Not during a meet";
@@ -594,6 +616,7 @@ export function ownedCount(s, id) {
   return (s.bag[id] || 0) + s.roster.filter((a) => GEAR_SLOTS.some((slot) => a.gear[slot] === id)).length;
 }
 export function equipItem(s, athleteId, id) {
+  if (!systemUnlocked(s, "kit")) return false;
   const a = s.roster.find((x) => x.id === athleteId),
     d = ITEMS[id];
   if (!a || !d || d.kind !== "gear" || s.match || !s.bag[id]) return false;
@@ -603,6 +626,7 @@ export function equipItem(s, athleteId, id) {
   return true;
 }
 export function unequipItem(s, athleteId, slot) {
+  if (!systemUnlocked(s, "kit")) return false;
   const a = s.roster.find((x) => x.id === athleteId);
   if (!a || !a.gear[slot] || s.match) return false;
   addItem(s, a.gear[slot]);
@@ -614,6 +638,7 @@ export function forgeCost(s, id) {
   return Math.round((ITEMS[id].price || 700) * 0.5 * (lvl + 1) * (lvl >= 3 ? 1.4 ** (lvl - 2) : 1) * (1 - 0.1 * facilityLevel(s, "workshop")) * (hasCombo(s, "techhub") ? 0.75 : 1));
 }
 export function forgeItem(s, id) {
+  if (!systemUnlocked(s, "kit")) return false;
   const lvl = s.forge[id] || 0;
   if (!facilityLevel(s, "workshop") || ITEMS[id]?.kind !== "gear" || !ownedCount(s, id) || s.money < forgeCost(s, id)) return false;
   s.money -= forgeCost(s, id);
@@ -631,6 +656,7 @@ export function skillAvailable(a, id) {
   return true;
 }
 export function learnSkill(s, athleteId, id) {
+  if (!systemUnlocked(s, "skills")) return false;
   const a = s.roster.find((x) => x.id === athleteId),
     k = SKILLS[id];
   if (!a || !skillAvailable(a, id) || a.sp < k.sp || a.rank < k.rank || s.match) return false;
@@ -641,6 +667,7 @@ export function learnSkill(s, athleteId, id) {
   return true;
 }
 export function toggleSkill(s, athleteId, id) {
+  if (!systemUnlocked(s, "skills")) return false;
   const a = s.roster.find((x) => x.id === athleteId);
   if (!a || !a.skills.includes(id) || s.match) return false;
   if (a.equipped.includes(id)) a.equipped = a.equipped.filter((k) => k !== id);
@@ -656,6 +683,7 @@ export function promoteCost(a) {
   return a.rank >= 4 ? starCost(a) : RANKS[a.rank + 1].cost;
 }
 export function promoteProblem(s, a) {
+  if (!systemUnlocked(s, "skills")) return systemProblem(s, "skills");
   const next = RANKS[a.rank + 1];
   if (!next) {
     if (a.level < starLevel(a)) return "Needs level " + starLevel(a) + " for ★" + ((a.stars || 0) + 1) + ".";
@@ -687,6 +715,7 @@ export function promote(s, athleteId) {
 // ── People ────────────────────────────────────────────────────────────
 export const scoutCost = (s) => Math.round((60 + 25 * s.league) * (1 - 0.15 * facilityLevel(s, "scout")));
 export function scout(s, free = false) {
+  if (!systemUnlocked(s, "recruit")) return false;
   if (!free && s.money < scoutCost(s)) return false;
   if (!free) s.money -= scoutCost(s);
   const luck = 0.25 * facilityLevel(s, "scout") + (hasCombo(s, "network") ? 0.3 : 0) + 0.05 * s.league;
@@ -698,6 +727,7 @@ export function scout(s, free = false) {
 }
 export const signCost = (s, a) => 200 + 110 * s.league + Math.round(eventRating(a, a.event) * 3) + RARITY[a.rarity].fee;
 export function recruit(s, id) {
+  if (!systemUnlocked(s, "recruit")) return false;
   const a = s.prospects.find((x) => x.id === id);
   if (!a || s.roster.length >= rosterCap(s) || s.money < signCost(s, a) || s.match) return false;
   s.money -= signCost(s, a);
@@ -711,6 +741,7 @@ export function recruit(s, id) {
   return true;
 }
 export function releaseAthlete(s, id) {
+  if (!systemUnlocked(s, "recruit")) return false;
   if (s.match || s.roster.length <= 4) return false;
   const a = s.roster.find((x) => x.id === id);
   if (!a) return false;
@@ -726,6 +757,7 @@ export function releaseAthlete(s, id) {
   return true;
 }
 export function chooseSponsor(s, id) {
+  if (!systemUnlocked(s, "office")) return false;
   if (s.sponsorLocked || !SPONSORS[id] || s.fans < SPONSORS[id].fans) return false;
   s.sponsor = id;
   return true;
@@ -783,7 +815,10 @@ export function leaveMatch(s) {
   } else {
     s.fixture++;
     s.matchDay = s.day + (s.competition?.spacing || 7);
-    if (s.fixture === 3) {
+    if (s.fixture === 3 && s.competition?.format === "championship") {
+      if (seedChampionshipLineup(s)) note(s, "Championship entries are ready. Qualified throwers get three preliminary attempts; the top six earn three final throws. All marks carry forward.", "meet");
+      else { s.phase = "seasonEnd"; s.champion = false; note(s, "No championship entry standard was met during the league duels. Rebuild, then try the league again.", "story"); }
+    } else if (s.fixture === 3) {
       const ranking = table(s),
         rank = ranking.findIndex((c) => c.id === "us");
       if (rank < 2) {

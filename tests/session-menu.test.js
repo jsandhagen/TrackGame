@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import * as G from '../src/domain/game.js';
+import * as G from './helpers/developed-club.js';
 import * as P from '../src/ui/pages.js';
 import {validateCampaign,exportCampaign} from '../src/domain/campaign-save.js';
 

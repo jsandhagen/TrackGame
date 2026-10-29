@@ -1,3 +1,4 @@
+import { systemUnlocked } from "./progression.js";
 import { FACILITIES, STADIUM } from '../game-content.js';
 import { clamp, grantXp, count } from './core.js';
 
@@ -23,6 +24,7 @@ export function dutySite(s,key) {
 export const dutySites = s => [...s.plots.map((_,i)=>dutySite(s,'plot:'+i)),dutySite(s,'studio')].filter(Boolean);
 export const athleteDuty = (s,id) => Object.entries(s.facilityDuties||{}).find(([,athlete])=>athlete===id)?.[0] || null;
 export function assignDuty(s,key,id) {
+  if (!systemUnlocked(s, "duties")) return false;
   if(s.match || s.pendingEvent || !dutySite(s,key)) return false;
   const a=s.roster.find(a=>a.id===id);
   if(id && (!a || a.injury)) return false;
@@ -64,6 +66,7 @@ const dutyReady = (s,a) => {
 // A daily snapshot is passed through the simulation so changing balances or
 // fatigue cannot move staff between sites halfway through the same day.
 export function automaticDuties(s,visitors=0) {
+  if (!systemUnlocked(s, "duties")) return {};
   const out={},reserved=new Set();
   for(const [key,id] of Object.entries(s.facilityDuties||{})) {
     const a=s.roster.find(a=>a.id===id);

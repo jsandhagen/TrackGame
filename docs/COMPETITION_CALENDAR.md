@@ -1,3 +1,5 @@
+> Current progression and newly booked league rules: [Learning the club and competing in leagues](PROGRESSION_AND_CHAMPIONSHIPS.md). The original calendar rules below remain applicable to legacy bookings.
+
 # Competition calendar — 0.6.0
 
 The Meets board replaces automatic enrolment. Train with an open calendar, book a single duel, or enter a league tournament. Pick 3, 5, 7 or 10 preparation days and 4, 7 or 10 days between league fixtures. An unstarted booking can be cancelled before meet day. Sporting trophies unlock competitions; duels have optional first-win rewards.

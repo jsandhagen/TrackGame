@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as G from '../src/domain/game.js';
+import * as G from './helpers/developed-club.js';
 import { validateCampaign, exportCampaign } from '../src/domain/campaign-save.js';
 import * as P from '../src/ui/pages.js';
 import { EVENT_IDS } from "../src/game-content.js";
@@ -11,6 +11,7 @@ function finishMeet(s, win = true) {
     else assert(G.advanceDay(s).ok);
   }
   if (s.pendingEvent) G.resolveEvent(s, G.eventView(s).choices.findIndex((c) => c.ok));
+  if (win) for (const a of s.roster) { a.potential=100; a.stats=[100,100,100,100]; for(const ev of EVENT_IDS) a.mastery[ev]=100; }
   if (win) G.opponent(s).athletes.forEach((a) => { a.stats = [1, 1, 1, 1]; a.skills = []; a.equipped = []; });
   assert(G.startMatch(s));
   assert(G.simulateMatch(s));
@@ -160,7 +161,7 @@ test('single-choice news never blocks training, but real choices still do', () =
   let automatic = 0, decisions = 0;
   for (let seed = 1; seed < 300; seed++) {
     const s = G.newGame(seed);
-    s.day = 5;
+    s.day = 1 + G.STORY_GAP;
     const logs = s.log.length;
     const e = G.rollStoryEvent(s);
     if (e) { decisions++; assert(G.STORY[e.id].choices.length > 1); assert(!G.advanceDay(s).ok); }
@@ -224,10 +225,11 @@ test('placings reward an event sweep, use countback, share exact ties and exclud
   assert.equal(scores[3].h,0); assert.equal(scores[3].a,0);
 });
 
-test('championships retain qualifying marks and give only the top four three final throws', () => {
+test('legacy finals retain qualifying marks and give only the top four three final throws', () => {
   const s=G.newGame(109);
   s.circuit.cleared=['0:0','0:1'];
   G.enterCompetition(s,{kind:'league',tier:0,stage:2});
+  delete s.competition.format; // A booked final from an older save keeps its rules.
   s.fixture=3; s.finalOpponent=0; s.day=s.matchDay;
   // Put a third athlete in shot, reducing the other event commitments first.
   s.entries={shot:s.roster.slice(0,3).map(a=>a.id),discus:[],hammer:[],jav:[s.roster[3].id]};

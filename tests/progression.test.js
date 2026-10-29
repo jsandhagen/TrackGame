@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import * as G from "../src/domain/game.js";
+import * as G from "./helpers/developed-club.js";
 import { EVENT_IDS } from "../src/game-content.js";
 
 // Head-to-head duel between identical squads using a fixed home policy.

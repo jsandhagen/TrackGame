@@ -1,3 +1,4 @@
+import { systemUnlocked } from "./progression.js";
 import { clamp, capOf, count, note } from "./core.js";
 
 // Sporting milestones are automatic and finite. No claim buttons or daily chores.
@@ -31,6 +32,7 @@ export function checkDevelopment(s, a) {
   return earned;
 }
 export function saveLoadout(s, id, mode) {
+  if (!systemUnlocked(s,"skills")) return false;
   const a = s.roster.find((x) => x.id === id);
   if (!a || s.match || !["training", "meet"].includes(mode)) return false;
   a.loadouts ??= { enabled: false, training: null, meet: null };
@@ -38,6 +40,7 @@ export function saveLoadout(s, id, mode) {
   return true;
 }
 export function enableLoadouts(s, id, enabled) {
+  if (!systemUnlocked(s,"skills")) return false;
   const a = s.roster.find((x) => x.id === id);
   if (!a || s.match || (enabled && (!a.loadouts?.training || !a.loadouts?.meet))) return false;
   if (a.loadouts) a.loadouts.enabled = !!enabled;

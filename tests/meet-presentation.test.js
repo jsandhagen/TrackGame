@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as G from '../src/domain/game.js';
+import * as G from './helpers/developed-club.js';
 import * as P from '../src/ui/pages.js';
 import {validateCampaign, exportCampaign} from '../src/domain/campaign-save.js';
 import {advanceBeatClock, beatDuration, throwOffset, LAND_MS, RESULT_MS, HIGHLIGHT_MS, ROUTINE_MS, hasCutIn, throwResult} from '../src/render/meet-presentation.js';
 
-test('highlights and 4x delivery speed preserve real time to read every result', () => {
- for (const speed of [1,2,4]) for (const highlights of [false,true]) for (const important of [false,true]) {
+test('1× preserves full watching time and 2× speeds up without hidden highlight acceleration', () => {
+ for (const speed of [1,2]) for (const highlights of [false,true]) for (const important of [false,true]) {
   const beat={type:'throw',athleteId:1,attempt:1,activations:['Captain'],newPb:important,previousPb:important?12:0};
   const landing=throwOffset(beat)+LAND_MS, duration=beatDuration(beat);
   let elapsed=0,time=0,landedAt=null;
@@ -14,7 +14,7 @@ test('highlights and 4x delivery speed preserve real time to read every result',
    elapsed=advanceBeatClock(beat,elapsed,10,speed,{highlights});time+=10;
    if(landedAt==null && elapsed>=landing)landedAt=time;
   }
-  const expected=important?HIGHLIGHT_MS:highlights?ROUTINE_MS:RESULT_MS;
+  const expected=(important?HIGHLIGHT_MS:RESULT_MS)/speed;
   assert(time-landedAt>=expected-10, `${speed}x highlights=${highlights} result lasted ${time-landedAt}ms`);
  }
  assert(!hasCutIn({type:'throw',activations:['Captain'],attempt:0,scoringSwing:5}));

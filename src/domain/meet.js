@@ -28,6 +28,38 @@ import { checkDevelopment } from "./development.js";
 import { WEATHER, weatherToday } from "./calendar.js";
 import { venueFor } from "./venues.js";
 import { invitation, clubById, settleInvitation } from "./invitational.js";
+import { CHAMPIONSHIP_FINALISTS, CHAMPIONSHIP_POINTS, championshipBooking, championshipQualified, qualifyingMark, recordQualifier, simulateQualifiers } from "./qualification.js";
+import { introduceAfterMeet, firstMeet } from "./progression.js";
+
+export const isLeagueChampionship = (s) => s.competition?.kind === "league" && s.competition.format === "championship" && s.fixture === 3;
+// The active three clubs can have more recent marks than their saved pool copies.
+export function championshipClubs(s) {
+  const pool = s.rivalClubs?.[competitionTier(s)] || s.clubs;
+  return pool.map(c => s.clubs.find(active => active.id === c.id) || c);
+}
+export function championshipField(s) {
+  const clubs = championshipClubs(s);
+  return { id: clubs[0].id, name: "League championship", color: "#c9a227", style: "Qualified throwers from every division club · three preliminary throws + three finals throws", athletes: clubs.flatMap(c => c.athletes) };
+}
+export const finalistLimit = m => m.prelimFinals ? CHAMPIONSHIP_FINALISTS : 4;
+export function championshipEntries(s) {
+  const out = Object.fromEntries(EVENT_IDS.map(ev => [ev, []]));
+  for (const club of championshipClubs(s)) {
+    const uses = new Map();
+    for (let slot=0;slot<2;slot++) for (const ev of EVENT_IDS) {
+      const athlete = [...club.athletes].filter(a => championshipQualified(s,a.id,ev) && (uses.get(a.id) || 0) < 2 && !out[ev].some(e=>e.athlete.id===a.id)).sort((a,b) => qualifyingMark(s,b.id,ev)-qualifyingMark(s,a.id,ev))[0];
+      if (!athlete) continue;
+      out[ev].push({ athlete, club });
+      uses.set(athlete.id, (uses.get(athlete.id) || 0) + 1);
+    }
+  }
+  return out;
+}
+export function rivalClubFor(s, id) {
+  return s.match?.leagueChampionship || isLeagueChampionship(s)
+    ? championshipClubs(s).find(c => c.athletes.some(a => a.id === id))
+    : s.match ? matchClub(s) : opponent(s);
+}
 
 export const best = (marks) => {
   const valid = marks.filter((x) => x != null);
@@ -37,6 +69,7 @@ export function opponent(s) {
   if (!s.competition) return null;
   if (s.competition.kind === "cup") return invitation(s)?.club;
   if (s.competition.kind === "duel") return s.clubs.find((c) => c.id === s.competition.rival);
+  if (isLeagueChampionship(s)) return championshipField(s);
   if (s.fixture < 3) return s.clubs[s.fixture];
   return s.clubs.find((c) => c.id === s.finalOpponent);
 }
@@ -48,13 +81,14 @@ export const usesOf = (s, id, lineup = s.lineup) => {
 export const entriesOf = (s, ev) => s.entries?.[ev] ?? (s.lineup[ev] ? [s.lineup[ev]] : []);
 export function lineupProblem(s) {
   const all = EVENT_IDS.flatMap((ev) => entriesOf(s, ev));
-  if (!all.length) return "Enter at least one athlete.";
+  if (!all.length) return isLeagueChampionship(s) ? "No qualified entries. Meet a championship standard in the league duels." : "Enter at least one athlete.";
   for (const ev of EVENT_IDS) {
     const ids = entriesOf(s, ev);
     if (ids.length > 3 || new Set(ids).size !== ids.length) return "Up to three different athletes per event.";
     for (const id of ids) {
       const a = s.roster.find((a) => a.id === id);
       if (!a || a.injury) return "Every entered athlete must be healthy.";
+      if (isLeagueChampionship(s) && !championshipQualified(s,id,ev)) return a.name + " has not met the championship entry standard in " + EVENTS[ev].name + ".";
       if (all.filter((x) => x === id).length > 2) return a.name + " can enter at most two events.";
     }
   }
@@ -63,7 +97,7 @@ export function lineupProblem(s) {
 export function assignEntry(s, event, slot, id) {
   if (s.match || !EVENTS[event] || !Number.isInteger(slot) || slot < 0 || slot > 2) return false;
   const a = s.roster.find((a) => a.id === id);
-  if (id && (!a || a.injury)) return false;
+  if (id && (!a || a.injury || isLeagueChampionship(s) && !championshipQualified(s,id,event))) return false;
   const entries = Object.fromEntries(EVENT_IDS.map((ev) => [ev, [...entriesOf(s, ev)]]));
   const ids = entries[event];
   if (id && (ids.some((x, i) => i !== slot && x === id) || EVENT_IDS.filter((ev) => ev !== event && entries[ev].includes(id)).length >= 2)) return false;
@@ -85,11 +119,11 @@ export function autoLineup(s) {
   );
   for (const ev of order) {
     const options = healthy
-      .filter((a) => usesOf(s, a.id, lineup) < (healthy.length >= 4 ? 1 : 2))
+      .filter((a) => usesOf(s, a.id, lineup) < (healthy.length >= 4 ? 1 : 2) && (!isLeagueChampionship(s) || championshipQualified(s,a.id,ev)))
       .sort((a, b) => forecast(s, b, ev) - forecast(s, a, ev));
-    const fallback = healthy.filter((a) => usesOf(s, a.id, lineup) < 2).sort((a, b) => forecast(s, b, ev) - forecast(s, a, ev));
+    const fallback = healthy.filter((a) => usesOf(s, a.id, lineup) < 2 && (!isLeagueChampionship(s) || championshipQualified(s,a.id,ev))).sort((a, b) => forecast(s, b, ev) - forecast(s, a, ev));
     const pickA = options[0] || fallback[0];
-    if (!pickA) return false;
+    if (!pickA) { if (isLeagueChampionship(s)) { lineup[ev]=null; continue; } return false; }
     lineup[ev] = pickA.id;
   }
   s.lineup = lineup;
@@ -101,7 +135,7 @@ export function autoLineup(s) {
     const slots=healthy.flatMap(a=>Array.from({length:2-EVENT_IDS.filter(ev=>entriesOf(s,ev).includes(a.id)).length},()=>a.id));
     const matched=new Map();
     function fill(ev,seen) {
-      const choices=slots.map((id,index)=>({id,index,a:healthy.find(a=>a.id===id)})).filter(x=>!entriesOf(s,ev).includes(x.id)).sort((a,b)=>forecast(s,b.a,ev)-forecast(s,a.a,ev));
+      const choices=slots.map((id,index)=>({id,index,a:healthy.find(a=>a.id===id)})).filter(x=>!entriesOf(s,ev).includes(x.id) && (!isLeagueChampionship(s) || championshipQualified(s,x.id,ev))).sort((a,b)=>forecast(s,b.a,ev)-forecast(s,a.a,ev));
       for(const slot of choices) {
         if(seen.has(slot.index))continue;seen.add(slot.index);
         if(!matched.has(slot.index)||fill(matched.get(slot.index),seen)){matched.set(slot.index,ev);return true;}
@@ -135,12 +169,15 @@ export function meetVenue(s) {
   if (!booked) return null;
   return venueFor(s, { ...booked, tier: competitionTier(s), club: m ? matchClub(s) : opponent(s), invitation: s.invitations?.offer });
 }
-export const matchClub = (s) => clubById(s, s.match?.opponentId);
+export const matchClub = (s) => s.match?.leagueChampionship ? championshipField(s) : clubById(s, s.match?.opponentId);
 export function startMatch(s) {
   if (s.match || !s.competition || s.phase !== "season" || s.day < s.matchDay || s.pendingEvent || lineupProblem(s)) return false;
   const rival = opponent(s);
   if (!rival) return false;
-  const awayEntries=rivalEntries(s,rival);
+  const leagueChampionship = isLeagueChampionship(s);
+  const clubs = leagueChampionship ? championshipClubs(s) : [rival];
+  // Each division club sends its strongest available thrower in each event.
+  const awayEntries = leagueChampionship ? Object.fromEntries(Object.entries(championshipEntries(s)).map(([ev, entries]) => [ev, entries.map(e => e.athlete.id)])) : rivalEntries(s,rival);
   s.sponsorLocked = true;
   const { kind, home } = bookedMeet(s);
   for (const r of rival.athletes) { r.condition = 35 + Math.round(random(s) * 45); r.stamina=100; }
@@ -149,6 +186,7 @@ export function startMatch(s) {
     kind,
     home,
     opponentId: rival.id,
+    ...(leagueChampionship ? { leagueChampionship: true, prelimFinals: true, clubs: clubs.map(c => ({ id: c.id, name: c.name, color: c.color })) } : {}),
     name: rival.name,
     color: rival.color,
     eventIndex: 0,
@@ -162,7 +200,7 @@ export function startMatch(s) {
     finalRound: false,
     fields: EVENT_IDS.map((ev, i) => ({
       home: entriesOf(s, ev).map((id) => ({ id, marks: [], finalist: false })),
-      away: awayEntries[ev].map((id) => ({ id, marks: [], finalist: false })),
+      away: awayEntries[ev].map((id) => ({ id, marks: [], finalist: false, ...(leagueChampionship ? { clubId: clubs.find(c => c.athletes.some(a => a.id === id)).id } : {}) })),
     })),
     phase: "intro",
     homeMarks: EVENT_IDS.map(() => []),
@@ -201,8 +239,8 @@ const ranking = (field) => [...field.home.map((e) => ({ ...e, side: "home" })), 
     for (let i = 0; i < Math.max(x.length,y.length); i++) if ((y[i] ?? -1) !== (x[i] ?? -1)) return (y[i] ?? -1) - (x[i] ?? -1);
     return 0;
   });
-function scoreField(field,done=true) {
-  const rows=ranking(field),table=[5,3,1],out=[];
+function scoreField(field,done=true,table=[5,3,1]) {
+  const rows=ranking(field),out=[];
   for(let i=0;i<rows.length;) {
     const row=rows[i],mark=best(row.marks);
     if(mark==null){out.push({...row,mark:null,place:null,points:0});i++;continue;}
@@ -218,15 +256,36 @@ export function eventScores(m) {
   return EVENT_IDS.map((event,i)=>{
     if(!m.fields){const home=best(m.homeMarks[i]),away=best(m.awayMarks[i]),done=m.homeMarks[i].length===m.attempts&&m.awayMarks[i].length===m.attempts;
       return {event,home,away,done,h:done&&home!=null&&(away==null||home>away)?3:0,a:done&&away!=null&&(home==null||away>home)?3:0,placings:[]};}
-    const f=m.fields[i],done=!!m.closed[i],placings=scoreField(f,done);
+    const f=m.fields[i],done=!!m.closed[i],placings=scoreField(f,done,m.prelimFinals ? CHAMPIONSHIP_POINTS : undefined);
     return {event,home:best(f.home.flatMap(e=>e.marks)),away:best(f.away.flatMap(e=>e.marks)),done,placings,
-      h:placings.filter(e=>e.side==="home").reduce((n,e)=>n+e.points,0),a:placings.filter(e=>e.side==="away").reduce((n,e)=>n+e.points,0)};
+      h:placings.filter(e=>e.side==="home").reduce((n,e)=>n+e.points,0),a:m.leagueChampionship
+        ? Math.max(0,...m.clubs.map(c => placings.filter(e=>e.side==="away" && e.clubId===c.id).reduce((n,e)=>n+e.points,0)))
+        : placings.filter(e=>e.side==="away").reduce((n,e)=>n+e.points,0)};
   });
 }
-function rescore(m) {
+export function rescore(m) {
   const sc = eventScores(m);
   m.score = sc.reduce((n, e) => n + e.h, 0);
   m.against = sc.reduce((n, e) => n + e.a, 0);
+  if (m.leagueChampionship) {
+    m.teamScores = championshipScores(m);
+    const leader = m.teamScores.find(c => c.id !== "us");
+    m.against = leader.points;
+    m.leadingClub = leader.name;
+  }
+}
+
+export function championshipScores(m) {
+  if (!m.leagueChampionship) return [];
+  return [{ id: "us", name: "Your club" }, ...m.clubs].map(club => {
+    let points = 0, performance = 0;
+    for (const e of eventScores(m)) {
+      const rows = e.placings.filter(r => club.id === "us" ? r.side === "home" : r.side === "away" && r.clubId === club.id);
+      points += rows.reduce((n,r) => n + r.points, 0);
+      if (e.done) performance += Math.max(0, ...rows.map(r => r.mark || 0)) / EVENTS[e.event].max;
+    }
+    return { ...club, points, performance };
+  }).sort((a,b) => b.points - a.points || b.performance - a.performance || String(a.id).localeCompare(String(b.id)));
 }
 
 // Meaningful next scoring target across the entire field, including teammates.
@@ -234,22 +293,23 @@ export function fieldLeaderboard(s,i=s.match?.eventIndex,hide) {
   if(!s.match?.fields)return [];
   let field=s.match.fields[i];
   if(hide && hide.eventIndex===i) field={home:field.home.map((e,n)=>({...e,marks:hide.side==="home"&&n===s.match.entryIndex?e.marks.slice(0,hide.attempt):e.marks})),away:field.away.map((e,n)=>({...e,marks:hide.side==="away"&&n===s.match.entryIndex?e.marks.slice(0,hide.attempt):e.marks}))};
-  return scoreField(field,true);
+  return scoreField(field,true,s.match.prelimFinals ? CHAMPIONSHIP_POINTS : undefined);
 }
 export function fieldTarget(s,side="home") {
   const m=s.match;
   if(!m?.fields)return null;
   const i=m.eventIndex,athlete=side==="home"?homeAthlete(s):rivalAthlete(s),rows=fieldLeaderboard(s,i),own=rows.find(r=>r.side===side&&r.id===athlete.id);
   if(!own)return null;
-  const margin=rows.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0);
+  const ownTeam = r => m.leagueChampionship && side === "away" ? r.side === "away" && r.clubId === own.clubId : r.side === side;
+  const margin=rows.reduce((n,r)=>n+(ownTeam(r)?1:-1)*r.points,0);
   const candidates=[...new Set(rows.filter(r=>r.mark!=null&&(own.mark==null||r.mark>=own.mark)).map(r=>r.mark))].sort((a,b)=>a-b);
   for(const mark of candidates){
     const source=m.fields[i],f={home:source.home.map(e=>({...e,marks:[...e.marks]})),away:source.away.map(e=>({...e,marks:[...e.marks]}))};
     f[side].find(e=>e.id===athlete.id).marks.push(+(mark+0.01).toFixed(2));
-    const after=scoreField(f,true);
-    const gain=after.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0)-margin;
+    const after=scoreField(f,true,m.prelimFinals ? CHAMPIONSHIP_POINTS : undefined);
+    const gain=after.reduce((n,r)=>n+(ownTeam(r)?1:-1)*r.points,0)-margin;
     const placing=after.find(r=>r.side===side&&r.id===athlete.id)?.place;
-    const qualification=m.championship&&!m.finalRound&&(own.place==null||own.place>4)&&placing<=4;
+    const qualification=m.championship&&!m.finalRound&&(own.place==null||own.place>finalistLimit(m))&&placing<=finalistLimit(m);
     if(gain>0||qualification)return {mark:+(mark+0.01).toFixed(2),place:placing,swing:gain,qualification,delta:own.mark==null?null:mark+0.01-own.mark};
   }
   return own.mark==null?{mark:null,place:null,swing:0,legal:true}:null;
@@ -298,8 +358,9 @@ export function autoTactic(s,side="home") {
       if(e.marks.length<c.m.attempts)e.marks.push(estimate*0.995);
     }
     const samples=[[-1.6,0.08],[-0.8,0.24],[0,0.36],[0.8,0.24],[1.6,0.08]];
-    const margin=rows=>rows.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0);
-    const base=margin(scoreField(field));
+    const clubId=entrant(s,side)?.clubId;
+    const margin=rows=>rows.reduce((n,r)=>n+((c.m.leagueChampionship && side==="away" ? r.side==="away" && r.clubId===clubId : r.side===side)?1:-1)*r.points,0);
+    const base=margin(scoreField(field,true,c.m.prelimFinals ? CHAMPIONSHIP_POINTS : undefined));
     let winner="balanced",bestValue=-Infinity;
     for(const tactic of ["balanced","safe","attack"]) {
       const risk=riskModel(s,c,side,tactic,"good",false);
@@ -307,7 +368,7 @@ export function autoTactic(s,side="home") {
       for(const [z,w] of samples) {
         const f={home:field.home.map(e=>({...e,marks:[...e.marks]})),away:field.away.map(e=>({...e,marks:[...e.marks]}))};
         f[side].find(e=>e.id===c.athlete.id).marks.push(risk.metres(z));
-        expected+=(1-risk.foul)*w*margin(scoreField(f));
+        expected+=(1-risk.foul)*w*margin(scoreField(f,true,c.m.prelimFinals ? CHAMPIONSHIP_POINTS : undefined));
       }
       // Preserve readiness and confidence when extra risk cannot buy team points.
       const value=expected-risk.foul*0.03-TACTICS[tactic].stamina*0.002;
@@ -338,7 +399,7 @@ export function needsDecision(s) {
   const c = context(s, "home");
   if (m.fields && (!entrant(s, "home") || (m.finalRound && !entrant(s, "home").finalist))) return false;
   if (c.own.length >= m.attempts || (m.rotation ? m.turnSide!=="home" : c.opp.length <= c.own.length)) return false;
-  return s.settings.meetMode === "coach" || (s.settings.clutch !== false && isClutch(s));
+  return s.settings.meetMode === "coach" || (!firstMeet(s) && s.settings.clutch !== false && isClutch(s));
 }
 
 // Every number the planning panel needs, without rolling.
@@ -371,7 +432,9 @@ function riskModel(s, c, side, tactic, quality, sig) {
   on(trailing, "trailing", "Rival Hunter");
   on(leading, "leading", "Front Runner");
   on(c.m.kind === "final" || c.m.kind === "cup", "final", "Big Stage");
-  const teamBehind = side === "home" ? c.m.score < c.m.against : c.m.against < c.m.score;
+  const clubId = side === "home" ? "us" : entrant(s,"away")?.clubId;
+  const standings = c.m.leagueChampionship ? championshipScores(c.m) : null;
+  const teamBehind = standings ? standings.find(club=>club.id===clubId)?.points < standings[0].points : side === "home" ? c.m.score < c.m.against : c.m.against < c.m.score;
   on(teamBehind, "teamTrailing", "Anchor");
   if (fx.streak) {
     const valid = c.own.filter((x) => x != null).length;
@@ -384,7 +447,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= 1 + fx.crowd * Math.max(0.25, fansFactor(s));
     acts.push(sourceName(a, "crowd") || "Showtime");
   }
-  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : matchClub(s).athletes;
+  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : rivalClubFor(s,c.athlete.id).athletes;
   const captain = squad.find((x) => x && equippedSkills(x, "meet").includes("captain"));
   if (captain) {
     mult *= SKILLS.captain.captain;
@@ -471,7 +534,8 @@ function throwFor(s, side, tactic, quality, sig) {
     previousPlace: previousRow?.place ?? null,
     place: row?.place ?? null,
     tookLead: row?.place === 1 && previousRow?.place !== 1,
-    qualified: !!(m.championship && !m.finalRound && row?.place != null && row.place <= 4 && (!previousRow?.place || previousRow.place > 4)),
+    qualified: !!(m.championship && !m.finalRound && row?.place != null && row.place <= finalistLimit(m) && (!previousRow?.place || previousRow.place > finalistLimit(m))),
+    finalistLimit: finalistLimit(m),
     improvement: mark != null && c.ownBest != null ? Math.max(0, mark - c.ownBest) : 0,
   };
 }
@@ -555,6 +619,7 @@ function selectFieldTurn(s) {
     const e=f[side][index];if(e&&(!m.finalRound||e.finalist)&&e.marks.length<m.attempts) queue.push({side,index,attempt:e.marks.length});
   }
   if(!queue.length)return null;
+  if (m.prelimFinals && m.finalRound && f.finalOrder) queue.sort((a,b) => f.finalOrder.findIndex(e=>e.side===a.side&&e.id===f[a.side][a.index].id)-f.finalOrder.findIndex(e=>e.side===b.side&&e.id===f[b.side][b.index].id));
   const round=Math.min(...queue.map(t=>t.attempt));return queue.find(t=>t.attempt===round);
 }
 function advanceFieldMatch(s) {
@@ -568,10 +633,17 @@ function advanceFieldMatch(s) {
   let turn=selectFieldTurn(s);
   if(!turn) {
     if(m.championship&&!m.finalRound) {
-      const f=m.fields[m.eventIndex],ranked=ranking(f).filter(e=>best(e.marks)!=null),finalists=ranked.slice(0,4);
+      const f=m.fields[m.eventIndex], all=ranking(f), ranked=all.filter(e=>best(e.marks)!=null), limit=finalistLimit(m);
+      const finalists=m.prelimFinals && all.length<=limit ? all : ranked.slice(0,limit);
+      if (m.prelimFinals && ranked.length>limit) {
+        const series=e=>JSON.stringify(e.marks.filter(v=>v!=null).sort((a,b)=>b-a));
+        const cutoff=series(ranked[limit-1]);
+        finalists.push(...ranked.slice(limit).filter(e=>series(e)===cutoff));
+      }
+      if (m.prelimFinals) f.finalOrder=[...all].reverse().filter(e=>finalists.some(r=>r.side===e.side&&r.id===e.id)).map(e=>({side:e.side,id:e.id}));
       for(const side of ["home","away"]) for(const e of f[side]) e.finalist=finalists.some(r=>r.side===side&&r.id===e.id);
       m.finalRound=true;m.attempts=6;turn=selectFieldTurn(s);
-      if(turn){m.entryIndex=turn.index;m.turnSide=turn.side;syncMarks(s);return m.last={type:"eventStart",event:EVENT_IDS[m.eventIndex],eventIndex:m.eventIndex,home:homeAthlete(s).id,away:rivalAthlete(s).id,finals:true};}
+      if(turn){m.entryIndex=turn.index;m.turnSide=turn.side;syncMarks(s);return m.last={type:"eventStart",event:EVENT_IDS[m.eventIndex],eventIndex:m.eventIndex,home:homeAthlete(s).id,away:rivalAthlete(s).id,finals:true,finalistLimit:limit};}
     }
     return closeEvent(s,m.eventIndex);
   }
@@ -595,7 +667,8 @@ function closeEvent(s, i) {
         const squad=side==="home"?s.roster:matchClub(s).athletes;
         for(const row of e.placings||[]) if(row.side===side&&row.place===1) {
           const winner=squad.find(a=>a.id===row.id);
-          if(effects(s,winner,side==="home").hype) for(const a of squad) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
+          const teammates=side==="away" ? rivalClubFor(s,winner.id).athletes : squad;
+          if(effects(s,winner,side==="home").hype) for(const a of teammates) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
         }
       }
       const beat = { type: "eventEnd", event: e.event, eventIndex:i, h:e.h, a:e.a, home:e.home, away:e.away, score:m.score, against:m.against };
@@ -624,7 +697,13 @@ export function settleMatch(s) {
   const m = s.match;
   if (!m || m.settled || !eventScores(m).every((e) => e.done)) return;
   rescore(m);
-  if ((m.kind === "final" || m.kind === "cup") && meetOutcome(m) === 0) {
+  if (m.leagueChampionship) {
+    const tied = m.teamScores.filter(c => c.points === m.teamScores[0].points);
+    if (tied.length > 1) {
+      m.tieBreak = true;
+      m.tieBreakWinner = m.teamScores[0].id === "us" ? "home" : "away";
+    }
+  } else if ((m.kind === "final" || m.kind === "cup") && meetOutcome(m) === 0) {
     const total = eventScores(m).reduce((n, e) => n + (e.home || 0) / EVENTS[e.event].max - (e.away || 0) / EVENTS[e.event].max, 0);
     m.tieBreak = true;
     m.tieBreakWinner = total >= 0 ? "home" : "away";
@@ -718,7 +797,16 @@ export function settleMatch(s) {
       rewards.items.push(item);
     }
   }
+  if (m.kind === "league" && championshipBooking(s)) {
+    for (const [i,ev] of EVENT_IDS.entries()) for (const side of ["home","away"]) for (const entry of m.fields[i][side]) recordQualifier(s,entry.id,ev,entry.marks);
+    for (const club of championshipClubs(s)) if (club.id !== m.opponentId) simulateQualifiers(s,club,rivalEntries(s,club));
+  }
   count(s, "meets");
+  const introduced = introduceAfterMeet(s);
+  if (introduced) {
+    rewards.introduction = introduced.id;
+    note(s, "New: " + introduced.name + ". " + introduced.desc, "story");
+  }
   if (win) count(s, "meetWins");
   money = rewards.money;
   const result = { id: m.id, kind: m.kind, name: m.name, score: m.score, against: m.against, win, draw, prize: money, season: s.season, league: L, stage: s.competition.stage };
@@ -750,4 +838,6 @@ export function settleMatch(s) {
 }
 
 
-export const meetOutcome = (m) => Math.sign(m.score - m.against) || (m.tieBreakWinner === "home" ? 1 : m.tieBreakWinner === "away" ? -1 : 0);
+export const meetOutcome = (m) => m.leagueChampionship && m.teamScores?.length
+  ? (m.teamScores[0].id === "us" ? 1 : -1)
+  : Math.sign(m.score - m.against) || (m.tieBreakWinner === "home" ? 1 : m.tieBreakWinner === "away" ? -1 : 0);
