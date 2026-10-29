@@ -14,6 +14,7 @@ import {
   statTotal,
   capOf,
 } from "./core.js";
+import { weatherToday } from "./calendar.js";
 
 // ── Club goals: a steady stream of short- and long-term targets ───────────
 const bestMark = (s, ev) => s.records?.[ev]?.mark || 0;
@@ -129,6 +130,16 @@ const byId = (s, id) => s.roster.find((a) => a.id === id);
 const team = (s, fn) => s.roster.forEach(fn);
 const cond = (a, n) => (a.condition = clamp(a.condition + n, 0, 100));
 const stam = (a, n) => (a.stamina = clamp(a.stamina + n, 0, 100));
+const active = (s) => s.roster.filter((a) => !a.injury);
+const available = (s, id) => { const a = byId(s, id); return a && !a.injury; };
+const mentorPair = (s) => {
+  const athletes = [...active(s)].sort((a, b) => a.level - b.level),
+    learner = athletes[0], mentor = athletes.at(-1);
+  return mentor && mentor.level - learner.level >= 3 ? { mentor: mentor.id, learner: learner.id } : null;
+};
+
+// Ordinary stories sit out the next three draws, including automatic news.
+export const STORY_RECENT_LIMIT = 3;
 
 export const STORY = {
   secret: {
@@ -297,6 +308,74 @@ export const STORY = {
       { label: () => "Stay home", run: () => "Home cooking wins today." },
     ],
   },
+  friendlyChallenge: {
+    weight: 1,
+    when: (s) => new Set(active(s).map((a) => a.event)).size >= 2,
+    setup: (s) => {
+      const a = pick(s, active(s)), b = pick(s, active(s).filter((b) => b.event !== a.event));
+      return { first: a.id, second: b.id };
+    },
+    title: () => "The cone challenge",
+    text: (s, d) => byId(s, d.first)?.name + " and " + byId(s, d.second)?.name + " have set up a footwork course with the last six cones. Both insist their event has the quickest feet.",
+    choices: [
+      { label: () => "A friendly contest (+24 XP each, −8 stamina)", ok: (s, d) => [d.first, d.second].every((id) => available(s, id) && byId(s, id).stamina >= 8), run: (s, d) => { for (const id of [d.first, d.second]) { const a = byId(s, id); stam(a, -8); grantXp(s, a, 24); } return "Two very different techniques. One suspiciously moved cone. Both athletes gain 24 XP and use 8 stamina."; } },
+      { label: () => "Call it a draw (+8 condition each)", run: (s, d) => { for (const id of [d.first, d.second]) { const a = byId(s, id); if (a) cond(a, 8); } return "They agree the real winner is whoever puts the cones away. Condition +8 for both."; } },
+    ],
+  },
+  mentoring: {
+    weight: 1,
+    when: (s) => !!mentorPair(s),
+    setup: mentorPair,
+    title: () => "One small coaching tip",
+    text: (s, d) => byId(s, d.mentor)?.name + " spots " + byId(s, d.learner)?.name + " practising alone and offers to explain a warm-up routine learned the hard way.",
+    choices: [
+      { label: () => "Try it together (+40 learner XP, mentor −8 stamina)", ok: (s, d) => available(s, d.mentor) && available(s, d.learner) && byId(s, d.mentor).stamina >= 8, run: (s, d) => { stam(byId(s, d.mentor), -8); grantXp(s, byId(s, d.learner), 40); return byId(s, d.learner).name + " leaves with a new routine and 40 XP. The mentor uses 8 stamina."; } },
+      { label: () => "Just swap stories (+8 condition each)", run: (s, d) => { for (const id of [d.mentor, d.learner]) { const a = byId(s, id); if (a) cond(a, 8); } return "It turns out even the experienced athletes once threw backwards. Condition +8 for both."; } },
+    ],
+  },
+  communityClinic: {
+    weight: 1,
+    when: (s) => s.fans >= 100 && active(s).length > 0,
+    setup: (s) => ({ id: pick(s, active(s)).id, fans: 20 + 5 * s.league }),
+    title: () => "Little coaches at the gate",
+    text: (s, d) => "A local school asks " + byId(s, d.id)?.name + " to demonstrate a warm-up. The children have brought a clipboard each and some very serious questions.",
+    choices: [
+      { label: (s, d) => "Lead the clinic (+" + d.fans + " fans, −10 stamina)", ok: (s, d) => available(s, d.id) && byId(s, d.id).stamina >= 10, run: (s, d) => { stam(byId(s, d.id), -10); s.fans += d.fans; return "Everyone leaves knowing how to warm up, and nobody agrees who was coaching whom. +" + d.fans + " fans; the demonstrator uses 10 stamina."; } },
+      { label: () => "Answer questions from the bench (+8 condition)", run: (s, d) => { const a = byId(s, d.id); if (a) cond(a, 8); return "The most popular question is still “how far could you throw a sandwich?” Condition +8."; } },
+    ],
+  },
+  libraryNotes: {
+    weight: 1,
+    when: (s) => facilityLevel(s, "library") > 0 && active(s).length > 0,
+    setup: (s) => ({ id: pick(s, active(s)).id }),
+    title: () => "Notes in the margins",
+    text: (s, d) => byId(s, d.id)?.name + " finds a battered meet programme in the Coaches' Library. An old coach has filled every margin with warm-up notes and tiny drawings of terrible throws.",
+    choices: [
+      { label: () => "Study the notes (+30 XP)", ok: (s, d) => available(s, d.id), run: (s, d) => { grantXp(s, byId(s, d.id), 30); return "The diagrams make more sense on the second reading. " + byId(s, d.id).name + " gains 30 XP."; } },
+      { label: () => "Share the drawings (+5 team condition)", run: (s) => { team(s, (a) => cond(a, 5)); return "The drawing labelled “absolutely do not do this” goes on the noticeboard. Team condition +5."; } },
+    ],
+  },
+  cafeRecipe: {
+    weight: 1,
+    when: (s) => facilityLevel(s, "cafe") > 0,
+    title: () => "The café's secret recipe",
+    text: () => "The café has made a trial batch of oat bars. The squad claims it needs a thorough taste test. The visitors are already asking for the recipe.",
+    choices: [
+      { label: () => "Squad taste test (+8 team condition)", run: (s) => { team(s, (a) => cond(a, 8)); return "A unanimous verdict, apart from a long debate about raisins. Team condition +8."; } },
+      { label: () => "Put them on the counter (+$60)", run: (s) => { s.money += 60; return "The little batch sells out before the kettle boils. +$60."; } },
+    ],
+  },
+  snowSculpture: {
+    weight: 1,
+    when: (s) => weatherToday(s) === "snow" && active(s).length > 0,
+    setup: (s) => ({ id: pick(s, active(s)).id }),
+    title: () => "A champion made of snow",
+    text: (s, d) => byId(s, d.id)?.name + " has started a snow sculpture beside the gate. It has a champion's pose, a pinecone medal and, so far, only one arm.",
+    choices: [
+      { label: () => "Finish the sculpture (+15 fans, −6 stamina)", ok: (s, d) => available(s, d.id) && byId(s, d.id).stamina >= 6, run: (s, d) => { stam(byId(s, d.id), -6); s.fans += 15; return "The finished champion becomes the neighbourhood's favourite photo stop. +15 fans; the sculptor uses 6 stamina."; } },
+      { label: () => "Admire it over hot drinks (+8 team condition)", run: (s) => { team(s, (a) => cond(a, 8)); return "One arm is plenty when you're holding a mug. Team condition +8."; } },
+    ],
+  },
 };
 export function rollStoryEvent(s) {
   if (s.pendingEvent) return null;
@@ -308,11 +387,16 @@ export function rollStoryEvent(s) {
     return s.pendingEvent;
   }
   if (s.day - (s.lastEventDay || 0) < 2 || (s.matchDay != null && s.day >= s.matchDay) || random(s) > 0.24) return null;
-  const pool = Object.entries(STORY).filter(([id, e]) => e.weight && (!e.when || e.when(s)));
+  const eligible = Object.entries(STORY).filter(([id, e]) => e.weight && (!e.when || e.when(s))),
+    recent = s.recentStoryEvents || [],
+    fresh = eligible.filter(([id]) => !recent.includes(id)),
+    pool = fresh.length ? fresh : eligible;
+  if (!pool.length) return null;
   let r = random(s) * pool.reduce((n, [, e]) => n + e.weight, 0),
     id = pool[0][0];
   for (const [k, e] of pool) if ((r -= e.weight) < 0) { id = k; break; }
   s.pendingEvent = { id, data: STORY[id].setup?.(s) || {} };
+  s.recentStoryEvents = [...recent.filter((k) => k !== id), id].slice(-STORY_RECENT_LIMIT);
   s.lastEventDay = s.day;
   // Gifts and announcements have no choice to make: keep the world running.
   if (STORY[id].choices.length === 1 && !STORY[id].choices[0].ok) {

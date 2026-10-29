@@ -11,6 +11,7 @@ import { DRILLS, CHEMISTRY } from "./coaching.js";
 import { WEATHER, weatherSeedFrom } from "./calendar.js";
 import { ALL_STAR_ID, ensureInvitations, clubById } from "./invitational.js";
 import { rivalBase, rivalMastery } from "./competition.js";
+import { STORY, STORY_RECENT_LIMIT } from "./story.js";
 
 const num = (n, min, max) => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
 const int = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
@@ -356,6 +357,8 @@ export function validateCampaign(input) {
   if (!Array.isArray(s.prospects) || s.prospects.length > 6) bad();
   for (const a of s.prospects) checkAthlete(a, prospectIds, true);
   for (const key of ["results", "history", "trophies", "log", "discovered", "goals", "secretsOffered", "secretsSigned", "awardHistory", "alumni"]) if (!Array.isArray(s[key])) bad();
+  s.recentStoryEvents ??= [];
+  if (!Array.isArray(s.recentStoryEvents) || s.recentStoryEvents.length > STORY_RECENT_LIMIT || new Set(s.recentStoryEvents).size !== s.recentStoryEvents.length || s.recentStoryEvents.some((id) => typeof id !== "string" || !STORY[id]?.weight)) bad();
   if (!s.bag || Object.entries(s.bag).some(([k, n]) => !ITEMS[k] || !int(n, 1, 9999))) bad();
   if (!s.forge || Object.entries(s.forge).some(([k, n]) => !ITEMS[k] || !int(n, 0, 999))) bad();
   if (!s.counters || Object.values(s.counters).some((n) => !num(n, 0, 1e9))) bad();
