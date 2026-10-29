@@ -1,8 +1,9 @@
 import { Capacitor } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 
-// Keep a synchronous snapshot for the simulation and serialize native writes.
-export async function createPersistence(key) {
+// Keep a synchronous snapshot for the simulation and serialize native writes. `legacy` also reads
+// careers saved under the prototype keys, for the first slot only.
+export async function createPersistence(key, { legacy = true } = {}) {
   let snapshot = null;
   let queue = Promise.resolve();
   let writeError = null;
@@ -18,10 +19,7 @@ export async function createPersistence(key) {
   }
   if (!snapshot) {
     try {
-      snapshot =
-        localStorage.getItem(key) ||
-        localStorage.getItem("ring-sector-club-coach-v3") ||
-        localStorage.getItem("ring-sector-club-v2");
+      snapshot = localStorage.getItem(key) || (legacy ? localStorage.getItem("ring-sector-club-coach-v3") || localStorage.getItem("ring-sector-club-v2") : null);
     } catch {}
   }
   return {
@@ -29,6 +27,15 @@ export async function createPersistence(key) {
     async flush() {
       await queue;
       if (writeError) throw writeError;
+    },
+    // Empty the slot everywhere it is kept.
+    async clear() {
+      snapshot = null;
+      await queue;
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+      if (native) await Preferences.remove({ key });
     },
     write(value) {
       snapshot = value;

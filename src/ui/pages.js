@@ -849,8 +849,38 @@ export function gameMenu(s, {page = "main", native = false} = {}) {
     <label>Default meet mode<select data-change="menu-meet-mode">${["watch","coach"].map(mode=>`<option value="${mode}" ${s.settings.meetMode===mode?"selected":""}>${mode==="watch"?"Watch":"Coach every throw"}</option>`).join("")}</select></label>
     ${toggle("highlights", "Meet highlights", "Fast-forward routine attempts.")}${toggle("clutch", "Pause for clutch moments")}${toggle("manualRelease", "Manual release timing")}${toggle("sound", "Sound effects")}${toggle("reducedMotion", "Reduce motion")}
     ${btn("Back to menu", "game-menu", "", "subtle")}
-  ` : `<p class="menu-club">${esc(s.clubName)} <span>Season ${s.season} · Day ${s.day}</span></p><div class="game-menu-actions">${btn("Resume game", "menu-close")}${btn("Settings", "menu-settings", "", "subtle")}${btn("Save game", "save-game", "", "subtle")}${btn("Save & exit", "save-exit", "", "subtle")}</div><div class="game-menu-links">${btn("Export backup", "export", "", "text")}${btn("How to play", "menu-help", "", "text")}</div><p class="hint">Progress also saves automatically after each day and throw.</p>`}
+  ` : `<p class="menu-club">${esc(s.clubName)} <span>Season ${s.season} · Day ${s.day}</span></p><div class="game-menu-actions">${btn("Resume game", "menu-close")}${btn("Settings", "menu-settings", "", "subtle")}${btn("Save game", "save-game", "", "subtle")}${btn("Main menu", "main-menu", "", "subtle")}${btn("Save & exit", "save-exit", "", "subtle")}</div><div class="game-menu-links">${btn("Export backup", "export", "", "text")}${btn("How to play", "menu-help", "", "text")}</div><p class="hint">Progress also saves automatically after each day and throw.</p>`}
   <p id="menuSaveStatus" role="status" aria-live="polite"></p></div>`;
+}
+// The update line shared by the main menu and the update badge: what is happening, a bar while
+// downloading, and a restart button once an update is ready.
+export function updateBlock(u, native) {
+  if (!native) return `<p class="mm-update-line">${esc(u.status)}</p>`;
+  const action = u.pending ? btn("Restart to install update", "install-update") : u.phase === "checking" || u.phase === "downloading" ? "" : btn("Check for updates", "check-update", "", "text");
+  return `<p class="mm-update-line">${u.updated ? `<b>Updated to ${esc(u.updated.to)}.</b> ` : ""}${esc(u.status)}</p>${u.phase === "downloading" ? `<span class="mm-progress" role="progressbar" aria-valuenow="${u.percent}" aria-valuemin="0" aria-valuemax="100"><i style="width:${u.percent}%"></i><b>${u.percent}%</b></span>` : ""}${action}`;
+}
+const ago = (t) => {
+  if (!t) return "";
+  const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago";
+};
+// The title screen: continue the last club, play or start another slot, import a backup, and see
+// whether an update is on its way.
+export function mainMenu(slots, { active, update, native }) {
+  const current = slots[active];
+  const card = (sl, n) => {
+    const here = n === active ? " active" : "";
+    if (!sl) return `<div class="slot empty${here}"><span class="slot-n">${n + 1}</span><div><strong>Empty slot</strong><small>Start a new club here.</small></div><div class="slot-actions">${btn("New club", "mm-new", `data-slot="${n}"`, "subtle")}</div></div>`;
+    if (sl.broken) return `<div class="slot broken${here}"><span class="slot-n">${n + 1}</span><div><strong>Unreadable save</strong><small>This slot could not be opened.</small></div><div class="slot-actions">${btn("Delete", "mm-delete", `data-slot="${n}"`, "text")}</div></div>`;
+    return `<div class="slot${here}"><span class="crest" style="--p:${esc(sl.colors.primary)};--s:${esc(sl.colors.secondary)}">${esc(sl.clubName[0] || "?")}</span><div><strong>${esc(sl.clubName)}</strong><small>${esc(LEAGUES[sl.league]?.name || "")} · Season ${sl.season} · ${esc(G.shortDate(sl.day))}</small><small>${cash(sl.money)} · ${sl.fans.toLocaleString()} fans${sl.savedAt ? " · " + ago(sl.savedAt) : ""}</small></div><div class="slot-actions">${btn(n === active ? "Continue" : "Play", "mm-load", `data-slot="${n}"`, n === active ? "primary" : "subtle")}${btn("Delete", "mm-delete", `data-slot="${n}"`, "text")}</div></div>`;
+  };
+  const first = current && !current.broken ? btn(`Continue · ${esc(current.clubName)}`, "mm-load", `data-slot="${active}"`) : btn("Start a new club", "mm-new", `data-slot="${slots.findIndex((x) => !x) === -1 ? active : slots.findIndex((x) => !x)}"`);
+  return `<header class="mm-head"><small>CLUB ATHLETICS</small><h1 id="mainMenuTitle">Ring &amp; Sector</h1></header>
+  <div class="mm-body"><div class="mm-first">${first}</div>
+  <h2 class="mm-section">Clubs</h2><div class="slots">${slots.map(card).join("")}</div>
+  <div class="mm-links">${btn("Import club", "mm-import", "", "text")}${btn("Settings", "mm-settings", "", "text")}${btn("How to play", "mm-help", "", "text")}</div>
+  <div class="mm-update" id="mmUpdate">${updateBlock(update, native)}</div>
+  <p class="mm-version">Game ${esc(update.version)}</p></div>`;
 }
 const OFFICE_TABS = [["club", "Club"], ["looks", "Kit & stadium"], ["goals", "Goals"], ["history", "Hall of fame"], ["save", "Save & settings"]];
 export function club(s, meta, view = {}) {
@@ -863,7 +893,7 @@ export function club(s, meta, view = {}) {
   if (tab === "save") return `${tabs}${btn("Settings & saving", "game-menu", "", "subtle")}
   <div class="card-title"><h2>Save & transfer</h2></div><div class="inline">${btn("Export club", "export", "", "subtle")}${btn("Import club", "import", "", "subtle")}${btn("How to play", "help", "", "subtle")}</div>
   <p class="hint">Export before switching devices. Game ${esc(meta.version)} · ${esc(meta.status)}</p>
-  <div class="inline">${btn("Check for updates", "check-update", "", "subtle")}${btn("Apply downloaded update", "apply-update", meta.pending ? "" : "disabled", "subtle")}</div>`;
+  <div class="inline">${btn("Check for updates", "check-update", "", "subtle")}${btn("Restart to install update", "install-update", meta.pending ? "" : "disabled", "subtle")}</div>`;
   return `${tabs}<form id="clubNameForm" class="name-form"><label>Club name<input maxlength="24" name="name" value="${esc(s.clubName)}" required></label><button class="button subtle" type="submit">Save</button></form>
   <div class="card-title"><h2>Club colours</h2></div><div class="palettes">${CLUB_PALETTES.map((p, i) => `<button class="palette ${s.colors.primary === p.primary && s.colors.secondary === p.secondary ? "selected" : ""}" data-act="palette" data-index="${i}" title="${p.name}"><i style="background:${p.primary}"></i><i style="background:${p.secondary}"></i></button>`).join("")}</div>
   <div class="card-title"><h2>Sponsor</h2>${s.sponsorLocked ? chip("Locked this season", "#9aa58f") : chip("Choose before the first meet", "#e2b04a")}</div>

@@ -4,15 +4,16 @@ Ring & Sector 0.4.0 adds self-hosted game updates to the Android shell. Install 
 
 ## Player flow
 
-1. A healthy launch checks the repository's `game-updates/latest.json` release asset in the background.
-2. Compatible game files download and have their SHA256 checked by the native updater. Gameplay continues.
+1. A healthy launch checks the repository's `game-updates/latest.json` release asset in the background. It checks again whenever the game comes back to the front and every 15 minutes while it is open, at most once every 10 minutes. **Check for updates** (main menu, Office → Save & settings) always checks.
+2. Compatible game files download and have their SHA256 checked by the native updater. Gameplay continues. A badge under the HUD shows the download percentage.
 3. The download is staged in native Preferences. It is **not** registered with the plugin's `next()` API: that API can activate on resume from the background.
-4. The next cold launch backs up the current native save, clears the pending marker and activates the downloaded bundle. An optional **Club → Apply downloaded update** control saves and flushes first, and is unavailable during training or a meet.
-5. The game validates the save and renders before acknowledging healthy startup. Save writes are disabled until the acknowledgment. The plugin reverts an unacknowledged startup after 20 seconds; an attempted build is not automatically retried.
+4. Once staged, the badge becomes **Update ready · Restart**, and the main menu and Office show **Restart to install update**. Restarting saves and flushes first, and is refused during a meet or while training runs. Android rarely cold-launches an app that is only backgrounded, so this button is the usual way an update installs; a cold launch still installs it too, with "Installing the game update…" on the boot screen.
+5. Before switching, every career slot is backed up. The game validates the save and renders before acknowledging healthy startup. Save writes are disabled until the acknowledgment. The plugin reverts an unacknowledged startup after 20 seconds; an attempted build is not automatically retried.
+6. The first healthy start on a new version shows "Updated to …" as a toast and in the main menu.
 
-Updates are always optional. If the check finds no network, times out, gets no published release, or reads a manifest it can't validate, it skips quietly and the installed game keeps running. The same happens if the updater plugin itself fails to answer during the healthy-startup acknowledgment. Office → Save & settings shows the outcome.
+Updates are always optional. If the check finds no network, times out, gets no published release, or reads a manifest it can't validate, it skips quietly and the installed game keeps running. The same happens if the updater plugin itself fails to answer during the healthy-startup acknowledgment. The main menu and Office → Save & settings show the outcome.
 
-Switching away from the app is not a cold launch. Finish and reopen the process, or use the Club control when idle. No background installation service runs while the app is closed. An internet connection is needed to check or download, not to play.
+An internet connection is needed to check or download, not to play. No background installation service runs while the app is closed.
 
 ## Publishing
 
@@ -24,7 +25,7 @@ App icon, plugins, native permissions and Android API changes require a new inst
 
 ## Saves and recovery
 
-The career key remains `ring-sector-leagues-v3`. Since 0.5.0 the stored career uses internal schema v5 (stadium layout); v4 grid-layout careers from earlier 0.5 builds and older v3 careers migrate on load (a meet interrupted under 0.4 restarts from the lobby). Prototype v2 imports still migrate. The manifest's `saveSchema` stays 3: it states the oldest save format a bundle can read, and installed 0.4 bundles only accept 3, so 0.5 remains reachable by automatic update. Saves are written only after the new bundle has rendered and acknowledged healthy startup, so a rollback to 0.4 never meets a v5 save. A native save snapshot is stored at `ring-sector-pre-update-backup` before activation. This is a developer recovery snapshot; normal transfers use Club → Export/Import. Uninstalling Android removes private app data, including this snapshot. Export before uninstalling.
+The first career slot keeps the key `ring-sector-leagues-v3`; slots 2 and 3 use `ring-sector-leagues-v3-slot2` and `-slot3` (see `src/platform/slots.js`). Since 0.5.0 the stored career uses internal schema v5 (stadium layout); v4 grid-layout careers from earlier 0.5 builds and older v3 careers migrate on load (a meet interrupted under 0.4 restarts from the lobby). Prototype v2 imports still migrate. The manifest's `saveSchema` stays 3: it states the oldest save format a bundle can read, and installed 0.4 bundles only accept 3, so 0.5 remains reachable by automatic update. Saves are written only after the new bundle has rendered and acknowledged healthy startup, so a rollback to 0.4 never meets a v5 save. A native save snapshot is stored at `ring-sector-pre-update-backup` (slots 2 and 3 at their own key plus `-pre-update-backup`) before activation. This is a developer recovery snapshot; normal transfers use Club → Export/Import. Uninstalling Android removes private app data, including this snapshot. Export before uninstalling.
 
 APK builds use a development signing key. To allow subsequent native builds to replace each other, configure the repository's `ANDROID_DEBUG_KEYSTORE_BASE64` secret with a stable development keystore. Older installations signed with a different key may require export, uninstall, install and import. Production distribution needs a stable release-signing setup.
 

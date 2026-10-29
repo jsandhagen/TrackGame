@@ -7,7 +7,7 @@ import {validateCampaign,exportCampaign} from '../src/domain/campaign-save.js';
 
 async function platformModule(file,deps) {
  const id='platform_'+Math.random();globalThis[id]=deps;
- let source=readFileSync(new URL('../src/platform/'+file,import.meta.url),'utf8').replace(/^import .*;\n/gm,'');
+ let source=readFileSync(new URL('../src/platform/'+file,import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
  source=`const {Capacitor,App,ScreenOrientation,Preferences,document,window,localStorage,console}=globalThis[${JSON.stringify(id)}];\n`+source;
  const api=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
  delete globalThis[id];return api;

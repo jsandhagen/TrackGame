@@ -2,7 +2,7 @@ import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
 import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
-import { figure, shadow, athleteLook, runFrame } from "./sprites.js";
+import { figure, shadow, athleteLook, runFrame, walkFrame } from "./sprites.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
@@ -511,6 +511,7 @@ export function createWorld(cv) {
     } else {
       v.x += ((tx - v.x) / d) * step;
       v.y += ((ty - v.y) / d) * step;
+      v.walked = (v.walked || 0) + step;
       if (Math.abs(tx - v.x) > 0.5) v.flip = tx < v.x;
     }
     return true;
@@ -658,7 +659,7 @@ export function createWorld(cv) {
     const list = [];
     for (const v of visitors) {
       const moving = stepVisitor(v, s, now);
-      list.push({ y: v.y, draw: () => (shadow(g, v.x, v.y, 4), figure(g, { look: v.look, shirt: v.shirt, collar: "#f4efe2", pose: moving ? "walk" : "idle", frame: moving ? Math.floor(now / 150 + v.seed) % 4 : Math.floor(now / 600 + v.seed) % 2, flip: v.flip }, v.x, v.y)) });
+      list.push({ y: v.y, draw: () => (shadow(g, v.x, v.y, 4), figure(g, { look: v.look, shirt: v.shirt, collar: "#f4efe2", pose: moving ? "walk" : "idle", frame: moving ? walkFrame(v.walked || 0) : Math.floor(now / 600 + v.seed) % 2, flip: v.flip }, v.x, v.y)) });
     }
     const counts = {};
     s.roster.forEach((a, index) => {
@@ -674,12 +675,18 @@ export function createWorld(cv) {
       if (p.path.length) {
         const [tx, ty] = p.path[0],
           d = Math.hypot(tx - p.from[0], ty - p.from[1]),
-          t = Math.min(1, (now - p.t0) / Math.max(120, d * 22));
-        p.x = p.from[0] + (tx - p.from[0]) * t;
-        p.y = p.from[1] + (ty - p.from[1]) * t;
+          t = Math.min(1, (now - p.t0) / Math.max(120, d * 30)),
+          x = p.from[0] + (tx - p.from[0]) * t,
+          y = p.from[1] + (ty - p.from[1]) * t;
+        // Step the walk by distance covered, so the planted foot stays put instead of sliding.
+        p.walked = (p.walked || 0) + Math.hypot(x - p.x, y - p.y);
+        p.x = x;
+        p.y = y;
         pose = "walk";
-        frame = Math.floor(now / 120 + index) % 4;
-        flip = tx < p.from[0];
+        frame = walkFrame(p.walked);
+        // Straight up or down the screen, keep facing the way they last went.
+        if (Math.abs(tx - p.from[0]) > 0.5) p.flip = tx < p.from[0];
+        flip = !!p.flip;
         if (t >= 1) Object.assign(p, { from: [p.x, p.y], t0: now }), p.path.shift();
       } else {
         p.x = target.x;

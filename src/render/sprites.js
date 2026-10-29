@@ -18,12 +18,7 @@ const POSES = {
     { feet: [[-4, -1], [1, -1]], hands: [[-5, -10], [3, -10]] },
     { feet: [[-4, -1], [1, -1]], hands: [[-5, -10], [3, -10]], dy: -1 },
   ],
-  walk: [
-    { feet: [[-5, -1], [2, -1]], hands: [[3, -10], [-4, -10]] },
-    { feet: [[-2, -2], [-1, -1]], hands: [[0, -10], [0, -10]], dy: -1 },
-    { feet: [[2, -1], [-5, -1]], hands: [[-4, -10], [3, -10]] },
-    { feet: [[-1, -1], [-2, -2]], hands: [[0, -10], [0, -10]], dy: -1 },
-  ],
+  walk: null,
   run: null,
   lift: [
     { feet: [[-5, -1], [2, -1]], hands: [[-6, -27], [5, -27]], item: "barbell", face: "strain" },
@@ -65,6 +60,15 @@ const STRIDE = [
 const swap = (f) => ({ ...f, legs: [f.legs[1], f.legs[0]], arms: [f.arms[1], f.arms[0]] });
 POSES.run = [...STRIDE, ...STRIDE.map(swap)].map((f) => ({ ...f, lean: 1 }));
 POSES.jog = POSES.run;
+// Walking, side-on like the run so walkers face the way they go: contact (heel down in front, toe
+// behind), then passing (rising over the planted foot as the other swings through), then the same
+// with the legs swapped. The planted foot moves back WALK_STRIDE pixels a frame; walkFrame steps
+// by distance to keep it still on the ground.
+const WALK = [
+  { legs: [[[-1, -3], [-3, -1]], [[2, -3], [3, -1]]], arms: [[[1, 3], [2, 5]], [[-1, 3], [-2, 5]]] },
+  { legs: [[[1, -4], [0, -2]], [[1, -3], [0, -1]]], arms: [[[0, 3], [0, 5]], [[0, 3], [0, 5]]], y: -1 },
+];
+POSES.walk = [...WALK, ...WALK.map(swap)];
 // Throws, drawn like the runs: jointed and mostly side-on, for a right-handed thrower whose
 // throwing arm is the near arm when facing the sector (to the right). Frames a turn passes through
 // face the camera ("front") or away ("back"); frames meant to face away from the sector are drawn
@@ -535,6 +539,8 @@ export const runFrame = (dist) => {
   const n = POSES.run.length;
   return ((Math.floor(dist / RUN_STRIDE) % n) + n) % n;
 };
+export const WALK_STRIDE = 3;
+export const walkFrame = (dist) => ((Math.floor(dist / WALK_STRIDE) % 4) + 4) % 4;
 // Where a jointed pose's holding hand is, from the feet at scale 1: hammer chains hang from it.
 export function gripOf(o) {
   const p = poseData(o.pose, o.frame || 0, o.event);
@@ -547,9 +553,12 @@ export function gripOf(o) {
 // Front edge of the shoes, including their outline, from the sprite origin at scale 1.
 // Movement must leave room for the whole foot, rather than only keeping the body behind a line.
 export function frontFootOf(o) {
-  const p = poseData(o.pose, o.frame || 0, o.event),
-    feet = p.legs ? p.legs.map((l) => l[1]) : p.feet.map(footAt);
-  return Math.max(...feet.map(([x]) => o.flip ? 1 - x : x + 4));
+  return Math.max(...feetOf(o).map(([x]) => o.flip ? 1 - x : x + 4));
+}
+// The [far, near] shoes of a pose, unflipped, from the sprite origin at scale 1.
+export function feetOf(o) {
+  const p = poseData(o.pose, o.frame || 0, o.event);
+  return p.legs ? p.legs.map((l) => l[1]) : p.feet.map(footAt);
 }
 // Draw a figure with its feet at (x, y). Scale must be an integer to stay crisp.
 export function figure(g, o, x, y, scale = 1) {

@@ -5030,3 +5030,40 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
     line-height: 1.1;
   }
 }
+/* Main menu: the title screen over the club, with the save slots and the update line. */
+#mainMenu { width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 3px solid var(--frame); border-radius: 9px; background: var(--paper); color: var(--ink); overflow: hidden; box-shadow: 0 6px 0 #0b1d16, 0 18px 40px #0008; }
+#mainMenu[open] { display: flex; flex-direction: column; }
+#mainMenu::backdrop { background: linear-gradient(#0a1f19cc, #0a1f1999); }
+.mm-head { padding: 16px 16px 12px; background: var(--frame); color: #fff0c4; text-align: center; }
+.mm-head small { font: 700 10px var(--display); letter-spacing: 3px; color: #b4c8a2; }
+.mm-head h1 { font: 700 34px/1.05 var(--display); letter-spacing: 1px; }
+.mm-body { overflow-y: auto; min-height: 0; padding: 12px 14px 10px; }
+.mm-first .button { width: 100%; min-height: 48px; margin: 0; font-size: 15px; }
+.mm-section { margin: 14px 0 6px; font: 700 11px var(--display); letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+.slots { display: grid; gap: 6px; }
+.slot { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--card); border: 2px solid var(--line); border-radius: 7px; }
+.slot.active { border-color: var(--gold); }
+.slot > div:nth-child(2) { flex: 1; min-width: 0; }
+.slot strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot small { display: block; font-size: 11px; color: var(--muted); }
+.slot .crest, .slot-n { flex-shrink: 0; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; font: 700 15px var(--display); }
+.slot .crest { background: var(--p); color: var(--s); border: 2px solid var(--s); }
+.slot-n { background: var(--paper2); color: var(--muted); border: 2px dashed var(--line); }
+.slot.empty strong, .slot.broken strong { color: var(--muted); }
+.slot-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.slot-actions .button { margin: 0; min-height: 34px; padding: 4px 12px; }
+.slot-actions .button.text { min-height: 0; padding: 2px 4px; font-size: 11px; color: var(--red); }
+.mm-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding: 10px 0 4px; }
+.mm-update { margin-top: 6px; padding: 8px 10px; border-radius: 7px; background: var(--paper2); font-size: 12px; }
+.mm-update .button { margin: 6px 0 0; }
+.mm-update .button.primary { width: 100%; }
+.mm-progress { position: relative; display: block; height: 16px; margin-top: 6px; border-radius: 8px; background: #d9d0b4; overflow: hidden; }
+.mm-progress i { position: absolute; inset: 0 auto 0 0; background: var(--green2); transition: width 0.3s; }
+.mm-progress b { position: relative; display: block; text-align: center; font-size: 10px; line-height: 16px; color: #fff; mix-blend-mode: difference; }
+.mm-version { margin-top: 8px; font-size: 10px; color: var(--muted); text-align: center; }
+/* Update badge: under the HUD while an update downloads, then a restart button. */
+#updateBadge { position: fixed; z-index: 30; top: calc(var(--hud) + 52px); left: 50%; transform: translateX(-50%); pointer-events: auto; }
+#updateBadge[hidden] { display: none; }
+#updateBadge .button { display: flex; align-items: center; gap: 6px; margin: 0; min-height: 34px; padding: 4px 14px; box-shadow: 0 3px 0 #0b1d16; }
+.update-downloading { position: relative; display: block; min-width: 190px; padding: 6px 12px 9px; border-radius: 7px; background: #163a2ce6; color: #fff0c4; font: 700 11px var(--display); letter-spacing: 0.5px; text-align: center; overflow: hidden; }
+.update-downloading i { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--gold); transition: width 0.3s; }
