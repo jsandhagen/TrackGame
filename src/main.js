@@ -1,5 +1,5 @@
 import { mayRestart } from "./platform/update-policy.js";
-import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy } from "./platform/updates.js";
+import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy, updateInfo, onUpdateChange } from "./platform/updates.js";
 import "@fontsource/oswald/latin-500.css";
 import "@fontsource/oswald/latin-700.css";
 import "./styles.css";
@@ -16,7 +16,7 @@ import { installIcons, ico } from "./render/uiicons.js";
 import { drawFacility } from "./render/buildings.js";
 import { canvas as makeCanvas } from "./render/pixel.js";
 import { sfx, unlockAudio, setSound } from "./render/audio.js";
-import { createPersistence } from "./platform/persistence.js";
+import { slotStore, activeSlot, setActiveSlot, touchSlot, listSlots, clearSlot } from "./platform/slots.js";
 import { exportBackup } from "./platform/backups.js";
 import { initNative, isNativeApp, setOrientation, exitApp } from "./platform/native.js";
 import { validateCampaign, exportCampaign } from "./domain/campaign-save.js";
@@ -25,9 +25,22 @@ import { line as voiceLine, idleSituation } from "./domain/voice.js";
 installIcons();
 const $ = (q) => document.querySelector(q);
 const { esc, cash } = P;
-const store = await createPersistence("ring-sector-leagues-v3");
-let state = store.read() ? validateCampaign(JSON.parse(store.read())) : G.newGame();
-let saveEnabled = false;
+// The career in the active save slot (see platform/slots.js). The main menu switches slots.
+let slot = await activeSlot(),
+  store = await slotStore(slot);
+// A slot that can't be read is never written over: the menu shows it, and a new club or another
+// slot has to be picked.
+let state,
+  unreadable = false;
+try {
+  state = store.read() ? validateCampaign(JSON.parse(store.read())) : G.newGame();
+} catch (error) {
+  console.error(error);
+  unreadable = true;
+  state = G.newGame();
+}
+let saveEnabled = false,
+  touchedAt = 0;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
 const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
 const DAY_MS = [0, 8000, 4000, 2000];
@@ -47,9 +60,15 @@ let presenter = null,
 setSound(state.settings.sound);
 
 function save() {
-  if (!saveEnabled) return false;
+  // Nothing saves while the main menu is up: the club was saved on the way in, and an emptied
+  // slot must stay empty until a club is chosen.
+  if (!saveEnabled || unreadable || $("#mainMenu").open) return false;
   try {
     store.write(JSON.stringify(state));
+    if (performance.now() - touchedAt > 30000) {
+      touchedAt = performance.now();
+      touchSlot(slot).catch(() => {});
+    }
     return true;
   } catch {
     toast("Could not save. Export a backup from the Office.", "warn");
@@ -633,6 +652,14 @@ $("#app").addEventListener("click", async (e) => {
     case "menu-close": if (!saving) closeGameMenu(); return;
     case "menu-help": closeGameMenu(); return help();
     case "save-game": return saveFromMenu();
+    case "main-menu": return showMainMenu();
+    case "mm-load": return chooseSlot(+b.dataset.slot);
+    case "mm-new": return newClub(+b.dataset.slot);
+    case "mm-delete": return deleteSlot(+b.dataset.slot);
+    case "mm-import": return importSave(true);
+    case "mm-settings": return openGameMenu("settings");
+    case "mm-help": return help();
+    case "install-update": return installUpdate();
     case "save-exit": return saveFromMenu(true);
     case "zoom":
       return world.zoomBy(+b.dataset.step);
@@ -985,15 +1012,8 @@ $("#app").addEventListener("click", async (e) => {
       state.colors = { ...state.colors, primary: CLUB_PALETTES[+b.dataset.index].primary, secondary: CLUB_PALETTES[+b.dataset.index].secondary };
       break;
     case "check-update":
-      await checkForUpdates();
+      await checkForUpdates({ force: true });
       break;
-    case "apply-update":
-      if (mayRestart(state, view.playing)) {
-        save();
-        await store.flush();
-        await applyPendingUpdate();
-      }
-      return;
     case "export":
       await exportBackup(JSON.stringify(exportCampaign(state), null, 2)).catch(() => toast("Export failed. Please try again.", "warn"));
       return;
@@ -1122,7 +1142,9 @@ $("#app").addEventListener("submit", (e) => {
   render();
   toast("The club has a new name.");
 });
-function importSave() {
+// From the main menu a backup goes into the first empty slot (or replaces the selected club
+// when every slot is in use); from the Office it replaces the current club.
+function importSave(fromMenu = false) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json,application/json";
@@ -1131,19 +1153,15 @@ function importSave() {
       if (!input.files[0]) return;
       if (input.files[0].size > 3000000) throw Error("The save is too large.");
       const incoming = validateCampaign(JSON.parse(await input.files[0].text()));
-      dialog("Restore this club?", `<p>${esc(incoming.clubName)} · Season ${incoming.season} · ${LEAGUES[incoming.league].name}</p><p>This replaces the current club. Export it first to keep it.</p>`, [
+      const empty = fromMenu ? (await listSlots(summarise)).findIndex((x) => !x) : -1,
+        target = empty >= 0 ? empty : slot;
+      dialog("Restore this club?", `<p>${esc(incoming.clubName)} · Season ${incoming.season} · ${LEAGUES[incoming.league].name}</p><p>${empty >= 0 ? `It goes into slot ${target + 1}.` : "This replaces the current club. Export it first to keep it."}</p>`, [
         {
           label: "Restore club",
-          fn: () => {
-            state = incoming;
-            for (const key of Object.keys(counters)) counters[key] = { shown: state[key], seen: state[key] };
-            newsSeen = state.log[0];
-            presenter = null;
-            view.window = null;
-            view.athlete = null;
-            world.reset();
-            save();
-            render(false);
+          fn: async () => {
+            await useClub(target, incoming);
+            if ($("#mainMenu").open) closeMainMenu();
+            else save();
             toast("Club restored.");
           },
         },
@@ -1155,6 +1173,143 @@ function importSave() {
   };
   input.click();
 }
+
+// ── Save slots and the main menu ────────────────────────────────────────
+const summarise = (raw) => {
+  const c = validateCampaign(raw);
+  return { clubName: c.clubName, league: c.league, season: c.season, day: c.day, money: c.money, fans: c.fans, colors: c.colors };
+};
+// Make slot n the one in play, with `incoming` as its club, or whatever it holds (a new club
+// when it is empty). The previous club is saved first.
+async function useClub(n, incoming = null) {
+  stopPlaying();
+  if (saveEnabled && !unreadable && store.read() != null) {
+    try {
+      store.write(JSON.stringify(state));
+      await store.flush();
+    } catch {}
+  }
+  const next = await slotStore(n),
+    text = next.read();
+  state = incoming || (text ? validateCampaign(JSON.parse(text)) : G.newGame());
+  store = next;
+  slot = n;
+  unreadable = false;
+  await setActiveSlot(n);
+  for (const key of Object.keys(counters)) counters[key] = { shown: state[key], seen: state[key] };
+  newsSeen = state.log[0];
+  shownInsights = null;
+  presenter = null;
+  Object.assign(view, { window: null, athlete: null, selected: null, moving: null, meetSpeed: state.settings.meetSpeed || 1 });
+  setSound(state.settings.sound);
+  world.reset();
+  render(false);
+}
+async function showMainMenu() {
+  stopPlaying();
+  if ($("#gameMenu").open) closeGameMenu();
+  // Leave the current club safely saved, unless it is a new club that was never started.
+  if (saveEnabled && (store.read() != null || state.welcomed)) {
+    save();
+    await store.flush().catch(() => {});
+  }
+  const box = $("#mainMenu");
+  box.innerHTML = P.mainMenu(await listSlots(summarise), { active: slot, update: updateInfo(), native: isNativeApp() });
+  if (!box.open) box.showModal();
+}
+function closeMainMenu() {
+  if (!$("#mainMenu").open || unreadable) return;
+  $("#mainMenu").close();
+  save();
+  render(false);
+  if (!state.welcomed) help(true);
+  else if (state.pendingEvent) showEvent();
+}
+async function chooseSlot(n) {
+  if (n !== slot || unreadable) {
+    try {
+      await useClub(n);
+    } catch {
+      return toast("That club could not be opened.", "warn");
+    }
+  }
+  closeMainMenu();
+}
+async function newClub(n) {
+  const slots = await listSlots(summarise);
+  const start = async () => {
+    await clearSlot(n);
+    await useClub(n, G.newGame());
+    closeMainMenu();
+  };
+  if (!slots[n]) return start();
+  dialog("Start over in this slot?", `<p><b>${esc(slots[n].clubName || "This club")}</b> will be replaced by a new club. Export it first to keep it.</p>`, [
+    { label: "Replace with a new club", fn: start },
+    { label: "Cancel", secondary: true },
+  ], { tone: "warn", eyebrow: "Slot " + (n + 1) });
+}
+async function deleteSlot(n) {
+  const slots = await listSlots(summarise);
+  if (!slots[n]) return;
+  dialog("Delete this club?", `<p><b>${esc(slots[n].clubName || "This save")}</b> will be removed from slot ${n + 1}. This can't be undone unless you exported a backup.</p>`, [
+    {
+      label: "Delete club",
+      fn: async () => {
+        await clearSlot(n);
+        // The slot in play stays selected, ready for a new club, but nothing is saved into it.
+        if (n === slot) await useClub(n, G.newGame());
+        showMainMenu();
+        toast("Club deleted.");
+      },
+    },
+    { label: "Cancel", secondary: true },
+  ], { tone: "warn", eyebrow: "Slot " + (n + 1) });
+}
+
+// ── Updates ─────────────────────────────────────────────────────────────
+// A badge under the HUD while an update downloads and once it is ready to install.
+function updateBadge(u = updateInfo()) {
+  const el = $("#updateBadge");
+  const show = u.phase === "downloading" || u.pending;
+  el.hidden = !show;
+  if (show) el.innerHTML = u.pending ? `<button class="button primary" data-act="install-update">${ico("star")}<span>Update ready · Restart</span></button>` : `<span class="update-downloading">Downloading update · ${u.percent}%<i style="width:${u.percent}%"></i></span>`;
+  const box = $("#mmUpdate");
+  if (box) box.innerHTML = P.updateBlock(u, isNativeApp());
+}
+// The main menu stays until a club is chosen.
+$("#mainMenu").addEventListener("cancel", (e) => e.preventDefault());
+let updatePhase = null;
+onUpdateChange((u) => {
+  updateBadge(u);
+  if (u.phase !== updatePhase && view.window === "club") render(false);
+  updatePhase = u.phase;
+});
+async function installUpdate() {
+  if (!hasPendingUpdate()) return;
+  if (!mayRestart(state, view.playing)) return toast("Finish the meet or pause training first. The update also installs the next time the app starts.", "warn");
+  dialog("Install the update now?", `<p>Your club is saved, then the game restarts into version ${esc(updateInfo().pendingVersion || "")}. It takes a few seconds.</p>`, [
+    {
+      label: "Restart and install",
+      fn: async () => {
+        save();
+        try {
+          await store.flush();
+        } catch {
+          return toast("Could not save, so the update waits. Try again in a moment.", "warn");
+        }
+        $("#bootStatus").textContent = "Installing the game update…";
+        $("#bootStatus").hidden = false;
+        if (!(await applyPendingUpdate())) {
+          $("#bootStatus").hidden = true;
+          updateBadge();
+          toast(updateStatus(), "warn");
+        }
+      },
+    },
+    { label: "Later", secondary: true },
+  ], { eyebrow: "Game update" });
+}
+
 // Map: drag to pan, pinch or wheel to zoom, tap to pick.
 const pointers = new Map();
 let drag = null;
@@ -1209,7 +1364,7 @@ worldCanvas.addEventListener("wheel", (e) => {
   world.zoomBy(e.deltaY < 0 ? 0.5 : -0.5, e.clientX, e.clientY);
 }, { passive: false });
 document.addEventListener("keydown", (e) => {
-  if ($("#gameMenu").open) return;
+  if ($("#gameMenu").open || $("#mainMenu").open) return;
   if ($("#dialog").open || ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
   if (e.code === "Space") {
     e.preventDefault();
@@ -1237,6 +1392,7 @@ initNative({
   },
   back: () => {
     if ($("#gameMenu").open) { if (!saving) closeGameMenu(); return true; }
+    if ($("#mainMenu").open && !$("#dialog").open) return true;
     if ($("#dialog").open) {
       if (!$("#dialog").dataset.locked) $("#dialog").close();
       return true;
@@ -1350,7 +1506,13 @@ await new Promise((resolve, reject) =>
 $("#bootStatus").hidden = true;
 await markGameHealthy();
 saveEnabled = true;
-if (!state.welcomed) help(true);
-else if (state.pendingEvent) showEvent();
-save();
+if (store.read() != null) save();
+if (updateInfo().updated) toast("Updated to " + updateInfo().updated.to + ".", "info", "star");
+updateBadge();
+await showMainMenu();
+// Check now, whenever the game comes back to the front, and every so often while it is open.
 checkForUpdates().catch(console.error);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkForUpdates().catch(console.error);
+});
+setInterval(() => checkForUpdates().catch(console.error), 15 * 60 * 1000);

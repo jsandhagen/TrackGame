@@ -1,4 +1,4 @@
-import { canvas, rect, poly, ellipse, line, shade, hash, px, mix } from "./pixel.js";
+import { canvas, rect, poly, ellipse, ring, line, shade, hash, px, mix } from "./pixel.js";
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
@@ -613,8 +613,11 @@ export function createStadium(cv) {
     }
     // The near side of the cage passes in front of whoever is in the circle.
     if (ev === "discus" || ev === "hammer") cage(g, "front");
-    // Projectile.
-    if (beat?.type === "throw" && tt >= T.tech && tt < T.land + 600) {
+    // Projectile: drawn large with a light rim so it reads against sky, crowd and grass, with a
+    // short trail and its shadow running along the ground. Nothing marks the landing spot before
+    // it comes down, so the distance stays a surprise. After landing, a flag in the thrower's
+    // colours and a tape back to the circle stay up while the result shows.
+    if (beat?.type === "throw" && tt >= T.tech && el < beatDuration(beat)) {
       const f = Math.min(1, (tt - T.tech) / (T.land - T.tech)),
         dist = beat.mark ?? e.min + (e.max - e.min) * 0.45,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
@@ -622,43 +625,71 @@ export function createStadium(cv) {
         sx = O.x + rx,
         sy = O.y + ry,
         [ex, ey] = sector.point(dist, angle),
-        peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev];
+        peak = { shot: 34, discus: 60, hammer: 72, jav: 80 }[ev],
+        team = beat.side === "home" ? s.colors.primary : m.color,
+        RIM = "#fff6dc";
       const pos = (q) => [sx + (ex - sx) * q, sy + (ey - sy) * q - Math.sin(q * Math.PI) * peak];
       if (f < 1) {
-        const [x, y] = pos(f);
-        rect(g, Math.round(O.x + (ex - O.x) * f) - 2, Math.round(O.y + (ey - O.y) * f), 5, 1, "rgba(20,40,20,0.3)");
-        for (let k = 1; k < 4; k++) {
-          const [tx2, ty2] = pos(Math.max(0, f - k * 0.03));
-          px(g, tx2, ty2, `rgba(255,255,255,${0.5 - k * 0.12})`);
+        const [x, y] = pos(f),
+          gx = O.x + (ex - O.x) * f,
+          gy = O.y + (ey - O.y) * f,
+          height = Math.max(0, gy - y);
+        // Its shadow on the ground: smaller and fainter the higher it is.
+        const sh = Math.max(2, 4.5 - height / 20);
+        ellipse(g, gx, gy, sh + 1, Math.max(1, sh / 2), `rgba(20,40,20,${Math.max(0.4, 0.6 - height / 200).toFixed(2)})`);
+        for (let k = 1; k < 7; k++) {
+          const [tx2, ty2] = pos(Math.max(0, f - k * 0.025)), [tx1, ty1] = pos(Math.max(0, f - (k - 1) * 0.025));
+          line(g, tx1, ty1, tx2, ty2, `rgba(255,255,255,${(0.55 - k * 0.08).toFixed(2)})`, k < 3 ? 2 : 1);
         }
         if (ev === "jav") {
           // As long as the one in the hand when it leaves, shrinking as it flies away.
           const [nx, ny] = pos(Math.min(1, f + 0.02)),
             ang = Math.atan2(ny - y, nx - x),
-            half = 22 - 13 * f;
-          line(g, x - Math.cos(ang) * half, y - Math.sin(ang) * half, x + Math.cos(ang) * half, y + Math.sin(ang) * half, "#efe6c8");
-          px(g, x + Math.cos(ang) * half, y + Math.sin(ang) * half, "#5a5a62");
+            half = 22 - 11 * f,
+            [cx, cy] = [Math.cos(ang) * half, Math.sin(ang) * half];
+          line(g, x - cx, y - cy + 1, x + cx, y + cy + 1, "#3a3020", 2);
+          line(g, x - cx, y - cy, x + cx, y + cy, "#f4ecd0", 2);
+          rect(g, x + cx - 1, y + cy - 1, 2, 2, "#5a5a62");
+          rect(g, x - 1, y - 1, 2, 2, "#b0503a");
         } else if (ev === "discus") {
-          ellipse(g, x, y, 3, 1, "#3a3020");
-          ellipse(g, x, y, 2, 1, "#d8c890");
+          ellipse(g, x, y, 6, 3, RIM);
+          ellipse(g, x, y, 5, 2, "#3a3020");
+          ellipse(g, x, y, 4, 1.5, "#e0cf90");
+          rect(g, x - 1, y - 1, 2, 1, "#8a7a50");
         } else {
-          ellipse(g, x, y, 2, 2, "#2a2420");
-          px(g, x, y - 1, "#9aa0aa");
-          if (ev === "hammer") line(g, x, y, x - 6, y - 4, "#d8d8c8");
+          if (ev === "hammer") {
+            const [bx, by] = pos(Math.max(0, f - 0.03)), ang = Math.atan2(by - y, bx - x);
+            line(g, x, y, x + Math.cos(ang) * 11, y + Math.sin(ang) * 11, "#e8e8d8");
+            rect(g, x + Math.cos(ang) * 11 - 1, y + Math.sin(ang) * 11 - 1, 3, 2, "#3a3e46");
+          }
+          ellipse(g, x, y, 5, 5, RIM);
+          ellipse(g, x, y, 4, 4, "#2a2c32");
+          ellipse(g, x - 1, y - 1, 2, 2, "#6a707a");
+          px(g, x - 2, y - 2, "#c8ccd4");
         }
       } else {
         // Impact: a ring of turf and dust thrown up around the landing, heavier for the shot and hammer.
         const dt = tt - T.land,
-          heavy = ev === "shot" || ev === "hammer" ? 1.4 : 1,
-          fade = Math.max(0, 1 - dt / 700);
-        if (fade > 0 && !beat.foul) {
-          ellipse(g, ex, ey, 3 + dt * 0.012 * heavy, 1 + dt * 0.004, `rgba(225,210,170,${(0.55 * fade).toFixed(2)})`);
-          for (let k = 0; k < 12; k++) {
-            const a = (k / 12) * Math.PI * 2, r = dt * 0.03 * heavy * (0.6 + hash(k) * 0.6);
-            px(g, ex + Math.cos(a) * r, ey - Math.abs(Math.sin(a)) * r * 0.8 + (dt * dt) / 60000, `rgba(${k % 3 ? "200,180,140" : "120,160,80"},${fade.toFixed(2)})`);
+          heavy = ev === "shot" || ev === "hammer" ? 1.6 : 1.2,
+          fade = Math.max(0, 1 - dt / 800);
+        if (!beat.foul) {
+          // The tape from the circle out to the mark.
+          for (let k = 0; k < 40; k += 2) {
+            const a = k / 40, b = (k + 1) / 40;
+            line(g, O.x + (ex - O.x) * a, O.y + (ey - O.y) * a, O.x + (ex - O.x) * b, O.y + (ey - O.y) * b, "rgba(255,246,220,0.85)");
+          }
+          if (fade > 0) {
+            ellipse(g, ex, ey, 4 + dt * 0.016 * heavy, 1.5 + dt * 0.005, `rgba(225,210,170,${(0.6 * fade).toFixed(2)})`);
+            for (let k = 0; k < 16; k++) {
+              const a = (k / 16) * Math.PI * 2, r = dt * 0.035 * heavy * (0.6 + hash(k) * 0.6);
+              rect(g, ex + Math.cos(a) * r, ey - Math.abs(Math.sin(a)) * r * 0.8 + (dt * dt) / 60000, 2, 2, `rgba(${k % 3 ? "200,180,140" : "120,160,80"},${fade.toFixed(2)})`);
+            }
           }
         }
-        rect(g, ex - 2, ey, 5, 2, beat.foul ? "#e04a3a" : "#8a7a50");
+        // The mark in the ground, ringed, then a flag in the thrower's colours (red for a foul).
+        ellipse(g, ex, ey + 1, 4, 2, "rgba(60,40,20,0.55)");
+        ring(g, ex, ey + 1, 5, 2.5, beat.foul ? "#e04a3a" : RIM);
+        flag(g, ex, ey, beat.foul ? "#e04a3a" : team);
       }
     }
     // Landing callouts.

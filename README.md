@@ -32,6 +32,8 @@ A cosy, offline club-management game about a tiny throwing club that grows into 
 - **A clear view of the field.** Landscape meets use a vertical scoreboard beside the arena. Athletes and officials share a consistent scale, and the entire venue fits the available space. Throwing sectors use the event's angle (34.92° for the circles, 28.96° for javelin), with curved distance arcs and landing marks on the same projected ground plane.
 - **Always something next:** 40 club goals with rewards, 22 everyday stories plus special-character visits (journalists, merchants, tryouts, friendly challenges, mentoring, café experiments and snowy-day surprises), sponsors that unlock with fans, awards night, a combo notebook, records and a trophy cabinet. The last three everyday stories sit out the next draw, with that memory kept across saves.
 
+**Three save slots and a main menu.** The game opens on a title screen: continue your club, play or start another in one of three slots, import a backup, or delete a slot. **Main menu** in the game menu returns there; the club is saved on the way.
+
 No decision times out. Time only moves while you press play and stops for meet day and story events. Progress saves after every day and every throw.
 
 ## Run on your computer

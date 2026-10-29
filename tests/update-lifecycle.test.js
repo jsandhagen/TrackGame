@@ -65,3 +65,28 @@ test('an unavailable update service is skipped: no release, a malformed manifest
   assert.match(broken.api.updateStatus(),/unavailable/);
  }finally{broken.cleanup();}
 });
+test('progress is visible: checking, downloading with a percentage, then ready to install',async()=>{
+ const h=await harness();try{
+  const seen=[];h.api.onUpdateChange(u=>seen.push(u.phase+(u.phase==='downloading'?':'+u.percent:'')));
+  await h.api.checkForUpdates();
+  assert.deepEqual(seen.slice(0,2),['checking','downloading:0']);
+  const u=h.api.updateInfo();
+  assert.equal(u.phase,'ready');assert(u.pending);assert.equal(u.pendingVersion,manifest.version);
+  assert.match(u.status,/Restart to install/);
+ }finally{h.cleanup();}
+});
+test('checks repeat on resume without hammering the release, and a forced check always runs',async()=>{
+ const h=await harness({response:{status:404,data:'Not Found'}});try{
+  let gets=0;const http=globalThis[Object.keys(globalThis).find(k=>k.startsWith('updaterTest')&&globalThis[k].CapacitorHttp)].CapacitorHttp,get=http.get;http.get=async(...a)=>{gets++;return get(...a);};
+  await h.api.checkForUpdates();await h.api.checkForUpdates();assert.equal(gets,1,'a second automatic check soon after is skipped');
+  await h.api.checkForUpdates({force:true});assert.equal(gets,2,'Check for updates always asks');
+ }finally{h.cleanup();}
+});
+test('the first healthy start on a new version says it was updated, once',async()=>{
+ const h=await harness();try{
+  h.values.set('game-last-version','0.3.9+'+'f'.repeat(12));
+  await h.api.markGameHealthy();
+  assert.deepEqual(h.api.updateInfo().updated,{from:'0.3.9+'+'f'.repeat(12),to:'0.4.0+aaaaaaaaaaaa'});
+  assert.equal(h.values.get('game-last-version'),'0.4.0+aaaaaaaaaaaa');
+ }finally{h.cleanup();}
+});

@@ -1,6 +1,7 @@
 import {prepareUpdates} from './platform/updates.js';
 (async()=>{
-  try { if(await prepareUpdates())return; }
+  // Say so when a downloaded update is being installed: the app reloads into it.
+  try { if(await prepareUpdates(()=>{document.querySelector('#bootStatus').textContent='Installing the game update…';}))return; }
   catch(error){console.warn('Using installed game',error);}
   await import('./main.js');
 })().catch((error) => {
