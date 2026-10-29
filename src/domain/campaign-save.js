@@ -4,7 +4,7 @@ import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
 import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE, ATHLETE_TYPES } from "../game-content.js";
 import { syncMarks } from "./meet.js";
-import { statTotal, slotsOf, typeFor } from "./core.js";
+import { statTotal, slotsOf, typeFor, BASE_STAMINA, MAX_STAMINA } from "./core.js";
 import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
 import { DRILLS, CHEMISTRY } from "./coaching.js";
@@ -189,7 +189,9 @@ function checkAthlete(a, ids, rival = false) {
   if (!a || !int(a.id, 1, 1e9) || ids.has(a.id) || !word(a.name) || !EVENT_IDS.includes(a.event)) bad();
   if (!Array.isArray(a.stats) || a.stats.length !== 4 || a.stats.some((v) => !num(v, 0, 1e4))) bad();
   if (a.stars != null && (!int(a.stars, 0, 1e4) || (a.stars && a.rank !== 4))) bad();
-  for (const k of ["stamina", "condition"]) if (!num(a[k], 0, 100)) bad();
+  // Saves from before trainable max stamina had a 100-point tank.
+  a.maxStamina ??= BASE_STAMINA;
+  if (!num(a.maxStamina, BASE_STAMINA, MAX_STAMINA) || !num(a.stamina, 0, a.maxStamina) || !num(a.condition, 0, 100)) bad();
   if (!num(a.level, 1, 1e5) || !num(a.xp, 0, 1e9) || !num(a.sp, 0, 1e5) || !int(a.rank, 0, 4) || !num(a.potential, 1, 100)) bad();
   if (!BACKGROUNDS[a.background] || !RARITY[a.rarity] || !PLANS[a.plan]) bad();
   if (!Array.isArray(a.skills) || a.skills.some((k) => !SKILLS[k]) || !Array.isArray(a.equipped) || a.equipped.some((k) => !a.skills.includes(k))) bad();

@@ -63,6 +63,25 @@ export const rankName = (a) => RANKS[a.rank || 0].name + (a.stars ? " ★" + a.s
 export const moodOf = (a) => clamp(Math.floor(a.condition / 20), 0, 4);
 export const MOODS = ["Awful", "Low", "Okay", "Good", "Great"];
 export const MOOD_MARK = [0.95, 0.975, 1, 1.02, 1.04];
+// Stamina: everyone starts with a 100-point tank, and conditioning work raises the top of it.
+// Distance scales with stamina up to 100; a trained tank kept above that adds a little more, up
+// to +2% when a fully conditioned athlete is completely fresh.
+export const BASE_STAMINA = 100,
+  MAX_STAMINA = 150;
+export const maxStaminaOf = (a) => a.maxStamina ?? BASE_STAMINA;
+export const addStamina = (a, n) => (a.stamina = clamp(a.stamina + n, 0, maxStaminaOf(a)));
+export const staminaMark = (a) => {
+  const st = clamp(a.stamina, 0, maxStaminaOf(a));
+  return 0.92 + (0.08 * Math.min(st, BASE_STAMINA)) / BASE_STAMINA + 0.0004 * Math.max(0, st - BASE_STAMINA);
+};
+// Raise an athlete's max stamina; gains slow as the tank nears its ceiling. Returns the gain.
+export function raiseMaxStamina(a, n) {
+  const before = maxStaminaOf(a),
+    room = Math.max(0.25, (MAX_STAMINA - before) / (MAX_STAMINA - BASE_STAMINA)),
+    after = Math.min(MAX_STAMINA, before + n * room * (a.background === "marathon" ? 1.3 : 1));
+  a.maxStamina = after;
+  return after - before;
+}
 export const MOOD_TRAIN = [0.8, 0.9, 1, 1.1, 1.2];
 export const xpNeeded = (level) => 40 + level * 12;
 export const slotsOf = (a) => RANKS[a.rank || 0].slots;
@@ -107,7 +126,8 @@ export function createAthlete(s, event, o = {}) {
     name: o.name || pick(s, FIRST) + " " + pick(s, LAST),
     event,
     stats: stats.map((v) => clamp(v, 1, Math.min(100,potential+RANKS[o.rank||0].cap))),
-    stamina: 100,
+    stamina: BASE_STAMINA,
+    maxStamina: BASE_STAMINA,
     condition: 55 + Math.round(random(s) * 20),
     level: 1,
     xp: 0,
@@ -258,7 +278,7 @@ export function forecastRaw(s, a, event, o = {}) {
   return (
     baseMark(a, event) *
     MOOD_MARK[moodOf(a)] *
-    (0.92 + (0.08 * clamp(a.stamina, 0, 100)) / 100) *
+    staminaMark(a) *
     fx.mark *
     (o.doubleDuty ? 0.97 : 1)
   );

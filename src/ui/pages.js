@@ -67,7 +67,9 @@ export const mood = (a) => `<span class="mood-wrap" title="${G.MOODS[G.moodOf(a)
 const rankChip = (a) => chip(G.rankName(a), ["#9aa58f", "#5aa4c8", "#8cc152", "#e2b04a", "#b060d0"][a.rank], "rank");
 const rarityChip = (a) => (a.rarity !== "common" ? chip(RARITY[a.rarity].name, RARITY[a.rarity].color, "rarity") : "");
 const eventChip = (ev) => chip(EVENTS[ev].short, EVENTS[ev].color);
-const stamina = (a) => `<span class="mini-stat" title="Stamina ${Math.round(a.stamina)}">${ico("bolt")}${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span>`;
+// Stamina against the athlete's own tank, which conditioning makes bigger than 100.
+const tank = (a) => bar(a.stamina, G.maxStaminaOf(a), a.stamina < 30 ? "#e0604a" : "#6ac08a");
+const stamina = (a) => `<span class="mini-stat" title="Stamina ${Math.round(a.stamina)} of ${Math.round(G.maxStaminaOf(a))}">${ico("bolt")}${tank(a)}</span>`;
 function alerts(s, a) {
   const out = [];
   if (a.injury) out.push(chip("Injured " + a.injury + "d", "#e0604a"));
@@ -175,7 +177,7 @@ function athletePage(s, a, view) {
   if (tab === "stats") {
     const next = RANKS[a.rank + 1],
       problem = G.promoteProblem(s, a);
-    body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>
+    body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${tank(a)}<b>${Math.round(a.stamina)}<small>/${Math.round(G.maxStaminaOf(a))}</small></b></div><div title="Raised by conditioning. Stamina above 100 adds distance, up to +2% with a full ${G.MAX_STAMINA} tank."><span>${ico("bolt")} Max stamina</span>${bar(G.maxStaminaOf(a) - G.BASE_STAMINA, G.MAX_STAMINA - G.BASE_STAMINA, "#3aa0a0")}<b>${Math.round(G.maxStaminaOf(a))}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>
     ${statRows(a)}
     <p class="skill-line"><span>${a.equipped.length ? a.equipped.map((k) => esc(SKILLS[k].name)).join(" · ") : "No skills equipped"}${a.secret ? " · Unique: " + esc(SKILLS[SECRETS[a.secret].skill].name) : ""}</span>${btn("Manage skills", "tab", 'data-tab="skills"', "subtle small")}</p>
     <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
@@ -254,7 +256,7 @@ function athletePage(s, a, view) {
   <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav></aside><div class="athlete-body">${body}</div></div>`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
-const DRILL_ICONS = { sandbag: "dumbbell", ladder: "shoe", shadow: "eye", visualise: "idea", recovery: "heart", contest: "trophy", indoor: "target", peer: "video", trial: "ball", lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
+const DRILL_ICONS = { conditioning: "bolt", sandbag: "dumbbell", ladder: "shoe", shadow: "eye", visualise: "idea", recovery: "heart", contest: "trophy", indoor: "target", peer: "video", trial: "ball", lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
 const plus = (n) => "+" + (Math.round(n * 10) / 10).toString();
 const vital = (c) => (c.stat != null ? showStat(c.from) + " → " + showStat(c.to) : Math.round(c.from) + " → " + Math.round(c.to));
 export const previewText = (changes) => changes.map((c) => (c.from != null ? c.label + " " + vital(c) : c.label)).join(" · ");
@@ -265,7 +267,7 @@ function planForecast(s, a) {
   if(G.autoPrepActivity(s,a)) return "Standard auto prep is active: "+PLANS[G.autoPrepActivity(s,a)].name+" now. Your saved "+PLANS[a.plan].name+" plan resumes when auto prep is turned off.";
   if (a.plan === "facilities") return "Automatic duties replace stat training. Rewards and stamina costs depend on the selected facility; athletes recover when no suitable site is available.";
   const perWeek = G.trainingGains(s, a, a.plan).map((g) => g * 5);
-  return `Five days of ${esc(PLANS[a.plan].name)} add about ${perWeek.map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_NAMES[i] : "")).filter(Boolean).join(", ") || "less than one point"} and cost ${a.plan === "rest" ? "no" : Math.round(PLANS[a.plan].load * 13 * G.effects(s, a).stamina)} stamina a day.`;
+  return `Five days of ${esc(PLANS[a.plan].name)} add about ${perWeek.map((g, i) => (g >= 0.5 ? "+" + Math.round(g) + " " + STAT_NAMES[i] : "")).filter(Boolean).join(", ") || "less than one point"}${PLANS[a.plan].capacity && G.maxStaminaOf(a) < G.MAX_STAMINA ? ", raise max stamina a little" : ""} and cost ${a.plan === "rest" ? "no" : Math.round(PLANS[a.plan].load * 13 * G.effects(s, a).stamina)} stamina a day.`;
 }
 function shortForecast(s, a) {
   if (a.plan === "facilities") return "Club duties";
@@ -305,6 +307,7 @@ function gainPills(gains, top = 0, chem = null) {
 const extraPills = (id, d, ev) =>
   (["delivery", "review"].includes(id) || d.mastery ? `<span class="gain" style="--c:${ev ? EVENTS[ev].color : "#c8a050"}">Mastery</span>` : "") +
   (d.recover ? `<span class="gain" style="--c:#6ac08a">+${d.recover} stamina</span>` : "") +
+  (d.capacity ? `<span class="gain" style="--c:#3aa0a0" title="Raises max stamina">Max stamina ↑</span>` : "") +
   (d.xp ? `<span class="gain" style="--c:#a465d6">+XP</span>` : "");
 // Training menu, step one: pick a session. Each card shows its step on the ladder, the stats it
 // works, the bill for one athlete and how many of the squad can do it today. Sessions waiting on a
@@ -340,11 +343,13 @@ function drillPicker(s, view, id) {
     top = Math.max(0, ...[...preview.values()].flat());
   const row = (a) => {
     const at = ids.indexOf(a.id), why = G.drillProblem(s, a, id, 1), ev = a.trainingEvent || a.event, w = EVENTS[ev].weights, cap = G.capOf(a),
-      gains = preview.get(a.id);
+      gains = preview.get(a.id),
+      capacity = why ? 0 : G.drillCapacity(s, a, id, (ids.includes(a.id) ? ids : [...ids, a.id].slice(-G.MAX_GROUP)).length),
+      tankPill = capacity > 0.05 ? `<span class="gain" style="--c:#3aa0a0" title="${SIZES[capacity >= 5 ? 2 : capacity >= 2.5 ? 1 : 0][1]} to max stamina (now ${Math.round(G.maxStaminaOf(a))})">STA ${SIZES[capacity >= 5 ? 2 : capacity >= 2.5 ? 1 : 0][0]}</span>` : "";
     return `<button class="pick-row ${at >= 0 ? "on" : ""}" data-act="trainee" data-id="${a.id}" aria-pressed="${at >= 0}" ${why && at < 0 ? "disabled" : ""}>
-      <span class="pick-who">${portrait(a)}${at >= 0 ? `<i class="order">${at + 1}</i>` : ""}<span><b>${esc(a.name.split(" ")[0])}</b> ${eventChip(ev)}<small>Lv ${a.level} · ${esc(typeName(a))} · OVR ${Math.round(G.eventRating(a, ev))}</small>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span></span>
+      <span class="pick-who">${portrait(a)}${at >= 0 ? `<i class="order">${at + 1}</i>` : ""}<span><b>${esc(a.name.split(" ")[0])}</b> ${eventChip(ev)}<small>Lv ${a.level} · ${esc(typeName(a))} · OVR ${Math.round(G.eventRating(a, ev))}</small>${tank(a)}</span></span>
       <span class="sheet-stats">${a.stats.map((v, i) => `<span class="sheet-stat ${w[i] >= 0.25 ? "key" : ""}" style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}: ${Math.round(w[i] * 100)}% of ${esc(EVENTS[ev].name)} · ceiling ${Math.floor(cap)}"><small>${STAT_SHORT[i]}</small><b>${showStat(v)}</b>${growthMark(a, i)}<i style="width:${Math.min(100, (v / cap) * 100)}%"></i></span>`).join("")}</span>
-      <span class="pick-gains">${why ? `<small class="why">${esc(why)}</small>` : gainPills(gains, top, chem && s.coaching.chemistry?.includes(chem.key) ? chem : null) || `<small>${["delivery", "review"].includes(id) || d.mastery ? "Mastery only" : "Little to gain"}</small>`}</span>
+      <span class="pick-gains">${why ? `<small class="why">${esc(why)}</small>` : (gainPills(gains, top, chem && s.coaching.chemistry?.includes(chem.key) ? chem : null) + tankPill) || `<small>${["delivery", "review"].includes(id) || d.mastery ? "Mastery only" : "Little to gain"}</small>`}</span>
     </button>`;
   };
   const tip = id === "delivery" && ids.length ? [...new Set(ids.map((x) => s.roster.find((a) => a.id === x)?.trainingEvent || s.roster.find((a) => a.id === x)?.event))].map((ev) => G.EVENT_DRILLS[ev]).join(" ") : drillTip(s, id);
@@ -466,6 +471,7 @@ export function trainingStage(s, session, befores) {
         })
         .filter(Boolean);
       if (G.overall(a) > before.ovr) ups.push(`OVR ${before.ovr} → <b>${G.overall(a)}</b>`);
+      if (r.capacity > 0.05) ups.push(`Max stamina ${plus(r.capacity)} → <b>${Math.round(G.maxStaminaOf(a))}</b>`);
       if (r.form) ups.unshift(`<span class="form-up">New ${esc(EVENTS[r.form.event].name.toLowerCase())} technique: <b>${esc(r.form.name)}</b>!</span>`);
       return `<article class="result-row q-${r.quality}" style="--d:${k * 0.22}s">
         <div class="result-who">${portrait(a)}<div><strong>${esc(a.name)}</strong><span class="qbadge" style="--q:${QUAL[r.quality].color}">${QUAL[r.quality].name}</span></div></div>
@@ -500,6 +506,7 @@ export function growth(a, before, extra = []) {
   const rows = growRows(a, before);
   const notes = [
     Math.round(a.stamina) !== Math.round(before.stamina) ? `${ico("bolt")} Stamina ${Math.round(before.stamina)} → <b>${Math.round(a.stamina)}</b>` : "",
+    before.maxStamina != null && G.maxStaminaOf(a) - before.maxStamina > 0.05 ? `${ico("bolt")} Max stamina ${Math.round(before.maxStamina)} → <b>${Math.round(G.maxStaminaOf(a))}</b>` : "",
     Math.round(a.condition) !== Math.round(before.condition) ? `${mood(a)} Condition ${Math.round(before.condition)} → <b>${Math.round(a.condition)}</b>` : "",
     a.level > before.level ? `${ico("levelup")} <b>Level ${a.level}!</b>` : "",
     a.sp > before.sp ? `${ico("spark")} <b>+${a.sp - before.sp} SP</b>` : "",

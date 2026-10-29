@@ -51,6 +51,10 @@ import {
   planFacility,
   rankName,
   STAR_CAP,
+  BASE_STAMINA,
+  maxStaminaOf,
+  addStamina,
+  raiseMaxStamina,
 } from "./core.js";
 import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
@@ -306,7 +310,7 @@ export function trainingGains(s, a, planId, fx = effects(s, a)) {
     if (plan.stat != null) {
       const lvl = facilityLevel(s, planFacility(plan, a));
       g = plan.stat === i ? base * 2 * (plan.rate || 1) * (lvl ? 1 + 0.4 * lvl : 0.6) : base * (plan.secondary?.[0] === i ? plan.secondary[1] : 0.22);
-    } else g = base * (planId === "sharpen" ? 0.15 : 0.62);
+    } else g = base * (plan.allround ?? (planId === "sharpen" ? 0.15 : 0.62));
     const room = clamp((cap - a.stats[i]) / (cap * 0.55), 0.06, 1);
     g *= fx.gain * fx.train[i] * mood * room;
     gains[i] = Math.max(0, Math.min(g, cap - a.stats[i]));
@@ -335,7 +339,7 @@ export function advanceDay(s) {
     const fromOthers = teamCond.reduce((n, v, j) => n + (j === index ? 0 : v), 0);
     if (activity === "injured") {
       a.injury = Math.max(0, a.injury - 1 - (facilityLevel(s, "spa") && random(s) < 0.4 ? 1 : 0));
-      a.stamina = clamp(a.stamina + 20, 0, 100);
+      addStamina(a, 20);
       entry.facility = facilityLevel(s, "spa") ? "spa" : "club";
     } else if(activity === "facility") {
       const worked=workFacility(s,a,effectiveDuty(s,a.id,autoDuties),dailyVisitors,report);
@@ -347,15 +351,17 @@ export function advanceDay(s) {
       entry.gains = trainingGains(s, a, activity, fx).map((g, i) => Math.max(0, Math.min(g * outside, capOf(a) - a.stats[i])));
       entry.gains.forEach((g, i) => (a.stats[i] += g));
       const technical=plan.facility === "event";
+      // Conditioning work raises the top of the stamina tank, more on a better track.
+      if (plan.capacity) entry.capacity = raiseMaxStamina(a, plan.capacity * (facilityLevel(s, "track") ? 1 + 0.25 * facilityLevel(s, "track") : 0.75) * outside);
       entry.mastery=practiceMastery(a,technical?(plan.course?0.8:0.5):activity==="balanced"?0.12:activity==="focus"||activity==="filmblock"?0.2:0);
       const where = plan.facility && planFacility(plan, a);
       entry.facility = where && facilityLevel(s, where) ? where : activity === "rest" ? "club" : null;
-      if (activity === "rest") a.stamina = clamp(a.stamina + restAmount(s, a, fx), 0, 100);
+      if (activity === "rest") addStamina(a, restAmount(s, a, fx));
       else {
-        a.stamina = clamp(a.stamina - plan.load * 13 * fx.stamina * (sky.stamina || 1), 0, 100);
+        addStamina(a, -(plan.load * 13 * fx.stamina * (sky.stamina || 1)));
         a.sessions++;
       }
-      a.stamina = clamp(a.stamina + 4, 0, 100);
+      addStamina(a, 4);
       a.condition += plan.cond;
       grantXp(s, a, activity === "rest" ? 2 : activity === "sharpen" ? 4 : 6, report.levelUps);
       if (plan.load > 0.5 && a.stamina < 15 && random(s) < injuryRisk) {
@@ -370,7 +376,7 @@ export function advanceDay(s) {
   }
   const recovery=report.duties.reduce((n,d)=>n+d.recovery,0);
   if(recovery) for(const entry of report.athletes) if(["rest","injured"].includes(entry.activity)) {
-    const a=s.roster.find(a=>a.id===entry.id);a.stamina=clamp(a.stamina+recovery,0,100);
+    const a=s.roster.find(a=>a.id===entry.id);addStamina(a, recovery);
   }
   report.insights = practiceInsights(s,report.athletes.some((e) => e.mastery>0 || e.gains.some((v) => v > 0)));
   // Visitors wander the grounds and spend at the café and merch stand.
@@ -527,24 +533,26 @@ export function itemProblem(s, id, athleteId) {
   const d = ITEMS[id];
   if (!d || d.kind !== "use") return "Not a consumable";
   if (s.match) return "Not during a meet";
-  if (d.team) return s.roster.every((b) => b.condition >= 100 && b.stamina >= 100) ? "The squad is already fresh" : null;
+  if (d.team) return s.roster.every((b) => b.condition >= 100 && b.stamina >= maxStaminaOf(b)) ? "The squad is already fresh" : null;
   const a = s.roster.find((x) => x.id === athleteId);
   if (!a) return "Choose an athlete";
   if (d.promote) return a.rank >= 4 ? "Already a Legend" : a.promoteFree ? "Already holds a letter" : null;
   if (d.stat) return a.stats[d.stat[0]] >= capOf(a) - 1e-6 ? STAT_NAMES[d.stat[0]] + " is at the current limit" : null;
   if (d.potential) return a.potential >= 100 ? "Potential is maxed" : null;
   if (d.buff) return (a.buff || 1) >= d.buff ? "Already boosted for the next meet" : null;
-  const useful = (d.stamina && a.stamina < 100) || (d.heal && a.injury) || (d.cond && a.condition < 100) || d.xp || d.sp;
+  const useful = (d.stamina && a.stamina < maxStaminaOf(a)) || (d.heal && a.injury) || (d.cond && a.condition < 100) || d.xp || d.sp;
   if (!useful) return d.heal ? "Fresh and healthy already" : d.stamina ? "Stamina is already full" : d.cond ? "Already in top condition" : "No effect";
   return null;
 }
+// A full-stamina item (the Ice Bath) fills even a conditioned athlete's bigger tank.
+const itemStamina = (a, d) => (d.stamina >= BASE_STAMINA ? maxStaminaOf(a) : d.stamina);
 // What a consumable would change, for previews in the shop and pickers.
 export function itemPreview(s, id, athleteId) {
   const d = ITEMS[id],
     a = s.roster.find((x) => x.id === athleteId),
     out = [];
   if (!d || !a) return out;
-  if (d.stamina) out.push({ label: "Stamina", from: a.stamina, to: Math.min(100, a.stamina + d.stamina) });
+  if (d.stamina) out.push({ label: "Stamina", from: a.stamina, to: Math.min(maxStaminaOf(a), a.stamina + itemStamina(a, d)) });
   if (d.heal && a.injury) out.push({ label: "Injury healed" });
   if (d.cond) out.push({ label: "Condition", from: a.condition, to: Math.min(100, a.condition + d.cond) });
   if (d.stat) out.push({ label: STAT_NAMES[d.stat[0]], stat: d.stat[0], from: a.stats[d.stat[0]], to: Math.min(capOf(a), a.stats[d.stat[0]] + d.stat[1]) });
@@ -565,11 +573,11 @@ export function useItem(s, id, athleteId) {
   if (d.team) {
     for (const b of s.roster) {
       b.condition = clamp(b.condition + (d.teamCond || 0), 0, 100);
-      b.stamina = clamp(b.stamina + (d.teamStamina || 0), 0, 100);
+      addStamina(b, d.teamStamina || 0);
     }
     out.push("The whole squad feels great");
   } else {
-    if (d.stamina) a.stamina = clamp(a.stamina + d.stamina, 0, 100);
+    if (d.stamina) addStamina(a, itemStamina(a, d));
     if (d.heal) a.injury = 0;
     if (d.cond) a.condition = clamp(a.condition + d.cond, 0, 100);
     if (d.stat) a.stats[d.stat[0]] = Math.min(capOf(a), a.stats[d.stat[0]] + d.stat[1]);
@@ -815,7 +823,7 @@ export function nextSeason(s) {
       const weakest = a.stats.indexOf(Math.min(...a.stats));
       for (const i of new Set([EVENTS[a.event].weights.indexOf(Math.max(...EVENTS[a.event].weights)), weakest])) a.stats[i] = Math.min(capOf(a), a.stats[i] + boost);
     }
-    a.stamina = 100;
+    a.stamina = maxStaminaOf(a);
     a.condition = clamp(a.condition + 15, 0, 100);
     a.injury = 0;
     a.seasonStart = statTotal(a);

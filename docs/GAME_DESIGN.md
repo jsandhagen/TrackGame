@@ -38,7 +38,7 @@ Time stops for meet day and for story events. Nothing times out.
 
 - **Stats**: Power, Technique, Speed, Focus on a 1–100 scale, shown as whole numbers with a letter grade: G (below 30), F (30), E (40), D (50), C (60), B (70), A (80), S (90+). Stat bars mark the athlete's cap. Each event weights the stats differently, and the **OVR** (overall rating) is the weighted rating for the athlete's main event, shown on squad cards, in the athlete window, the meet lobby and the meet bar.
 - **Cap** = potential (by rarity) + rank bonus. Growth slows as a stat approaches its cap.
-- **Stamina** (training load, performance −8% when empty) and **condition** (five moods, −5% to +4% distance and −20% to +20% training).
+- **Stamina** (training load, performance −8% when empty, up to +2% above 100) with a **max stamina** that conditioning raises from 100 to 150 (see COACHING.md) and **condition** (five moods, −5% to +4% distance and −20% to +20% training).
 - **Levels** come from training and meets and grant skill points (two on every fifth level).
 - **Ranks**: Pro (Lv 6), Ace (Lv 12), Star (Lv 20), Legend (Lv 30 and a title). Each costs a fee, raises the cap, may add a skill slot and changes the sprite (wristband → headband → gold headband and star → cape).
 - **Backgrounds** give one identity each: Lumberjack (power growth), Poker Face (fewer fouls), Class Clown (lifts teammates' mood), Late Bloomer (XP)…

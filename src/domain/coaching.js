@@ -1,13 +1,14 @@
 import { athleteDuty } from "./facility-duties.js";
 import { practiceMastery, masteryOf, masteryCap, formOf, FORMS } from "./mastery.js";
 import { EVENT_IDS, PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
-import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random, hasCombo, grantXp } from "./core.js";
+import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random, hasCombo, grantXp, addStamina, raiseMaxStamina, maxStaminaOf, MAX_STAMINA } from "./core.js";
 
 export const INSIGHT_START = 16;
 // Coached sessions are where the big gains come from; daily plans only keep the squad ticking over.
 // The first three need nothing but grass: every club can run them from day one.
 export const DRILLS = {
   visualise: { family: "focus", broad: 1, name: "Breathing & visualisation", desc: "Slow breathing, then rehearse the perfect throw in your head, cue by cue. No equipment, little effort.", needs: [], cost: 4, energy: 6, gains: [0,0.2,0,1.25] },
+  conditioning: { family: "stamina", name: "Conditioning circuit", desc: "Tempo runs and bodyweight circuits on the grass. Hard on the legs today, but raises max stamina: a bigger tank for training weeks and long meets.", needs: [], cost: 5, energy: 22, capacity: 0.6, gains: [0.15,0,0.25,0] },
   recovery: { family: "recovery", name: "Mobility & recovery", desc: "Foam rollers, hurdle walkovers and an easy stretch. Gives back stamina instead of spending it.", needs: [], cost: 3, energy: 0, recover: 30, gains: [0,0.1,0.25,0.35] },
   contest: { family: "special", name: "Club throw-off", desc: "Everyone throws their own event and the coach scores it. Bragging rights, a little of everything and a lot of experience. Needs two or more athletes.", needs: [], cost: 6, energy: 18, minGroup: 2, xp: 18, gains: [0.4,0.4,0.4,0.4], mastery: 0.4 },
   sandbag: { family: "power", broad: 2, name: "Sandbag carries", desc: "Bear-hug a sandbag across the field and back. Old-school strength that needs no gym.", needs: [], cost: 5, energy: 20, gains: [1.15,0,0.1,0] },
@@ -32,13 +33,14 @@ export const TIER_GAIN = [1, 1.5, 2.1, 2.9, 4];
 // stalled building (median final funds fell by more than half). Set PAID_TIER to a step to try it again.
 export const PAID_TIER = 0;
 export const MONEY_PER_INSIGHT = 30;
-export const DRILL_FAMILIES = [["power", "Power", 0], ["technique", "Technique", 1], ["speed", "Speed", 2], ["focus", "Focus", 3], ["recovery", "Recovery", null], ["special", "Club", null]];
+export const DRILL_FAMILIES = [["power", "Power", 0], ["technique", "Technique", 1], ["speed", "Speed", 2], ["focus", "Focus", 3], ["stamina", "Stamina", null], ["recovery", "Recovery", null], ["special", "Club", null]];
 export const tierOf = (level) => Math.max(1, Math.min(level, TIER_COST.length));
 export const DRILL_NAMES = {
   sandbag: ["Sandbag carries", "Tyre flips", "Log press", "Farmer's walk relay", "Strongman day"],
   ladder: ["Agility ladder", "Skips & bounds", "Hurdle hops", "Reactive sprints", "Lightning feet"],
   shadow: ["Shadow throws", "Towel drill", "Mirror rehearsal", "Standing-throw series", "Perfect positions"],
   visualise: ["Breathing & visualisation", "Guided imagery", "Pressure rehearsal", "Flow-state routine", "Ice in the veins"],
+  conditioning: ["Conditioning circuit", "Tempo runs", "Hill repeats", "Interval circuit", "Iron engine"],
   recovery: ["Mobility & recovery", "Yoga flow", "Contrast baths", "Sports massage", "Full reset"],
   contest: ["Club throw-off", "Points ladder", "Handicap challenge", "Club championship", "Grand throw-off"],
   indoor: ["Indoor technical rehearsal", "Net-release practice", "Footwork & release", "Connected indoor series", "Precision rehearsal"],
@@ -192,6 +194,14 @@ export function drillGains(s, a, id, group = 1, chem = null) {
     return Math.max(0,Math.min(cap-a.stats[i],v*quality*mult[i]*room*fx.gain*fx.train[i]*MOOD_TRAIN[moodOf(a)]));
   });
 }
+// Max stamina a session would add before its rating, for drills that build capacity. Like the
+// stat gains it grows with the drill's step, the group and the head coach.
+export function drillCapacity(s, a, id, group = 1) {
+  const d = DRILLS[id];
+  if (!d?.capacity || maxStaminaOf(a) >= MAX_STAMINA) return 0;
+  const level = drillLevel(s, id), tier = tierOf(level);
+  return d.capacity * TIER_GAIN[tier - 1] * (1 + 0.08 * Math.max(0, level - TIER_GAIN.length)) * groupBonus(group) * (1 + 0.03 * (coachLevel(s) - 1)) * MOOD_TRAIN[moodOf(a)];
+}
 // Everything except the Insight bill, which a group pays once.
 export function drillProblem(s,a,id,group = 0) {
   const d = DRILLS[id];
@@ -205,7 +215,8 @@ export function drillProblem(s,a,id,group = 0) {
   if(d.implement && ITEMS[a.gear.implement]?.event !== event) return "Equip an implement for this training event";
   return facilityProblem(s,a,d.needs) || (!group ? costProblem(s, sessionCost(s, id, 1)) : null) ||
     (!d.recover && a.stamina < drillEnergy(s,id) + 20 ? "Legs too heavy (needs " + (drillEnergy(s,id) + 20) + " stamina)" : null) ||
-    (drillGains(s,a,id).every((v) => v <= 0) && !((d.mastery || ["delivery","review"].includes(id)) && masteryOf(a,a.trainingEvent||a.event)<masteryCap(a,a.trainingEvent||a.event)) ? "At their ceiling: a rank-up raises it" : null);
+    (d.capacity && maxStaminaOf(a) >= MAX_STAMINA && drillGains(s,a,id).every((v) => v <= 0) ? "Max stamina is already " + MAX_STAMINA : null) ||
+    (drillGains(s,a,id).every((v) => v <= 0) && !drillCapacity(s,a,id) && !((d.mastery || ["delivery","review"].includes(id)) && masteryOf(a,a.trainingEvent||a.event)<masteryCap(a,a.trainingEvent||a.event)) ? "At their ceiling: a rank-up raises it" : null);
 }
 export function groupProblem(s, ids, id) {
   if (!DRILLS[id]) return "Unknown session";
@@ -236,8 +247,9 @@ export function coachGroup(s, ids, id) {
       formEvent = a.trainingEvent || a.event, formBefore = formOf(a, formEvent);
     const quality = roll < odds.excellent ? "excellent" : roll < odds.excellent + odds.great ? "great" : "good";
     const gains = drillGains(s, a, id, n, chem).map((g, i) => Math.max(0, Math.min(cap - a.stats[i], g * QUALITY[quality].mult)));
-    const energy = drillEnergy(s, id);
-    a.stamina = Math.min(100, a.stamina - energy + (d.recover || 0));
+    const energy = drillEnergy(s, id),
+      capacity = raiseMaxStamina(a, drillCapacity(s, a, id, n) * QUALITY[quality].mult);
+    addStamina(a, (d.recover || 0) - energy);
     a.coachedDay = s.day;
     a.stats = a.stats.map((v, i) => v + gains[i]);
     const mastery = practiceMastery(a, (d.mastery ?? (id === "delivery" ? 0.9 : id === "review" ? 0.3 : 0)) * QUALITY[quality].mult);
@@ -247,7 +259,7 @@ export function coachGroup(s, ids, id) {
     // A better form changes how they throw at meets: worth announcing.
     const formAfter = formOf(a, formEvent);
     if (formAfter > formBefore) note(s, a.name.split(" ")[0] + " can now throw with a " + FORMS[formEvent][formAfter].toLowerCase() + ".", "level");
-    return { id: aid, gains, mastery, energy, quality, form: formAfter > formBefore ? { event: formEvent, name: FORMS[formEvent][formAfter] } : null };
+    return { id: aid, gains, mastery, capacity, energy, quality, form: formAfter > formBefore ? { event: formEvent, name: FORMS[formEvent][formAfter] } : null };
   });
   s.coaching.drills ??= {};
   s.coaching.drills[id] = drillXp(s, id) + 1;

@@ -15,7 +15,7 @@ const COACH = { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, shirt: "#2
 const QUALITY_COLOR = { good: "#8cc152", great: "#7cc8f0", excellent: "#f2c94c" };
 const QUALITY_TEXT = { good: "SOLID", great: "STRONG!", excellent: "BOMB!!" };
 // Coaching cues shouted mid-session.
-const CUES = { sandbag: "LIFT WITH THE LEGS!", ladder: "QUICK FEET!", shadow: "FEEL THE POSITIONS", visualise: "BREATHE IN...", recovery: "NICE AND EASY", contest: "BEAT THAT!", lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!", indoor: "SMOOTH RELEASE!", peer: "WATCH THE RHYTHM", trial: "FEEL THE GRIP" };
+const CUES = { conditioning: "KEEP IT ROLLING!", sandbag: "LIFT WITH THE LEGS!", ladder: "QUICK FEET!", shadow: "FEEL THE POSITIONS", visualise: "BREATHE IN...", recovery: "NICE AND EASY", contest: "BEAT THAT!", lifting: "DRIVE!", acceleration: "PUSH! PUSH!", delivery: "HIPS FIRST!", review: "WATCH THE BLOCK", medicine: "SNAP IT!", indoor: "SMOOTH RELEASE!", peer: "WATCH THE RHYTHM", trial: "FEEL THE GRIP" };
 const IMPLEMENT = { shot: "#6a6e78", discus: "#d8b060", hammer: "#5a5e68", jav: "#e8e0c8" };
 
 const slots = (n) => [[150], [118, 178], [96, 148, 200]][n - 1];
@@ -153,7 +153,7 @@ function ropes(g, ctx) {
     for (let k = -28; k <= 28; k += 8) rect(g, x + k, FLOOR - 4, 1, 8, "#f2e6c0");
   }
 }
-const BACKDROPS = { sandbag: bags, ladder: ropes, shadow: field, visualise: lawn, recovery: lawn, contest: field, indoor, peer: studio, trial: testing, lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
+const BACKDROPS = { conditioning: track, sandbag: bags, ladder: ropes, shadow: field, visualise: lawn, recovery: lawn, contest: field, indoor, peer: studio, trial: testing, lifting: gym, acceleration: track, delivery: field, review: studio, medicine: wall };
 
 // ── Athlete actions per drill ───────────────────────────────────────────
 // Returns the pose to draw plus any props, given time t since the drill started.
@@ -167,6 +167,11 @@ function act(drill, i, t, ev) {
     case "acceleration": {
       const p = wave(t + off * 3, 1500);
       return { pose: "run", frame: runFrame(p * 140), dx: -70 + p * 140, dust: true };
+    }
+    case "conditioning": {
+      // Tempo laps: down the straight, turn, and back, at an even pace.
+      const p = wave(t + off * 2, 2400);
+      return { pose: "run", frame: runFrame(p * 200), dx: -50 + (p < 0.5 ? p : 1 - p) * 200, flip: p >= 0.5, dust: true, sweat: p > 0.8 };
     }
     case "sandbag": {
       const f = Math.floor((t + off) / 520) % 2;
@@ -321,6 +326,12 @@ export function playTraining(cv, opts) {
           const rise = Math.min(1, gt / 400);
           text(o, "+" + v.toFixed(1) + " " + STAT_SHORT[k], x, FLOOR - 64 - order * 10 + (1 - rise) * 6, { color: STAT_COLORS[k], align: "center" });
         });
+        // Conditioning adds to the stamina tank, floated after the stats.
+        if (r.capacity > 0.05) {
+          const order = r.gains.filter((u) => u > 0.05).length,
+            gt = rt - 250 - order * 180;
+          if (gt >= 0) text(o, "+" + r.capacity.toFixed(1) + " STA", x, FLOOR - 64 - order * 10 + (1 - Math.min(1, gt / 400)) * 6, { color: "#3aa0a0", align: "center" });
+        }
       }
     });
     // Chemistry: sparks pass between the group mid-session, then its name pops up.

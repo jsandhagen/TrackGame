@@ -79,6 +79,7 @@ export const PLANS = {
   technique: { name: "Technique", short: "Technique", stat: 1, facility: "event", load: 1, cond: -1, desc: "Throwing drills at their own circle, cage or runway." },
   speed: { name: "Speed", short: "Speed", stat: 2, facility: "track", load: 1, cond: -1, desc: "Sprints and bounds on the track." },
   focus: { name: "Focus", short: "Focus", stat: 3, facility: "studio", load: 0.7, cond: 0, desc: "Film study in the Video room." },
+  conditioning: { name: "Conditioning", short: "Conditioning", facility: "track", load: 1.1, cond: -1, allround: 0.3, capacity: 0.4, desc: "Tempo laps and circuits on the track. Slowly raises max stamina, with light all-round work. Better on a better track." },
   sharpen: { name: "Sharpen", short: "Sharpen", load: 0.45, cond: 7, desc: "Light competition prep. Lifts condition." },
   rest: { name: "Rest", short: "Rest", facility: "spa", load: 0, cond: 3, desc: "Recover stamina. Better with a Recovery Spa." },
   strengthblock: { name: "Maximum-strength block", short: "Strength block", stat: 0, facility: "gym", load: 1.35, cond: -2, rate: 1.55, course: true, cost: 16, needs: [["gym",2]], desc: "Squats, pulls and presses build force for the delivery. Greater power gains, with a heavier recovery cost." },

@@ -1,5 +1,5 @@
 import { FACILITIES, STADIUM } from '../game-content.js';
-import { clamp, grantXp, count } from './core.js';
+import { addStamina, grantXp, count } from './core.js';
 
 export const DUTIES = {
   club: { name:'Club open day', desc:'Welcome visitors and help with community club sessions.', money:6, fans:1, stamina:6 },
@@ -42,7 +42,7 @@ export function dutyYield(s,key,visitors) {
 export function workFacility(s,a,key,visitors,report) {
   const site=dutySite(s,key),out=dutyYield(s,key,visitors);
   if(!site || !out) return null;
-  a.stamina=clamp(a.stamina-out.stamina,0,100);
+  addStamina(a, -out.stamina);
   s.money+=out.money;s.coaching.insights+=out.insights;s.fans+=out.fans;
   grantXp(s,a,2,report.levelUps);
   count(s,'facilityDays');count(s,'facilityMoney',out.money);count(s,'facilityInsights',out.insights);count(s,'facilityFans',out.fans);

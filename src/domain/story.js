@@ -13,6 +13,7 @@ import {
   facilityLevel,
   statTotal,
   capOf,
+  addStamina,
 } from "./core.js";
 import { weatherToday } from "./calendar.js";
 
@@ -129,7 +130,7 @@ const someone = (s) => pick(s, s.roster.filter((a) => !a.injury).length ? s.rost
 const byId = (s, id) => s.roster.find((a) => a.id === id);
 const team = (s, fn) => s.roster.forEach(fn);
 const cond = (a, n) => (a.condition = clamp(a.condition + n, 0, 100));
-const stam = (a, n) => (a.stamina = clamp(a.stamina + n, 0, 100));
+const stam = (a, n) => addStamina(a, n);
 const active = (s) => s.roster.filter((a) => !a.injury);
 const available = (s, id) => { const a = byId(s, id); return a && !a.injury; };
 const mentorPair = (s) => {

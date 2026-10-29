@@ -366,6 +366,12 @@ function targetFor(s, a, index, now, activity, counts) {
       return { x, y: y + 2, pose: "run", frame: runFrame(u * loopLength(LANE)), flip: dir < 0, follow: true };
     }
   }
+  // Conditioning: tempo laps of the track.
+  if (activity === "conditioning") {
+    const u = now / 30000 + index * 0.13,
+      [x, y, dir] = loopPoint(LANE, u);
+    return { x, y: y + 2, pose: "run", frame: runFrame(u * loopLength(LANE)), flip: dir < 0, follow: true };
+  }
   if (activity === "speed") {
     const n = slot("speed"),
       t = (now / 2600 + n * 0.3) % 1,

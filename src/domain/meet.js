@@ -20,6 +20,7 @@ import {
   fansFactor,
   facilityLevel,
   hasCombo,
+  addStamina,
 } from "./core.js";
 import { checkGoals } from "./story.js";
 import { competitionTier } from "./competition.js";
@@ -28,6 +29,9 @@ import { checkDevelopment } from "./development.js";
 import { WEATHER, weatherToday } from "./calendar.js";
 import { venueFor } from "./venues.js";
 import { invitation, clubById, settleInvitation } from "./invitational.js";
+
+// Stamina every attempt costs before the tactic and approach add their own.
+export const THROW_STAMINA = 3;
 
 export const best = (marks) => {
   const valid = marks.filter((x) => x != null);
@@ -422,7 +426,8 @@ function throwFor(s, side, tactic, quality, sig) {
     z = clamp(gauss(s), -2.4, 2.4),
     mark = foul ? null : +r.metres(z).toFixed(2);
   if (sig) (side === "home" ? m.sigUsed : m.rivalSig).push(a.id);
-  a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
+  // Every attempt takes something out of the legs; a bigger tank stays fresh through the series.
+  addStamina(a, -((THROW_STAMINA + TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1)));
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.
   a.condition = clamp(a.condition + (foul ? -8 : 2), 0, 100);
   const beforeBoard = c.m.rotation ? fieldLeaderboard(s,c.i) : [];
@@ -682,7 +687,7 @@ export function settleMatch(s) {
   for (const id of participants) {
     const a = s.roster.find((x) => x.id === id);
     const before = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
-    a.meets++; a.stamina = clamp(a.stamina-15,0,100); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
+    a.meets++; addStamina(a, -15); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
     grantXp(s,a,30*(m.kind === "duel" ? 0.7:1),rewards.levelUps);
     rewards.development.push(...checkDevelopment(s,a));
     const after = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };

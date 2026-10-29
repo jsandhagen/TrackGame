@@ -65,3 +65,13 @@ Modelled on Pocket League Story 2, where research points pay for a drill that up
 New careers start with 16 Insights so a three-athlete session is affordable on day one. Migrated careers keep their balance.
 
 All pop-ups share one framed style with a header band by tone: news (green, with Juno's medallion), celebration (gold rays), shop (blue) and warning (brick red).
+
+## Max stamina
+
+Stamina used to be a fixed 100-point pool. Athletes now have a **max stamina** that conditioning raises, from 100 up to 150. New and older careers start everyone at 100, so nothing changes until a club trains it.
+
+- **Training it.** The *Conditioning circuit* session (Stamina family; 5 Insights, 22 stamina, no building needed) adds max stamina along with a little Power and Speed. Like every drill it climbs a named ladder (Conditioning circuit → Tempo runs → Hill repeats → Interval circuit → Iron engine) and grows with the group and the head coach. Gains slow as the tank nears 150, and Marathoners build it 30% faster. One athlete training it every day reaches about 121 after 20 sessions and the full 150 after about 50. The *Conditioning* daily plan adds a little every training day (more on a better track) with light all-round work.
+- **Performance.** Distance still scales with stamina up to 100 (−8% when empty). Stamina above 100 adds a little more, up to +2% for a full 150 tank.
+- **Meets.** Every attempt now costs 3 stamina before the tactic and approach add theirs, so a 100-point tank fades about 1.2% over six attempts, while a full 150 tank stays above +1.4%.
+- **Training weeks.** Plans and sessions cost the same stamina whatever the tank size, so a bigger tank goes longer before an athlete has to rest and arrives at meets fresher: after ten days of All-round, a 100 tank is at 30 (−5.6% distance) and a 150 tank at 79 (−1.6%).
+- **Where it shows.** The athlete file shows stamina against the athlete's own max and a *Max stamina* row; stamina bars across the game fill against each athlete's tank; the session picker rates the gain as STA +, ++ or +++; and results show the new max.

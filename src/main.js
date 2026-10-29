@@ -405,12 +405,12 @@ function chooseAthlete(title, item, fn, cancel = "Cancel") {
       }),
   );
 }
-const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, condition: a.condition, level: a.level, sp: a.sp, injury: a.injury });
+const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, maxStamina: G.maxStaminaOf(a), condition: a.condition, level: a.level, sp: a.sp, injury: a.injury });
 // The payoff moment: a card with the athlete and their bars filling up.
 function showGrowth(a, before, eyebrow, extra = []) {
   const ups = a.stats.map((v, i) => v - before.stats[i]),
     best = ups.indexOf(Math.max(...ups));
-  const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : a.stamina > before.stamina + 0.5 ? "Legs are back!" : a.condition > before.condition + 0.5 ? "Head in the game!" : "Done!";
+  const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : G.maxStaminaOf(a) > before.maxStamina + 0.05 ? "Bigger engine!" : a.stamina > before.stamina + 0.5 ? "Legs are back!" : a.condition > before.condition + 0.5 ? "Head in the game!" : "Done!";
   sfx("level");
   dialog(title, P.growth(a, before, extra), [{ label: "Back to the infield" }], { eyebrow, tone: "gold" });
 }
@@ -438,7 +438,7 @@ function runTraining(ids, drill) {
     drill,
     athletes: session.results.map((r) => {
       const a = state.roster.find((x) => x.id === r.id);
-      return { a, quality: r.quality, gains: r.gains, event: a.trainingEvent || a.event };
+      return { a, quality: r.quality, gains: r.gains, capacity: r.capacity, event: a.trainingEvent || a.event };
     }),
     colors: state.colors,
     ctx: { gymLevel: G.facilityLevel(state, "gym"), trackColor: trackColorOf(Math.max(2, state.stadium.track), styleOf(state).track) },
