@@ -2,11 +2,12 @@ import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
 import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
-import { figure, shadow, athleteLook, runFrame, walkFrame } from "./sprites.js";
+import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
+import { throwLoop, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
-import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
+import { formOf, plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
 
 export const MAP_W = 1000,
   MAP_H = 740;
@@ -378,12 +379,20 @@ function targetFor(s, a, index, now, activity, counts) {
       n = slot(ev),
       built = s.stadium[ev] > 0,
       west = ev === "hammer" || ev === "jav";
-    if (ev === "jav" && built && n === 0) {
-      const t = (now / 2200) % 1;
-      return { x: sp.x + 24 - t * 46, y: sp.y + 1, pose: t < 0.85 ? "carry" : "throw", event: "jav", frame: t < 0.85 ? runFrame(t * 46) : 2, flip: true, follow: true };
-    }
-    const off = [[0, 2], [14, 12], [-14, 12], [22, 4]][n % 4];
-    return { x: sp.x + (west ? -off[0] : off[0]), y: sp.y + off[1], pose: built ? "throw" : "drill", event: ev, frame: Math.floor(now / 420 + index) % 4, flip: west };
+    const off = [[0, 2], [14, 12], [-14, 12], [22, 4]][n % 4],
+      x = sp.x + (west ? -off[0] : off[0]) + (ev === "jav" ? -25 : 0),
+      y = sp.y + off[1];
+    if (!built) return { x, y, pose: "drill", event: ev, frame: Math.floor(now / 420 + index) % 4, flip: west };
+    // The same throw as at a meet, at the athlete's form and with their own finish, at half the
+    // meet's size. The motion is an offset from their spot, mirrored where the sector points west.
+    const level = formOf(a, ev),
+      m = throwLoop(ev, level, now + index * 1300, { style: recoveryStyle(a) }),
+      dir = west ? -1 : 1;
+    return {
+      x, y, ox: (dir * m.dx) / 2, oy: m.dy / 2, pose: m.run ? "carry" : "throw", event: ev, frame: m.frame, flip: west ? !m.flip : m.flip, released: m.released,
+      ball: m.ball && { dx: (dir * m.ball.dx) / 2, dy: m.ball.dy / 2, behind: m.ball.behind },
+      launch: m.sinceRelease >= 0 && { t: m.sinceRelease, dir, from: throwReleasePoint(ev, level) },
+    };
   }
   if (activity === "focus") {
     const n = slot("focus");
@@ -693,12 +702,27 @@ export function createWorld(cv) {
         p.y = target.y;
         p.goal = [target.x, target.y];
       }
+      const still = !p.path.length,
+        ox = still ? target.ox || 0 : 0,
+        oy = still ? target.oy || 0 : 0;
       list.push({
         y: p.y + 0.5,
         draw: () => {
-          shadow(g, p.x, p.y, 5);
-          figure(g, { ...athleteLook(a, s.colors), pose, frame, flip, event: target.event || a.event }, p.x, p.y);
-          if (pose === "throw" && !p.path.length && s.stadium[target.event] > 0) flight(g, target.event, p.x, p.y, flip, (now / 420 + index) % 4);
+          const fx = p.x + ox,
+            fy = p.y + oy,
+            look = { ...athleteLook(a, s.colors), pose, frame, flip, event: target.event || a.event, released: still && target.released };
+          shadow(g, fx, fy, 5);
+          // The hammer head on its wire, behind or in front of the thrower.
+          const ball = still && target.ball,
+            chain = () => {
+              const [gx, gy] = gripOf(look);
+              line(g, fx + gx, fy + gy, fx + ball.dx, fy + ball.dy, "#d8d8c8");
+              rect(g, fx + ball.dx - 1, fy + ball.dy - 1, 2, 2, "#3a3e46");
+            };
+          if (ball?.behind) chain();
+          figure(g, look, fx, fy);
+          if (ball && !ball.behind) chain();
+          if (still && target.launch) flight(g, target.event, p.x, p.y, target.launch);
           if (o.selected?.kind === "athlete" && o.selected.id === a.id) text(g, "↓", p.x, p.y - 30 - pulse, { color: "#f2c94c", align: "center" });
         },
       });
@@ -781,15 +805,19 @@ export function createWorld(cv) {
   }
 
   // An implement in flight from a thrower towards the infield, with a puff where it lands.
-  function flight(g, ev, x, y, flip, phase) {
-    if (phase < 2) return;
-    const t = (phase - 2) / 2,
-      dir = flip ? -1 : 1,
-      reach = ev === "jav" ? 70 : ev === "shot" ? 26 : 52,
-      bx = x + dir * (4 + t * reach),
-      by = y - 14 + t * 14 - Math.sin(t * Math.PI) * (ev === "shot" ? 8 : 16);
-    if (t > 0.9) {
-      ellipse(g, x + dir * (4 + reach), y, 3, 1, "#e8dcc0");
+  // The implement leaves the hand (or, for the hammer, the end of the wire) where the motion
+  // releases it, flies out over the sector and leaves a puff where it lands.
+  function flight(g, ev, x, y, { t: ms, dir, from }) {
+    const t = Math.min(1, ms / 800);
+    if (ms > 1600) return;
+    const reach = ev === "jav" ? 70 : ev === "shot" ? 26 : 52,
+      sx = x + (dir * from[0]) / 2,
+      sy = y + from[1] / 2,
+      ex = x + dir * (from[0] / 2 + reach),
+      bx = sx + (ex - sx) * t,
+      by = sy + (y - sy) * t - Math.sin(t * Math.PI) * (ev === "shot" ? 8 : 16);
+    if (t >= 1) {
+      ellipse(g, ex, y, 3, 1, "#e8dcc0");
       return;
     }
     if (ev === "jav") line(g, bx - 4 * dir, by + 1, bx + 4 * dir, by - 1, "#f0e8d0");
