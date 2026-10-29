@@ -2,6 +2,8 @@ import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
 import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
+import { MAP_W, MAP_H, LOTS, LOT_W, STREETS, LOWER_LOT_TOP, streetOf, baseOf, front, PARKING, POCKET_PARK, BUS_BAY, BUS_STOP } from "./campus-layout.js";
+export { MAP_W, MAP_H, LOTS } from "./campus-layout.js";
 import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
 import { throwLoop, throwMotion, throwReleasePoint, recoveryStyle, THROW_LOOP } from "./throw-motion.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
@@ -58,26 +60,10 @@ function practice(ev, level, style, t, west) {
   u -= PICKUP_MS;
   return { ...walk(far, start, u / back), lying: [] };
 }
-export const MAP_W = 1000,
-  MAP_H = 740;
 // Walking lines follow the north sidewalks of each street. Club Avenue uses
 // the west sidewalk; the connected carriageways are defined in neighbourhood.js.
-const ROW = 500,
-  NORTH = 250,
-  BLVD = 690,
-  PLAZA = 398,
-  AVENUE = 548,
+const { row:ROW, north:NORTH, blvd:BLVD, plaza:PLAZA, avenue:AVENUE } = STREETS,
   ROAD = GATE.x;
-// Building lots: [x, top]. A building stands on the line top + 66 and faces the street below.
-export const LOTS = [
-  [828, 410], [600, 160], [720, 160], [840, 160], [624, 600], [500, 600], [704, 410],
-  [16, 410], [376, 600], [136, 410], [312, 410], [436, 410], [580, 410],
-];
-const LOT_W = 112;
-const streetOf = (i) => (LOTS[i][1] < 300 ? NORTH : LOTS[i][1] > 560 ? BLVD : ROW);
-const baseOf = (i) => LOTS[i][1] + 66;
-// Where people stand in front of a building: its front garden, between the door and the street.
-const front = (i) => [LOTS[i][0] + 30, baseOf(i) + 10];
 // Where the camera starts: the stadium with Club Row below it.
 export const HOME = [300, 262];
 // Scenery follows the calendar: spring blossom, summer green, autumn leaves, winter snow.
@@ -91,7 +77,7 @@ const J = [ROAD, ROW];
 function regionOf([x, y]) {
   if (insideBowl(x, y)) return "bowl";
   if (y < 300 && x > AVENUE - 20) return "north";
-  if (y > 590) return "blvd";
+  if (y >= LOWER_LOT_TOP + 66) return "blvd";
   if (y >= 530) return "nearRow";
   if (x >= 580 && y >= 286 && y < 405) return "practice";
   if (y < 440 && x > BOWL.x - 20 && x < BOWL.x + BOWL.w + 20) return "plaza";
@@ -311,24 +297,23 @@ function baseWorld(s) {
   paving(g, 0, BLVD - 6, MAP_W, 13, season);
   paving(g, 0, 530, MAP_W, 13, season);
   // Preserve the crossings wherever these walks meet the Avenue and approach.
-  for(const [cx,cy,width] of [[562,250,20],[562,394,20],[562,500,20],[280,536,24],[280,690,24],[976,250,20],[976,500,20],[976,690,20]]) {
+  for(const [cx,cy,width] of [[562,250,20],[562,394,20],[562,500,20],[280,536,24],[280,BLVD,24],[976,250,20],[976,500,20],[976,BLVD,20]]) {
     rect(g,cx-width/2,cy-7,width,14,"#737c7b");
     for(let xx=cx-width/2+2;xx<cx+width/2-1;xx+=4) rect(g,xx,cy-4,2,9,"#eee9d8");
   }
-  carPark(g, 172, 550, 82, 112, 3);
-  carPark(g, 306, 550, 62, 112, 9);
+  for (const p of PARKING) carPark(g,p.x,p.y,p.w,p.h,p.seed);
   // Parking parcels have landscaped edges and an entrance at the centre aisle.
-  for(const [x,w] of [[172,82],[306,62]]) {
-    hedge(g,x,548,Math.floor(w/2)-7,season);
-    hedge(g,x+Math.ceil(w/2)+7,548,Math.floor(w/2)-7,season);
-    hedge(g,x,670,w,season);
-    rect(g,x-2,550,2,112,"#afb69b");rect(g,x+w,550,2,112,"#afb69b");
+  for(const {x,y,w,h} of PARKING) {
+    hedge(g,x,y-2,Math.floor(w/2)-7,season);
+    hedge(g,x+Math.ceil(w/2)+7,y-2,Math.floor(w/2)-7,season);
+    hedge(g,x,y+h+8,w,season);
+    rect(g,x-2,y,2,h,"#afb69b");rect(g,x+w,y,2,h,"#afb69b");
   }
-  rect(g,382,530,54,27,"#87918d");
-  rect(g,382,555,54,2,"#c9bea1");
-  bus(g,388,550,s.colors);
+  rect(g,BUS_BAY.x,BUS_BAY.y,BUS_BAY.w,BUS_BAY.h,"#87918d");
+  rect(g,BUS_BAY.x,BUS_BAY.y+BUS_BAY.h-2,BUS_BAY.w,2,"#c9bea1");
+  bus(g,BUS_BAY.x+6,BUS_BAY.y+20,s.colors);
   practiceField(g, 592, 296, 348, 88, season);
-  pond(g, 92, 610, season);
+  pond(g, POCKET_PARK.x+76, POCKET_PARK.y+42, season);
   // Inlaid club colours and paired borders frame the stadium entrance.
   for(let xx=BOWL.x+4;xx<BOWL.x+BOWL.w-4;xx+=12) rect(g,xx,PLAZA+9,8,2,s.colors.primary);
   rect(g,BOWL.x,PLAZA-16,BOWL.w,2,"#ebe2cc");
@@ -347,7 +332,7 @@ function baseWorld(s) {
   });
   // Bus shelter, bicycles and wayfinding are placed outside walking routes.
   items.push({y:ROW+66,draw:g=>{
-    const x=444,y=ROW+63;
+    const {x,y}=BUS_STOP;
     rect(g,x,y-23,2,23,"#536b6c");rect(g,x+27,y-23,2,23,"#536b6c");
     rect(g,x+2,y-20,25,16,"#b0d3d18c");rect(g,x-3,y-25,36,3,"#466e6b");
     bench(g,x+6,y-1);text(g,"BUS",x+5,y-23,{color:"#f5edda",outline:null});
@@ -372,7 +357,7 @@ function baseWorld(s) {
   // Woods frame the club; the stadium and lots are kept clear.
   const lotRects = LOTS.map(([x, top]) => [x - 6, top + 10, LOT_W + 12, 80]);
   const roadClear = CITY_ROADS.map(r => [Math.min(r.x1,r.x2)-22, Math.min(r.y1,r.y2)-14, Math.abs(r.x2-r.x1)+44, Math.abs(r.y2-r.y1)+28]);
-  const clear = [...roadClear, ...RESIDENTIAL_LOTS.map(l => [l.x-4,l.y-14,l.w+8,l.h+24]), [BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [TOWER.x - 26, TOWER.y - 70, 52, 100], [584, 282, 364, 122], [0,ROW-12,MAP_W,58], [ROAD-114,ROW,210,180], [16,536,146,146], ...lotRects];
+  const clear = [...roadClear, ...RESIDENTIAL_LOTS.map(l => [l.x-4,l.y-14,l.w+8,l.h+24]), [BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [TOWER.x - 26, TOWER.y - 70, 52, 100], [584, 282, 364, 122], [0,ROW-12,MAP_W,58], [ROAD-114,ROW,210,BLVD-ROW-10], [POCKET_PARK.x,536,POCKET_PARK.w,POCKET_PARK.h+20], ...lotRects];
   grove(items, 0, 8, MAP_W, 64, 46, 101, season, clear, 0.5);
   grove(items, 0, 64, BOWL.x - 6, ROW - 40, 9, 211, season, clear, 0.4);
   grove(items, BOWL.x + BOWL.w + 6, 60, AVENUE - 14, ROW - 40, 8, 307, season, clear, 0.3);
@@ -521,7 +506,7 @@ export function createWorld(cv) {
   }
   // Places visitors wander between: the forecourt, the gate, and any café, shop or attraction.
   function sights(s) {
-    const list = [[ROAD - 90, PLAZA + 4], [ROAD + 90, PLAZA + 4], [GATE.x, GATE.out + 4], [408, 536], [668, 394], [180, BLVD - 2]];
+    const list = [[ROAD - 90, PLAZA + 4], [ROAD + 90, PLAZA + 4], [GATE.x, GATE.out + 4], BUS_STOP.waiting, [668, 394], [180, BLVD - 2]];
     s.plots.forEach((p, i) => {
       if (p && ["cafe", "shop", "garden", "fountain", "statue", "club"].includes(p.type)) {
         const [x, y] = front(i);

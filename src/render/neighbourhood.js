@@ -1,25 +1,27 @@
 import { rect, ellipse, line, shade, hash, px } from './pixel.js';
 import { box, gable, windowAt, tree, bush, bench, lamp } from './buildings.js';
 import { text } from './font.js';
+import { MAP_W, MAP_H, STREETS, LOWER_LOT_TOP, POCKET_PARK, PARKING } from './campus-layout.js';
+const BOULEVARD = STREETS.blvd;
 
 // Carriageways are a single connected network. Walking routes use their sidewalks.
 export const CITY_ROADS = [
-  { x1: 562, y1: 146, x2: 1000, y2: 146, width: 20 }, // Town Lane
+  { x1: 562, y1: 146, x2: MAP_W, y2: 146, width: 20 }, // Town Lane
   { x1: 562, y1: 146, x2: 562, y2: 518, width: 20 }, // Club Avenue
   { x1: 562, y1: 268, x2: 976, y2: 268, width: 20 }, // North Lane
-  { x1: 0, y1: 518, x2: 1000, y2: 518, width: 22 }, // Club Row
-  { x1: 0, y1: 708, x2: 1000, y2: 708, width: 22 }, // Stadium Boulevard
-  { x1: 976, y1: 146, x2: 976, y2: 708, width: 20 }, // eastern connection
-  { x1: 280, y1: 518, x2: 280, y2: 740, width: 24 }, // station approach
+  { x1: 0, y1: 518, x2: MAP_W, y2: 518, width: 22 }, // Club Row
+  { x1: 0, y1: BOULEVARD+18, x2: MAP_W, y2: BOULEVARD+18, width: 22 }, // Stadium Boulevard
+  { x1: 976, y1: 146, x2: 976, y2: BOULEVARD+18, width: 20 }, // eastern connection
+  { x1: 280, y1: 518, x2: 280, y2: MAP_H, width: 24 }, // station approach
 ];
 export const RESIDENTIAL_LOTS = [
   ...Array.from({ length: 6 }, (_, i) => ({ x: 584 + i * 62, y: 58, w: 58, h: 64, kind: i === 2 ? 'bakery' : 'home', seed: i })),
-  { x: 752, y: 552, w: 94, h: 126, kind: 'home', seed: 7 },
-  { x: 854, y: 552, w: 94, h: 126, kind: 'home', seed: 8 },
+  { x: 736, y: LOWER_LOT_TOP, w: 94, h: BOULEVARD-12-LOWER_LOT_TOP, kind: 'home', seed: 7 },
+  { x: 838, y: LOWER_LOT_TOP, w: 94, h: BOULEVARD-12-LOWER_LOT_TOP, kind: 'home', seed: 8 },
 ];
 export const STREET_LAMPS = [
   ...[42, 138, 356, 448, 650, 746, 842, 936].map(x => [x, 501]),
-  ...[42, 138, 356, 448, 650, 746, 842, 936].map(x => [x, 690]),
+  ...[42, 138, 356, 448, 650, 746, 842, 936].map(x => [x, BOULEVARD]),
   ...[626, 750, 874].map(x => [x, 251]),
   ...[610, 734, 858].map(x => [x, 129]),
   ...[324, 412, 650, 738, 836, 930].map(x => [x, 537]),
@@ -69,19 +71,20 @@ export function drawStreetNetwork(g, season) {
     }
   }
   // These crossings line up with the existing walking routes rather than the road centres.
-  for (const [x, y, axis, width] of [[610,146,'h',20], [610,268,'h',20], [548,518,'h',22], [280,536,'v',24], [280,690,'v',24], [976,250,'v',20], [976,500,'v',20], [976,690,'v',20]]) {
+  for (const [x, y, axis, width] of [[610,146,'h',20], [610,268,'h',20], [548,518,'h',22], [280,536,'v',24], [280,BOULEVARD,'v',24], [976,250,'v',20], [976,500,'v',20], [976,BOULEVARD,'v',20]]) {
     if (axis === 'h') for(let yy=y-width/2+2;yy<y+width/2-1;yy+=4) rect(g,x-4,yy,9,2,'#eee9d8');
     else for(let xx=x-width/2+2;xx<x+width/2-1;xx+=4) rect(g,xx,y-4,2,9,'#eee9d8');
   }
   // A paved crossing on the Avenue follows Club Row's north sidewalk.
   for (let xx=554;xx<572;xx+=4) rect(g,xx,496,2,9,'#eee9d8');
-  for (const [x,y] of [[548,132],[548,250],[548,500],[280,690],[976,250],[976,500]]) {
+  for (const [x,y] of [[548,132],[548,250],[548,500],[280,BOULEVARD],[976,250],[976,500]]) {
     rect(g,x-4,y-3,8,2,'#d6b66b');
     for(let k=0;k<3;k++) px(g,x-3+k*2,y-3,'#a18c5e');
   }
   // Drop kerbs and a proper central aisle connect both parking parcels to Club Row.
-  for (const x of [213,337]) {
-    rect(g,x-6,529,12,27,'#8b9290');
+  for (const p of PARKING) {
+    const x=p.x+p.w/2;
+    rect(g,x-6,529,12,p.y-529,'#8b9290');
     rect(g,x-6,530,12,2,stone(season));
   }
 }
@@ -163,19 +166,19 @@ export function drawClubParcel(g,x,top,w,front,open,season,index) {
   }
 }
 export function drawPocketPark(g,season,items) {
-  const x=16,y=548,w=146,h=126;
+  const {x,y,w,h}=POCKET_PARK;
   rect(g,x,y,w,h,green(season));
   walk(g,x+6,y+7,w-12,h-14,season);rect(g,x+13,y+14,w-26,h-28,green(season));
-  walk(g,x+21,536,7,20,season);walk(g,x+112,665,7,31,season);
+  walk(g,x+21,536,7,20,season);walk(g,x+112,y+h-9,7,27,season);
   for(const [a,b] of [[0,20],[31,w]])fence(g,x+a,y,b-a,'#b8ba9c');
-  for(const [tx,ty] of [[x+10,y+23],[x+131,y+32],[x+19,y+111]])items.push({y:ty,draw:g=>tree(g,tx,ty,.75,season,tx)});
-  for(const [bx,by] of [[x+22,y+21],[x+103,y+110]])items.push({y:by,draw:g=>bench(g,bx,by)});
+  for(const [tx,ty] of [[x+10,y+23],[x+131,y+32],[x+19,y+h-15]])items.push({y:ty,draw:g=>tree(g,tx,ty,.75,season,tx)});
+  for(const [bx,by] of [[x+22,y+21],[x+103,y+h-16]])items.push({y:by,draw:g=>bench(g,bx,by)});
   // A little community play corner leaves the pond and walking loop clear.
   items.push({y:y+43,draw:g=>{
-    for(const dx of [25,52])line(g,x+dx,y+42,x+dx+3,y+19,'#9d7b51',2);
-    line(g,x+28,y+19,x+55,y+19,'#bc9465',2);
-    for(const dx of [35,45])line(g,x+dx,y+21,x+dx,y+35,'#7e8680');
-    rect(g,x+34,y+35,13,2,'#ac6e51');
+    for(const dx of [10,30])line(g,x+dx,y+42,x+dx+3,y+19,'#9d7b51',2);
+    line(g,x+13,y+19,x+33,y+19,'#bc9465',2);
+    for(const dx of [17,25])line(g,x+dx,y+21,x+dx,y+35,'#7e8680');
+    rect(g,x+16,y+35,11,2,'#ac6e51');
   }});
 }
 export function drawStreetFurniture(g,items) {
