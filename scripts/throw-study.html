@@ -40,7 +40,7 @@
     focus = document.querySelector('#focus'),
     status = document.querySelector('#phase'),
     events = ['shot', 'discus', 'hammer', 'jav'],
-    names = ['Shot put · Storl / Crouser', 'Discus · Perković / Alekna / Ståhl', 'Hammer · Sedykh / Fajdek', 'Javelin · Chopra'];
+    names = ['Shot put · Storl / Crouser', 'Discus · sprint turn / full throw', 'Hammer · Sedykh / Fajdek', 'Javelin · withdrawal / block'];
   const timingOf = ev => throwTiming({event: ev, mark: {shot: 9, discus: 30, hammer: 35, jav: 35}[ev]});
   const duration = Math.max(...events.map(ev => { const t=timingOf(ev); return t.releaseAt+t.releaseMs+t.recoveryMs; })) + 400;
   slider.max = duration;

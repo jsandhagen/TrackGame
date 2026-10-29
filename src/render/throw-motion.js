@@ -8,7 +8,7 @@
 // power position) · 2 release · 3 follow-through · 4 and up the event's own technique frames.
 // A right-handed thrower turns anticlockwise seen from above: back to the sector (side-on,
 // flipped), round to face the camera, side-on to the sector, facing away, and so on.
-import { runFrame, frontFootOf, gripOf } from "./sprites.js";
+import { runFrame, frontFootOf, implementPointOf } from "./sprites.js";
 
 const ease = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
@@ -238,25 +238,28 @@ function javelin(m, level, phase, p, foul, style) {
   if (level === 0) {
     // Three-step teaching progression: already withdrawn, left-right-left into the block.
     // It has a compact crossover, but none of the full approach's overhead-carry running.
-    const r = track(m, p, [[0, 1, start], [0.16, 12, -42], [0.34, 4, -36], [0.48, 5, -30],
-      [0.67, 6, -26], [0.86, 11, -24], [0.95, 7, -20], [1, 7, -20]]);
+    const r = track(m, p, [[0, 1, start], [0.16, 12, -42], [0.26, 15, -40], [0.36, 4, -36],
+      [0.5, 20, -28], [0.73, 6, -26], [0.84, 19, -26], [0.9, 11, -24], [0.96, 7, -20], [1, 7, -20]]);
     r.dy = slope(r.dx);
     return r;
   }
   // Carry overhead during a cyclic run, then withdraw on a left contact. Crossovers travel
   // down the runway, rather than changing legs almost in place. The right foot lands before
   // the left block; the drawn arm stays behind the advancing hips until the final delivery.
-  const runEnd = level === 1 ? 0.38 : 0.3, withdrawAt = level === 1 ? -52 : -60;
+  const runEnd = level === 1 ? 0.38 : 0.3, withdrawAt = level === 1 ? -56 : -60;
   if (p < runEnd) return run(start, withdrawAt, Math.pow(p / runEnd, 1.25));
   // Chopra reference: the impulse stride precedes a firm left block; hips then elbow lead.
   // More advanced approaches show the long impulse stride, rather than simply more running.
   // The block to release is the quickest part of the throw.
   const keys = level === 1
-    ? [[runEnd, 12, withdrawAt], [0.48, 4, -46], [0.56, 5, -40], [0.64, 13, -34],
-      [0.72, 4, -30], [0.8, 5, -26], [0.85, 6, -26], [0.92, 11, -24], [0.97, 7, -20], [1, 7, -20]]
-    : [[runEnd, 12, withdrawAt], [0.4, 4, -52], [0.48, 5, -46], [0.56, 13, -40],
-      [0.64, 4, -36], [0.72, 5, -32], [0.79, level === 3 ? 14 : 10, -27, false, -1],
-      [0.85, 5, -26], [0.88, 6, -26], [0.93, 11, -24], [0.98, 7, -20], [1, 7, -20]];
+    ? [[runEnd, 18, withdrawAt], [0.43, 12, -54], [0.48, 15, -51], [0.53, 4, -48],
+      [0.58, 16, -45], [0.62, 5, -42], [0.66, 13, -39], [0.7, 17, -36],
+      [0.73, 15, -34], [0.76, 4, -32], [0.82, 20, -28],
+      [0.87, 6, -26], [0.92, 19, -26], [0.95, 11, -24], [0.98, 7, -20], [1, 7, -20]]
+    : [[runEnd, 18, withdrawAt], [0.35, 12, -57], [0.4, 15, -53], [0.45, 4, -49],
+      [0.5, 16, -45], [0.54, 5, -42], [0.58, 13, -39], [0.62, 17, -36],
+      [0.66, 15, -34], [0.71, 4, -32], [0.77, level === 3 ? 14 : 10, -32, false, -1],
+      [0.83, 20, -28], [0.89, 6, -26], [0.93, 19, -26], [0.96, 11, -24], [0.985, 7, -20], [1, 7, -20]];
   const r = track(m, p, keys);
   r.dy += slope(r.dx);
   return r;
@@ -270,7 +273,7 @@ export function throwReleasePoint(ev, level) {
     return [m.dx + m.ball.dx, m.dy + m.ball.dy];
   }
   const m = throwMotion(ev, level, "release", 0),
-    [x, y] = gripOf({ pose: "throw", event: ev, frame: m.frame, flip: m.flip });
+    [x, y] = implementPointOf({ pose: "throw", event: ev, frame: m.frame, flip: m.flip });
   return [m.dx + x * 2, m.dy + y * 2];
 }
 

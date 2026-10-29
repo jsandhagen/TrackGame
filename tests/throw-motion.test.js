@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
-import { frontFootOf, gripOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
+import { frontFootOf, feetOf, gripOf, implementPointOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
 const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i) => throwMotion(ev, level, phase, i / n));
@@ -150,7 +150,7 @@ test('hammer turns alternate foot contacts and launch from the hammer head', () 
     assert(release.released && !release.ball, 'only the flight draws the released hammer');
   }
   for (const ev of ['shot', 'discus', 'jav']) for (let level = 0; level < 4; level++) {
-    const m = throwMotion(ev, level, 'release', 0), [x, y] = gripOf({ pose: 'throw', event: ev, frame: m.frame });
+    const m = throwMotion(ev, level, 'release', 0), [x, y] = implementPointOf({ pose: 'throw', event: ev, frame: m.frame });
     assert.deepEqual(throwReleasePoint(ev, level), [m.dx + x * 2, m.dy + y * 2]);
   }
 });
@@ -158,8 +158,36 @@ test('hammer turns alternate foot contacts and launch from the hammer head', () 
 test('javelin blocks before the elbow-led delivery and advanced approaches add an impulse stride', () => {
   for (let level = 0; level < 4; level++) {
     const frames = sample('jav', level, 'technique', 400).filter(m => !m.run).map(m => m.frame);
-    assert(frames.indexOf(6) < frames.indexOf(11) && frames.indexOf(11) < frames.indexOf(7), 'block, hip drive, then overarm delivery');
+    assert(frames.indexOf(6) < frames.indexOf(19) && frames.indexOf(19) < frames.indexOf(11) && frames.indexOf(11) < frames.indexOf(7), 'block, free-arm closure, hip drive, then overarm delivery');
     assert.equal(frames.includes(10)||frames.includes(14), level >= 2, 'the long impulse is reserved for developed approaches');
+  }
+});
+
+test('javelin crossovers keep a long withdrawn throwing arm and alternate grounded contacts', () => {
+  for (let level = 0; level < 4; level++) {
+    const approach = sample('jav', level, 'technique', 1000).filter(m => !m.run);
+    for (const m of approach.filter(m => ![7, 11, 18].includes(m.frame))) {
+      const [x, y] = gripOf({ pose: 'throw', event: 'jav', frame: m.frame });
+      assert(x <= -11 && y <= -11, 'throwing hand remains behind and above the shoulder line through the block');
+    }
+    const contacts = approach.filter(m => [12, 15, 16, 13, 17, 20].includes(m.frame));
+    assert(contacts.some(m => feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[0][1] === -1), 'left support');
+    assert(contacts.some(m => feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[1][1] === -1), 'right support');
+    for (const m of contacts) assert(feetOf({ pose: 'throw', event: 'jav', frame: m.frame }).some(([, y]) => y === -1), 'passing steps stay low over a planted foot');
+    const frames = approach.map(m => m.frame);
+    assert(frames.indexOf(20) < frames.indexOf(6), 'right-foot contact precedes the left block');
+    const finalSupport = approach.filter(m => [20, 6, 19].includes(m.frame));
+    const rightFoot = finalSupport.map(m => m.dx + 2 * feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[1][0]);
+    assert(Math.max(...rightFoot) - Math.min(...rightFoot) <= 2.01, 'rear foot stays at its catch position while the pelvis advances and the left leg blocks');
+  }
+});
+
+test('the discus sits below the overhand grip and its launch point mirrors with the sprite', () => {
+  for (const frame of [1, 7, 8, 10, 11, 14, 20, 21, 2]) for (const flip of [false, true]) {
+    const o = { pose: 'throw', event: 'discus', frame, flip };
+    const hand = gripOf(o), disc = implementPointOf(o);
+    assert.equal(disc[1] - hand[1], 3, 'palm is above the discus');
+    assert.equal(disc[0] - hand[0], flip ? -1 : 1, 'centre offset follows the facing direction');
   }
 });
 

@@ -17,6 +17,23 @@ The sprites are original pixel art. Athlete references guide the mechanics; prop
 
 These are selected movement cues, not motion capture or measured reproductions of those athletes. Standing and half-turn variants are game teaching progressions derived from parts of a full throw. Sedykh's documented throw uses three turns; the game's existing two/three/four-turn progression is retained. Similarly, a glide is a valid elite technique; the form ladder is a game convention, not a ranking of real techniques.
 
+## Video review: discus and javelin
+
+The following videos were inspected as sequences of actual frames, including the foot contacts, both arms and the position of the pelvis relative to the shoulders. They supplement the photographs and coaching documents below.
+
+- [Branko Paukovic, javelin throw](https://commons.wikimedia.org/wiki/File:Branko_Paukovic,_javelin_throw.webm), Sdcsabac / Diagnostic Sports Center Šabac, 2014, entire 2.13-second clip. The throwing hand trails a nearly level shaft during the crossovers; the opposite arm leads. The lower body advances ahead of the leaning-back chest. The right foot lands before the left block, the free elbow closes toward the ribs, and only then does the throwing elbow lead the strike. The chest folds over the block before the right leg catches the body.
+- [Escuela Virtual de Deportes / COLDEPORTES, El giro o paso sprint](https://commons.wikimedia.org/wiki/File:EVD-disco-003.ogv), 2009. The sector-facing preparation around 20–28 seconds and the repeated drive/pivot demonstrations around 155–185 seconds guide the South African drill. The left leg supports the start, the right knee drives forward, and the athlete catches low over the ball of the right foot while the left leg turns toward its plant. The long throwing arm trails; the bent free arm guides the turn, then folds toward the chest during delivery.
+- [Lanzamiento de disco](https://commons.wikimedia.org/wiki/File:Lanzamiento_de_disco.webm), ProyectoFandom / UPV/EHU collaboration, 2021. The grip close-up at the beginning and full-turn demonstration around 60–63 seconds guide the palm-over-disc grip, bent-knee entry, wide sweep, quick centre catch and turn after release. This is a coaching demonstration, not elite competition footage.
+
+| Phase | Legs and weight | Throwing arm | Other arm |
+| --- | --- | --- | --- |
+| Discus sprint start / drive | Weight on bent left support, then a low right-knee drive | Long behind the shoulder; palm above the disc and fingers over the rim | Bent and leading toward the sector |
+| Discus centre / delivery | Catch low on the right toe; plant left before the hips rise and open | Stays behind the hips and chest until the late long-arm strike | Guides the turn, then folds to the torso |
+| Javelin crossovers | Low passing steps alternate left and right support; final impulse briefly airborne | Withdrawn behind the shoulder, shaft close to level | Leads along the runway, visibly separated from the large head |
+| Javelin block / delivery | Right foot catches, left leg braces; pelvis advances before chest | Stays long through the block, then elbow leads the overarm strike | Closes beside the ribs before the throwing arm comes through |
+
+Explicit pelvis offsets in the delivery poses let the hips lead a still-closed chest, rather than moving the head, trunk and hips backward together. The javelin has separate passing and contact poses and a free-arm closing pose between the block and hip drive. The discus catches over a bent right leg, then rises onto the braced left side. The implement launch point accounts for the disc sitting below the palm.
+
 ## Sources
 
 - [Peter Taylor / Australian Athletics, coaching the shot put](https://coachathletics.com.au/coaching-education/coaching-aspects-of-the-shot-put-technique-for-young-athletes). The illustrated five phases separate the low glide, closed transition, leg-driven delivery and late recovery. The article includes Storl photographs.
@@ -49,7 +66,7 @@ Fouls use the same finish for everyone, carrying over the front. The style only 
 
 Contact timings in `src/render/throw-motion.js` separate preparation, travel, catch, leg drive and the strike. Shot and discus no longer hold a release pose throughout their release interval: the empty arm sweeps across before the recovery settles. Hammer feet stay on the circle through planted support; the knee bend lives in the sprite pose rather than moving the whole character off the floor. Advanced hammer recovery still turns after release.
 
-Javelin movement reserves space for the complete outlined shoe at the game's double sprite scale. A legal throw stays behind the near edge of the arc through release, recovery and the subsequent reaction; a foul still travels over it. Phase boundaries join at the same body position. Shot, discus and javelin launch from the release hand; hammer launches from the final orbit's head, at the end of its wire.
+Javelin movement reserves space for the complete outlined shoe at the game's double sprite scale. A legal throw stays behind the near edge of the arc through release, recovery and the subsequent reaction; a foul still travels over it. Phase boundaries join at the same body position. Shot and javelin launch from the release hand; discus launches from the implement centre below its overhand grip; hammer launches from the final orbit's head, at the end of its wire.
 
 Run `npm run dev` and open `/scripts/throw-study.html` for all four events at every form level, with pause, speed, time scrubbing and foul controls. The Compare selector enlarges discus half/full, javelin three-step/full or crossover/elite side by side, with the same appearance on both athletes to isolate the movement. Direct links are `/scripts/throw-study.html?focus=discus` and `/scripts/throw-study.html?focus=jav`. It uses production sprites, motion and event timings. Review at half speed, then 1×; inspect the catch, delivery and follow-through as well as the run/turn. The meet keeps its existing duration, speed controls, afterimage reduction and result holds. The animation changes do not alter distance, stats, saves or form unlock thresholds.
 
