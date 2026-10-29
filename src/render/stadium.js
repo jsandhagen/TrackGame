@@ -2,7 +2,7 @@ import { canvas, rect, poly, ellipse, ring, line, shade, hash, px, mix } from ".
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, formOf } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, rivalClubFor, formOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, LAND_MS, hasCutIn, throwOffset, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
@@ -468,7 +468,7 @@ export function createStadium(cv) {
     windsock(g, m, now);
     const home = homeAthlete(s, bi),
       rival = rivalAthlete(s, bi),
-      rivalColors = { primary: m.color, secondary: "#f4efe2" };
+      rivalColors = { primary: rivalClubFor(s,rivalAthlete(s)?.id)?.color || m.color, secondary: "#f4efe2" };
     // Field markers, hiding the mark still in the air: a peg at every entrant's best, a gold
     // flag for the leader, and lines for the thrower's PB, the club record and the target.
     const inAir = beat?.type === "throw" && !landed && beat.eventIndex === bi ? { side: beat.side, eventIndex: bi, attempt: beat.attempt } : null;
@@ -723,8 +723,8 @@ export function createStadium(cv) {
         text(g, sub, W / 2, y + 26, { color: "#fff6dc", align: "center" });
       }
     };
-    if (beat?.type === "meetStart") banner(venue.name.toUpperCase(), ({ final: "LEAGUE FINAL", duel: "CLUB DUEL", league: "LEAGUE FIXTURE", cup: "INVITATIONAL" }[m.kind] + " · " + s.clubName + " VS " + m.name).toUpperCase(), venue.special ? "#f2c94c" : s.colors.secondary, el / beatDuration(beat));
-    if (beat?.type === "eventStart") banner(e.name.toUpperCase(), beat.finals ? "TOP FOUR ADVANCE - MARKS CARRY FORWARD" : "THREE THROWS EACH - PLACES SCORE 5 / 3 / 1", e.color, el / beatDuration(beat));
+    if (beat?.type === "meetStart") banner(venue.name.toUpperCase(), ({ final: "LEAGUE CHAMPIONSHIP", duel: "CLUB DUEL", league: "LEAGUE DUEL", cup: "INVITATIONAL" }[m.kind] + " · " + s.clubName + " VS " + m.name).toUpperCase(), venue.special ? "#f2c94c" : s.colors.secondary, el / beatDuration(beat));
+    if (beat?.type === "eventStart") banner(e.name.toUpperCase(), m.leagueChampionship ? "SIX THROWS EACH - BEST OF THE DIVISION" : beat.finals ? "TOP FOUR ADVANCE - MARKS CARRY FORWARD" : "THREE THROWS EACH - PLACES SCORE 5 / 3 / 1", e.color, el / beatDuration(beat));
     if (beat?.type === "eventEnd") {
       const who = s.clubName + " +" + beat.h + " · " + m.name + " +" + beat.a;
       banner(who.toUpperCase(), (beat.home != null ? beat.home.toFixed(2) : "FOUL") + "  VS  " + (beat.away != null ? beat.away.toFixed(2) : "FOUL") + "   ·   " + beat.score + " - " + beat.against, beat.h > beat.a ? "#f2c94c" : beat.a > beat.h ? shade(m.color, 0.4) : "#fff6dc", el / beatDuration(beat));

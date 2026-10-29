@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import * as G from "../src/domain/game.js";
+import * as G from "./helpers/developed-club.js";
 import { EVENT_IDS, ITEMS } from "../src/game-content.js";
 import { validateCampaign, exportCampaign } from "../src/domain/campaign-save.js";
 
@@ -91,7 +91,7 @@ test("the fifteen-trophy circuit preserves athletes and unlocks each next level 
   for (let league = 0; league < 5; league++) for (let stage = 0; stage < 3; stage++) {
     assert(G.enterCompetition(s, { kind: "league", tier: league, stage }));
     // This verifies the competition state machine, not probabilistic balance.
-    s.clubs.forEach((c) => c.athletes.forEach((a) => { a.stats = [1, 1, 1, 1]; a.skills = []; a.equipped = []; }));
+    G.championshipClubs(s).forEach((c) => c.athletes.forEach((a) => { a.stats = [1, 1, 1, 1]; a.skills = []; a.equipped = []; }));
     for (let i = 0; i < 4; i++) { play(s); assert(G.leaveMatch(s)); }
     assert.equal(s.phase, "seasonEnd");
     assert(s.champion);
@@ -111,7 +111,7 @@ test("the fifteen-trophy circuit preserves athletes and unlocks each next level 
 test("a losing season is repeatable with a rebuild camp and no lost progress", () => {
   const s = G.newGame(8);
   s.roster.forEach((a) => (a.stats = [1, 1, 1, 1]));
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     play(s);
     G.leaveMatch(s);
   }

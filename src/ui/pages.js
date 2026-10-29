@@ -71,7 +71,7 @@ const stamina = (a) => `<span class="mini-stat" title="Stamina ${Math.round(a.st
 function alerts(s, a) {
   const out = [];
   if (a.injury) out.push(chip("Injured " + a.injury + "d", "#e0604a"));
-  if (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)) out.push(chip(a.sp + " SP", "#a465d6", "pulse"));
+  if (G.systemUnlocked(s,"skills") && a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)) out.push(chip(a.sp + " SP", "#a465d6", "pulse"));
   if (!G.promoteProblem(s, a)) out.push(chip("Rank up!", "#e2b04a", "pulse"));
   return out.join("");
 }
@@ -82,6 +82,16 @@ function pageTabs(page, tabs, current, extra = "") {
   return `<nav class="tabs page-tabs">${tabs.map(([id, label]) => `<button data-act="page-tab" data-page="${page}" data-tab="${id}" class="${current === id ? "active" : ""}" aria-pressed="${current === id}">${label}</button>`).join("")}${extra}</nav>`;
 }
 export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Training ground", recruit: "Scouting report", build: "Groundskeeping", shop: "Kit shop", league: "Meet calendar", club: "Club office", lobby: "Call room", calendar: "Club calendar" };
+
+export function lockedSystem(s, id) {
+  return `<article class="card"><h2>One step at a time</h2><p>${esc(G.systemProblem(s,id))} Compete to discover the next club system.</p></article>`;
+}
+export function introductionCard(s) {
+  const next = G.nextIntroduction(s);
+  if (!next) return "";
+  const latest = G.INTRODUCTIONS[G.introductionCount(s)-1];
+  return `<article class="card introduction-card"><span class="eyebrow">LEARNING THE CLUB</span>${latest ? `<h2>New: ${esc(latest.name)}</h2><p>${esc(latest.desc)}</p>${btn("Explore " + esc(latest.name.toLowerCase()), "page", `data-page="${latest.page}"`, "subtle")}` : `<h2>Your first duel</h2><p>The squad and lineup are ready. Book a duel, train until meet day, then compete.</p>`}<p class="hint">Next: ${esc(next.name)} after meet ${G.introductionCount(s)+1}. Wins and losses both count.</p></article>`;
+}
 
 // The card that introduces a new signing.
 export function newcomer(s, a) {
@@ -98,20 +108,21 @@ export function home(s, view) {
     days = s.matchDay == null ? null : s.matchDay - s.day,
     ready = days != null && days <= 0;
   return `
-  ${s.phase === "planning" ? `<article class="card calendar-welcome"><span class="eyebrow">OFF-SEASON · NOTHING ON THE CALENDAR</span><h2>Where do we throw next?</h2><p>Book a duel to test the squad, or enter a league and chase some hardware. The infield stays open until you're ready.</p>${btn("Open the meet calendar", "page", 'data-page="league"')}<div class="inline">${btn(view.playing ? "Pause training" : "Keep training", view.playing ? "pause" : "play", "", "subtle")}${btn("Next day", "day", view.playing ? "disabled" : "", "subtle")}</div></article>` : `
+  ${introductionCard(s)}
+  ${s.phase === "planning" ? `<article class="card calendar-welcome"><span class="eyebrow">OFF-SEASON · NOTHING ON THE CALENDAR</span><h2>Where do we throw next?</h2><p>${G.firstMeet(s) ? 'Your first duel is a short introduction. Your four throwers are ready to compete.' : 'Enter a league for three duels and a championship, or book a single duel.'}</p>${btn("Open the meet calendar", "page", 'data-page="league"')}<div class="inline">${btn(view.playing ? "Pause training" : "Keep training", view.playing ? "pause" : "play", "", "subtle")}${btn("Next day", "day", view.playing ? "disabled" : "", "subtle")}</div></article>` : `
   <article class="fixture-card ${ready ? "ready" : ""}" style="--rival:${opp?.color || "#888"}">
-    <div class="fixture-top"><span>${s.competition?.kind === "cup" ? "INVITATIONAL" : s.competition?.kind === "duel" ? "DUEL MEET" : s.fixture === 3 ? "LEAGUE FINAL" : "FIXTURE " + (s.fixture + 1) + " / 3"} · ${esc(G.competitionName(s))}</span><b>${ready ? "MEET DAY" : days + (days === 1 ? " DAY" : " DAYS") + " TO GO"}</b></div>
+    <div class="fixture-top"><span>${s.competition?.kind === "cup" ? "INVITATIONAL" : s.competition?.kind === "duel" ? "DUEL MEET" : s.fixture === 3 ? "LEAGUE CHAMPIONSHIP" : "LEAGUE DUEL " + (s.fixture + 1) + " / 3"} · ${esc(G.competitionName(s))}</span><b>${ready ? "MEET DAY" : days + (days === 1 ? " DAY" : " DAYS") + " TO GO"}</b></div>
     <div class="versus"><span class="crest home">${esc(s.clubName.slice(0, 1))}</span><div><small>NEXT UP · ${esc(G.shortDate(s.matchDay))}</small><h2>${esc(opp?.name)}</h2><p>${esc(opp?.style || "")}</p></div><span class="crest away">${esc(opp?.name.slice(0, 1))}</span></div>
     <p class="meet-forecast">${weatherChip(G.weatherOn(s, s.matchDay))} <span>Meet-day forecast · ${esc(G.venueLabel(G.meetVenue(s)))}</span></p>
     ${ready ? btn(ico("stadium") + " Report to the call room", "lobby") : btn(view.playing ? ico("pause") + " Pause" : ico("play") + " Train · " + days + (days === 1 ? " day" : " days") + " to the meet", view.playing ? "pause" : "play")}
     <div class="split">${btn("Next day", "day", ready || view.playing ? "disabled" : "", "subtle")}${btn(ico("league") + " Meets", "page", 'data-page="league"', "subtle")}</div>
   </article>`}
-  <div class="budget"><span>${ico("idea")} Insights <b>${s.coaching.insights}</b></span><span>${ico("coin")} Weekly <b class="${G.weeklyNet(s) < 0 ? "neg" : ""}">${G.weeklyNet(s) >= 0 ? "+" : ""}${cash(G.weeklyNet(s))}</b></span><span>${ico("heart")} Visitors <b>${G.visitorsPerDay(s)}/day</b></span></div>
-  <section class="card"><div class="card-title"><h2>${ico("target")} Season targets</h2>${btn("All goals", "page", 'data-page="club"', "text")}</div>
+  <div class="budget">${G.systemUnlocked(s,"sessions") ? `<span>${ico("idea")} Insights <b>${s.coaching.insights}</b></span>` : ""}<span>${ico("coin")} Weekly <b class="${G.weeklyNet(s) < 0 ? "neg" : ""}">${G.weeklyNet(s) >= 0 ? "+" : ""}${cash(G.weeklyNet(s))}</b></span><span>${ico("heart")} Visitors <b>${G.visitorsPerDay(s)}/day</b></span></div>
+  ${G.systemUnlocked(s,"office") ? `<section class="card"><div class="card-title"><h2>${ico("target")} Season targets</h2>${btn("All goals", "page", 'data-page="club"', "text")}</div>
     ${G.openGoals(s, 3).map((g) => goalRow(s, g)).join("") || "<p class='hint'>Every target hit. Legendary.</p>"}
-  </section>
+  </section>` : ""}
   <div class="roster-glance">${s.roster.map((a) => `<button class="glance" data-act="athlete" data-id="${a.id}">${portrait(a)}<span><strong>${esc(shortName(a.name))}</strong><small>${EVENTS[a.event].short} · OVR ${G.overall(a)}</small></span>${alerts(s, a)}</button>`).join("")}</div>
-  <p class="hint">${btn("Training plans and sessions", "page", 'data-page="train"', "text")}</p>
+  ${G.systemUnlocked(s,"plans") ? `<p class="hint">${btn("Training plans and sessions", "page", 'data-page="train"', "text")}</p>` : ""}
   <section class="card journal"><div class="card-title"><h2>${ico("news")} Bulletin board</h2></div>${s.log.slice(0, 5).map((l) => `<p class="log ${l.kind}">${esc(l.text)}</p>`).join("")}</section>`;
 }
 function goalRow(s, g) {
@@ -122,6 +133,7 @@ function dutyReward(out) {
   return [out.money ? cash(out.money) : "",out.insights ? out.insights+" Insights" : "",out.fans ? out.fans+" fans" : "",out.recovery ? "+"+out.recovery+" recovery for resting teammates" : ""].filter(Boolean).join(" · ");
 }
 function facilityStaffPicker(s,key) {
+  if (!G.systemUnlocked(s,"duties")) return "";
   const site=G.dutySite(s,key);
   if(!site) return "";
   const d=G.DUTIES[site.type],out=G.dutyYield(s,key,G.visitorsPerDay(s));
@@ -142,8 +154,8 @@ export function squad(s, view) {
     const a = s.roster.find((x) => x.id === view.athlete);
     if (a) return athletePage(s, a, view);
   }
-  return `<div class="row-head"><p>${s.roster.length} / ${G.rosterCap(s)} athletes · a Dormitory makes room for more</p>${btn(ico("plus") + " Scout", "page", 'data-page="recruit"', "small")}</div>
-  ${facilityBoard(s)}
+  return `<div class="row-head"><p>${s.roster.length} / ${G.rosterCap(s)} athletes · a Dormitory makes room for more</p>${G.systemUnlocked(s,"recruit") ? btn(ico("plus") + " Scout", "page", 'data-page="recruit"', "small") : ""}</div>
+  ${G.systemUnlocked(s,"duties") ? facilityBoard(s) : ""}
   <div class="squad-grid">${s.roster
     .map(
       (a) => `<button class="athlete-card rarity-${a.rarity}" data-act="athlete" data-id="${a.id}">
@@ -169,29 +181,29 @@ function athletePage(s, a, view) {
     ["skills", "Skills" + (a.sp ? " · " + a.sp + " SP" : "")],
     ["gear", "Gear"],
     ["career", "Career"],
-  ];
-  const tab = view.tab || "stats";
+  ].filter(([id]) => !({train:"plans",skills:"skills",gear:"kit"}[id]) || G.systemUnlocked(s,{train:"plans",skills:"skills",gear:"kit"}[id]));
+  const tab = tabs.some(([id]) => id === view.tab) ? view.tab : "stats";
   let body = "";
   if (tab === "stats") {
     const next = RANKS[a.rank + 1],
       problem = G.promoteProblem(s, a);
     body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>
     ${statRows(a)}
-    <p class="skill-line"><span>${a.equipped.length ? a.equipped.map((k) => esc(SKILLS[k].name)).join(" · ") : "No skills equipped"}${a.secret ? " · Unique: " + esc(SKILLS[SECRETS[a.secret].skill].name) : ""}</span>${btn("Manage skills", "tab", 'data-tab="skills"', "subtle small")}</p>
+    ${G.systemUnlocked(s,"skills") ? `<p class="skill-line"><span>${a.equipped.length ? a.equipped.map((k) => esc(SKILLS[k].name)).join(" · ") : "No skills equipped"}${a.secret ? " · Unique: " + esc(SKILLS[SECRETS[a.secret].skill].name) : ""}</span>${btn("Manage skills", "tab", 'data-tab="skills"', "subtle small")}</p>` : ""}
     <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
-    ${athleteDutyPicker(s,a)}
+    ${G.systemUnlocked(s,"duties") ? athleteDutyPicker(s,a) : ""}
     <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, approach, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
-    <article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
+    ${G.systemUnlocked(s,"skills") ? `<article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
-    </article>
+    </article>` : ""}
     <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}<br><b>${esc(typeName(a))}</b>: ${esc(ATHLETE_TYPES[a.type]?.desc || "")} <em>Growth: ${STAT_NAMES.map((n, i) => n + " " + GROWTH[ATHLETE_TYPES[a.type]?.growth[i] ?? 2].name.toLowerCase()).join(" · ")}.</em></div>
     <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Projected <b>${mark(G.forecast(s, a, a.event))}</b></span></div>`;
   }
-  if (tab === "stats") body += btn(s.settings.followAthlete===a.id ? "Following in highlights · stop" : "Follow this athlete in highlights","follow-athlete",`data-id="${a.id}"`,"subtle")+masteryCard(s,a)+developmentCard(a);
+  if (tab === "stats" && G.systemUnlocked(s,"plans")) body += btn(s.settings.followAthlete===a.id ? "Following in highlights · stop" : "Follow this athlete in highlights","follow-athlete",`data-id="${a.id}"`,"subtle")+masteryCard(s,a)+developmentCard(a);
   if (tab === "train") {
     // Sessions live in the Train window; this tab is the athlete's own routine.
-    body = `<div class="coach-cta">${a.coachedDay === s.day ? `<span>${ico("check")} Session done today. Back tomorrow.</span>` : a.injury ? `<span>${ico("bandage")} Injured: no sessions until recovered.</span>` : `<span>${ico("dumbbell")} Coached sessions make the big gains. <b>${s.coaching.insights}</b> Insights ready.</span>${btn("Coach a session", "coach-athlete", `data-id="${a.id}"`, "small")}`}</div>
-    <h3>Daily plan</h3><div class="plan-grid compact">${Object.entries(PLANS)
+    body = `${G.systemUnlocked(s,"sessions") ? `<div class="coach-cta">${a.coachedDay === s.day ? `<span>${ico("check")} Session done today. Back tomorrow.</span>` : a.injury ? `<span>${ico("bandage")} Injured: no sessions until recovered.</span>` : `<span>${ico("dumbbell")} Coached sessions make the big gains. <b>${s.coaching.insights}</b> Insights ready.</span>${btn("Coach a session", "coach-athlete", `data-id="${a.id}"`, "small")}`}</div>
+    ` : ""}<h3>Daily plan</h3><div class="plan-grid compact">${Object.entries(PLANS).filter(([id,p]) => (!p.course || G.systemUnlocked(s,"sessions")) && (id !== "facilities" || G.systemUnlocked(s,"duties")))
       .map(([id, p]) => {
         const at = p.facility === "event" ? (a.trainingEvent||a.event) : p.facility;
         const lvl = at ? G.facilityLevel(s, at) : 0,
@@ -206,7 +218,7 @@ function athletePage(s, a, view) {
     <p class="hint">${planForecast(s, a)}</p>
     <label class="toggle"><input type="checkbox" data-change="autorest" data-id="${a.id}" ${a.autoRest ? "checked" : ""}> Rest automatically: keep energy for coached sessions on All-round; rest below 25 stamina on focused plans</label>
     <label class="toggle"><input type="checkbox" data-change="autotaper" data-id="${a.id}" ${a.autoTaper ? "checked" : ""}> Taper in the two days before a meet</label>
-    ${athleteDutyPicker(s,a)}${masteryCard(s,a)}`;
+    ${G.systemUnlocked(s,"duties") ? athleteDutyPicker(s,a) : ""}${masteryCard(s,a)}`;
   }
   if (tab === "skills") {
     const slots = G.slotsOf(a);
@@ -401,7 +413,7 @@ function coachingPlanControls(s,view) {
   const ids=G.coachingTargets(s,scope,trainees(s,view,true)), preview=G.trainingPlanPreview(s,ids,plan);
   return `<section class="card prep-controls"><div class="card-title"><h2>${ico("calendar")} Meet preparation</h2><span class="chip">${s.settings.autoMeetPrep?"Standard auto":"Manual"}</span></div>${preparationToggle(s)}
   ${s.settings.autoMeetPrep ? `<p class="prep-active">${s.phase === "season" && s.matchDay != null ? `Next meet: ${esc(G.shortDate(s.matchDay))} · Rest day: ${esc(G.shortDate(Math.max(1,s.matchDay-1)))}.` : "Book a meet to start the standard routine."} Saved manual plans resume when you turn this off.</p>` : ""}
-  <details class="group-plans" ${(view.showGroupPlans ?? !s.settings.autoMeetPrep)?"open":""}><summary>Apply a coaching plan to a group</summary><div class="group-plan-fields"><label>Athletes<select data-change="plan-scope">${[["entrants","Meet entrants"],["squad","Whole squad"],["group","Selected training group"]].map(([id,label])=>`<option value="${id}" ${scope===id?"selected":""}>${label}</option>`).join("")}</select></label><label>Daily plan<select data-change="group-plan">${Object.entries(PLANS).map(([id,p])=>`<option value="${id}" ${plan===id?"selected":""}>${p.name}${p.course&&!s.coaching.unlocked.includes(id)?" · unlock "+p.cost+" Insights":""}</option>`).join("")}</select></label></div><p class="hint">${esc(PLANS[plan].desc)} ${preview.eligible.length} / ${ids.length} athletes qualify. ${preview.cost ? "Unlock once for the club, then apply to eligible athletes." : "No Insights spent to assign this plan."}</p>
+  <details class="group-plans" ${(view.showGroupPlans ?? !s.settings.autoMeetPrep)?"open":""}><summary>Apply a coaching plan to a group</summary><div class="group-plan-fields"><label>Athletes<select data-change="plan-scope">${[["entrants","Meet entrants"],["squad","Whole squad"],["group","Selected training group"]].map(([id,label])=>`<option value="${id}" ${scope===id?"selected":""}>${label}</option>`).join("")}</select></label><label>Daily plan<select data-change="group-plan">${Object.entries(PLANS).filter(([id]) => id !== "facilities" || G.systemUnlocked(s,"duties")).map(([id,p])=>`<option value="${id}" ${plan===id?"selected":""}>${p.name}${p.course&&!s.coaching.unlocked.includes(id)?" · unlock "+p.cost+" Insights":""}</option>`).join("")}</select></label></div><p class="hint">${esc(PLANS[plan].desc)} ${preview.eligible.length} / ${ids.length} athletes qualify. ${preview.cost ? "Unlock once for the club, then apply to eligible athletes." : "No Insights spent to assign this plan."}</p>
   ${preview.skipped.length?`<p class="plan-skips">${preview.skipped.map(a=>`${esc(a.name)}: ${esc(a.reason)}`).join(" · ")}</p>`:""}
   ${btn(preview.problem?esc(preview.problem):`${preview.cost?"Unlock & apply · "+preview.cost+" Insights":"Apply to "+preview.eligible.length+" athletes"}`,"apply-group-plan",`data-scope="${scope}" data-plan="${plan}" ${preview.problem?"disabled":""}`,"subtle")}
   <small class="hint">${s.settings.autoMeetPrep?"Applying a plan switches back to manual preparation. ":""}Facility staff and injured athletes are skipped. Plans repeat each day; coached sessions make the big gains.</small></details></section>`;
@@ -410,9 +422,11 @@ function coachingPlanControls(s,view) {
 // are the background routine, and the kit bag holds the consumables.
 const TRAIN_TABS = [["sessions", "Sessions"], ["chemistry", "Chemistry"], ["plans", "Daily plans"], ["bag", "Kit bag"]];
 export function train(s, view) {
-  const tab = TRAIN_TABS.some(([id]) => id === view.trainTab) ? view.trainTab : "sessions";
+  if (!G.systemUnlocked(s,"plans")) return lockedSystem(s,"plans");
+  const available = TRAIN_TABS.filter(([id]) => G.systemUnlocked(s, {sessions:"sessions",chemistry:"chemistry",plans:"plans",bag:"kit"}[id]));
+  const tab = available.some(([id]) => id === view.trainTab) ? view.trainTab : available[0][0];
   const items = Object.keys(s.bag).filter((k) => ITEMS[k].kind === "use");
-  const tabs = `<nav class="tabs train-tabs">${TRAIN_TABS.map(([id, label]) => `<button data-act="train-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${label}${id === "bag" && items.length ? " · " + items.reduce((n, k) => n + s.bag[k], 0) : ""}${id === "chemistry" ? " · " + (s.coaching.chemistry?.length || 0) : ""}</button>`).join("")}<span class="tab-insights">${ico("idea")}<b>${s.coaching.insights}</b><small>+${G.PRACTICE_INSIGHTS + Math.round(G.insightRate(s) * 10) / 10}/day</small></span></nav>`;
+  const tabs = `<nav class="tabs train-tabs">${available.map(([id, label]) => `<button data-act="train-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${label}${id === "bag" && items.length ? " · " + items.reduce((n, k) => n + s.bag[k], 0) : ""}${id === "chemistry" ? " · " + (s.coaching.chemistry?.length || 0) : ""}</button>`).join("")}${G.systemUnlocked(s,"sessions") ? `<span class="tab-insights">${ico("idea")}<b>${s.coaching.insights}</b><small>+${G.PRACTICE_INSIGHTS + Math.round(G.insightRate(s) * 10) / 10}/day</small></span>` : ""}</nav>`;
   if (tab === "plans") return tabs + dailyPlans(s, view);
   if (tab === "chemistry") return tabs + chemistryBook(s);
   if (tab === "bag") return tabs + (items.length ? `<div class="use-grid">${items.map((k) => `<button class="use-item rarity-${ITEMS[k].rarity}" data-act="use" data-item="${k}">${icon(k, 32)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${esc(ITEMS[k].desc)}</small></span></button>`).join("")}</div>` : `<p class="hint">Kit bag's empty. Drinks and shakes are in the ${btn("Kit shop", "page", 'data-page="shop"', "text")}.</p>`);
@@ -429,12 +443,12 @@ function coachBadge(s) {
   return `<span class="coach-badge" title="Head coach level ${level}: +${(level - 1) * 3}% to session gains. ${to - done} more athletes coached to level ${level + 1}.">${ico("clipboard")} Coach Lv ${level}${bar(done - from, to - from, "#f2c94c")}</span>`;
 }
 function dailyPlans(s, view) {
-  return `${coachingPlanControls(s, view)}
+  return `${G.systemUnlocked(s,"sessions") ? coachingPlanControls(s, view) : ""}
   <div class="card-title"><h2>Individual daily plans</h2></div>
   <div class="plan-rows">${s.roster
     .map((a) => `<label class="plan-row">${portrait(a)}<span><strong>${esc(a.name.split(" ")[0])}</strong><small>${esc(G.autoPrepActivity(s,a) ? "Auto now: "+PLANS[G.autoPrepActivity(s,a)].short+" · saved: "+PLANS[a.plan].short : shortForecast(s, a))}</small></span><select data-change="plan" data-id="${a.id}" aria-label="Daily plan for ${esc(a.name)}">${Object.entries(PLANS).filter(([id]) => !G.planProblem(s, a, id)).map(([id, p]) => `<option value="${id}" ${a.plan === id ? "selected" : ""}>${p.short || p.name}</option>`).join("")}</select></label>`)
     .join("")}</div>
-  <p class="hint">Daily plans keep everyone ticking over between sessions. Auto prep overrides meet entrants while a meet is booked; turn it off for individual control.</p>`;
+  <p class="hint">${G.systemUnlocked(s,"sessions") ? "Daily plans keep everyone ticking over between sessions. Auto prep overrides meet entrants while a meet is booked; turn it off for individual control." : "Choose a daily routine, then press Train. Athletes rest automatically and ease off before meet day."}</p>`;
 }
 // What each athlete says after a session. Their background colours the best moments.
 const QUOTES = {
@@ -528,6 +542,7 @@ function skillRow(a, k, label, act, disabled) {
 
 // ── Scouting ────────────────────────────────────────────────────────────
 export function recruit(s) {
+  if (!G.systemUnlocked(s,"recruit")) return lockedSystem(s,"recruit");
   const full = s.roster.length >= G.rosterCap(s);
   const secrets = s.secretsOffered.filter((k) => !s.secretsSigned.includes(k));
   return `${btn("‹ Squad", "page", 'data-page="squad"', "text")}<p class="hint">Squad ${s.roster.length} / ${G.rosterCap(s)}. Rarer athletes have a higher potential and arrive knowing a skill.</p>
@@ -581,6 +596,7 @@ export function stadiumConfirmBody(s, key) {
   return constructionConfirm(s, { cost, upkeep: Math.round(cost * 0.03), desc: `<b>${esc(d.levels[lvl + 1])}</b>. ${d.desc}` });
 }
 export function build(s, view) {
+  if (!G.systemUnlocked(s,"build")) return lockedSystem(s,"build");
   const sel = view.selected;
   let focus = "";
   if (sel?.kind === "plot") {
@@ -627,6 +643,7 @@ export function build(s, view) {
 // ── Shop & bag ──────────────────────────────────────────────────────────
 const SHOP_TABS = [["fuel"], ["implements"], ["wear"], ["bag"]];
 export function shop(s, view) {
+  if (!G.systemUnlocked(s,"kit")) return lockedSystem(s,"kit");
   // The counter is split into aisles so each one fits on a screen or so.
   const tab = SHOP_TABS.some(([id]) => id === view.shopTab) ? view.shopTab : "fuel";
   const stock = G.shopStock(s);
@@ -726,17 +743,23 @@ function invitationCard(s) {
   </section>`;
 }
 function competitionBoard(s, view) {
+  if (G.firstMeet(s)) return `${introductionCard(s)}<article class="card"><h2>Community club duel</h2><p>Face ${esc(CLUBS[0][0].name)}. Three throws per athlete, with your lineup already chosen.</p>${s.competition ? btn("Back to preparations", "page", 'data-page="home"') : btn("Book your first duel", "book-duel", 'data-tier="0" data-rival="0"')}</article>`;
   const planning = s.phase === "planning";
   const active = s.competition;
   // What to enter comes first; how it works and the scheduling options sit at the bottom.
-  const foot = `<div class="circuit-foot"><details class="circuit-help"><summary>How the circuit works</summary><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three fixtures and a final for the top two. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p><p>Community leagues and duels are free; higher leagues charge an entry fee. Training carries on between meets (so do wages and upkeep), and every earlier competition stays open.</p></details>
+  const foot = `<div class="circuit-foot"><details class="circuit-help"><summary>How the circuit works</summary><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three duels followed by a league championship. Every division club sends its best thrower per event, with six attempts each. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p><p>Community leagues and duels are free; higher leagues charge an entry fee. Training carries on between meets (so do wages and upkeep), and every earlier competition stays open.</p></details>
     <details class="calendar-options-wrap"><summary>Schedule options</summary><div class="calendar-options"><label>Prepare before the first meet<select data-change="booking-preparation" ${planning ? "" : "disabled"}>${[3,5,7,10].map((n) => `<option value="${n}" ${(view.preparation || 5) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label><label>Days between league meets<select data-change="booking-spacing" ${planning ? "" : "disabled"}>${[4,7,10].map((n) => `<option value="${n}" ${(view.spacing || 7) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div></details></div>`;
-  return `${invitationCard(s)}${active ? `<section class="card booking-card"><p class="booking-summary"><b>${esc(G.competitionName(s))}</b> · ${s.phase === "seasonEnd" ? "Complete — review your season to book again." : "Next meet: " + esc(G.shortDate(s.matchDay)) + (active.kind === "league" ? " · " + active.spacing + " days between fixtures" : "")}</p><div class="inline">${btn(s.phase === "seasonEnd" ? "Season review" : "Back to preparations", "page", 'data-page="home"', "subtle small")}${s.fixture === 0 && !s.results.length && s.day < s.matchDay ? btn("Cancel booking", "cancel-booking", "", "subtle small") : ""}</div></section>` : ""}
+  const board = `${invitationCard(s)}${active ? `<section class="card booking-card"><p class="booking-summary"><b>${esc(G.competitionName(s))}</b> · ${s.phase === "seasonEnd" ? "Complete — review your season to book again." : "Next meet: " + esc(G.shortDate(s.matchDay)) + (active.kind === "league" ? " · " + active.spacing + " days between fixtures" : "")}</p><div class="inline">${btn(s.phase === "seasonEnd" ? "Season review" : "Back to preparations", "page", 'data-page="home"', "subtle small")}${s.fixture === 0 && !s.results.length && s.day < s.matchDay ? btn("Cancel booking", "cancel-booking", "", "subtle small") : ""}</div></section>` : ""}
   ${LEAGUES.map((tier, i) => i > s.league + 1 ? "" : i === s.league + 1 ? `<p class="hint next-tier">${ico("lock")} Next: <b>${tier.name}</b>. Win the ${LEAGUES[i - 1].name} Championship for the invitation.</p>` : `<details class="card circuit-tier" ${i === s.league ? "open" : ""}><summary>${tier.name} <span>${i > s.league ? "Invitation locked" : s.circuit.cleared.filter((k) => k.startsWith(i + ":")).length + " / 3 trophies"}</span></summary>
     ${i > s.league ? `<p>Win the ${LEAGUES[i - 1].name} Championship to earn this invitation. ${esc(LEAGUES[i].unlock)}</p>` : `<div class="competition-grid">${G.CIRCUIT_STAGES.map((stage, j) => {
       const problem = G.entryProblem(s, "league", i, j), cleared = s.circuit.cleared.includes(G.circuitKey(i, j));
       return `<article class="competition-card ${cleared ? "completed" : ""}">${cleared ? `<span class="eyebrow">TROPHY WON · REPLAYABLE</span>` : ""}<h3>${stage}</h3><p>${G.CIRCUIT_FORMATS[j]}</p><small>${cleared ? "" : `${ico("gift")} ${ITEMS[G.TITLE_GIFTS[j]].name} · `}${j < 2 ? "unlocks " + G.CIRCUIT_STAGES[j + 1] : i < 4 ? "unlocks " + LEAGUES[i + 1].name : "Become champions of the world"}</small>${btn((cleared ? "Enter again" : "Enter league") + (G.entryFee("league", i) ? " · " + cash(G.entryFee("league", i)) : ""), "book-league", `data-tier="${i}" data-stage="${j}" ${problem ? "disabled" : ""}`)}${problem && planning ? `<p class="hint">${esc(problem)}</p>` : ""}</article>`;
     }).join("")}</div><h3>Duel meets</h3><p class="hint">${ico("gift")} A first win over a club earns a bonus and a skill scroll.</p><div class="duel-list">${CLUBS[i].map((c, j) => `<article class="duel-card"><span><strong>${esc(c.name)}${s.circuit.duels.includes(i + ":" + j) ? "" : ` <em class="first-win" title="First-win reward available">${ico("gift")}</em>`}</strong><small>${esc(c.style)}</small></span>${btn("Book duel", "book-duel", `data-tier="${i}" data-rival="${j}" ${G.entryProblem(s, "duel", i, 0, j) ? "disabled" : ""}`, "subtle")}</article>`).join("")}</div>`}</details>`).join("")}${foot}`;
+  if (s.onboarding && G.nextIntroduction(s) && planning) {
+    const next = G.nextCircuitEntry(s), problem = G.entryProblem(s,"league",next.tier,next.stage);
+    return `<article class="card"><span class="eyebrow">NEXT CHALLENGE</span><h2>${esc(LEAGUES[next.tier].name)} · ${G.CIRCUIT_STAGES[next.stage]}</h2><p>Three club duels, then a championship against the best throwers in the division. Keep learning one system after each meet.</p>${btn("Enter league", "book-league", `data-tier="${next.tier}" data-stage="${next.stage}" ${problem ? "disabled" : ""}`)}${problem ? `<p class="hint">${esc(problem)}</p>` : ""}</article><details class="card"><summary>Other meets and schedule options</summary>${board}</details>`;
+  }
+  return board;
 }
 
 // ── Calendar ────────────────────────────────────────────────────────────
@@ -791,7 +814,7 @@ export function league(s, view) {
   if (tab === "records") return tabs + leagueRecords(s);
   return `${tabs}<div class="journey">${LEAGUES.map((l, i) => `<div class="${i === s.league ? "current" : i < s.league ? "passed" : ""}"><span>${i < s.league ? ico("check") : i + 1}</span><small>${l.name.replace(" League", "")}</small></div>`).join("")}</div>
   ${s.competition?.kind === "league" ? `<h3>${esc(G.competitionName(s))} standings</h3><div class="table-wrap"><table><thead><tr><th>Club</th><th>P</th><th>+/−</th><th>Pts</th></tr></thead><tbody>${G.table(s).map((c, i) => `<tr class="${c.id === "us" ? "us" : ""}"><td><span class="pos">${i + 1}</span><i class="dot" style="--c:${c.id === "us" ? s.colors.primary : c.color}"></i>${esc(c.name)}</td><td>${c.played}</td><td>${c.diff > 0 ? "+" : ""}${c.diff}</td><td><b>${c.points}</b></td></tr>`).join("")}</tbody></table></div>
-  <p class="hint">Three fixtures. The top two clubs qualify for a championship: three qualifying throws, then three more for the top four athletes per event. Marks carry forward.</p>` : ""}
+  <p class="hint">Three club duels build the league standings. The last meet is the league championship: every division club sends its best thrower per event and all entrants get six attempts. Individual places earn points for their own club.</p>` : ""}
   <div class="card-title"><h2>Scouted rivals</h2></div>
   ${s.clubs
     .map((c, ci) => {
@@ -884,6 +907,7 @@ export function mainMenu(slots, { active, update, native }) {
 }
 const OFFICE_TABS = [["club", "Club"], ["looks", "Kit & stadium"], ["goals", "Goals"], ["history", "Hall of fame"], ["save", "Save & settings"]];
 export function club(s, meta, view = {}) {
+  if (!G.systemUnlocked(s,"office")) return lockedSystem(s,"office");
   const done = G.GOALS.filter((g) => s.goals.includes(g.id)).length,
     tab = pageTab(view, "club", OFFICE_TABS),
     tabs = pageTabs("club", OFFICE_TABS.map(([id, label]) => [id, id === "goals" ? `Goals · ${done}/${G.GOALS.length}` : label]), tab);
@@ -907,16 +931,17 @@ const shortName = (name) => name.replace(/^(\S+)\s+(\p{L}).*$/u, "$1 $2.");
 export function lobby(s, view = {}) {
   const m = G.opponent(s),
     problem = G.lineupProblem(s);
+  const championship = G.isLeagueChampionship(s), field = championship ? G.championshipEntries(s) : null;
   const sky = G.weatherToday(s);
   // A lineup that needs fixing opens straight into the entry pickers.
   view = { ...view, editLineup: view.editLineup || !!problem };
-  return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
+  return `<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${G.isLeagueChampionship(s) ? "Six throws each · every division club" : s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
   <p class="meet-forecast">${weatherChip(sky)} <span>${esc(G.WEATHER[sky].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
     // Every entry slot for the event sits in one row, beside the rival's specialist.
     const ids = G.entriesOf(s, ev),
       a = s.roster.find((x) => x.id === ids[0]),
-      r = m.athletes[i],
+      r = championship ? [...field[ev]].sort((a,b) => G.rawMark(b.athlete,ev)-G.rawMark(a.athlete,ev))[0].athlete : m.athletes[i],
       fc = (x) => G.forecast(s, x, ev, { doubleDuty: G.usesOf(s, x.id) > 1 }),
       mine = ids.reduce((n, id) => Math.max(n, fc(s.roster.find((x) => x.id === id))), 0),
       theirs = G.rawMark(r, ev) * G.MOOD_MARK[2];
@@ -926,24 +951,27 @@ export function lobby(s, view = {}) {
     const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> ${mark(fc(x))}${x.event === ev ? " ★" : ""}`).join("<br>");
     return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Your best entry against their specialist">${edge > 0.01 ? "Ahead" : edge < -0.01 ? "Behind" : "Level"}</span></div>
       <div class="lineup-us">${a ? portrait(a) : ""}<span class="entry-slots">${view.editLineup ? [0, 1, 2].filter((k) => k <= ids.length).map(slot).join("") : `<span class="entry-names">${names || "No entry yet"}</span>`}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : ""}</small></span></div>
-      <div class="lineup-them">${rivalPortrait(m.id, i)}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · ~${mark(theirs)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span></div></div>`;
+      <div class="lineup-them">${championship ? `<span>${field[ev].map(({athlete,club}) => `<span class="championship-entry"><strong>${esc(athlete.name)}</strong><small>${esc(club.name)} · ~${mark(G.rawMark(athlete,ev))}</small></span>`).join("")}</span>` : `${rivalPortrait(m.id, i)}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · ~${mark(theirs)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span>`}</div></div>`;
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
   <p class="hint">Places score 5–3–1. ★ marks a specialist.${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
   ${view.editLineup ? s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("") : ""}
-  <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
-  <div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
-  <div class="card-title"><h2>How do you want to run it?</h2></div>
+  ${G.firstMeet(s) ? `<p class="hint">Your lineup is ready. Watch the squad compete; you can change entries after this meet.</p>` : `<div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
+  `}
+  ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
+  ` : ""}${G.firstMeet(s) ? `<p class="hint">Watch mode: your athletes choose their throws.</p>` : `<div class="card-title"><h2>How do you want to run it?</h2></div>
   <div class="modes">${["watch", "coach"].map((mode) => `<button class="mode ${s.settings.meetMode === mode ? "selected" : ""}" data-act="meet-mode" data-value="${mode}"><strong>${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</strong><small>${mode === "watch" ? (s.settings.clutch ? "Athletes choose their approach; you make the call on clutch last throws." : "Athletes choose their approach. Clutch pauses can be turned on in Settings.") : "You choose the approach for every one of your throws."}</small></button>`).join("")}</div>
+  `}
   ${btn(ico("stadium") + " Start the meet", "enter", problem ? "disabled" : "")}`;
 }
 
 // ── Live meet ───────────────────────────────────────────────────────────
 // The strip along the bottom of the stadium during a meet.
 function meetAthlete(s, side, id) {
-  const athletes = side === "home" ? s.roster : (G.clubById(s, s.match.opponentId)?.athletes || []);
+  const athletes = side === "home" ? s.roster : (G.matchClub(s)?.athletes || []);
   const athlete = athletes.find(a => a.id === id);
-  return { athlete, face: !athlete ? "" : side === "home" ? portrait(athlete) : rivalPortrait(s.match.opponentId, athletes.indexOf(athlete)) };
+  const club = side === "away" && s.match.leagueChampionship ? G.championshipClubs(s).find(c => c.athletes.some(a => a.id === id)) : G.clubById(s,s.match.opponentId);
+  return { athlete, club, face: !athlete ? "" : side === "home" ? portrait(athlete) : rivalPortrait(club.id, club.athletes.indexOf(athlete)) };
 }
 function resultTable(s, event) {
   const rows = event.placings.length ? event.placings : ["home", "away"].map((side, i) => {
@@ -954,9 +982,9 @@ function resultTable(s, event) {
   return `<article class="event-scorebook" style="--event-color:${EVENTS[event.event].color}">
     <header><h3>${EVENTS[event.event].name}</h3><span aria-label="Event points">${event.h} <small>–</small> ${event.a}</span></header>
     <table class="placing-table"><caption class="sr-only">${EVENTS[event.event].name} individual results</caption><colgroup><col class="col-place"><col><col class="col-mark"><col class="col-points"></colgroup><thead><tr><th scope="col">Pl.</th><th scope="col">Athlete</th><th scope="col">Best (m)</th><th scope="col">Pts</th></tr></thead><tbody>${rows.map(row => {
-      const {athlete, face} = meetAthlete(s, row.side, row.id);
+      const {athlete, face, club} = meetAthlete(s, row.side, row.id);
       const pb = s.match.rewards?.pbs?.some(p => p.id === row.id && p.event === event.event);
-      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(s.match.name)}${s.match.rewards?.worldRecords?.some((w) => w.id === row.id && w.event === event.event) ? ' <em class="pb-tag">WR</em>' : pb ? ' <em class="pb-tag">PB</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
+      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(club?.name || s.match.name)}${s.match.rewards?.worldRecords?.some((w) => w.id === row.id && w.event === event.event) ? ' <em class="pb-tag">WR</em>' : pb ? ' <em class="pb-tag">PB</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
     }).join("")}</tbody></table>
     <details class="throw-series"><summary>Throw series <span>${rows.length} athletes</span></summary>${rows.map(row => {
       const {athlete} = meetAthlete(s,row.side,row.id);
@@ -967,7 +995,7 @@ export function meetBar(s, view) {
   const m = s.match, i = m.eventIndex, ev = EVENT_IDS[i];
   const side = view.hide?.side || m.turnSide || (m.phase === "decide" ? "home" : m.last?.side) || "away";
   const a = side === "home" ? G.homeAthlete(s,i) : G.rivalAthlete(s,i);
-  const {face} = meetAthlete(s,side,a.id);
+  const {face, club: activeClub} = meetAthlete(s,side,a.id);
   let marks = (side === "home" ? m.homeMarks : m.awayMarks)[i];
   if(view.hide?.side === side && view.hide.eventIndex === i) marks = marks.slice(0,view.hide.attempt);
   const rows = G.fieldLeaderboard(s,i,view.hide);
@@ -977,24 +1005,24 @@ export function meetBar(s, view) {
   const attempt = throwing ? beat.attempt + 1 : Math.min(m.attempts, marks.length + 1);
   const liveHome = rows.filter(r=>r.side === "home").reduce((n,r)=>n+r.points,0);
   const liveAway = rows.filter(r=>r.side === "away").reduce((n,r)=>n+r.points,0);
-  return `<header class="meet-rail-score" aria-label="Club meet score"><small>MEET SCORE · ${i + 1} / 4 EVENTS</small><div><span><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b></div><div><span><i class="dot" style="--c:${m.color}"></i>${esc(m.name)}</span><b>${m.against}</b></div><nav aria-label="Event progress">${G.eventScores(m).map((e,n)=>`<span class="${n === i ? "current" : ""}">${EVENTS[e.event].short} ${e.done ? e.h + '–' + e.a : n === i ? 'LIVE' : '·'}</span>`).join("")}</nav></header><div class="meet-moment ${result ? "landed" : ""} ${beat?.foul && result ? "foul" : ""}" role="status" aria-live="polite" aria-atomic="true">
-    ${result ? `<div><small>${esc(beat.name)} · ${EVENTS[ev].name} · Throw ${attempt}</small><strong>${esc(result.headline)}</strong><span>${esc(result.detail)}</span></div><b>${beat.mark == null ? "X" : beat.mark.toFixed(2) + '<small>m</small>'}</b>` : throwing || m.phase === "decide" ? `<div><small>${m.phase === "decide" ? "YOUR CALL" : "UP NOW"} · Throw ${attempt} / ${m.attempts}</small><strong>${esc(a.name)}</strong><span>${esc(targetText(beat.target))}</span></div>` : `<div><small>${EVENTS[ev].name}</small><strong>${beat?.type === "eventEnd" ? "Event complete · " + beat.h + "–" + beat.a + " points" : beat?.finals ? "Top four · three more throws" : "Three throws. Make your best one count."}</strong><span>${beat?.finals ? "Qualifying marks carry into the final." : "Places score 5–3–1 for the club."}</span></div>`}
+  return `<header class="meet-rail-score" aria-label="Club meet score"><small>MEET SCORE · ${i + 1} / 4 EVENTS</small><div><span><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b></div><div><span><i class="dot" style="--c:${m.color}"></i>${esc(m.leadingClub || m.name)}</span><b>${m.against}</b></div><nav aria-label="Event progress">${G.eventScores(m).map((e,n)=>`<span class="${n === i ? "current" : ""}">${EVENTS[e.event].short} ${e.done ? e.h + '–' + e.a : n === i ? 'LIVE' : '·'}</span>`).join("")}</nav></header><div class="meet-moment ${result ? "landed" : ""} ${beat?.foul && result ? "foul" : ""}" role="status" aria-live="polite" aria-atomic="true">
+    ${result ? `<div><small>${esc(beat.name)} · ${EVENTS[ev].name} · Throw ${attempt}</small><strong>${esc(result.headline)}</strong><span>${esc(result.detail)}</span></div><b>${beat.mark == null ? "X" : beat.mark.toFixed(2) + '<small>m</small>'}</b>` : throwing || m.phase === "decide" ? `<div><small>${m.phase === "decide" ? "YOUR CALL" : "UP NOW"} · Throw ${attempt} / ${m.attempts}</small><strong>${esc(a.name)}</strong><span>${esc(targetText(beat.target))}</span></div>` : `<div><small>${EVENTS[ev].name}</small><strong>${beat?.type === "eventEnd" ? "Event complete · " + beat.h + "–" + beat.a + " points" : beat?.finals ? "Top four · three more throws" : m.leagueChampionship ? "League championship · six throws each" : "Three throws. Make your best one count."}</strong><span>${beat?.finals ? "Qualifying marks carry into the final." : "Places score 5–3–1 for the club."}</span></div>`}
   </div><div class="meet-desk">
     <section class="current-thrower ${side === "home" ? "our-athlete" : ""}" aria-label="Current thrower">
       <div class="thrower-heading"><b>${EVENTS[ev].name}</b><span>Throw ${attempt} / ${m.attempts}${m.finalRound ? " · Final" : ""}</span></div>
-      <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
+      <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(activeClub?.name || m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
     </section>
-    <section class="live-standings" aria-label="Live standings"><header><strong>Event ${liveHome}–${liveAway} <small>${m.closed[i] ? "FINAL" : "PROVISIONAL"}</small></strong><small>${m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${rows.map(row=>{
-      const {athlete}=meetAthlete(s,row.side,row.id);
-      return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
+    <section class="live-standings" aria-label="Live standings"><header><strong>Event ${liveHome}–${liveAway} <small>${m.closed[i] ? "FINAL" : "PROVISIONAL"}</small></strong><small>${m.leagueChampionship ? "Six-throw championship" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${rows.map(row=>{
+      const {athlete,club}=meetAthlete(s,row.side,row.id);
+      return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
     }).join("")}</div></section>
   </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" title="Delivery speed; results stay readable">${[1,2,4].map(n=>`<button class="${(view.meetSpeed||1) === n ? "active" : ""}" data-act="meet-speed" data-speed="${n}" aria-label="Delivery speed ${n} times" aria-pressed="${(view.meetSpeed||1) === n}">${n}×</button>`).join("")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${btn(view.skipConfirm ? "Confirm skip" : "Skip", "skip", "", "subtle small")}</div>`;
 }
 export function meetScore(s) {
   const m = s.match,
     scores = G.eventScores(m);
-  return `<div class="meet-score"><span class="side"><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b><div class="event-chips">${scores.map((e, n) => `<span class="ev ${n === m.eventIndex && m.phase !== "complete" ? "now" : ""} ${e.done ? (e.h > e.a ? "won" : e.a > e.h ? "lost" : "tied") : ""}" style="--c:${EVENTS[e.event].color}">${EVENTS[e.event].short}<em>${e.done ? e.h + ":" + e.a : n === m.eventIndex ? "LIVE" : "·"}</em></span>`).join("")}</div><b>${m.against}</b><span class="side">${esc(m.name)}<i class="dot" style="--c:${m.color}"></i></span></div>`;
+  return `<div class="meet-score"><span class="side"><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b><div class="event-chips">${scores.map((e, n) => `<span class="ev ${n === m.eventIndex && m.phase !== "complete" ? "now" : ""} ${e.done ? (e.h > e.a ? "won" : e.a > e.h ? "lost" : "tied") : ""}" style="--c:${EVENTS[e.event].color}">${EVENTS[e.event].short}<em>${e.done ? e.h + ":" + e.a : n === m.eventIndex ? "LIVE" : "·"}</em></span>`).join("")}</div><b>${m.against}</b><span class="side">${esc(m.leadingClub || m.name)}<i class="dot" style="--c:${m.color}"></i></span></div>`;
 }
 // The decision window for one of your throws.
 export function decide(s, view) {
@@ -1057,7 +1085,9 @@ export function meetComplete(s, view = {}) {
   const growth = view.resultView === "progress";
   const selected = EVENT_IDS.includes(view.resultEvent) ? view.resultEvent : "all";
   return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : m.kind === "cup" ? esc(r.invitational?.name || "INVITATIONAL").toUpperCase() : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b><span data-count="${m.score}">${m.score}</span> <small>–</small> <span data-count="${m.against}">${m.against}</span></b><span>${esc(m.name)}</span></div>${win ? `<div class="confetti" aria-hidden="true">${Array.from({ length: 16 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${((i * 13) % 9) / 10}s;--r:${(i * 71) % 360}deg;--c:${["#f2c94c", s.colors.primary, "#e0506a", "#5aa4c8", "#8cc152"][i % 5]}"></i>`).join("")}</div>` : ""}</header>
-  <div class="meet-payout"><span>${ico("coin")} <b>+<span data-count="${r.money || 0}" data-cash>${cash(r.money || 0)}</span></b></span><span>${ico("heart")} +<span data-count="${r.fans || 0}">${r.fans || 0}</span> fans</span><span>${ico("idea")} +<span data-count="${r.insights || 0}">${r.insights || 0}</span> Insights</span>${r.mvp ? `<span class="meet-mvp">${ico("star")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}${(r.worldRecords || []).map((w) => `<span class="meet-mvp wr-ours">${ico("trophy")} WORLD RECORD <b>${esc(w.name)} ${mark(w.mark)}</b></span>`).join("")}</div>
+  <div class="meet-payout"><span>${ico("coin")} <b>+<span data-count="${r.money || 0}" data-cash>${cash(r.money || 0)}</span></b></span><span>${ico("heart")} +<span data-count="${r.fans || 0}">${r.fans || 0}</span> fans</span>${G.systemUnlocked(s,"sessions") ? `<span>${ico("idea")} +<span data-count="${r.insights || 0}">${r.insights || 0}</span> Insights</span>` : ""}${r.mvp ? `<span class="meet-mvp">${ico("star")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}${(r.worldRecords || []).map((w) => `<span class="meet-mvp wr-ours">${ico("trophy")} WORLD RECORD <b>${esc(w.name)} ${mark(w.mark)}</b></span>`).join("")}</div>
+  ${m.leagueChampionship ? championshipTable(s) : ""}
+  ${r.introduction ? (() => { const d = G.INTRODUCTIONS.find(d => d.id === r.introduction); return `<article class="card introduction-card"><span class="eyebrow">NEW CLUB SYSTEM</span><h2>${esc(d.name)}</h2><p>${esc(d.desc)}</p><p class="hint">Explore it when you return to the club.</p></article>`; })() : ""}
   ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
   <nav class="meet-result-tabs" aria-label="Meet report"><button class="report-menu" data-act="game-menu">Menu</button><button data-act="result-view" data-value="results" aria-pressed="${!growth}" class="${!growth?"active":""}">Results</button><button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
   ${growth ? meetGrowth(s) : `
@@ -1079,6 +1109,10 @@ export function meetComplete(s, view = {}) {
     ${r.goals.map((id) => `<p class="pb-line">${ico("target")} Goal: ${esc(G.GOALS.find((g) => g.id === id)?.name)}</p>`).join("")}
   </section></details>
   ${growth ? btn(m.kind !== "duel" && (m.kind === "final" || s.fixture === 2) ? "See what comes next" : "Back to the club", "leave") : btn("Athlete growth →", "meet-progress")}`;
+}
+
+function championshipTable(s) {
+  return `<section class="card"><h2>League championship standings</h2><div class="table-wrap"><table><thead><tr><th>Club</th><th>Points</th></tr></thead><tbody>${G.championshipScores(s.match).map((c,i) => `<tr class="${c.id === "us" ? "us" : ""}"><td>${i+1}. ${esc(c.id === "us" ? s.clubName : c.name)}</td><td>${c.points}</td></tr>`).join("")}</tbody></table></div></section>`;
 }
 
 // ── Season end & awards ─────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import * as G from "../src/domain/game.js";
+import * as G from "./helpers/developed-club.js";
 import { validateCampaign } from "../src/domain/campaign-save.js";
 
 test("kit and stadium looks unlock through progress and cost club money", () => {

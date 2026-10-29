@@ -3,6 +3,8 @@ import { practiceMastery, masteryOf, masteryCap, formOf, FORMS } from "./mastery
 import { EVENT_IDS, PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
 import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random, hasCombo, grantXp } from "./core.js";
 
+import { systemUnlocked, systemProblem } from "./progression.js";
+
 export const INSIGHT_START = 16;
 // Coached sessions are where the big gains come from; daily plans only keep the squad ticking over.
 // The first three need nothing but grass: every club can run them from day one.
@@ -96,6 +98,7 @@ export const CHEMISTRY = [
   { key: "mentor", name: "Mentor & Pupil", needs: ["bloomer", "prodigy"], stat: null, pct: 20 },
 ];
 export function chemistryOf(s, ids) {
+  if (!systemUnlocked(s,"chemistry")) return null;
   const bgs = ids.map((id) => s.roster.find((a) => a.id === id)?.background);
   return CHEMISTRY.filter((c) => c.needs.every((b) => bgs.includes(b))).sort((x, y) => y.needs.length - x.needs.length || y.pct - x.pct)[0] || null;
 }
@@ -128,6 +131,9 @@ export function facilityProblem(s, a, needs) {
   return null;
 }
 export function planRequirements(s,a,id) {
+  if (!["balanced", "rest", "sharpen"].includes(id) && !systemUnlocked(s, "plans")) return systemProblem(s, "plans");
+  if (PLANS[id]?.course && !systemUnlocked(s, "sessions")) return systemProblem(s, "sessions");
+  if (id === "facilities" && !systemUnlocked(s, "duties")) return systemProblem(s, "duties");
   const p=PLANS[id];
   if(!p) return "Unknown plan";
   if(!p.course) return null;
@@ -194,6 +200,7 @@ export function drillGains(s, a, id, group = 1, chem = null) {
 }
 // Everything except the Insight bill, which a group pays once.
 export function drillProblem(s,a,id,group = 0) {
+  if (!systemUnlocked(s, "sessions")) return systemProblem(s, "sessions");
   const d = DRILLS[id];
   if (!d || !a) return "Unknown session";
   if (s.match || s.pendingEvent || !["planning","season"].includes(s.phase)) return "Finish the current meet or club decision first";
@@ -224,7 +231,7 @@ export function groupProblem(s, ids, id) {
 export function coachGroup(s, ids, id) {
   if (groupProblem(s, ids, id)) return null;
   const d = DRILLS[id], n = ids.length, bill = sessionCost(s, id, n), cost = bill.insights, level = drillLevel(s, id), name = drillName(s, id);
-  const chem = chemistryOf(s, ids), coachBefore = coachLevel(s);
+  const chem = systemUnlocked(s, "chemistry") ? chemistryOf(s, ids) : null, coachBefore = coachLevel(s);
   s.coaching.insights -= bill.insights;
   s.money -= bill.money;
   s.coaching.chemistry ??= [];
@@ -274,6 +281,7 @@ export function insightRate(s) {
 // Three Insights for a day of practice, plus whatever the club's buildings produce.
 export const PRACTICE_INSIGHTS = 3;
 export function practiceInsights(s, trained) {
+  if (!systemUnlocked(s, "sessions")) return 0;
   if (trained) s.coaching.practiceDays++;
   const total = (trained ? PRACTICE_INSIGHTS : 0) + insightRate(s) + (s.coaching.spare || 0),
     earned = Math.floor(total + 1e-9);
@@ -281,6 +289,7 @@ export function practiceInsights(s, trained) {
   s.coaching.insights += earned; return earned;
 }
 export function meetInsights(s, personalBests) {
+  if (!systemUnlocked(s, "sessions")) return 0;
   const earned = 4 + Math.min(3,personalBests) + (facilityLevel(s,"studio") > 0 ? 2 : 0);
   s.coaching.insights += earned; return earned;
 }

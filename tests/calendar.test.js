@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as G from '../src/domain/game.js';
+import * as G from './helpers/developed-club.js';
 import { LEAGUES } from '../src/game-content.js';
 
 test('the calendar starts on Monday 1 March and paydays fall on Sundays', () => {

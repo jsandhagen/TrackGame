@@ -5067,3 +5067,8 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 #updateBadge .button { display: flex; align-items: center; gap: 6px; margin: 0; min-height: 34px; padding: 4px 14px; box-shadow: 0 3px 0 #0b1d16; }
 .update-downloading { position: relative; display: block; min-width: 190px; padding: 6px 12px 9px; border-radius: 7px; background: #163a2ce6; color: #fff0c4; font: 700 11px var(--display); letter-spacing: 0.5px; text-align: center; overflow: hidden; }
 .update-downloading i { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--gold); transition: width 0.3s; }
+
+/* League championship entries keep each division club legible in the call room. */
+.championship-entry { display: block; margin: 0 0 8px; }
+.championship-entry:last-child { margin-bottom: 0; }
+.introduction-card { border-left: 3px solid var(--gold, #d2aa52); }

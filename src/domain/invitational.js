@@ -2,6 +2,7 @@
 // The club is invited to a showpiece venue to face an All-Star Select, the best
 // specialists from every club at its level, for a prize money can't buy. Accepting
 // needs an open calendar; miss the date and the invitation lapses until the next one.
+import { systemUnlocked, systemProblem } from "./progression.js";
 import { EVENT_IDS, LEAGUES, ITEMS } from "../game-content.js";
 import { random, note, rawMark, count, rollRarity, randomItem, addItem } from "./core.js";
 import { shortDate, seasonOfDay } from "./calendar.js";
@@ -30,10 +31,11 @@ export function ensureInvitations(s) {
   return s.invitations;
 }
 export const invitation = (s) => s.invitations?.offer || null;
-export const clubById = (s, id) => (id === ALL_STAR_ID ? invitation(s)?.club : s.clubs.find((c) => c.id === id));
+export const clubById = (s, id) => (id === ALL_STAR_ID ? invitation(s)?.club : s.clubs.find((c) => c.id === id) || s.rivalClubs?.[s.clubTier]?.find(c => c.id === id));
 
 // Once a day: lapse a missed invitation, or send a new one when it's due.
 export function invitationDay(s) {
+  if (!systemUnlocked(s, "invitations")) return null;
   const inv = ensureInvitations(s);
   if (inv.offer && s.day > inv.offer.day && s.competition?.kind !== "cup") {
     note(s, "The " + inv.offer.name + " went ahead without us. Another invitation will come.", "info");
@@ -53,6 +55,7 @@ export function invitationDay(s) {
 }
 
 export function invitationProblem(s) {
+  if (!systemUnlocked(s, "invitations")) return systemProblem(s, "invitations");
   const o = invitation(s);
   if (!o) return "No invitation right now.";
   if (s.competition?.kind === "cup") return "Already accepted.";

@@ -3,7 +3,8 @@ import { ensureCustom } from "./customize.js";
 import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
 import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE, ATHLETE_TYPES } from "../game-content.js";
-import { syncMarks } from "./meet.js";
+import { syncMarks, rescore, matchClub, championshipClubs, isLeagueChampionship } from "./meet.js";
+import { INTRODUCTIONS } from "./progression.js";
 import { statTotal, slotsOf, typeFor } from "./core.js";
 import { dutySite } from "./facility-duties.js";
 import { DEVELOPMENT } from "./development.js";
@@ -53,6 +54,7 @@ function relayout(s, oldPlots, league) {
 // v3 (0.3–0.4 league careers) → current.
 function fromV3(o) {
   const s = newGame(o.rng);
+  delete s.onboarding;
   Object.assign(s, {
     v: 5,
     rng: o.rng >>> 0 || 1,
@@ -148,6 +150,7 @@ function fromV3(o) {
 function fromV2(input) {
   const old = validateLegacy(input),
     s = newGame();
+  delete s.onboarding;
   s.money = Math.max(500, old.money);
   s.fans = 20 + Math.round(old.fame * 4);
   for (let i = 0; i < Math.min(old.athletes.length, 4); i++) {
@@ -224,6 +227,7 @@ function checkAthlete(a, ids, rival = false) {
 }
 function checkMatch(s, ids) {
   const m = s.match;
+  if (m.leagueChampionship != null && typeof m.leagueChampionship !== "boolean") bad();
   if (!["intro", "live", "decide", "complete"].includes(m.phase) || !int(m.eventIndex, 0, 3) || ![2, 3, 6].includes(m.attempts)) bad();
   if (!clubById(s, m.opponentId) || !["league", "final", "duel", "cup"].includes(m.kind)) bad();
   if ((m.kind === "duel") !== (s.competition?.kind === "duel") || (m.kind === "cup") !== (s.competition?.kind === "cup")) bad();
@@ -234,13 +238,23 @@ function checkMatch(s, ids) {
   for (const key of ["started", "closed"]) if (!Array.isArray(m[key]) || m[key].length !== 4) bad();
   for (const ev of EVENT_IDS) if (m.lineup?.[ev] != null && !ids.has(m.lineup[ev])) bad();
   if (m.fields) {
-    if (!Array.isArray(m.fields) || m.fields.length !== 4 || !int(m.entryIndex,0,2) || typeof m.finalRound !== "boolean") bad();
-    const rival = clubById(s, m.opponentId);
+    if (!Array.isArray(m.fields) || m.fields.length !== 4 || !int(m.entryIndex,0,m.leagueChampionship ? 5 : 2) || typeof m.finalRound !== "boolean") bad();
+    if (m.leagueChampionship) {
+      const clubs = championshipClubs(s);
+      if (clubs.length !== 6 || !isLeagueChampionship(s) || m.kind !== "final" || m.attempts !== 6 || !m.finalRound || !m.rotation || !Array.isArray(m.clubs) ||
+          m.clubs.length !== clubs.length || new Set(m.clubs.map(c => c.id)).size !== clubs.length ||
+          m.clubs.some(c => !clubs.some(r => r.id === c.id && r.name === c.name && r.color === c.color))) bad();
+    }
+    const rival = matchClub(s);
     for (const f of m.fields) for (const side of ["home","away"]) {
-      if (!Array.isArray(f[side]) || f[side].length > 3 || new Set(f[side].map((e) => e.id)).size !== f[side].length) bad();
+      if (!Array.isArray(f[side]) || f[side].length > (m.leagueChampionship && side === "away" ? 6 : 3) || new Set(f[side].map((e) => e.id)).size !== f[side].length) bad();
       for (const e of f[side]) if (!(side === "home" ? ids.has(e.id) : rival.athletes.some((a) => a.id === e.id)) || !Array.isArray(e.marks) || e.marks.length > 6 || e.marks.some((n) => n != null && !num(n,0,200)) || typeof e.finalist !== "boolean") bad();
+      if (m.leagueChampionship && f[side].some(e => !e.finalist)) bad();
+      if (m.leagueChampionship && side === "away" && (f.away.length !== m.clubs.length || new Set(f.away.map(e => e.clubId)).size !== m.clubs.length ||
+          f.away.some(e => !championshipClubs(s).some(c => c.id === e.clubId && c.athletes.some(a => a.id === e.id)) || !e.finalist))) bad();
     }
     syncMarks(s);
+    if (m.leagueChampionship) rescore(m);
   }
   if (!Array.isArray(m.sigUsed) || !Array.isArray(m.rivalSig)) bad();
   if (m.weather != null && !WEATHER[m.weather]) bad();
@@ -275,11 +289,13 @@ export function validateCampaign(input) {
   }
   const s = data;
   if (!s || s.v !== 8 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7)) bad();
+  if (s.onboarding != null && (!int(s.onboarding.meets,0,INTRODUCTIONS.length))) bad();
   if (!num(s.money, -1e9, 1e12) || !num(s.fans, 0, 1e12) || !["planning", "season", "seasonEnd"].includes(s.phase) || !int(s.fixture, 0, 3)) bad();
   if (s.phase === "planning") {
     if (s.competition !== null || s.matchDay !== null || s.match) bad();
   } else {
     const c = s.competition;
+    if (c?.format != null && (c.kind !== "league" || c.format !== "championship")) bad();
     if (!c || !["duel", "league", "cup"].includes(c.kind) || !int(c.tier, 0, s.league) || !int(c.stage, 0, 2) ||
         !int(c.rival, 0, CLUBS[c.tier].length - 1) || ![4, 7, 10].includes(c.spacing) || !int(c.startDay, 1, s.day + 30) || !int(s.matchDay, s.day, s.day + 30)) bad();
     if (c.kind !== "league" && (s.fixture !== 0 || s.phase === "seasonEnd")) bad();

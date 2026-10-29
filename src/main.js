@@ -90,7 +90,7 @@ function toast(text, kind = "info", icon = null) {
   setTimeout(() => el.remove(), 3500);
 }
 function announce(before) {
-  for (const id of state.goals.slice(before.goals)) {
+  for (const id of G.systemUnlocked(state,"office") ? state.goals.slice(before.goals) : []) {
     const g = G.GOALS.find((x) => x.id === id);
     toast("Goal complete: " + g.name + " · " + G.rewardText(g.reward), "goal", "target");
     sfx("goal");
@@ -125,7 +125,7 @@ function hud() {
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></div>
-  <button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>
+  ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
   <div class="res money">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></div>
   <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
 }
@@ -135,7 +135,7 @@ function menu() {
     return;
   }
   $("#menu").hidden = false;
-  const squadBadge = state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)));
+  const squadBadge = G.systemUnlocked(state, "skills") && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)));
   const trainBadge = state.roster.some((a) => Object.keys(G.DRILLS).some((d) => !G.drillProblem(state, a, d)));
   const items = [
     ["home", "home", "Club"],
@@ -157,7 +157,7 @@ function menu() {
         : view.playing
           ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
           : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
-  $("#menu").innerHTML = `<div class="menu-items">${items.map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
+  $("#menu").innerHTML = `<div class="menu-items">${items.filter(([id]) => G.pageUnlocked(state, id)).map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
 }
 function tools() {
   $("#tools").innerHTML = state.match ? "" : `<button data-act="zoom" data-step="0.5" aria-label="Zoom in">${ico("plus")}</button><button data-act="zoom" data-step="-0.5" aria-label="Zoom out">${ico("minus")}</button><button data-act="recenter" aria-label="Centre on the stadium">${ico("stadium")}</button>`;
@@ -306,6 +306,7 @@ function paint(root) {
 // ── Windows and dialogs ─────────────────────────────────────────────────
 function openWindow(page, opts = {}) {
   if (state.match) return;
+  if (!G.pageUnlocked(state, page)) { toast(G.systemProblem(state, G.pageSystem[page]), "info"); return; }
   // A window opens on its first tab.
   if (page !== view.window) {
     if (view.tabs) delete view.tabs[page];
@@ -501,10 +502,10 @@ function help(welcome = false) {
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
     `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams." : "The drill, one more time:"}</p>
-    <ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
+    ${G.firstMeet(state) ? `<p><b>First, book a duel from Meets.</b> Your four throwers already have a lineup and a practice routine. Press Train to reach meet day, then watch them compete.</p><p class="hint">After each meet, we will introduce one new club system. There is nothing else to set up yet.</p>` : `<ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
     <li><b>Train</b> and watch the days roll by. Stats pop up as they grow.</li>
     <li><b>Compete</b>, win prizes, then <b>build</b> and <b>shop</b> to get stronger.</li></ol>
-    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>`,
+    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>`}`,
     [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
@@ -533,7 +534,7 @@ function doDay(now) {
   if (state.pendingEvent) return showEvent();
   const before = snapshot();
   const r = G.advanceDay(state);
-  if (!r.ok) return stopPlaying();
+  if (!r.ok) { if (r.reason) toast(r.reason); return stopPlaying(); }
   lastDayAt = now;
   if (!view.playing) view.dayP = 0.25;
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
@@ -541,7 +542,7 @@ function doDay(now) {
   // One toast for everyone who levelled up today; the world shows each of them celebrating.
   if (r.levelUps.length) {
     const names = r.levelUps.map((l) => l.name.split(" ")[0]);
-    toast((names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) + " levelled up!" : r.levelUps[0].name + " hits level " + r.levelUps[0].level + "!") + " Skill points to spend.", "level", "levelup");
+    toast((names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) + " levelled up!" : r.levelUps[0].name + " hits level " + r.levelUps[0].level + "!") + (G.systemUnlocked(state, "skills") ? " Skill points to spend." : ""), "level", "levelup");
     sfx("level");
   }
   if (r.invitation) {

@@ -28,6 +28,35 @@ import { checkDevelopment } from "./development.js";
 import { WEATHER, weatherToday } from "./calendar.js";
 import { venueFor } from "./venues.js";
 import { invitation, clubById, settleInvitation } from "./invitational.js";
+import { introduceAfterMeet, firstMeet } from "./progression.js";
+
+export const isLeagueChampionship = (s) => s.competition?.kind === "league" && s.competition.format === "championship" && s.fixture === 3;
+// The active three clubs can have more recent marks than their saved pool copies.
+export function championshipClubs(s) {
+  const pool = s.rivalClubs?.[competitionTier(s)] || s.clubs;
+  return pool.map(c => s.clubs.find(active => active.id === c.id) || c);
+}
+export function championshipField(s) {
+  const clubs = championshipClubs(s);
+  return { id: clubs[0].id, name: "League championship", color: "#c9a227", style: "Best throwers from every division club · six attempts each", athletes: clubs.flatMap(c => c.athletes) };
+}
+export function championshipEntries(s) {
+  const out = Object.fromEntries(EVENT_IDS.map(ev => [ev, []]));
+  for (const club of championshipClubs(s)) {
+    const uses = new Map();
+    for (const ev of EVENT_IDS) {
+      const athlete = [...club.athletes].filter(a => (uses.get(a.id) || 0) < 2).sort((a,b) => forecast(s,b,ev,{club:false}) - forecast(s,a,ev,{club:false}))[0];
+      out[ev].push({ athlete, club });
+      uses.set(athlete.id, (uses.get(athlete.id) || 0) + 1);
+    }
+  }
+  return out;
+}
+export function rivalClubFor(s, id) {
+  return s.match?.leagueChampionship || isLeagueChampionship(s)
+    ? championshipClubs(s).find(c => c.athletes.some(a => a.id === id))
+    : s.match ? matchClub(s) : opponent(s);
+}
 
 export const best = (marks) => {
   const valid = marks.filter((x) => x != null);
@@ -37,6 +66,7 @@ export function opponent(s) {
   if (!s.competition) return null;
   if (s.competition.kind === "cup") return invitation(s)?.club;
   if (s.competition.kind === "duel") return s.clubs.find((c) => c.id === s.competition.rival);
+  if (isLeagueChampionship(s)) return championshipField(s);
   if (s.fixture < 3) return s.clubs[s.fixture];
   return s.clubs.find((c) => c.id === s.finalOpponent);
 }
@@ -135,12 +165,15 @@ export function meetVenue(s) {
   if (!booked) return null;
   return venueFor(s, { ...booked, tier: competitionTier(s), club: m ? matchClub(s) : opponent(s), invitation: s.invitations?.offer });
 }
-export const matchClub = (s) => clubById(s, s.match?.opponentId);
+export const matchClub = (s) => s.match?.leagueChampionship ? championshipField(s) : clubById(s, s.match?.opponentId);
 export function startMatch(s) {
   if (s.match || !s.competition || s.phase !== "season" || s.day < s.matchDay || s.pendingEvent || lineupProblem(s)) return false;
   const rival = opponent(s);
   if (!rival) return false;
-  const awayEntries=rivalEntries(s,rival);
+  const leagueChampionship = isLeagueChampionship(s);
+  const clubs = leagueChampionship ? championshipClubs(s) : [rival];
+  // Each division club sends its strongest available thrower in each event.
+  const awayEntries = leagueChampionship ? Object.fromEntries(Object.entries(championshipEntries(s)).map(([ev, entries]) => [ev, entries.map(e => e.athlete.id)])) : rivalEntries(s,rival);
   s.sponsorLocked = true;
   const { kind, home } = bookedMeet(s);
   for (const r of rival.athletes) { r.condition = 35 + Math.round(random(s) * 45); r.stamina=100; }
@@ -149,6 +182,7 @@ export function startMatch(s) {
     kind,
     home,
     opponentId: rival.id,
+    ...(leagueChampionship ? { leagueChampionship: true, clubs: clubs.map(c => ({ id: c.id, name: c.name, color: c.color })) } : {}),
     name: rival.name,
     color: rival.color,
     eventIndex: 0,
@@ -156,13 +190,13 @@ export function startMatch(s) {
     // Meet-day weather: the forecast decides the conditions. Windy days always blow.
     weather: weatherToday(s),
     wind: weatherToday(s)==="windy" ? (random(s)<0.5?"headwind":"crosswind") : ["calm","calm","headwind","crosswind"][Math.floor(random(s)*4)],
-    attempts: 3,
+    attempts: leagueChampionship ? 6 : 3,
     championship: kind === "final" || kind === "cup",
     entryIndex: 0,
-    finalRound: false,
+    finalRound: leagueChampionship,
     fields: EVENT_IDS.map((ev, i) => ({
-      home: entriesOf(s, ev).map((id) => ({ id, marks: [], finalist: false })),
-      away: awayEntries[ev].map((id) => ({ id, marks: [], finalist: false })),
+      home: entriesOf(s, ev).map((id) => ({ id, marks: [], finalist: leagueChampionship })),
+      away: awayEntries[ev].map((id) => ({ id, marks: [], finalist: leagueChampionship, ...(leagueChampionship ? { clubId: clubs.find(c => c.athletes.some(a => a.id === id)).id } : {}) })),
     })),
     phase: "intro",
     homeMarks: EVENT_IDS.map(() => []),
@@ -220,13 +254,34 @@ export function eventScores(m) {
       return {event,home,away,done,h:done&&home!=null&&(away==null||home>away)?3:0,a:done&&away!=null&&(home==null||away>home)?3:0,placings:[]};}
     const f=m.fields[i],done=!!m.closed[i],placings=scoreField(f,done);
     return {event,home:best(f.home.flatMap(e=>e.marks)),away:best(f.away.flatMap(e=>e.marks)),done,placings,
-      h:placings.filter(e=>e.side==="home").reduce((n,e)=>n+e.points,0),a:placings.filter(e=>e.side==="away").reduce((n,e)=>n+e.points,0)};
+      h:placings.filter(e=>e.side==="home").reduce((n,e)=>n+e.points,0),a:m.leagueChampionship
+        ? Math.max(0,...m.clubs.map(c => placings.filter(e=>e.side==="away" && e.clubId===c.id).reduce((n,e)=>n+e.points,0)))
+        : placings.filter(e=>e.side==="away").reduce((n,e)=>n+e.points,0)};
   });
 }
-function rescore(m) {
+export function rescore(m) {
   const sc = eventScores(m);
   m.score = sc.reduce((n, e) => n + e.h, 0);
   m.against = sc.reduce((n, e) => n + e.a, 0);
+  if (m.leagueChampionship) {
+    m.teamScores = championshipScores(m);
+    const leader = m.teamScores.find(c => c.id !== "us");
+    m.against = leader.points;
+    m.leadingClub = leader.name;
+  }
+}
+
+export function championshipScores(m) {
+  if (!m.leagueChampionship) return [];
+  return [{ id: "us", name: "Your club" }, ...m.clubs].map(club => {
+    let points = 0, performance = 0;
+    for (const e of eventScores(m)) {
+      const rows = e.placings.filter(r => club.id === "us" ? r.side === "home" : r.side === "away" && r.clubId === club.id);
+      points += rows.reduce((n,r) => n + r.points, 0);
+      if (e.done) performance += Math.max(0, ...rows.map(r => r.mark || 0)) / EVENTS[e.event].max;
+    }
+    return { ...club, points, performance };
+  }).sort((a,b) => b.points - a.points || b.performance - a.performance || String(a.id).localeCompare(String(b.id)));
 }
 
 // Meaningful next scoring target across the entire field, including teammates.
@@ -241,13 +296,14 @@ export function fieldTarget(s,side="home") {
   if(!m?.fields)return null;
   const i=m.eventIndex,athlete=side==="home"?homeAthlete(s):rivalAthlete(s),rows=fieldLeaderboard(s,i),own=rows.find(r=>r.side===side&&r.id===athlete.id);
   if(!own)return null;
-  const margin=rows.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0);
+  const ownTeam = r => m.leagueChampionship && side === "away" ? r.side === "away" && r.clubId === own.clubId : r.side === side;
+  const margin=rows.reduce((n,r)=>n+(ownTeam(r)?1:-1)*r.points,0);
   const candidates=[...new Set(rows.filter(r=>r.mark!=null&&(own.mark==null||r.mark>=own.mark)).map(r=>r.mark))].sort((a,b)=>a-b);
   for(const mark of candidates){
     const source=m.fields[i],f={home:source.home.map(e=>({...e,marks:[...e.marks]})),away:source.away.map(e=>({...e,marks:[...e.marks]}))};
     f[side].find(e=>e.id===athlete.id).marks.push(+(mark+0.01).toFixed(2));
     const after=scoreField(f,true);
-    const gain=after.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0)-margin;
+    const gain=after.reduce((n,r)=>n+(ownTeam(r)?1:-1)*r.points,0)-margin;
     const placing=after.find(r=>r.side===side&&r.id===athlete.id)?.place;
     const qualification=m.championship&&!m.finalRound&&(own.place==null||own.place>4)&&placing<=4;
     if(gain>0||qualification)return {mark:+(mark+0.01).toFixed(2),place:placing,swing:gain,qualification,delta:own.mark==null?null:mark+0.01-own.mark};
@@ -298,7 +354,8 @@ export function autoTactic(s,side="home") {
       if(e.marks.length<c.m.attempts)e.marks.push(estimate*0.995);
     }
     const samples=[[-1.6,0.08],[-0.8,0.24],[0,0.36],[0.8,0.24],[1.6,0.08]];
-    const margin=rows=>rows.reduce((n,r)=>n+(r.side===side?1:-1)*r.points,0);
+    const clubId=entrant(s,side)?.clubId;
+    const margin=rows=>rows.reduce((n,r)=>n+((c.m.leagueChampionship && side==="away" ? r.side==="away" && r.clubId===clubId : r.side===side)?1:-1)*r.points,0);
     const base=margin(scoreField(field));
     let winner="balanced",bestValue=-Infinity;
     for(const tactic of ["balanced","safe","attack"]) {
@@ -338,7 +395,7 @@ export function needsDecision(s) {
   const c = context(s, "home");
   if (m.fields && (!entrant(s, "home") || (m.finalRound && !entrant(s, "home").finalist))) return false;
   if (c.own.length >= m.attempts || (m.rotation ? m.turnSide!=="home" : c.opp.length <= c.own.length)) return false;
-  return s.settings.meetMode === "coach" || (s.settings.clutch !== false && isClutch(s));
+  return s.settings.meetMode === "coach" || (!firstMeet(s) && s.settings.clutch !== false && isClutch(s));
 }
 
 // Every number the planning panel needs, without rolling.
@@ -371,7 +428,9 @@ function riskModel(s, c, side, tactic, quality, sig) {
   on(trailing, "trailing", "Rival Hunter");
   on(leading, "leading", "Front Runner");
   on(c.m.kind === "final" || c.m.kind === "cup", "final", "Big Stage");
-  const teamBehind = side === "home" ? c.m.score < c.m.against : c.m.against < c.m.score;
+  const clubId = side === "home" ? "us" : entrant(s,"away")?.clubId;
+  const standings = c.m.leagueChampionship ? championshipScores(c.m) : null;
+  const teamBehind = standings ? standings.find(club=>club.id===clubId)?.points < standings[0].points : side === "home" ? c.m.score < c.m.against : c.m.against < c.m.score;
   on(teamBehind, "teamTrailing", "Anchor");
   if (fx.streak) {
     const valid = c.own.filter((x) => x != null).length;
@@ -384,7 +443,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= 1 + fx.crowd * Math.max(0.25, fansFactor(s));
     acts.push(sourceName(a, "crowd") || "Showtime");
   }
-  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : matchClub(s).athletes;
+  const squad = side === "home" ? (c.m.fields ? [...new Set(c.m.fields.flatMap((f) => f.home.map((e) => e.id)))].map((id) => s.roster.find((x) => x.id === id)) : EVENT_IDS.map((ev) => s.roster.find((x) => x.id === c.m.lineup[ev]))) : rivalClubFor(s,c.athlete.id).athletes;
   const captain = squad.find((x) => x && equippedSkills(x, "meet").includes("captain"));
   if (captain) {
     mult *= SKILLS.captain.captain;
@@ -563,7 +622,7 @@ function advanceFieldMatch(s) {
   if(m.phase==="intro"){m.phase="live";return m.last={type:"meetStart"};}
   if(m.closed[m.eventIndex]) {
     if(m.eventIndex===3){settleMatch(s);return m.last={type:"complete",win:meetOutcome(m)>0,draw:meetOutcome(m)===0,score:m.score,against:m.against};}
-    m.eventIndex++;m.entryIndex=0;m.finalRound=false;m.attempts=3;
+    m.eventIndex++;m.entryIndex=0;m.finalRound=!!m.leagueChampionship;m.attempts=m.leagueChampionship?6:3;
   }
   let turn=selectFieldTurn(s);
   if(!turn) {
@@ -595,7 +654,8 @@ function closeEvent(s, i) {
         const squad=side==="home"?s.roster:matchClub(s).athletes;
         for(const row of e.placings||[]) if(row.side===side&&row.place===1) {
           const winner=squad.find(a=>a.id===row.id);
-          if(effects(s,winner,side==="home").hype) for(const a of squad) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
+          const teammates=side==="away" ? rivalClubFor(s,winner.id).athletes : squad;
+          if(effects(s,winner,side==="home").hype) for(const a of teammates) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
         }
       }
       const beat = { type: "eventEnd", event: e.event, eventIndex:i, h:e.h, a:e.a, home:e.home, away:e.away, score:m.score, against:m.against };
@@ -624,7 +684,13 @@ export function settleMatch(s) {
   const m = s.match;
   if (!m || m.settled || !eventScores(m).every((e) => e.done)) return;
   rescore(m);
-  if ((m.kind === "final" || m.kind === "cup") && meetOutcome(m) === 0) {
+  if (m.leagueChampionship) {
+    const tied = m.teamScores.filter(c => c.points === m.teamScores[0].points);
+    if (tied.length > 1) {
+      m.tieBreak = true;
+      m.tieBreakWinner = m.teamScores[0].id === "us" ? "home" : "away";
+    }
+  } else if ((m.kind === "final" || m.kind === "cup") && meetOutcome(m) === 0) {
     const total = eventScores(m).reduce((n, e) => n + (e.home || 0) / EVENTS[e.event].max - (e.away || 0) / EVENTS[e.event].max, 0);
     m.tieBreak = true;
     m.tieBreakWinner = total >= 0 ? "home" : "away";
@@ -719,6 +785,11 @@ export function settleMatch(s) {
     }
   }
   count(s, "meets");
+  const introduced = introduceAfterMeet(s);
+  if (introduced) {
+    rewards.introduction = introduced.id;
+    note(s, "New: " + introduced.name + ". " + introduced.desc, "story");
+  }
   if (win) count(s, "meetWins");
   money = rewards.money;
   const result = { id: m.id, kind: m.kind, name: m.name, score: m.score, against: m.against, win, draw, prize: money, season: s.season, league: L, stage: s.competition.stage };
@@ -750,4 +821,6 @@ export function settleMatch(s) {
 }
 
 
-export const meetOutcome = (m) => Math.sign(m.score - m.against) || (m.tieBreakWinner === "home" ? 1 : m.tieBreakWinner === "away" ? -1 : 0);
+export const meetOutcome = (m) => m.leagueChampionship && m.teamScores?.length
+  ? (m.teamScores[0].id === "us" ? 1 : -1)
+  : Math.sign(m.score - m.against) || (m.tieBreakWinner === "home" ? 1 : m.tieBreakWinner === "away" ? -1 : 0);

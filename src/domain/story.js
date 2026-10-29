@@ -1,3 +1,4 @@
+import { systemUnlocked } from "./progression.js";
 import { EVENTS, EVENT_IDS, ITEMS, SKILLS, SECRETS, LEAGUES, RARITY, CLUBS } from "../game-content.js";
 import {
   clamp,
@@ -101,6 +102,7 @@ const SECRET_WHEN = {
 };
 export const secretFee = (s, key) => SECRETS[key].fee + 150 * s.league;
 export function signSecret(s, key) {
+  if (!systemUnlocked(s, "recruit")) return false;
   const d = SECRETS[key];
   if (!d || !s.secretsOffered.includes(key) || s.roster.some((a) => a.secret === key) || (s.secretsSigned || []).includes(key)) return false;
   if (s.roster.length >= rosterCap(s) || s.money < secretFee(s, key)) return false;
@@ -378,6 +380,7 @@ export const STORY = {
   },
 };
 export function rollStoryEvent(s) {
+  if (!systemUnlocked(s, "stories")) return null;
   if (s.pendingEvent) return null;
   const due = Object.keys(SECRET_WHEN).find((k) => !s.secretsOffered.includes(k) && SECRET_WHEN[k](s));
   if (due) {
