@@ -91,6 +91,14 @@ const THROWS = {
     { view: "back", y: -1, legs: [[[-3, -4], [-4, -2]], [[1, -3], [1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, -1], [2, -2]]], hold: 1, item: "shot" },
     // …and driving across the circle toward the sector.
     { y: -2, legs: [[[-1, -3], [-3, -2]], [[3, -4], [2, -3]]], arms: [[[2, 0], [5, 0]], [[1, 1], [3, -1]]], hold: 1, item: "shot", face: "strain" },
+    // Centre catch: the right foot lands under the hips while the shoulders stay closed.
+    { y: 1, lean: 2, legs: [[[1, -3], [1, -1]], [[-2, -3], [-4, -2]]], arms: [[[1, 1], [3, -1]], [[2, 1], [4, 2]]], hold: 0, item: "shot", face: "strain" },
+    // Leg drive before the strike: rise through the hips, keeping the shot against the neck.
+    { view: "front", y: -1, legs: [[[-3, -3], [-5, -1]], [[3, -3], [4, -1]]], arms: [[[-3, -1], [-1, -3]], [[1, 1], [2, 3]]], hold: 0, item: "shot", face: "strain" },
+    // The putting arm sweeps down before the feet reverse.
+    { y: -1, lean: 2, legs: [[[3, -3], [3, -1]], [[-1, -4], [-4, -3]]], arms: [[[-2, 1], [-4, 2]], [[4, 1], [6, 3]]] },
+    // Balanced recovery after the reverse, with both shoes back on the ground.
+    { y: 0, lean: 1, legs: [[[-2, -3], [-4, -1]], [[2, -3], [2, -1]]], arms: [[[-2, 2], [-3, 4]], [[1, 3], [1, 5]]] },
   ],
   discus: [
     // Side-on, the discus hanging in the right hand.
@@ -113,6 +121,14 @@ const THROWS = {
     { view: "back", y: 0, legs: [[[-3, -3], [-5, -2]], [[2, -3], [1, -1]]], arms: [[[-3, 0], [-5, 1]], [[3, 0], [6, 0]]], hold: 1, item: "disc" },
     // …and the left foot down with the back to the sector, the arm still trailing.
     { y: 0, legs: [[[1, -3], [0, -1]], [[-1, -3], [-3, -2]]], arms: [[[-3, 0], [-6, 0]], [[2, 0], [4, 1]]], hold: 0, item: "disc", face: "strain" },
+    // Right-foot pivot: the free leg sweeps round while the discus stays behind the hips.
+    { view: "back", y: 1, legs: [[[-4, -3], [-6, -3]], [[1, -3], [1, -1]]], arms: [[[-3, 0], [-5, 1]], [[3, 0], [6, 0]]], hold: 1, item: "disc", face: "strain" },
+    // Left foot down, hips opening first; the long throwing arm is still trailing.
+    { view: "front", y: -1, lean: 1, legs: [[[-3, -3], [-5, -1]], [[3, -3], [4, -1]]], arms: [[[-3, 0], [-6, 0]], [[0, 2], [-2, 3]]], hold: 0, item: "disc", face: "strain" },
+    // The shoulders finish their turn and the empty throwing arm wraps across the chest.
+    { view: "front", y: -1, lean: 1, legs: [[[-3, -4], [-5, -3]], [[2, -3], [2, -1]]], arms: [[[2, 1], [5, 2]], [[-2, 1], [-5, 2]]] },
+    // Settle after the reverse instead of holding a one-legged release pose.
+    { view: "front", y: 0, legs: [[[-3, -3], [-4, -1]], [[2, -3], [3, -1]]], arms: [[[-1, 3], [-2, 5]], [[1, 3], [2, 5]]] },
   ],
   hammer: [
     // Back to the sector, the head resting behind on the right.
@@ -135,6 +151,15 @@ const THROWS = {
     { view: "front", y: -1, lean: 1, legs: [[[-3, -3], [-4, -2]], [[2, -3], [2, -1]]], arms: [[[-2, 0], [-4, 2]], [[-4, 0], [-7, 2]]] },
     // Both feet replant after the pivot; the hips settle and the arms fold back toward the chest.
     { view: "front", y: 1, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -3], [4, -1]]], arms: [[[1, 2], [3, 4]], [[-2, 2], [-4, 3]]] },
+    // Single support: pivot on the left foot while the right foot travels round it.
+    { view: "front", y: 1, legs: [[[-3, -3], [-5, -1]], [[2, -4], [4, -3]]], arms: [[[1, 3], [3, 5]], [[-1, 3], [-3, 5]]], item: "handle", face: "strain" },
+    { view: "back", y: 1, legs: [[[-3, -3], [-5, -1]], [[2, -4], [4, -3]]], arms: [[[1, 3], [3, 5]], [[-1, 3], [-3, 5]]], item: "handle" },
+    // Double support: sit against the pull with two planted feet, then lift into release.
+    { y: 1, lean: -2, legs: [[[1, -3], [0, -1]], [[3, -3], [4, -1]]], arms: [[[3, 1], [6, 2]], [[3, 1], [6, 2]]], item: "handle", face: "strain" },
+    { view: "front", y: -2, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -4], [3, -1]]], arms: [[[4, -3], [8, -8]], [[1, -4], [2, -8]]], item: "handle", face: "strain" },
+    // Lateral wind positions between the low swing and the hands passing overhead.
+    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[3, -1], [5, -3]], [[3, -1], [5, -3]]], item: "handle" },
+    { y: -1, lean: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-3, -1], [-5, -3]], [[-3, -1], [-5, -3]]], item: "handle" },
   ],
   jav: [
     // Javelin over the shoulder, palm up, the hand just behind the head.
@@ -157,11 +182,16 @@ const THROWS = {
     { y: 0, lean: 4, legs: [[[3, -3], [4, -1]], [[-1, -4], [-4, -3]]], arms: [[[-2, 1], [-4, 2]], [[4, -1], [7, 1]]] },
     // Reverse: the right leg catches the body, left leg kicks back, arm wraps across the torso.
     { y: 1, lean: 3, legs: [[[-2, -4], [-5, -4]], [[3, -3], [3, -1]]], arms: [[[-2, 0], [-4, 1]], [[2, 3], [-1, 5]]] },
+    // Impulse stride: a low, long crossover, with the chest and javelin still held back.
+    { y: -1, lean: -2, legs: [[[-2, -4], [-5, -2]], [[4, -4], [5, -2]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
+    // Hips pass the planted left leg before the elbow comes over the shoulder.
+    { y: -1, lean: -1, legs: [[[4, -3], [5, -1]], [[1, -3], [-2, -2]]], arms: [[[0, 2], [-1, 3]], [[-3, -3], [-4, -6]]], item: "javup", face: "strain" },
   ],
 };
 // Carrying the javelin on the run-up: the run cycle with the throwing hand held up by the head.
 POSES.carry = POSES.run.map((f) => ({ ...f, arms: [f.arms[0], THROWS.jav[0].arms[1]], item: "jav" }));
 export const THROW_FRAMES = { ready: 0, wind: 1, release: 2, follow: 3 };
+export const THROW_FRAME_COUNTS = Object.fromEntries(Object.entries(THROWS).map(([ev, frames]) => [ev, frames.length]));
 
 function poseData(pose, frame, event) {
   if (pose === "throw") {

@@ -28,3 +28,5 @@ How an athlete throws at meets follows their **form** in that event: the average
 | 3 | Rotational | Fast spin, accelerating | Four fast turns | Elite approach |
 
 Form 3 leaves afterimages through the turns. Fouls carry the thrower over the front of the circle or the arc. The timelines are in `src/render/throw-motion.js` (pure and tested), and the extra technique frames are in `THROWS` in `sprites.js`. A coached session that lifts an athlete into a new form says so on the result card and in the club news. The athlete file's mastery card shows each event's current form and what unlocks the next.
+
+Throws use athlete-inspired contact timing: closed catches and late strikes for shot, a trailing long arm and centre pivot for discus, alternating foot support and a planted lift for hammer, and an impulse stride into a block for javelin. Each delivery sweeps into recovery rather than freezing at release. See [athlete references and the movement study](THROW_TECHNIQUE.md) for sources and the preview page.
