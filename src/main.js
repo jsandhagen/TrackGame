@@ -43,7 +43,8 @@ let saveEnabled = false,
   touchedAt = 0;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
 const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
-const DAY_MS = [0, 8000, 4000, 2000];
+// At 1× a day is long enough to walk between sessions; faster speeds make people hurry instead.
+const DAY_MS = [0, 14000, 4000, 2000];
 // Money and fans roll to their new value in the HUD, and every change floats out beside the counter.
 const counters = { money: { shown: state.money, seen: state.money }, fans: { shown: state.fans, seen: state.fans } };
 const counterText = (key, n) => (key === "money" ? cash(Math.round(n)) : Math.round(n).toLocaleString());
@@ -1487,7 +1488,7 @@ function frame(now) {
       const clock = $("#clock"),
         label = G.clockLabel(view.dayP);
       if (clock && clock.textContent !== label) clock.textContent = label;
-      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: view.dayP, nightScale: (reduced() ? 0.5 : 1) * NIGHT_AT_SPEED[view.playing ? state.settings.speed : 0], calm: reduced() });
+      world.draw(state, now, { selected: view.selected, moving: view.moving, dayProgress: view.dayP, dayMs: view.playing ? DAY_MS[state.settings.speed] : null, nightScale: (reduced() ? 0.5 : 1) * NIGHT_AT_SPEED[view.playing ? state.settings.speed : 0], calm: reduced() });
     }
   }
   requestAnimationFrame(frame);

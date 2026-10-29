@@ -271,3 +271,27 @@ export function throwReleasePoint(ev, level) {
     [x, y] = gripOf({ pose: "throw", event: ev, frame: m.frame, flip: m.flip });
   return [m.dx + x * 2, m.dy + y * 2];
 }
+
+// The meet's throw on repeat, for the club map and coaching scenes: the same motion at the
+// athlete's own form and finish, a little slower to read at small size, then a breather before
+// the next attempt. t is in ms; sinceRelease is negative until the implement goes.
+export const THROW_LOOP = { ready: 500, technique: 1700, release: 150, follow: 1100, rest: 800 };
+const LOOP_MS = Object.values(THROW_LOOP).reduce((a, b) => a + b, 0);
+export function throwLoop(ev, level, t, { style = 0 } = {}) {
+  let left = ((t % LOOP_MS) + LOOP_MS) % LOOP_MS;
+  const at = left;
+  let phase = "follow",
+    p = 1;
+  for (const key of ["ready", "technique", "release", "follow"]) {
+    if (left < THROW_LOOP[key]) {
+      phase = key;
+      p = left / THROW_LOOP[key];
+      break;
+    }
+    left -= THROW_LOOP[key];
+  }
+  const m = throwMotion(ev, level, phase, p, { style });
+  m.ghost = false;
+  m.sinceRelease = at - THROW_LOOP.ready - THROW_LOOP.technique;
+  return m;
+}

@@ -226,3 +226,17 @@ test('an athlete keeps one recovery style, led by their background', () => {
   assert.deepEqual([3, 4, 5].map(id => recoveryStyle({ id, background: 'farm' })), [0, 1, 2]);
   assert.equal(recoveryStyle(undefined), 0);
 });
+
+test('the club map loops the meet throw: same frames, a release, then a rest before the next', async () => {
+ const { throwLoop, THROW_LOOP } = await import('../src/render/throw-motion.js');
+ const total = Object.values(THROW_LOOP).reduce((a, b) => a + b, 0);
+ for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) {
+  const at = (t) => throwLoop(ev, level, t, { style: 1 });
+  assert.deepEqual(at(THROW_LOOP.ready + THROW_LOOP.technique / 2).frame, throwMotion(ev, level, 'technique', 0.5).frame, `${ev}/${level}: technique matches the meet`);
+  assert(at(THROW_LOOP.ready + THROW_LOOP.technique + 1).released, 'released after the technique');
+  assert(at(THROW_LOOP.ready + THROW_LOOP.technique - 1).sinceRelease < 0 && at(THROW_LOOP.ready + THROW_LOOP.technique + 10).sinceRelease > 0);
+  assert.equal(at(total - 1).frame, throwMotion(ev, level, 'follow', 1, { style: 1 }).frame, 'rests in the finish');
+  assert.equal(at(total + 5).frame, at(5).frame, 'loops');
+  assert(!at(THROW_LOOP.ready + 400).ghost, 'no afterimages on the map');
+ }
+});

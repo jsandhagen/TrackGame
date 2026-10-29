@@ -41,6 +41,8 @@ const POSES = {
     { feet: [[-4, -3], [1, -3]], hands: [[-7, -25], [6, -26]], dy: -3, face: "happy" },
   ],
   sad: [{ feet: [[-4, -1], [1, -1]], hands: [[-4, -8], [2, -8]], crouch: 1, drop: 1, face: "sad" }],
+  // Bending down to pick an implement up off the grass.
+  pickup: [{ feet: [[-4, -1], [2, -1]], hands: [[2, -3], [4, -3]], crouch: 3, lean: 3 }],
   wave: [
     { feet: [[-4, -1], [1, -1]], hands: [[-5, -10], [5, -22]], face: "happy" },
     { feet: [[-4, -1], [1, -1]], hands: [[-5, -10], [7, -21]], face: "happy" },

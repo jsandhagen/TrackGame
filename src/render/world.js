@@ -2,12 +2,62 @@ import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
 import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
-import { figure, shadow, athleteLook, runFrame, walkFrame } from "./sprites.js";
+import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
+import { throwLoop, throwMotion, throwReleasePoint, recoveryStyle, THROW_LOOP } from "./throw-motion.js";
 import { drawFacility, animateFacility, lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
-import { plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
+import { formOf, plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
 
+// Walking pace in ms per pixel. When the day is short, people speed up (jogging, then running)
+// so they always reach the next session within ARRIVE_IN of a day instead of missing it.
+const WALK_PACE = 25,
+  ARRIVE_IN = 0.15;
+// Throwing practice on the map: a few throws, a walk out to collect the implements, then back.
+const LOOP_MS = Object.values(THROW_LOOP).reduce((a, b) => a + b, 0),
+  FETCH_AFTER = { shot: 3, discus: 2, hammer: 2, jav: 2 },
+  REACH = { shot: 26, discus: 52, hammer: 52, jav: 70 },
+  PICKUP_MS = 700;
+const lerpTo = (a, b, q) => a + (b - a) * Math.max(0, Math.min(1, q));
+// The motion is an offset from the thrower's spot at half the meet's size, mirrored where the
+// sector points west. Javelin drops the meet's sloping runway: the map's runway is level.
+function practice(ev, level, style, t, west) {
+  const dir = west ? -1 : 1,
+    toMap = (m) => ({ ox: (dir * m.dx) / 2, oy: (m.dy - (ev === "jav" ? Math.round(-m.dx * 0.1) : 0)) / 2 }),
+    [rx, ry] = throwReleasePoint(ev, level),
+    from = [(dir * rx) / 2, ry / 2],
+    start = toMap(throwMotion(ev, level, "ready", 0)).ox,
+    end = toMap(throwMotion(ev, level, "follow", 1, { style })).ox,
+    throws = FETCH_AFTER[ev],
+    landing = (k) => [from[0] + dir * REACH[ev] * (0.85 + 0.25 * hash(k * 13 + level)), (hash(k * 7 + 3) - 0.5) * 6],
+    far = landing(0)[0],
+    out = Math.abs(far - end) * WALK_PACE,
+    back = Math.abs(far - start) * WALK_PACE,
+    cycle = throws * LOOP_MS + out + PICKUP_MS + back;
+  let u = ((t % cycle) + cycle) % cycle;
+  const lying = (n) => Array.from({ length: n }, (_, k) => landing(k));
+  if (u < throws * LOOP_MS) {
+    const k = Math.floor(u / LOOP_MS),
+      m = throwLoop(ev, level, u - k * LOOP_MS, { style }),
+      down = m.sinceRelease >= 800;
+    return {
+      ...toMap(m), pose: m.run ? "carry" : "throw", frame: m.frame, flip: west ? !m.flip : m.flip, released: m.released,
+      ball: m.ball && { dx: (dir * m.ball.dx) / 2, dy: m.ball.dy / 2, behind: m.ball.behind },
+      launch: m.sinceRelease >= 0 && !down && { t: m.sinceRelease, from, to: landing(k) },
+      lying: lying(k + (down ? 1 : 0)),
+    };
+  }
+  u -= throws * LOOP_MS;
+  const walk = (a, b, q) => {
+    const x = lerpTo(a, b, q);
+    return { ox: x, oy: 0, pose: "walk", frame: walkFrame(Math.abs(x - a)), flip: b < a };
+  };
+  if (u < out) return { ...walk(end, far, u / out), lying: lying(throws) };
+  u -= out;
+  if (u < PICKUP_MS) return { ox: far, oy: 0, pose: "pickup", frame: 0, flip: dir < 0, lying: u < PICKUP_MS / 2 ? lying(throws) : [] };
+  u -= PICKUP_MS;
+  return { ...walk(far, start, u / back), lying: [] };
+}
 export const MAP_W = 1000,
   MAP_H = 740;
 // Walking lines follow the north sidewalks of each street. Club Avenue uses
@@ -338,7 +388,8 @@ function baseWorld(s) {
 }
 
 // Where an athlete stands for today's activity, in map coordinates.
-let dayClock = 0.25;
+let dayClock = 0.25,
+  lastDraw = 0;
 function targetFor(s, a, index, now, activity, counts) {
   const slot = (key) => (counts[key] = (counts[key] || 0) + 1) - 1;
   const plotOf = (type) => s.plots.findIndex((p) => p?.type === type);
@@ -378,12 +429,21 @@ function targetFor(s, a, index, now, activity, counts) {
       n = slot(ev),
       built = s.stadium[ev] > 0,
       west = ev === "hammer" || ev === "jav";
-    if (ev === "jav" && built && n === 0) {
-      const t = (now / 2200) % 1;
-      return { x: sp.x + 24 - t * 46, y: sp.y + 1, pose: t < 0.85 ? "carry" : "throw", event: "jav", frame: t < 0.85 ? runFrame(t * 46) : 2, flip: true, follow: true };
-    }
     const off = [[0, 2], [14, 12], [-14, 12], [22, 4]][n % 4];
-    return { x: sp.x + (west ? -off[0] : off[0]), y: sp.y + off[1], pose: built ? "throw" : "drill", event: ev, frame: Math.floor(now / 420 + index) % 4, flip: west };
+    if (!built) return { x: sp.x + (west ? -off[0] : off[0]), y: sp.y + off[1], pose: "drill", event: ev, frame: Math.floor(now / 420 + index) % 4, flip: west };
+    // The same throw as at a meet, at the athlete's form and with their own finish.
+    const level = formOf(a, ev),
+      style = recoveryStyle(a);
+    if (ev === "jav") {
+      // One runway: javelin throwers take turns from the arc, the others wait at the far end.
+      const runway = [0, 46, 56, 66][s.stadium.jav],
+        arc = sp.x + 30 - runway,
+        size = s.roster.filter((b) => (b.trainingEvent || b.event) === "jav").length || 1,
+        turn = Math.floor(now / (LOOP_MS * FETCH_AFTER.jav + 4000)) % size;
+      if (turn !== n % size) return { x: sp.x + 34 + (n % 3) * 7, y: sp.y + 1 + (n % 2) * 4, pose: "idle", frame: Math.floor(now / 600 + index) % 2, flip: true };
+      return { x: arc, y: sp.y + 1, event: ev, ...practice(ev, level, style, now, true) };
+    }
+    return { x: sp.x + (west ? -off[0] : off[0]), y: sp.y + off[1], event: ev, ...practice(ev, level, style, now + index * 1300, west) };
   }
   if (activity === "focus") {
     const n = slot("focus");
@@ -616,6 +676,8 @@ export function createWorld(cv) {
   function draw(s, now, o = {}) {
     resize();
     dayClock = o.dayProgress ?? 0.25;
+    const dt = Math.min(100, now - (lastDraw || now));
+    lastDraw = now;
     const k = s.plots.map((p) => (p ? p.type + p.level : "-")).join("|") + JSON.stringify(s.stadium) + JSON.stringify(s.stadiumStyle) + plotsOpen(s) + seasonOf(s) + s.colors.primary + s.colors.secondary + s.clubName;
     if (k !== key) {
       base = baseWorld(s);
@@ -666,39 +728,68 @@ export function createWorld(cv) {
       const activity = activities.get(a.id) || plannedActivity(s, a);
       const target = targetFor(s, a, index, now, activity, counts);
       let p = people.get(a.id);
-      if (!p) people.set(a.id, (p = { x: target.x, y: target.y, path: [], t0: 0, goal: [target.x, target.y] }));
+      if (!p) people.set(a.id, (p = { x: target.x, y: target.y, path: [], goal: [target.x, target.y] }));
       const far = Math.abs(target.x - p.goal[0]) + Math.abs(target.y - p.goal[1]) > 20;
-      if (!p.path.length && far && !target.follow) Object.assign(p, { path: route([p.x, p.y], [target.x, target.y]), from: [p.x, p.y], t0: now, goal: [target.x, target.y] });
+      if (!p.path.length && far && !target.follow) Object.assign(p, { path: route([p.x, p.y], [target.x, target.y]), goal: [target.x, target.y] });
       let pose = target.pose,
         frame = target.frame ?? Math.floor(now / (pose === "run" ? 110 : pose === "lift" ? 520 : 420) + index) % 4,
         flip = target.flip;
       if (p.path.length) {
-        const [tx, ty] = p.path[0],
-          d = Math.hypot(tx - p.from[0], ty - p.from[1]),
-          t = Math.min(1, (now - p.t0) / Math.max(120, d * 30)),
-          x = p.from[0] + (tx - p.from[0]) * t,
-          y = p.from[1] + (ty - p.from[1]) * t;
-        // Step the walk by distance covered, so the planted foot stays put instead of sliding.
-        p.walked = (p.walked || 0) + Math.hypot(x - p.x, y - p.y);
-        p.x = x;
-        p.y = y;
-        pose = "walk";
-        frame = walkFrame(p.walked);
-        // Straight up or down the screen, keep facing the way they last went.
-        if (Math.abs(tx - p.from[0]) > 0.5) p.flip = tx < p.from[0];
+        // Walk if there is time; on a short day jog or run, so the rest of the path always takes
+        // less than ARRIVE_IN of a day and nobody misses a session in transit.
+        let left = Math.hypot(p.path[0][0] - p.x, p.path[0][1] - p.y);
+        for (let i = 1; i < p.path.length; i++) left += Math.hypot(p.path[i][0] - p.path[i - 1][0], p.path[i][1] - p.path[i - 1][1]);
+        const pace = o.dayMs ? Math.min(WALK_PACE, (o.dayMs * ARRIVE_IN) / Math.max(1, left)) : WALK_PACE;
+        let step = dt / pace;
+        const [fx, fy] = [p.x, p.y];
+        while (step > 0 && p.path.length) {
+          const [tx, ty] = p.path[0],
+            d = Math.hypot(tx - p.x, ty - p.y);
+          // Straight up or down the screen, keep facing the way they last went.
+          if (Math.abs(tx - p.x) > 0.5) p.flip = tx < p.x;
+          if (d <= step) {
+            p.x = tx;
+            p.y = ty;
+            p.path.shift();
+            step -= d;
+          } else {
+            p.x += ((tx - p.x) / d) * step;
+            p.y += ((ty - p.y) / d) * step;
+            step = 0;
+          }
+        }
+        // Step the legs by distance covered, so the planted foot stays put instead of sliding.
+        p.walked = (p.walked || 0) + Math.hypot(p.x - fx, p.y - fy);
+        pose = pace < WALK_PACE * 0.6 ? "run" : "walk";
+        frame = pose === "run" ? runFrame(p.walked) : walkFrame(p.walked);
         flip = !!p.flip;
-        if (t >= 1) Object.assign(p, { from: [p.x, p.y], t0: now }), p.path.shift();
       } else {
         p.x = target.x;
         p.y = target.y;
         p.goal = [target.x, target.y];
       }
+      const still = !p.path.length,
+        ox = still ? target.ox || 0 : 0,
+        oy = still ? target.oy || 0 : 0;
       list.push({
         y: p.y + 0.5,
         draw: () => {
-          shadow(g, p.x, p.y, 5);
-          figure(g, { ...athleteLook(a, s.colors), pose, frame, flip, event: target.event || a.event }, p.x, p.y);
-          if (pose === "throw" && !p.path.length && s.stadium[target.event] > 0) flight(g, target.event, p.x, p.y, flip, (now / 420 + index) % 4);
+          const fx = p.x + ox,
+            fy = p.y + oy,
+            look = { ...athleteLook(a, s.colors), pose, frame, flip, event: target.event || a.event, released: still && target.released };
+          shadow(g, fx, fy, 5);
+          // The hammer head on its wire, behind or in front of the thrower.
+          const ball = still && target.ball,
+            chain = () => {
+              const [gx, gy] = gripOf(look);
+              line(g, fx + gx, fy + gy, fx + ball.dx, fy + ball.dy, "#d8d8c8");
+              rect(g, fx + ball.dx - 1, fy + ball.dy - 1, 2, 2, "#3a3e46");
+            };
+          if (ball?.behind) chain();
+          figure(g, look, fx, fy);
+          if (ball && !ball.behind) chain();
+          if (still && target.lying) for (const [lx, ly] of target.lying) implementAt(g, target.event, p.x + lx, p.y + ly);
+          if (still && target.launch) flight(g, target.event, p.x, p.y, target.launch);
           if (o.selected?.kind === "athlete" && o.selected.id === a.id) text(g, "↓", p.x, p.y - 30 - pulse, { color: "#f2c94c", align: "center" });
         },
       });
@@ -781,19 +872,27 @@ export function createWorld(cv) {
   }
 
   // An implement in flight from a thrower towards the infield, with a puff where it lands.
-  function flight(g, ev, x, y, flip, phase) {
-    if (phase < 2) return;
-    const t = (phase - 2) / 2,
-      dir = flip ? -1 : 1,
-      reach = ev === "jav" ? 70 : ev === "shot" ? 26 : 52,
-      bx = x + dir * (4 + t * reach),
-      by = y - 14 + t * 14 - Math.sin(t * Math.PI) * (ev === "shot" ? 8 : 16);
-    if (t > 0.9) {
-      ellipse(g, x + dir * (4 + reach), y, 3, 1, "#e8dcc0");
-      return;
-    }
+  // The implement leaves the hand (or, for the hammer, the end of the wire) where the motion
+  // releases it, flies out over the sector and leaves a puff where it lands.
+  function flight(g, ev, x, y, { t: ms, from, to }) {
+    const t = Math.min(1, ms / 800),
+      sx = x + from[0],
+      sy = y + from[1],
+      ex = x + to[0],
+      ey = y + to[1],
+      dir = ex < sx ? -1 : 1,
+      bx = sx + (ex - sx) * t,
+      by = sy + (ey - sy) * t - Math.sin(t * Math.PI) * (ev === "shot" ? 8 : 16);
+    if (t >= 1) return;
+    if (t > 0.85) ellipse(g, ex, ey, 3, 1, "#e8dcc0");
     if (ev === "jav") line(g, bx - 4 * dir, by + 1, bx + 4 * dir, by - 1, "#f0e8d0");
     else rect(g, bx - 1, by - 1, 2, 2, ev === "discus" ? "#e0c070" : "#4a4e56");
+  }
+  // An implement waiting on the grass to be collected; a javelin stands stuck in the ground.
+  function implementAt(g, ev, x, y) {
+    if (ev === "jav") line(g, x + 3, y - 6, x, y, "#f0e8d0");
+    else if (ev === "hammer") line(g, x, y, x + 4, y - 1, "#d8d8c8"), rect(g, x - 1, y - 1, 2, 2, "#3a3e46");
+    else rect(g, x - 1, y - 1, 2, 2, ev === "discus" ? "#e0c070" : "#4a4e56");
   }
   function say(key, str, now = performance.now(), dur = 2400) {
     talk.set(key, { text: str, t0: now, dur });
