@@ -147,3 +147,58 @@ test('a session that lifts an athlete into a better form announces the new techn
   assert.equal(out.results[0].form.name, 'Glide');
   assert.match(s.log[0].text + s.log[1].text, /glide/);
 });
+
+test('elite shot technique: the glide starts tall and folds, the rotation winds up first and leaves the ground', () => {
+  for (const level of [1, 2]) {
+    const frames = sample('shot', level, 'technique', 200).map(m => m.frame);
+    assert(frames[0] === 13 && frames.indexOf(13) < frames.indexOf(4) && frames.indexOf(4) < frames.indexOf(5), 'tall start, fold, then drive');
+  }
+  const spin = sample('shot', 3, 'technique', 400), frames = spin.map(m => m.frame);
+  assert(frames.indexOf(15) >= 0 && frames.indexOf(15) < frames.indexOf(6), 'the wind comes before the entry');
+  assert(spin.some(m => m.frame === 8 && m.dy < -1), 'a short flight across the circle');
+  assert(spin.filter(m => m.frame === 15 || m.frame === 14).length > spin.filter(m => m.frame === 9 || m.frame === 1).length, 'slow preparation, quick finish');
+});
+
+test('elite discus drives low with a brief flight after a slower entry', () => {
+  for (const level of [2, 3]) {
+    const turn = sample('discus', level, 'technique', 400);
+    assert(turn.some(m => m.frame === 7 && m.dy < -1), 'off the ground in the drive');
+    assert(turn.filter(m => [18, 6, 19].includes(m.frame)).length > 2 * turn.filter(m => m.frame === 7).length, 'entry is slower than the drive');
+  }
+});
+
+test('hammer turns split between double and single support, starting from the ground', () => {
+  assert(throwMotion('hammer', 2, 'ready', 0).ball.dy >= -2, 'the head rests on the ground before the winds');
+  for (let level = 0; level < 4; level++) {
+    const turns = sample('hammer', level, 'technique', 2000).filter(m => [10, 12, 16, 17].includes(m.frame));
+    const double = turns.filter(m => m.frame === 12 || m.frame === 17).length / turns.length;
+    assert(double > 0.35 && double < 0.65, `${level}: double support share ${double.toFixed(2)}`);
+  }
+});
+
+test('javelin leans further back into the block after an impulse stride', () => {
+  const lean = (frame) => gripOf({ pose: 'throw', event: 'jav', frame })[0];
+  assert(lean(6) < lean(5), 'block leans further back than the crossover');
+  assert(sample('jav', 3, 'technique', 400).some(m => m.frame === 10), 'impulse stride');
+});
+
+test('hammer stays inside the cage, steepens through the turns and lets go on the rise', () => {
+  for (let level = 0; level < 4; level++) {
+    for (const m of sample('hammer', level, 'technique', 400)) if (m.ball) assert(m.dx + m.ball.dx >= -39, 'the head stays inside the back of the cage');
+    const turns = sample('hammer', level, 'technique', 400).filter(m => m.frame !== 13 && [10, 12, 16, 17].includes(m.frame)),
+      low = (list) => Math.max(...list.map(m => m.ball.dy));
+    assert(low(turns.slice(-40)) > low(turns.slice(0, 40)), 'the low point drops toward the ground in the later turns');
+    const [, y] = throwReleasePoint('hammer', level), top = throwMotion('hammer', level, 'technique', 1);
+    assert(y > -40 && top.ball.dy > -40, 'released about head height, before the top of the orbit');
+  }
+});
+
+test('discus swings back before the entry and keeps turning after the reverse', () => {
+  for (const level of [2, 3]) {
+    const frames = sample('discus', level, 'technique', 400).map(m => m.frame);
+    assert(frames.indexOf(17) < frames.indexOf(18) && frames.indexOf(18) < frames.indexOf(6) && frames.indexOf(6) < frames.indexOf(19), 'wound backswing, weight over, sweep, knee through');
+    assert(frames.indexOf(11) < frames.indexOf(14), 'the hips open before the arm strikes');
+    const follow = sample('discus', level, 'follow').map(m => m.frame);
+    assert(follow.indexOf(3) < follow.indexOf(15) && follow.indexOf(15) < follow.indexOf(16), 'reverse, keep turning, then stop');
+  }
+});
