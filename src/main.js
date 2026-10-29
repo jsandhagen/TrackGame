@@ -1,3 +1,4 @@
+import { DAY_MS, playbackSpeed } from "./platform/pacing.js";
 import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy, updateInfo, onUpdateChange } from "./platform/updates.js";
 import "@fontsource/oswald/latin-500.css";
@@ -44,7 +45,7 @@ let saveEnabled = false,
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
 const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
 // At 1× a day is long enough to walk between sessions; faster speeds make people hurry instead.
-const DAY_MS = [0, 14000, 4000, 2000];
+// 1× is deliberately slow enough to watch a full training day.
 // Money and fans roll to their new value in the HUD, and every change floats out beside the counter.
 const counters = { money: { shown: state.money, seen: state.money }, fans: { shown: state.fans, seen: state.fans } };
 const counterText = (key, n) => (key === "money" ? cash(Math.round(n)) : Math.round(n).toLocaleString());
@@ -90,6 +91,7 @@ function toast(text, kind = "info", icon = null) {
   setTimeout(() => el.remove(), 3500);
 }
 function announce(before) {
+  if (state.settings.quietMode !== false) return;
   for (const id of G.systemUnlocked(state,"office") ? state.goals.slice(before.goals) : []) {
     const g = G.GOALS.find((x) => x.id === id);
     toast("Goal complete: " + g.name + " · " + G.rewardText(g.reward), "goal", "target");
@@ -123,7 +125,7 @@ function hud() {
     bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
-  <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i ? "Speed " + i : "Pause"}" ${canPlay ? "" : "disabled"}>${ico(icon)}${i === 3 ? "<sup>+</sup>" : ""}</button>`).join("")}</div>
+  <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i === 3 ? "3 · Skip to next meet" : i ? i + "× · " + (i === 1 ? "Watch" : "Faster") : "Pause"}" ${canPlay ? "" : "disabled"}>${i === 3 ? "3 · Skip" : i ? i+"×" : ico(icon)}</button>`).join("")}</div>
   <div class="res fans">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></div>
   ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
   <div class="res money">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></div>
@@ -433,6 +435,7 @@ function showGrowth(a, before, eyebrow, extra = []) {
     best = ups.indexOf(Math.max(...ups));
   const title = ups[best] > 1e-6 ? STAT_NAMES[best] + " up!" : a.level > before.level ? "Level up!" : a.stamina > before.stamina + 0.5 ? "Legs are back!" : a.condition > before.condition + 0.5 ? "Head in the game!" : "Done!";
   sfx("level");
+  if (state.settings.quietMode !== false) { toast(a.name + ": " + title, "level"); return; }
   dialog(title, P.growth(a, before, extra), [{ label: "Back to the infield" }], { eyebrow, tone: "gold" });
 }
 // Special training: run the session, then play it out on a little stage with ratings and results.
@@ -450,6 +453,10 @@ function runTraining(ids, drill) {
   save();
   render();
   world.replan();
+  if (state.settings.quietMode !== false) {
+    view.trainingReport={name:session.name,results:session.results.map(r=>({name:state.roster.find(a=>a.id===r.id).name,gains:r.gains})),chemistry:session.chemistry};
+    view.window="train"; view.trainTab="sessions"; render(); return;
+  }
   dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · step " + G.tierOf(session.level - (session.tierUp ? 1 : 0)) + " of 5", tone: "gold", cls: "training" });
   const dlg = $("#dialog"),
     results = dlg.querySelector(".stage-results"),
@@ -505,7 +512,7 @@ function help(welcome = false) {
     ${G.firstMeet(state) ? `<p><b>First, book a duel from Meets.</b> Your four throwers already have a lineup and a practice routine. Press Train to reach meet day, then watch them compete.</p><p class="hint">After each meet, we will introduce one new club system. There is nothing else to set up yet.</p>` : `<ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
     <li><b>Train</b> and watch the days roll by. Stats pop up as they grow.</li>
     <li><b>Compete</b>, win prizes, then <b>build</b> and <b>shop</b> to get stronger.</li></ol>
-    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>`}`,
+    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>`}${P.leagueTutorial()}`,
     [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
@@ -524,6 +531,7 @@ function stopPlaying() {
 function play(speed = state.settings.speed || 1) {
   if (state.match || !["planning", "season"].includes(state.phase) || (state.matchDay != null && state.day >= state.matchDay)) return;
   if (state.pendingEvent) return showEvent();
+  speed = playbackSpeed(speed);
   state.settings.speed = speed;
   view.playing = true;
   // Carry on from the time already on the clock.
@@ -540,12 +548,12 @@ function doDay(now) {
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
   // One toast for everyone who levelled up today; the world shows each of them celebrating.
-  if (r.levelUps.length) {
+  if (r.levelUps.length && state.settings.quietMode === false) {
     const names = r.levelUps.map((l) => l.name.split(" ")[0]);
     toast((names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) + " levelled up!" : r.levelUps[0].name + " hits level " + r.levelUps[0].level + "!") + (G.systemUnlocked(state, "skills") ? " Skill points to spend." : ""), "level", "levelup");
     sfx("level");
   }
-  if (r.invitation) {
+  if (r.invitation && state.settings.quietMode === false) {
     world.banner("INVITATION!", r.invitation.name.toUpperCase() + " · " + G.shortDate(r.invitation.day).toUpperCase(), "#f2c94c", now, 3200);
     toast("Invitation to the " + r.invitation.name + " on " + G.shortDate(r.invitation.day) + ". Open Meets to accept.", "goal", "star");
     sfx("goal");
@@ -586,7 +594,7 @@ function startBeat(beat) {
   else if (beat.type === "meetStart") sfx("cheer");
   else if (beat.type === "complete") {
     sfx(beat.win ? "win" : beat.draw ? "event" : "lose");
-    for (const id of state.match.rewards?.goals || []) toast("Goal complete: " + G.GOALS.find((g) => g.id === id)?.name, "goal", "target");
+    for (const id of state.settings.quietMode === false ? state.match.rewards?.goals || [] : []) toast("Goal complete: " + G.GOALS.find((g) => g.id === id)?.name, "goal", "target");
   }
   render();
 }
@@ -616,7 +624,7 @@ function decide(tactic, quality = "good") {
 }
 const meter = { start: 0 };
 const meterPos = (now) => {
-  const p = ((now - meter.start) / 1500) % 2;
+  const p = ((now - meter.start) / 2500) % 2;
   return p <= 1 ? p : 2 - p;
 };
 
@@ -672,6 +680,16 @@ $("#app").addEventListener("click", async (e) => {
     case "pause":
       return stopPlaying(), render();
     case "speed":
+      if (+b.dataset.speed === 3) {
+        stopPlaying();
+        const report=G.skipPreparation(state);
+        world.reset(); view.dayP=0.25;
+        save(); render();
+        if (report.decision) return showEvent();
+        if (report.meetReady) return openWindow("lobby");
+        toast(report.reason || "Skipped " + report.days + " days. Club news is in the journal.");
+        return;
+      }
       return +b.dataset.speed ? (play(+b.dataset.speed), watchClub()) : (stopPlaying(), render());
     case "day":
       if (state.pendingEvent) return showEvent();
@@ -692,6 +710,7 @@ $("#app").addEventListener("click", async (e) => {
       if (!G.medicalDay(state)) toast("Only available when an injured athlete is in the lineup.");
       break;
     case "enter":
+      view.meetStandards=false;
       view.resultView = "results";
       view.resultEvent = "all";
       if (state.pendingEvent) return showEvent();
@@ -718,7 +737,7 @@ $("#app").addEventListener("click", async (e) => {
       state.settings.highlights=!state.settings.highlights;
       break;
     case "meet-speed":
-      view.meetSpeed = state.settings.meetSpeed = +b.dataset.speed;
+      view.meetSpeed = state.settings.meetSpeed = playbackSpeed(+b.dataset.speed);
       break;
     case "tactic":
       if (state.match?.phase !== "decide") return;
@@ -736,10 +755,6 @@ $("#app").addEventListener("click", async (e) => {
       return decide(view.meter.tactic, off < half ? "perfect" : off < 0.2 ? "good" : "poor");
     }
     case "skip":
-      if (!view.skipConfirm) {
-        view.skipConfirm = true;
-        break;
-      }
       G.simulateMatch(state);
       presenter = null;
       view.hide = null;
@@ -809,6 +824,14 @@ $("#app").addEventListener("click", async (e) => {
     case "coach-athlete":
       view.trainees = [id];
       return openWindow("train");
+    case "qualification":
+      (view.tabs ??= {}).league="qualification";
+      openWindow("league");
+      (view.tabs ??= {}).league="qualification";
+      return render(false);
+    case "meet-standards":
+      view.meetStandards=!view.meetStandards;
+      return render(false);
     case "page-tab":
       (view.tabs ??= {})[b.dataset.page] = b.dataset.tab;
       break;
@@ -865,6 +888,7 @@ $("#app").addEventListener("click", async (e) => {
       if (G.promote(state, id)) {
         sfx("goal");
         const star = (a.stars || 0) > 0;
+        if (state.settings.quietMode !== false) { toast(a.name + " promoted to " + G.rankName(a) + ".", "level"); break; }
         dialog(star ? G.rankName(a) + "!" : "A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now <b>${esc(G.rankName(a))}</b>. Their limit is higher, every stat gains a point${!star && RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
       }
       break;
@@ -1202,7 +1226,7 @@ async function useClub(n, incoming = null) {
   newsSeen = state.log[0];
   shownInsights = null;
   presenter = null;
-  Object.assign(view, { window: null, athlete: null, selected: null, moving: null, meetSpeed: state.settings.meetSpeed || 1 });
+  Object.assign(view, { trainingReport: null, window: null, athlete: null, selected: null, moving: null, meetSpeed: state.settings.meetSpeed || 1 });
   setSound(state.settings.sound);
   world.reset();
   render(false);

@@ -142,6 +142,7 @@ const mentorPair = (s) => {
 
 // Ordinary stories sit out the next three draws, including automatic news.
 export const STORY_RECENT_LIMIT = 3;
+export const STORY_GAP = 7;
 
 export const STORY = {
   secret: {
@@ -384,12 +385,13 @@ export function rollStoryEvent(s) {
   if (s.pendingEvent) return null;
   const due = Object.keys(SECRET_WHEN).find((k) => !s.secretsOffered.includes(k) && SECRET_WHEN[k](s));
   if (due) {
+    if (s.secretsOffered.length && s.day-(s.lastEventDay||0)<STORY_GAP) return null;
     s.secretsOffered.push(due);
     s.pendingEvent = { id: "secret", data: { key: due } };
     s.lastEventDay = s.day;
     return s.pendingEvent;
   }
-  if (s.day - (s.lastEventDay || 0) < 2 || (s.matchDay != null && s.day >= s.matchDay) || random(s) > 0.24) return null;
+  if (s.day - (s.lastEventDay || 0) < STORY_GAP || (s.matchDay != null && s.day >= s.matchDay) || random(s) > 0.12) return null;
   const eligible = Object.entries(STORY).filter(([id, e]) => e.weight && (!e.when || e.when(s))),
     recent = s.recentStoryEvents || [],
     fresh = eligible.filter(([id]) => !recent.includes(id)),

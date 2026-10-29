@@ -58,6 +58,8 @@ import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 import { competitionTier, competitionName, circuitKey, TITLE_GIFTS, rivalBase, rivalMastery } from "./competition.js";
 export * from "./competition.js";
 export * from "./progression.js";
+export * from "./qualification.js";
+import { seedChampionshipLineup } from "./qualification.js";
 import { firstMeet, systemUnlocked, systemProblem } from "./progression.js";
 export * from "./development.js";
 export * from "./coaching.js";
@@ -87,7 +89,7 @@ export function setAthleteEvent(s, id, event) {
   return true;
 }
 
-export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: true, speed: 2, meetSpeed: 1, sound: true, reducedMotion: false, highlights: true };
+export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: true, quietMode: true, speed: 1, meetSpeed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {
@@ -406,6 +408,18 @@ export function advanceDay(s) {
   report.event = rollStoryEvent(s);
   return report;
 }
+// Skip advances a bounded preparation window and stops for an actual decision.
+export function skipPreparation(s) {
+  if (s.match || s.pendingEvent || !["planning","season"].includes(s.phase)) return {days:0,reason:"Finish the current meet or decision first."};
+  const target=s.matchDay ?? s.day+7, start=s.day;
+  for (let guard=0;s.day<target && guard<30;guard++) {
+    const report=advanceDay(s);
+    if (!report.ok || s.pendingEvent) break;
+  }
+  if (s.day>start) note(s,"Skipped "+(s.day-start)+" preparation days. See the journal for training and club news.","info");
+  return {days:s.day-start,meetReady:s.matchDay!=null && s.day>=s.matchDay,decision:!!s.pendingEvent};
+}
+
 // The café and merch stand sell to a share of visitors, up to what their counters can serve.
 export function counterTakings(s, type, level, visitors = visitorsPerDay(s)) {
   if (type === "cafe") return Math.round(Math.min(visitors * 0.6, 15 * (level + 1)) * (1 + level));
@@ -802,7 +816,8 @@ export function leaveMatch(s) {
     s.fixture++;
     s.matchDay = s.day + (s.competition?.spacing || 7);
     if (s.fixture === 3 && s.competition?.format === "championship") {
-      note(s, "Next: the league championship. Every club sends its best thrower in each event; everyone gets six attempts.", "meet");
+      if (seedChampionshipLineup(s)) note(s, "Championship entries are ready. Qualified throwers get three preliminary attempts; the top six earn three final throws. All marks carry forward.", "meet");
+      else { s.phase = "seasonEnd"; s.champion = false; note(s, "No championship entry standard was met during the league duels. Rebuild, then try the league again.", "story"); }
     } else if (s.fixture === 3) {
       const ranking = table(s),
         rank = ranking.findIndex((c) => c.id === "us");

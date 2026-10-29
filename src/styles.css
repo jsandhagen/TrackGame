@@ -5072,3 +5072,20 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .championship-entry { display: block; margin: 0 0 8px; }
 .championship-entry:last-child { margin-bottom: 0; }
 .introduction-card { border-left: 3px solid var(--gold, #d2aa52); }
+
+.qualification-event header { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.qualification-event header h3 { margin:0; }
+.qualification-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 8px; padding:8px 0; border-bottom:1px solid #d7ceb3; }
+.qualification-row:last-child { border-bottom:0; }
+.qualification-row strong { overflow-wrap:anywhere; }
+.qualification-status { grid-column:1/-1; font-size:0.8rem; color:#79633f; }
+.qualification-row.qualified .qualification-status { color:#306844; font-weight:700; }
+#meetbar .qualification-board { min-width:0; overflow-y:auto; }
+#meetbar .qualification-board .card-title h2 { font-size:0.95rem; }
+#meetbar .qualification-event { margin:0; padding:8px; }
+#meetbar .qualification-row { font-size:0.75rem; }
+#meetbar .qualification-status { font-size:0.7rem; }
+.live-standard, .scoreboard-truncation { display:block; margin:5px 0 0; font-size:0.75rem; }
+.meet-mvp .ico-mvp { width:21px; height:21px; vertical-align:middle; }
+#meetbar .qualification-event { color:#203d32; background:#fffaf0; }
+#meetbar .qualification-event h3, #meetbar .qualification-event strong, #meetbar .qualification-event b { color:#203d32; }

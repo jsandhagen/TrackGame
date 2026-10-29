@@ -111,7 +111,7 @@ test("the fifteen-trophy circuit preserves athletes and unlocks each next level 
 test("a losing season is repeatable with a rebuild camp and no lost progress", () => {
   const s = G.newGame(8);
   s.roster.forEach((a) => (a.stats = [1, 1, 1, 1]));
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     play(s);
     G.leaveMatch(s);
   }

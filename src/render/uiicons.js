@@ -1,4 +1,4 @@
-import { canvas, outlined, ellipse, line, shade } from "./pixel.js";
+import { canvas, outlined, ellipse, line, shade, poly } from "./pixel.js";
 
 // Hand-drawn 12×12 interface icons. Each is outlined, enlarged ×3 and installed as a CSS class,
 // so markup can use <i class="ico ico-coin"></i> anywhere.
@@ -81,6 +81,17 @@ const ICONS = {
   star(g) {
     pix(g, [".....##.....", "....####....", "############", ".##########.", "..########..", "...######...", "..###..###..", ".###....###.", ".##......##."], "#f2c94c", 0, 1);
     R(g, 5, 2, 1, 2, "#fff4c0");
+  },
+  mvp(g) {
+    // A solid five-point award star, with a bright upper facet and bronze depth.
+    // The shared polygon rasterizer is convex-only; this star needs its notches.
+    const points=[[6,1],[7.5,4.3],[11,4.6],[8.3,7],[9.2,11],[6,9],[2.8,11],[3.7,7],[1,4.6],[4.5,4.3]];
+    g.fillStyle="#f5c84c";
+    g.beginPath();g.moveTo(...points[0]);
+    for(const point of points.slice(1)) g.lineTo(...point);
+    g.closePath();g.fill();
+    poly(g, [[6,2],[6,7],[4,6]], "#ffed9a");
+    poly(g, [[6,7],[8,7],[9,10],[6,9]], "#cf9423");
   },
   spark(g) {
     R(g, 5, 0, 2, 12, "#f2c94c");

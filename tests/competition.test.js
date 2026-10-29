@@ -11,6 +11,7 @@ function finishMeet(s, win = true) {
     else assert(G.advanceDay(s).ok);
   }
   if (s.pendingEvent) G.resolveEvent(s, G.eventView(s).choices.findIndex((c) => c.ok));
+  if (win) for (const a of s.roster) { a.potential=100; a.stats=[100,100,100,100]; for(const ev of EVENT_IDS) a.mastery[ev]=100; }
   if (win) G.opponent(s).athletes.forEach((a) => { a.stats = [1, 1, 1, 1]; a.skills = []; a.equipped = []; });
   assert(G.startMatch(s));
   assert(G.simulateMatch(s));
@@ -160,7 +161,7 @@ test('single-choice news never blocks training, but real choices still do', () =
   let automatic = 0, decisions = 0;
   for (let seed = 1; seed < 300; seed++) {
     const s = G.newGame(seed);
-    s.day = 5;
+    s.day = 1 + G.STORY_GAP;
     const logs = s.log.length;
     const e = G.rollStoryEvent(s);
     if (e) { decisions++; assert(G.STORY[e.id].choices.length > 1); assert(!G.advanceDay(s).ok); }

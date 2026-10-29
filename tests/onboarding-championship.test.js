@@ -23,6 +23,8 @@ function final(seed = 17, stage = 0) {
   const s = established(seed);
   s.circuit.cleared = ['0:0','0:1'];
   assert(G.enterCompetition(s,{kind:'league',tier:0,stage}));
+  // Qualified meet fixture: every squad earns standards in sanctioned series.
+  for(const a of [...s.roster,...G.championshipClubs(s).flatMap(c=>c.athletes)]) for(const ev of EVENT_IDS) G.recordQualifier(s,a.id,ev,[G.qualifyingStandard(s,ev)+a.id/1000+1]);
   s.fixture = 3;
   s.day = s.matchDay;
   return s;
@@ -118,11 +120,11 @@ test('established saves keep their systems and old booked finals keep their form
   assert.equal(copy.match.attempts,3);
 });
 
-test('league duels always lead to a championship even when the club loses every duel', () => {
+test('a club missing every championship standard ends its season and can rebuild', () => {
   const s=established(51);
   s.roster.forEach(a=>{a.stats=[1,1,1,1];a.skills=[];a.equipped=[];});
   assert(G.enterCompetition(s,{kind:'league',tier:0,preparation:3,spacing:4}));
-  assert.equal(G.upcomingMeets(s).at(-1).label,'League championship · six throws');
+  assert.equal(G.upcomingMeets(s).at(-1).label,'League championship · 3 + 3 throws');
   for(let i=0;i<3;i++) {
     play(s);
     assert.equal(s.match.kind,'league');
@@ -131,21 +133,20 @@ test('league duels always lead to a championship even when the club loses every 
     assert(G.leaveMatch(s));
   }
   assert.equal(G.table(s).at(-1).id,'us');
-  assert.equal(s.phase,'season');
-  assert.equal(s.fixture,3);
-  assert(G.isLeagueChampionship(s));
-  assert.equal(G.opponent(s).name,'League championship');
-  assert.match(P.lobby(s),/Six throws each/);
-  for(const c of G.championshipClubs(s)) assert(P.lobby(s).includes(c.name));
+  assert.equal(s.phase,'seasonEnd');
+  assert.equal(s.champion,false);
+  assert.match(s.log.map(l=>l.text).join(' '),/No championship entry standard/);
+  assert(G.nextSeason(s));
+  assert.equal(s.phase,'planning');
 });
 
-test('every stage championship fields all six clubs and gives every entrant six throws after reload', () => {
+test('every stage has a multi-club 3 + 3 championship, carries marks forward and resumes after reload', () => {
   for(const stage of [0,1,2]) {
     let s=final(60+stage,stage);
     const selected=G.championshipEntries(s);
     assert(G.startMatch(s));
     for(const [i,ev] of EVENT_IDS.entries()) {
-      assert.equal(s.match.fields[i].away.length,6);
+      assert.equal(s.match.fields[i].away.length,12);
       assert.deepEqual(s.match.fields[i].away.map(e=>e.id),selected[ev].map(e=>e.athlete.id));
       assert.equal(new Set(s.match.fields[i].away.map(e=>e.clubId)).size,6);
     }
@@ -157,7 +158,11 @@ test('every stage championship fields all six clubs and gives every entrant six 
     assert(G.simulateMatch(s));
     assert(G.simulateMatch(copy));
     assert.deepEqual(copy.match,s.match);
-    for(const f of s.match.fields) for(const entry of [...f.home,...f.away]) assert.equal(entry.marks.length,6);
+    for(const f of s.match.fields) {
+      const all=[...f.home,...f.away];
+      assert.equal(all.filter(e=>e.finalist).length,6);
+      for(const entry of all) assert.equal(entry.marks.length,entry.finalist?6:3);
+    }
     assert.equal(s.match.teamScores.length,7);
     assert.equal(s.match.against,Math.max(...s.match.teamScores.filter(c=>c.id!=='us').map(c=>c.points)));
     const report=P.meetComplete(s);
@@ -171,15 +176,16 @@ test('championship points belong to individual clubs rather than a combined oppo
   const s=final(72);
   G.startMatch(s);
   for(const [i,f] of s.match.fields.entries()) {
-    f.home.forEach((e,n)=>{e.marks=Array(6).fill(n===0?20:1);});
+    f.home.forEach((e,n)=>{e.marks=Array(6).fill(n===0?20:null);});
+    f.away=f.away.filter((e,n,all)=>all.findIndex(r=>r.clubId===e.clubId)===n);
     f.away.forEach((e,n)=>{e.marks=Array(6).fill(n===i?21:2+n/10);});
   }
   s.match.closed=[true,true,true,true];
   G.settleMatch(s);
-  assert.equal(s.match.score,12);
-  assert.equal(s.match.against,5);
+  assert.equal(s.match.score,32);
+  assert(s.match.against<32);
   assert.equal(G.meetOutcome(s.match),1);
-  assert.equal(s.match.teamScores.reduce((n,c)=>n+c.points,0),36);
+  assert.equal(s.match.teamScores.reduce((n,c)=>n+c.points,0),152);
   assert(G.leaveMatch(s));
   assert(s.champion);
 });
@@ -188,11 +194,11 @@ test('championship fields reject missing clubs, wrong affiliations and invalid o
   const s=final(81);G.startMatch(s);
   for(const mutate of [
     s=>s.match.clubs.pop(),
-    s=>s.match.fields[0].away.pop(),
+    s=>s.match.attempts=6,
     s=>s.match.fields[0].away[0].clubId=99,
     s=>s.match.fields[0].away[0].id=s.match.fields[0].away[1].id,
     s=>s.onboarding={meets:-1},
-    s=>s.match.fields[0].home[0].finalist=false,
+    s=>s.match.fields[0].finalOrder=[{side:"away",id:999999}],
     s=>s.match.leagueChampionship='yes',
   ]) {const bad=structuredClone(s);mutate(bad);assert.throws(()=>validateCampaign(bad));}
 });

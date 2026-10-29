@@ -5,9 +5,9 @@ import { firstMeet } from "./progression.js";
 
 export const CIRCUIT_STAGES = ["Open", "Challenger", "Championship"];
 export const CIRCUIT_FORMATS = [
-  "Three club duels, then a league championship: the division’s best throwers, six attempts each. Two duels at home.",
-  "Three club duels, then a league championship: the division’s best throwers, six attempts each.",
-  "Three club duels, then a league championship: the division’s best throwers, six attempts each. Two duels on the road.",
+  "Three club duels, then a league championship: qualifying marks required, three preliminary throws and three more for the top six. Two duels at home.",
+  "Three club duels, then a league championship: qualifying marks required, three preliminary throws and three more for the top six.",
+  "Three club duels, then a league championship: qualifying marks required, three preliminary throws and three more for the top six. Two duels on the road.",
 ];
 export const TITLE_GIFTS = ["scroll", "letter", "elixir"];
 export const circuitKey = (tier, stage) => `${tier}:${stage}`;
@@ -78,7 +78,7 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   const fee = entryFee(kind, tier);
   s.money -= fee;
   const startDay = firstMeet(s) ? Math.max(s.day, 4) : s.day + preparation;
-  s.competition = { kind, tier, stage: strength, rival, spacing, startDay, fee, ...(kind === "league" ? { format: "championship" } : {}) };
+  s.competition = { kind, tier, stage: strength, rival, spacing, startDay, fee, ...(kind === "league" ? { format: "championship", qualifyingMarks: {} } : {}) };
   s.phase = "season";
   s.fixture = 0;
   s.results = [];
@@ -113,7 +113,7 @@ export function upcomingMeets(s) {
   const out = [];
   for (let f = s.fixture; f < 3; f++) out.push({ day: s.matchDay + (f - s.fixture) * c.spacing, label: "League duel " + (f + 1) + " / 3", rival: s.clubs[f]?.name });
   if (c.format === "championship") {
-    out.push({ day: s.matchDay + (3 - s.fixture) * c.spacing, label: "League championship · six throws", rival: "Best throwers from every division club", projected: s.fixture < 3 });
+    out.push({ day: s.matchDay + (3 - s.fixture) * c.spacing, label: "League championship · 3 + 3 throws", rival: "Best throwers from every division club", projected: s.fixture < 3 });
     return out;
   }
   out.push({ day: s.matchDay + (3 - s.fixture) * c.spacing, label: s.fixture === 3 ? "League final" : "League final (top two)", rival: s.fixture === 3 ? s.clubs.find((x) => x.id === s.finalOpponent)?.name : null, projected: s.fixture < 3 });

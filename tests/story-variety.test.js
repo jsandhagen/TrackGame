@@ -165,7 +165,7 @@ test("event cadence, pending decisions, meet days and special visitors retain th
   s.lastEventDay = s.day - 1;
   const before = structuredClone(s);
   assert.equal(G.rollStoryEvent(s), null);
-  assert.deepEqual(s, before, "the two-day minimum gap consumes no RNG");
+  assert.deepEqual(s, before, "the weekly minimum gap consumes no RNG");
   s.lastEventDay = s.day - 5;
   s.matchDay = s.day;
   assert.equal(G.rollStoryEvent(s), null, "ordinary stories do not delay meet day");
@@ -183,14 +183,14 @@ test("a small eligible pool can repeat safely, and an empty pool cannot strand t
     G.STORY.bakery.weight = 1;
     const s = club();
     s.recentStoryEvents = ["bakery"];
-    s.rng = 0; // The next chance roll is below 24%.
+    s.rng = 1972; // The next chance roll is below the quieter 12% cadence.
     assert.equal(G.rollStoryEvent(s), null, "the only eligible gift still resolves automatically");
     assert.equal(s.lastEventDay, s.day);
     assert.deepEqual(s.recentStoryEvents, ["bakery"], "fallback draws keep memory unique");
     validateCampaign(s);
     G.STORY.bakery.weight = 0;
-    s.day += 2;
-    s.rng = 0;
+    s.day += G.STORY_GAP;
+    s.rng = 1972;
     const lastEventDay = s.lastEventDay;
     assert.equal(G.rollStoryEvent(s), null);
     assert.equal(s.pendingEvent, null);
