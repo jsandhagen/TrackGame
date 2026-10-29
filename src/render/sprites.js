@@ -1,4 +1,4 @@
-import { canvas, outlined, flipped, shade, line, ellipse } from "./pixel.js";
+import { canvas, outlined, flipped, shade, line, ellipse, OUTLINE } from "./pixel.js";
 import { SHORTS_COLORS } from "../game-content.js";
 
 // Chibi figures: a big head, a small body, a crisp outline. Drawn facing right on a
@@ -78,7 +78,7 @@ const THROWS = {
     // Power position: low over the bent right leg, left leg long toward the toe board.
     { view: "front", y: 0, lean: -2, legs: [[[-5, -3], [-6, -1]], [[2, -3], [4, -1]]], arms: [[[-3, -1], [-1, -3]], [[3, 1], [5, 3]]], hold: 0, item: "shot", face: "strain" },
     // The put: hips through, tall on a braced left leg, the arm punched out and up.
-    { y: -2, lean: 1, legs: [[[3, -4], [3, -1]], [[0, -3], [-3, -2]]], arms: [[[-1, 2], [0, 4]], [[4, -3], [8, -6]]], under: true, face: "strain" },
+    { y: -2, lean: 1, legs: [[[3, -4], [3, -1]], [[0, -3], [-3, -2]]], arms: [[[-1, 2], [0, 4]], [[4, -2], [8, -4]]], face: "strain" },
     // The reverse: feet switch, the right foot stops at the board and the left kicks back.
     { y: 0, lean: 2, legs: [[[-2, -4], [-5, -4]], [[2, -3], [2, -1]]], arms: [[[-3, 0], [-6, 1]], [[1, 3], [3, 4]]] },
     // Glide start at the back, facing away: folded over the right leg (far, once flipped).
@@ -118,11 +118,11 @@ const THROWS = {
     // Back to the sector, the head resting behind on the right.
     { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-1, 3], [-3, 5]], [[-1, 3], [-3, 5]]], item: "handle" },
     // A wind: hands over the head as the ball passes high behind.
-    { y: -1, lean: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-4, -4], [-7, -9]], [[-4, -4], [-7, -9]]], item: "handle", under: true, face: "strain" },
+    { y: -1, lean: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-4, -4], [-7, -9]], [[-4, -4], [-7, -9]]], item: "handle", face: "strain" },
     // Release over the left shoulder, facing us, arms long and high toward the sector.
-    { view: "front", y: -2, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -4], [3, -1]]], arms: [[[5, -6], [11, -12]], [[3, -5], [6, -12]]], under: true, face: "strain" },
+    { view: "front", y: -2, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -4], [3, -1]]], arms: [[[7, -1], [12, -12]], [[4, -4], [7, -12]]], face: "strain" },
     // Follow: leaning back, arms still up, watching it go.
-    { view: "front", y: -1, lean: -2, legs: [[[-3, -3], [-4, -1]], [[2, -3], [4, -2]]], arms: [[[5, -6], [10, -13]], [[3, -6], [5, -13]]], under: true },
+    { view: "front", y: -1, lean: -2, legs: [[[-3, -3], [-4, -1]], [[2, -3], [4, -2]]], arms: [[[8, -1], [13, -12]], [[4, -4], [7, -12]]] },
     // The low point of a wind, arms long in front.
     { y: 0, lean: 1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[2, 2], [4, 3]], [[2, 2], [4, 3]]], item: "handle" },
     // Turns: sitting back against the pull with the arms long toward the ball. Toward the sector…
@@ -134,25 +134,25 @@ const THROWS = {
   ],
   jav: [
     // Javelin over the shoulder, palm up, the hand just behind the head.
-    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[1, 2], [3, 3]], [[-4, 0], [-6, -2]]], item: "jav", under: true },
+    { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[1, 2], [3, 3]], [[-4, 0], [-6, -2]]], item: "jav" },
     // Withdrawal: the arm straight back, the javelin along it pointing up the runway.
-    { y: -1, lean: -1, legs: [[[2, -3], [3, -1]], [[-1, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
+    { y: -1, lean: -1, legs: [[[2, -3], [3, -1]], [[-1, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
     // Release up top: tall over the braced left leg, the hand high above the head and forward.
-    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[2, -6], [6, -13]]], under: true, face: "strain" },
+    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[-1, -7], [2, -16]]], face: "strain" },
     // Follow-through: the right leg comes through to stop short of the line.
     { y: 0, lean: 3, legs: [[[-1, -3], [-3, -2]], [[3, -3], [3, -1]]], arms: [[[-2, 1], [-4, 2]], [[2, 2], [3, 4]]] },
     // Crossover: the right leg bounds across in front, the javelin held back…
-    { y: -2, lean: -1, legs: [[[-1, -3], [-3, -2]], [[3, -4], [2, -3]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
+    { y: -2, lean: -1, legs: [[[-1, -3], [-3, -2]], [[3, -4], [2, -3]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
     // …and lands, the left swinging through behind.
-    { y: -1, lean: -1, legs: [[[-1, -3], [-3, -3]], [[2, -3], [2, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true },
+    { y: -1, lean: -1, legs: [[[-1, -3], [-3, -3]], [[2, -3], [2, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
     // The block: the left leg planted long and straight, leaning back, the arm still drawn.
-    { y: 0, lean: -2, legs: [[[4, -3], [5, -1]], [[0, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", under: true, face: "strain" },
+    { y: 0, lean: -2, legs: [[[4, -3], [5, -1]], [[0, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", face: "strain" },
     // Delivery: the elbow leads and the javelin comes over the top, above the head, angled up.
-    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[1, -6], [2, -16]]], item: "javup", under: true, face: "strain" },
+    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[-1, -7], [1, -16]]], item: "javup", face: "strain" },
   ],
 };
 // Carrying the javelin on the run-up: the run cycle with the throwing hand held up by the head.
-POSES.carry = POSES.run.map((f) => ({ ...f, arms: [f.arms[0], THROWS.jav[0].arms[1]], item: "jav", under: true }));
+POSES.carry = POSES.run.map((f) => ({ ...f, arms: [f.arms[0], THROWS.jav[0].arms[1]], item: "jav" }));
 export const THROW_FRAMES = { ready: 0, wind: 1, release: 2, follow: 3 };
 
 function poseData(pose, frame, event) {
@@ -227,8 +227,14 @@ function drawFigure(g, o) {
     P(feet[k][0], feet[k][1], 3, 1, k ? SHOE : shade(SHOE, -0.2));
     if (k) P(feet[k][0] + 2, feet[k][1], 1, 1, collar);
   };
-  const arm = (k) => {
-    if (jointed) joint([shoulders[k], at(k, p.arms[k][0]), hands[k]], tone(k));
+  const arm = (k, edged) => {
+    const pts = jointed && [shoulders[k], at(k, p.arms[k][0]), hands[k]];
+    // An arm raised in front of the big head gets a dark edge, so it reads against the face.
+    if (edged && jointed && Math.min(pts[1][1], pts[2][1]) < ttop) {
+      for (let i = 1; i < 3; i++) line(g, OX + pts[i - 1][0] + 0.5, OY + pts[i - 1][1] + 0.5, OX + pts[i][0] + 0.5, OY + pts[i][1] + 0.5, OUTLINE, 4);
+      P(hands[k][0] - 1, hands[k][1] - 1, 4, 4, OUTLINE);
+    }
+    if (jointed) joint(pts, tone(k));
     else if (k) {
       line(g, OX + 2 + lean, OY + ttop + 1, OX + hands[1][0] + 1, OY + hands[1][1] + 1, limb, 2);
       P(2 + lean, ttop, 1, 2, shirt);
@@ -308,11 +314,6 @@ function drawFigure(g, o) {
   P(-1 + lean, ttop, 3, 1, collar);
   if (rank >= 3) P(0 + lean, ttop + 2, 1, 1, GOLD);
   if (special === "scarf") P(-3 + lean, ttop, 6, 2, collar);
-
-  // An arm raised past the big head goes behind it so the hand shows beyond, rather than a
-  // skin-on-skin arm across the face.
-  const front = () => (side || !jointed ? arm(1) : !back && (arm(0), arm(1)));
-  if (p.under) front();
 
   // Head.
   const H = (x, y, w, h, c) => P(hx + x, hy + y, w, h, c);
@@ -423,8 +424,9 @@ function drawFigure(g, o) {
       for (const x of side ? [7, 11] : [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
     }
   }
-  // Arms in front of the body: the near arm, or from the front both.
-  if (!p.under) front();
+  // Arms in front of the body and head: the near arm, or from the front both.
+  if (side || !jointed) arm(1, true);
+  else if (!back) arm(0, true), arm(1, true);
   if (javelin) item(hands[hold]);
 }
 
