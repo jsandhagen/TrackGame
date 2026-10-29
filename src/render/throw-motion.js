@@ -8,7 +8,7 @@
 // power position) · 2 release · 3 follow-through · 4 and up the event's own technique frames.
 // A right-handed thrower turns anticlockwise seen from above: back to the sector (side-on,
 // flipped), round to face the camera, side-on to the sector, facing away, and so on.
-import { runFrame } from "./sprites.js";
+import { runFrame, frontFootOf } from "./sprites.js";
 
 const ease = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
@@ -17,8 +17,16 @@ const pick = (list, q) => list[Math.min(list.length - 1, Math.floor(q * list.len
 
 // phase: "ready" | "technique" | "release" | "follow"; p: progress through that phase, 0–1.
 export function throwMotion(ev, level, phase, p, { foul = false } = {}) {
-  const m = { frame: 0, flip: false, dx: 0, dy: 0, ball: null, ghost: level >= 3 && phase === "technique" };
-  if (ev === "jav") return javelin(m, level, phase, p, foul);
+  const m = { frame: 0, flip: false, dx: 0, dy: 0, ball: null, released: phase === "release" || phase === "follow", ghost: level >= 3 && phase === "technique" };
+  if (ev === "jav") {
+    javelin(m, level, phase, p, foul);
+    const before = m.dx;
+    // Legal deliveries stop with the outlined shoe behind the near edge of the arc (dx = 0).
+    // Keep this guard tied to the sprite geometry as new technique/recovery poses are added.
+    if (!foul || phase !== "follow") m.dx = Math.min(m.dx, -2 - 2 * frontFootOf({ pose: m.run ? "carry" : "throw", event: ev, frame: m.frame, flip: m.flip }));
+    m.dy += Math.round(-m.dx * 0.1) - Math.round(-before * 0.1);
+    return m;
+  }
   if (ev === "hammer") return hammer(m, level, phase, p, foul);
   if (ev === "discus") return discus(m, level, phase, p, foul);
   return shot(m, level, phase, p, foul);
@@ -92,9 +100,13 @@ function hammer(m, level, phase, p, foul) {
   if (phase === "ready") return Object.assign(m, { frame: 0, flip: true, dx: BACK + 2, ball: orbit(Math.PI, 20, 0) });
   if (phase === "release") return Object.assign(m, { frame: 2, dx: 4 });
   if (phase === "follow") {
-    // Good throwers keep turning once after letting go.
-    if (level >= 2 && !foul && p < 0.4) return Object.assign(m, facing(Math.PI / 2 - (p / 0.4) * Math.PI * 1.5), { dx: 4 });
-    return finish(m, p, foul, 4, false);
+    finish(m, p, foul, 4, false);
+    // Keep the original turning footwork after release, then plant and recover. See the Sedykh
+    // photosequence in docs/THROW_TECHNIQUE.md: foot contacts and hip rotation drive the turn.
+    if (level >= 2 && !foul && p >= 0.16 && p < 0.6)
+      return Object.assign(m, facing(Math.PI / 2 - ((p - 0.16) / 0.44) * Math.PI * 1.5));
+    m.frame = p < 0.16 ? 8 : p < 0.8 ? 9 : 3;
+    return m;
   }
   if (p < split) {
     // Winds, back to the sector: the ball circles the head, low in front and high behind.
@@ -116,15 +128,16 @@ function orbit(th, r, flatten) {
   return { dx: Math.cos(th) * r, dy: -28 - Math.cos(th) * (12 - flatten * 4) + Math.sin(th) * 4, behind: Math.sin(th) < 0 };
 }
 
-// Javelin frames: 4 and 5 the crossover steps, 6 the block, 7 the delivery over the top. The
-// run-up uses the "carry" pose.
+// Javelin frames: 4 and 5 the crossover steps, 6 the block, 7 the delivery over the top,
+// 8 the arm sweeping down and 9 the reverse that catches the run-up. The run-up uses "carry".
 function javelin(m, level, phase, p, foul) {
   const slope = (dx) => Math.round(-dx * 0.1);
   if (phase === "ready") return Object.assign(m, { frame: 0, dx: level ? 20 - 96 : -70, dy: slope(level ? 20 - 96 : -70) });
-  if (phase === "release") return Object.assign(m, { frame: 2, dx: -6, dy: slope(-6) });
+  if (phase === "release") return Object.assign(m, { frame: 2, dx: -20, dy: slope(-20) });
   if (phase === "follow") {
-    const r = finish(m, p, foul, -4, false);
-    if (!foul && level >= 1) r.dx = lerp(-6, -1, p);
+    const r = finish(m, p, foul, -20, false);
+    r.frame = p < 0.22 ? 8 : p < 0.55 ? 9 : 3;
+    r.dx = foul ? lerp(-20, 4, p * 1.5) : lerp(-20, -16, ease(Math.min(1, p / 0.55)));
     r.dy = slope(r.dx);
     return r;
   }
@@ -135,9 +148,9 @@ function javelin(m, level, phase, p, foul) {
   };
   if (level === 0) {
     // A short run with the javelin over the shoulder, then draw it back, block and throw.
-    if (p < 0.75) return run(-70, -14, p / 0.75);
-    if (p < 0.86) return Object.assign(m, { frame: 1, dx: -12, dy: slope(-12) });
-    return Object.assign(m, p < 0.93 ? { frame: 6, dx: -9, dy: slope(-9) } : { frame: 7, dx: -7, dy: slope(-7) });
+    if (p < 0.75) return run(-70, -28, p / 0.75);
+    if (p < 0.86) return Object.assign(m, { frame: 1, dx: -26, dy: slope(-26) });
+    return Object.assign(m, p < 0.93 ? { frame: 6, dx: -22, dy: slope(-22) } : { frame: 7, dx: -20, dy: slope(-20) });
   }
   // Full run-up from the end of the runway, withdrawal into crossover steps, then the block.
   const [runEnd, crossEnd] = level === 1 ? [0.62, 0.84] : [0.52, 0.84],
@@ -145,9 +158,9 @@ function javelin(m, level, phase, p, foul) {
   if (p < runEnd) return run(start, -36, p / runEnd);
   if (p < crossEnd) {
     const q = (p - runEnd) / (crossEnd - runEnd),
-      dx = lerp(-36, -12, q),
+      dx = lerp(-36, -26, q),
       step = Math.floor(q * (level === 1 ? 4 : 6));
     return Object.assign(m, { frame: step === 0 ? 1 : 4 + ((step - 1) % 2), dx, dy: slope(dx) - (step % 2 ? 1 : 0) });
   }
-  return Object.assign(m, p < 0.93 ? { frame: 6, dx: -8, dy: slope(-8) } : { frame: 7, dx: -7, dy: slope(-7) });
+  return Object.assign(m, p < 0.93 ? { frame: 6, dx: -22, dy: slope(-22) } : { frame: 7, dx: -20, dy: slope(-20) });
 }

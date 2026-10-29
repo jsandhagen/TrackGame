@@ -26,7 +26,7 @@ What we deliberately did not take: premium currency, gacha, energy timers or any
 
 ## Core loop
 
-1. **Play** (play, fast, fastest): each day every athlete performs their plan. Focused plans train one stat at its place: Power in the Strength Room, Technique at the athlete's own circle, cage or runway, Speed on the track, Focus in the video room (+25% per level, −20% without one); All-round jogs laps; Sharpen lifts condition; Rest restores stamina (better with a Recovery Spa). Athletes rest automatically below 25 stamina and taper in the last two days before a meet.
+1. **Play** (play, fast, fastest): each day every athlete performs their plan. Focused plans train one stat at its place: Power in the Strength Room, Technique at the athlete's own circle, cage or runway, Speed on the track, Focus in the video room (+25% per level, −20% without one); All-round is light daily maintenance; Sharpen lifts condition; Rest restores stamina (better with a Recovery Spa). All-round rests automatically before daily work would leave too little stamina for the heaviest coached session, including the 20-stamina safety margin. Focused plans rest below 25 stamina. Athletes taper before a meet.
 2. **Invest**: upgrade the stadium, build or upgrade campus buildings, buy items, equip gear, learn skills, promote athletes, recruit.
 3. **Compete**: pick a lineup in the lobby (OVR and projected marks against each rival, with an up/down edge per event), then watch or coach the meet.
 4. **Reward**: prize money, fans, XP, PBs, an item chest on wins (two in finals), goals.

@@ -118,11 +118,11 @@ const THROWS = {
     // Back to the sector, the head resting behind on the right.
     { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-1, 3], [-3, 5]], [[-1, 3], [-3, 5]]], item: "handle" },
     // A wind: hands over the head as the ball passes high behind.
-    { y: -1, lean: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-4, -4], [-7, -9]], [[-4, -4], [-7, -9]]], item: "handle", face: "strain" },
-    // Release over the left shoulder, facing us, arms long and high toward the sector.
-    { view: "front", y: -2, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -4], [3, -1]]], arms: [[[7, -1], [12, -12]], [[4, -4], [7, -12]]], face: "strain" },
-    // Follow: leaning back, arms still up, watching it go.
-    { view: "front", y: -1, lean: -2, legs: [[[-3, -3], [-4, -1]], [[2, -3], [4, -2]]], arms: [[[8, -1], [13, -12]], [[4, -4], [7, -12]]] },
+    { y: -1, lean: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[-3, -4], [-4, -8]], [[-3, -4], [-4, -8]]], item: "handle", face: "strain" },
+    // Release over the left shoulder: both hands meet, with compact elbow-to-hand segments.
+    { view: "front", y: -2, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -4], [3, -1]]], arms: [[[4, -3], [8, -8]], [[1, -4], [2, -8]]], face: "strain" },
+    // Recover on a bent support leg, arms lowered after sweeping across the body.
+    { view: "front", y: 0, lean: 1, legs: [[[-3, -3], [-4, -3]], [[2, -3], [2, -1]]], arms: [[[1, 3], [3, 5]], [[-2, 2], [-4, 4]]] },
     // The low point of a wind, arms long in front.
     { y: 0, lean: 1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[2, 2], [4, 3]], [[2, 2], [4, 3]]], item: "handle" },
     // Turns: sitting back against the pull with the arms long toward the ball. Toward the sector…
@@ -131,24 +131,32 @@ const THROWS = {
     { view: "front", y: 0, legs: [[[-4, -3], [-5, -1]], [[2, -3], [3, -1]]], arms: [[[1, 3], [3, 5]], [[-1, 3], [-3, 5]]], item: "handle", face: "strain" },
     // …and facing away.
     { view: "back", y: 0, legs: [[[-4, -3], [-5, -1]], [[2, -3], [3, -1]]], arms: [[[1, 3], [3, 5]], [[-1, 3], [-3, 5]]], item: "handle" },
+    // After release the shoulders keep turning and the hands sweep down across the chest.
+    { view: "front", y: -1, lean: 1, legs: [[[-3, -3], [-4, -2]], [[2, -3], [2, -1]]], arms: [[[-2, 0], [-4, 2]], [[-4, 0], [-7, 2]]] },
+    // Both feet replant after the pivot; the hips settle and the arms fold back toward the chest.
+    { view: "front", y: 1, lean: -1, legs: [[[-3, -3], [-4, -1]], [[2, -3], [4, -1]]], arms: [[[1, 2], [3, 4]], [[-2, 2], [-4, 3]]] },
   ],
   jav: [
     // Javelin over the shoulder, palm up, the hand just behind the head.
     { y: -1, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[1, 2], [3, 3]], [[-4, 0], [-6, -2]]], item: "jav" },
     // Withdrawal: the arm straight back, the javelin along it pointing up the runway.
     { y: -1, lean: -1, legs: [[[2, -3], [3, -1]], [[-1, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
-    // Release up top: tall over the braced left leg, the hand high above the head and forward.
-    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[-1, -7], [2, -16]]], face: "strain" },
-    // Follow-through: the right leg comes through to stop short of the line.
-    { y: 0, lean: 3, legs: [[[-1, -3], [-3, -2]], [[3, -3], [3, -1]]], arms: [[[-2, 1], [-4, 2]], [[2, 2], [3, 4]]] },
+    // Overarm release beside the top of the head; the elbow leads without stretching the arm.
+    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[-1, -5], [2, -10]]], face: "strain" },
+    // Recover upright over the right foot, safely behind the arc, with the throwing arm down.
+    { y: 0, lean: 1, legs: [[[-1, -3], [-3, -2]], [[2, -3], [2, -1]]], arms: [[[-2, 1], [-4, 2]], [[1, 3], [0, 5]]] },
     // Crossover: the right leg bounds across in front, the javelin held back…
     { y: -2, lean: -1, legs: [[[-1, -3], [-3, -2]], [[3, -4], [2, -3]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
     // …and lands, the left swinging through behind.
     { y: -1, lean: -1, legs: [[[-1, -3], [-3, -3]], [[2, -3], [2, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback" },
     // The block: the left leg planted long and straight, leaning back, the arm still drawn.
     { y: 0, lean: -2, legs: [[[4, -3], [5, -1]], [[0, -3], [-3, -1]]], arms: [[[2, 0], [4, -1]], [[-3, 0], [-6, -1]]], item: "javback", face: "strain" },
-    // Delivery: the elbow leads and the javelin comes over the top, above the head, angled up.
-    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[-1, -7], [1, -16]]], item: "javup", face: "strain" },
+    // Delivery: the elbow leads, the javelin angled up across the top of the head.
+    { y: -2, lean: 1, legs: [[[3, -3], [4, -1]], [[0, -3], [-3, -2]]], arms: [[[0, 2], [-1, 3]], [[-1, -5], [1, -10]]], item: "javup", face: "strain" },
+    // The arm whips forward and down while the chest folds over the block leg.
+    { y: 0, lean: 4, legs: [[[3, -3], [4, -1]], [[-1, -4], [-4, -3]]], arms: [[[-2, 1], [-4, 2]], [[4, -1], [7, 1]]] },
+    // Reverse: the right leg catches the body, left leg kicks back, arm wraps across the torso.
+    { y: 1, lean: 3, legs: [[[-2, -4], [-5, -4]], [[3, -3], [3, -1]]], arms: [[[-2, 0], [-4, 1]], [[2, 3], [-1, 5]]] },
   ],
 };
 // Carrying the javelin on the run-up: the run cycle with the throwing hand held up by the head.
@@ -253,6 +261,7 @@ function drawFigure(g, o) {
       P(nx, ny, 2, 1, "#b0503a");
     };
   const item = ([nx, ny]) => {
+    if (o.released) return;
     switch (p.item) {
       case "shot":
         ellipse(g, OX + nx + 2, OY + ny, 2, 2, "#585c66");
@@ -432,7 +441,7 @@ function drawFigure(g, o) {
 
 const cache = new Map();
 export function sprite(o) {
-  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.kit, o.rank, o.pose, o.frame, o.event, o.flip, o.face]);
+  const key = JSON.stringify([o.look, o.shirt, o.collar, o.shorts, o.kit, o.rank, o.pose, o.frame, o.event, o.flip, o.face, o.released]);
   let c = cache.get(key);
   if (c) return c;
   const base = canvas(SPRITE_W, SPRITE_H);
@@ -459,6 +468,13 @@ export function gripOf(o) {
     ttop = -10 + (p.y || 0),
     x = (p.view && p.view !== "side" ? (k ? 2 : -4) : -1) + (p.lean || 0) + p.arms[k][1][0] + 1;
   return [o.flip ? -1 - x : x, ttop + 1 + p.arms[k][1][1] + 1];
+}
+// Front edge of the shoes, including their outline, from the sprite origin at scale 1.
+// Movement must leave room for the whole foot, rather than only keeping the body behind a line.
+export function frontFootOf(o) {
+  const p = poseData(o.pose, o.frame || 0, o.event),
+    feet = p.legs ? p.legs.map((l) => l[1]) : p.feet.map(footAt);
+  return Math.max(...feet.map(([x]) => o.flip ? 1 - x : x + 4));
 }
 // Draw a figure with its feet at (x, y). Scale must be an integer to stay crisp.
 export function figure(g, o, x, y, scale = 1) {

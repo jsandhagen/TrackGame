@@ -21,7 +21,8 @@ test('standard prep is optional, uses balanced work and always rests before a me
 });
 test('prep rests tired entrants, respects injuries and follows rescheduled dates and changed entries',()=>{
  const s=booked(),a=s.roster[0];G.setAutoMeetPrep(s,true);a.stamina=39;assert.equal(G.plannedActivity(s,a),'rest');
- a.stamina=40;assert.equal(G.plannedActivity(s,a),'balanced');a.injury=2;assert.equal(G.plannedActivity(s,a),'injured');a.injury=0;
+ a.stamina=40;assert.equal(G.plannedActivity(s,a),'rest');
+ a.stamina=60;assert.equal(G.plannedActivity(s,a),'balanced');a.injury=2;assert.equal(G.plannedActivity(s,a),'injured');a.injury=0;
  s.day=s.matchDay-1;assert.equal(G.plannedActivity(s,a),'rest');s.matchDay+=3;assert.equal(G.plannedActivity(s,a),'balanced');
  s.entries.shot=[];s.lineup.shot=null;assert.equal(G.plannedActivity(s,a),'power');
  s.phase='planning';assert.equal(G.autoPrepActivity(s,a),null);
@@ -62,4 +63,44 @@ test('course application is atomic without funds and can qualify a technical ath
  assert(result.ok);assert.deepEqual(result.applied,[a.id]);assert.equal(result.skipped.length,ids.length-1);
  assert.equal(s.coaching.insights,100-PLANS.technicalblock.cost);assert.equal(a.plan,'technicalblock');
  assert.deepEqual(G.coachingTargets(s,'group',[a.id,a.id,999999]),[a.id]);
+});
+
+test('default all-round work preserves stamina for special sessions over repeated days, including heat',()=>{
+ for(const spa of [0,3]) {
+  const s=G.newGame(40+spa);
+  if(spa) s.plots[8]={type:'spa',level:spa};
+  const reserve=20+Math.max(...Object.keys(G.DRILLS).map(id=>G.drillEnergy(s,id)));
+  let hotDays=0,restDays=0;
+  for(let day=0;day<90;day++) {
+   s.pendingEvent=null;
+   const out=G.advanceDay(s);assert(out.ok);
+   s.pendingEvent=null; // Club-story decisions are independent of training stamina.
+   if(out.weather==='heat') hotDays++;
+   restDays+=out.athletes.filter(r=>r.activity==='rest').length;
+   for(const a of s.roster) {
+    assert(a.stamina>=reserve-1e-8,`day ${s.day}, ${a.name}: ${a.stamina} below coached-session reserve ${reserve}`);
+    assert.equal(G.drillProblem(s,a,'sandbag',1),null,'daily work must leave special training available');
+   }
+  }
+  assert(hotDays>0,'covers the heatwave stamina multiplier');assert(restDays>0,'automatic recovery interrupts fatigue buildup');
+ }
+});
+
+test('an athlete can do a heavy special session and recover automatically on the next default day',()=>{
+ const s=G.newGame(44),a=s.roster[0];s.coaching.insights=100;
+ s.plots.find(p=>p?.type==='gym').level=2;
+ a.stamina=G.drillEnergy(s,'medicine')+20;
+ assert(G.coachGroup(s,[a.id],'medicine'));assert.equal(a.stamina,20);
+ s.pendingEvent=null;const out=G.advanceDay(s);
+ assert.equal(out.athletes.find(r=>r.id===a.id).activity,'rest');
+ assert.equal(G.drillProblem(s,a,'medicine',1),null,'ready for a coached session again after recovery');
+});
+
+test('focused plans keep their existing fatigue tradeoff and automatic rest can still be disabled',()=>{
+ const s=G.newGame(45),a=s.roster[0];a.stamina=40;
+ a.plan='power';assert.equal(G.plannedActivity(s,a),'power');
+ a.plan='balanced';assert.equal(G.plannedActivity(s,a),'rest');
+ a.autoRest=false;assert.equal(G.plannedActivity(s,a),'balanced');
+ a.autoRest=true;a.plan='power';a.stamina=24;assert.equal(G.plannedActivity(s,a),'rest');
+ assert(PLANS.balanced.load<PLANS.power.load);
 });

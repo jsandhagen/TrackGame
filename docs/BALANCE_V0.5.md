@@ -32,6 +32,6 @@ Reading: the Community League teaches the loop and is usually won first time. Co
 
 ## Known gaps
 
-- Injuries are rare because athletes rest automatically below 25 stamina. Turning auto-rest off is the risky, faster route.
+- All-round is light daily maintenance and automatically recovers before stamina would fall below the coached-session reserve. Focused plans retain their heavier costs and rest below 25 stamina. Turning auto-rest off permits deeper fatigue.
 - Money becomes plentiful late in a run (engaged bots hold ~$7.4k after the title; idle bots hoard ~$55k). Late sinks are Legend promotions, forging, epic shop items and secret characters.
 - Human playtesting on devices is still needed for session length, readability at phone scale and whether Watch mode's clutch pauses come at the right moments.

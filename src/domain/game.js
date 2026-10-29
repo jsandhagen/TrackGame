@@ -70,7 +70,7 @@ import { invitationDay, closeInvitation, ensureInvitations } from "./invitationa
 import { ensureCustom } from "./customize.js";
 import { WEATHER, weatherToday, weatherTrainFactor, weatherSeedFrom } from "./calendar.js";
 import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effectiveDuty } from "./facility-duties.js";
-import { planProblem, practiceInsights, INSIGHT_START } from "./coaching.js";
+import { planProblem, practiceInsights, INSIGHT_START, DRILLS, drillEnergy } from "./coaching.js";
 export * from "./core.js";
 export * from "./meet.js";
 export * from "./story.js";
@@ -252,9 +252,16 @@ export function discover(s) {
 
 // ── Daily simulation ──────────────────────────────────────────────────
 // A deliberately simple routine; never replaces the athlete's saved manual plan.
+function balancedNeedsRest(s, a) {
+  // Daily maintenance should leave enough energy for even the heaviest coached session.
+  // Include today's load, weather and stamina modifiers so the reserve survives the next tick.
+  const reserve = 20 + Math.max(...Object.keys(DRILLS).map(id => drillEnergy(s, id))),
+    cost = PLANS.balanced.load * 13 * effects(s, a).stamina * (WEATHER[weatherToday(s)].stamina || 1);
+  return a.stamina - Math.max(0, cost - 4) < reserve;
+}
 export function autoPrepActivity(s, a) {
   if (a.injury || !s.settings.autoMeetPrep || s.phase !== "season" || !Number.isFinite(s.matchDay) || s.matchDay < s.day || !EVENT_IDS.some(ev => entriesOf(s,ev).includes(a.id))) return null;
-  if (s.matchDay - s.day <= 1 || a.stamina < 40) return "rest";
+  if (s.matchDay - s.day <= 1 || balancedNeedsRest(s, a)) return "rest";
   return "balanced";
 }
 export function setAutoMeetPrep(s, enabled) {
@@ -275,9 +282,10 @@ export function plannedActivity(s, a, assignments) {
   }
   const left = s.matchDay == null ? Infinity : s.matchDay - s.day;
   if (a.autoTaper && left <= 1 && (a.plan !== "facilities" || EVENT_IDS.some(ev=>entriesOf(s,ev).includes(a.id)))) return a.stamina < 70 ? "rest" : "sharpen";
-  if (a.autoRest && a.stamina < 25) return "rest";
   if(a.plan === "facilities") return "rest";
-  return planProblem(s,a,a.plan) ? "balanced" : a.plan;
+  const plan = planProblem(s,a,a.plan) ? "balanced" : a.plan;
+  if (a.autoRest && (a.stamina < 25 || plan === "balanced" && balancedNeedsRest(s, a))) return "rest";
+  return plan;
 }
 export function visitorsPerDay(s) {
   const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.15 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);
