@@ -393,9 +393,8 @@ export function validateCampaign(input) {
   ensureCustom(s);
   s.secretsOffered = s.secretsOffered.filter((k) => SECRETS[k]);
   s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
-  // Skip is an action, never a persisted playback rate.
-  if (![1,2].includes(s.settings.speed)) s.settings.speed=1;
-  if (![1,2].includes(s.settings.meetSpeed)) s.settings.meetSpeed=1;
+  if (![1,2,3].includes(s.settings.speed)) s.settings.speed=1;
+  if (![1,2,3].includes(s.settings.meetSpeed)) s.settings.meetSpeed=1;
   if (s.pendingEvent && typeof s.pendingEvent.id !== "string") s.pendingEvent = null;
   if (s.match) checkMatch(s, ids);
   rebalanceRivals(s);

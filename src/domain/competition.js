@@ -77,7 +77,8 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });
   const fee = entryFee(kind, tier);
   s.money -= fee;
-  const startDay = firstMeet(s) ? Math.max(s.day, 4) : s.day + preparation;
+  // The opening challenge starts today; daily preparation is learned after it.
+  const startDay = firstMeet(s) ? s.day : s.day + preparation;
   s.competition = { kind, tier, stage: strength, rival, spacing, startDay, fee, ...(kind === "league" ? { format: "championship", qualifyingMarks: {} } : {}) };
   s.phase = "season";
   s.fixture = 0;

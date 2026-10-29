@@ -148,7 +148,8 @@ export function newGame(seed = Date.now() >>> 0) {
     alumni: [],
     rebuildStreak: 0,
     freeScout: false,
-    settings: { ...DEFAULT_SETTINGS },
+    // Start the opening meet at a brisk pace; the arrows can change it at any time.
+    settings: { ...DEFAULT_SETTINGS, meetSpeed: 2 },
     clubs: [],
   };
   s.plots[CLUB_PLOT] = { type: "club", level: 1 };
@@ -168,7 +169,7 @@ export function newGame(seed = Date.now() >>> 0) {
   s.rivalClubs[0]=s.clubs;
   autoLineup(s);
   // Scouting is introduced after the sixth meet.
-  note(s, "Welcome home, Coach! Meet your four throwers, then book your first duel. We will learn the rest after competing.", "story");
+  note(s, "Four throwers. One rival. Head to your first duel, then use the rewards to grow your club.", "story");
   ensureInvitations(s);
   return ensureCustom(s);
 }
@@ -331,7 +332,7 @@ export function restAmount(s, a, fx = effects(s, a)) {
 }
 export function advanceDay(s) {
   if (s.match || !["planning", "season"].includes(s.phase) || (s.matchDay != null && s.day >= s.matchDay) || s.pendingEvent) return { ok: false };
-  if (firstMeet(s) && !s.competition && s.day >= 4) return { ok: false, reason: "The squad is ready. Book your first duel from Meets." };
+  if (firstMeet(s) && !s.competition) return { ok: false, reason: "The squad is ready. Start your first duel from Meets." };
   s.day++;
   count(s, "days");
   const weather = weatherToday(s),

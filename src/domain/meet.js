@@ -150,6 +150,7 @@ export function autoLineup(s) {
 
 function rivalEntries(s,rival) {
   const out=Object.fromEntries(EVENT_IDS.map(ev=>[ev,[rival.athletes.find(a=>a.event===ev).id]]));
+  if (firstMeet(s)) return out;
   for(let pass=0;pass<2;pass++) for(const ev of EVENT_IDS) {
     const candidates=rival.athletes.filter(a=>!out[ev].includes(a.id)&&EVENT_IDS.filter(e=>out[e].includes(a.id)).length<2).sort((a,b)=>forecast(s,b,ev,{club:false})-forecast(s,a,ev,{club:false}));
     if(candidates[0])out[ev].push(candidates[0].id);
@@ -199,7 +200,8 @@ export function startMatch(s) {
     entryIndex: 0,
     finalRound: false,
     fields: EVENT_IDS.map((ev, i) => ({
-      home: entriesOf(s, ev).map((id) => ({ id, marks: [], finalist: false })),
+      // Learn with one thrower per club; keep the full saved lineup for later meets.
+      home: (firstMeet(s) ? entriesOf(s, ev).slice(0,1) : entriesOf(s, ev)).map((id) => ({ id, marks: [], finalist: false })),
       away: awayEntries[ev].map((id) => ({ id, marks: [], finalist: false, ...(leagueChampionship ? { clubId: clubs.find(c => c.athletes.some(a => a.id === id)).id } : {}) })),
     })),
     phase: "intro",

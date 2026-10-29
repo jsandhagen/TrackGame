@@ -1,3 +1,5 @@
+import { playbackRate } from "../platform/pacing.js";
+
 // Animation speed and reading time are separate: highlights may shorten the
 // delivery, but never flash a result past the coach.
 export const CUTIN_MS = 1000;
@@ -24,8 +26,7 @@ export function beatDuration(beat) {
 
 // Highlight preferences never secretly accelerate routine throws at 1×.
 export function advanceBeatClock(beat, elapsed, dt, speed = 1, settings = {}) {
-  const rate = speed === 2 ? 2 : 1;
-  return elapsed + dt * rate;
+  return elapsed + dt * playbackRate(speed);
 }
 
 const placeName = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;

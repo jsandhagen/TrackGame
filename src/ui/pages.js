@@ -40,6 +40,7 @@ import {
   towerColorsOf,
 } from "../game-content.js";
 import { ico, moodIco } from "../render/uiicons.js";
+import { playbackRate } from "../platform/pacing.js";
 
 export const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 export const cash = (n) => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString();
@@ -86,11 +87,24 @@ export const WINDOW_TITLES = { home: "Clubhouse", squad: "The squad", train: "Tr
 export function lockedSystem(s, id) {
   return `<article class="card"><h2>One step at a time</h2><p>${esc(G.systemProblem(s,id))} Compete to discover the next club system.</p></article>`;
 }
+export function speedButtons(speed, action, { pause = false, disabled = false } = {}) {
+  return (pause ? [0,1,2,3] : [1,2,3]).map(n => {
+    const label = n ? ["", "Watch", "Fast", "Very fast"][n] + " · " + playbackRate(n) + "× speed" : "Pause";
+    return `<button class="${speed === n ? "active" : ""}" data-act="${action}" data-speed="${n}" aria-label="${label}" title="${label}" aria-pressed="${speed === n}" ${disabled ? "disabled" : ""}>${n ? `<span class="speed-arrows" aria-hidden="true">${"▸".repeat(n)}</span>` : ico("pause")}</button>`;
+  }).join("");
+}
+
+export function opening(s) {
+  return `<p class="opening-pitch">Four throwers. One patchy field. A club to build.</p>
+    <div class="opening-squad">${s.roster.map(a=>`<div>${portrait(a)}<b>${esc(a.name.split(" ")[0])}</b><small>${EVENTS[a.event].short}</small></div>`).join("")}</div>
+    <p><b>First challenge: ${esc(CLUBS[0][0].name)}.</b><br>Your squad is ready. Let's put a mark on the board.</p>`;
+}
+
 export function introductionCard(s) {
   const next = G.nextIntroduction(s);
   if (!next) return "";
   const latest = G.INTRODUCTIONS[G.introductionCount(s)-1];
-  return `<article class="card introduction-card"><span class="eyebrow">LEARNING THE CLUB</span>${latest ? `<h2>New: ${esc(latest.name)}</h2><p>${esc(latest.desc)}</p>${btn("Explore " + esc(latest.name.toLowerCase()), "page", `data-page="${latest.page}"`, "subtle")}` : `<h2>Your first duel</h2><p>The squad and lineup are ready. Book a duel, train until meet day, then compete.</p>`}<p class="hint">Next: ${esc(next.name)} after meet ${G.introductionCount(s)+1}. Wins and losses both count.</p></article>`;
+  return `<article class="card introduction-card"><span class="eyebrow">${latest ? "TRY SOMETHING NEW" : "FIRST CHALLENGE"}</span>${latest ? `<h2>New: ${esc(latest.name)}</h2><p>${esc(latest.desc)}</p>${btn("Explore " + esc(latest.name.toLowerCase()), "page", `data-page="${latest.page}"`, "subtle")}` : `<h2>Your first duel</h2><p>Your four throwers are ready. Take on ${esc(CLUBS[0][0].name)} today.</p>`}<p class="hint">${latest ? `Next: ${esc(next.name)} after meet ${G.introductionCount(s)+1}.` : "Finish the duel to unlock daily training plans. Every result counts."}</p></article>`;
 }
 
 // The card that introduces a new signing.
@@ -104,6 +118,7 @@ export function newcomer(s, a) {
 // ── Club desk ───────────────────────────────────────────────────────────
 export function home(s, view) {
   if (s.phase === "seasonEnd") return seasonEnd(s);
+  if (G.firstMeet(s)) return `${introductionCard(s)}${s.competition && s.day < s.matchDay ? `<p>Your first duel is booked. Finish practice, then head to the call room.</p>${btn("Finish preparations", "play")}` : btn(s.competition ? "To the call room" : "Start your first duel", "first-duel")}`;
   const opp = G.opponent(s),
     days = s.matchDay == null ? null : s.matchDay - s.day,
     ready = days != null && days <= 0;
@@ -748,7 +763,7 @@ function championshipStandards(s) {
 }
 export const SCOREBOARD_LIMIT = 10;
 export function leagueTutorial() {
-  return `<details class="card league-tutorial"><summary>How league qualification and finals work</summary><ol><li>Compete in <b>three league duels</b>, with three throws per athlete.</li><li>Earn the event's <b>minimum qualifying mark</b> in those duels. Open <b>Meets → Qualification</b> to see standards, marks and qualified athletes.</li><li>At the multi-club championship, every qualified entry gets <b>three preliminary throws</b>. The <b>top six</b> earn three more in the final; all marks carry forward.</li></ol><p>The scoreboard shows the top ten. Countback settles equal best throws; an exact tie at the final cut advances together. 1× is for watching and decisions, 2× is faster, and 3 · Skip advances to the next meet or finishes the current one.</p></details>`;
+  return `<details class="card league-tutorial"><summary>How league qualification and finals work</summary><ol><li>Compete in <b>three league duels</b>, with three throws per athlete.</li><li>Earn the event's <b>minimum qualifying mark</b> in those duels. Open <b>Meets → Qualification</b> to see standards, marks and qualified athletes.</li><li>At the multi-club championship, every qualified entry gets <b>three preliminary throws</b>. The <b>top six</b> earn three more in the final; all marks carry forward.</li></ol><p>The scoreboard shows the top ten. Countback settles equal best throws; an exact tie at the final cut advances together. Set the pace with one, two or three arrows: normal, fast or very fast. Coaching decisions always wait for you.</p></details>`;
 }
 export function qualifications(s, view = {}, event = null) {
   if (!G.championshipBooking(s)) return `<article class="card"><h2>Championship qualification</h2><p>Enter a league to earn qualifying marks in its three duels.</p></article>${leagueTutorial()}`;
@@ -757,7 +772,7 @@ export function qualifications(s, view = {}, event = null) {
 }
 
 function competitionBoard(s, view) {
-  if (G.firstMeet(s)) return `${introductionCard(s)}<article class="card"><h2>Community club duel</h2><p>Face ${esc(CLUBS[0][0].name)}. Three throws per athlete, with your lineup already chosen.</p>${s.competition ? btn("Back to preparations", "page", 'data-page="home"') : btn("Book your first duel", "book-duel", 'data-tier="0" data-rival="0"')}</article>`;
+  if (G.firstMeet(s)) return `${introductionCard(s)}${btn(s.competition ? "Back to your first duel" : "Start your first duel", "first-duel")}`;
   const planning = s.phase === "planning";
   const active = s.competition;
   // What to enter comes first; how it works and the scheduling options sit at the bottom.
@@ -943,9 +958,22 @@ export function club(s, meta, view = {}) {
 // ── Meet lobby ──────────────────────────────────────────────────────────
 // "Mara Kowal" → "Mara K." for tight pickers.
 const shortName = (name) => name.replace(/^(\S+)\s+(\p{L}).*$/u, "$1 $2.");
+function meetModes(s) {
+  return `<div class="modes" aria-label="Meet mode">${["watch", "coach"].map(mode => `<button class="mode ${s.settings.meetMode === mode ? "selected" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}"><strong>${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</strong><small>${mode === "watch" ? (!G.firstMeet(s) && s.settings.clutch ? "Athletes handle the throws; you call clutch moments." : "Your athletes handle every throw.") : "Choose a tactic before each of your throws."}</small></button>`).join("")}</div>`;
+}
+
+function firstMeetLobby(s, problem) {
+  return `<section class="card first-meet-brief"><span class="eyebrow">FIRST CHALLENGE · vs ${esc(G.opponent(s).name)}</span><h2>Make your best throw count</h2><p><b>Four events. Three throws each.</b> Only your best legal mark counts. Places earn club points; most points wins.</p><p class="hint">X means a foul: that throw scores no mark.</p></section>
+    <h2>Watch or coach?</h2>${meetModes(s)}
+    <p class="hint">Change modes anytime. One, two or three arrows set the pace.</p>
+    <details class="card"><summary>Your starting four · lineup ready</summary><div class="opening-squad">${s.roster.map(a=>`<div>${portrait(a)}<b>${esc(a.name.split(" ")[0])}</b><small>${EVENTS[a.event].short}</small></div>`).join("")}</div></details>
+    ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}${btn(ico("stadium") + " Let's throw!", "enter", problem ? "disabled" : "")}`;
+}
+
 export function lobby(s, view = {}) {
   const m = G.opponent(s),
     problem = G.lineupProblem(s);
+  if (G.firstMeet(s)) return firstMeetLobby(s, problem);
   const championship = G.isLeagueChampionship(s), field = championship ? G.championshipEntries(s) : null;
   const sky = G.weatherToday(s);
   // A lineup that needs fixing opens straight into the entry pickers.
@@ -971,12 +999,9 @@ export function lobby(s, view = {}) {
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
   <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ★ marks a specialist.${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
   ${view.editLineup ? s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("") : ""}
-  ${G.firstMeet(s) ? `<p class="hint">Your lineup is ready. Watch the squad compete; you can change entries after this meet.</p>` : `<div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
-  `}
+  <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
-  ` : ""}${G.firstMeet(s) ? `<p class="hint">Watch mode: your athletes choose their throws.</p>` : `<div class="card-title"><h2>How do you want to run it?</h2></div>
-  <div class="modes">${["watch", "coach"].map((mode) => `<button class="mode ${s.settings.meetMode === mode ? "selected" : ""}" data-act="meet-mode" data-value="${mode}"><strong>${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</strong><small>${mode === "watch" ? (s.settings.clutch ? "Athletes choose their approach; you make the call on clutch last throws." : "Athletes choose their approach. Clutch pauses can be turned on in Settings.") : "You choose the approach for every one of your throws."}</small></button>`).join("")}</div>
-  `}
+  ` : ""}<div class="card-title"><h2>How do you want to run it?</h2></div>${meetModes(s)}
   ${btn(ico("stadium") + " Start the meet", "enter", problem ? "disabled" : "")}`;
 }
 
@@ -1034,7 +1059,7 @@ export function meetBar(s, view) {
       const {athlete,club}=meetAthlete(s,row.side,row.id);
       return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
     }).join("")}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}${leagueDuel ? `<small class="live-standard">Championship standard <b>${mark(G.qualifyingStandard(s,ev))}</b></small>` : ""}</section>`}
-  </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" title="1× Watch · 2× Faster · 3 Skip">${[1,2].map(n=>`<button class="${(view.meetSpeed||1) === n ? "active" : ""}" data-act="meet-speed" data-speed="${n}" aria-label="Delivery speed ${n} times" aria-pressed="${(view.meetSpeed||1) === n}">${n}×</button>`).join("")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${leagueDuel ? btn(view.meetStandards ? "Standings" : "Standards", "meet-standards", `aria-pressed="${!!view.meetStandards}"`, "subtle small") : ""}${btn("3 · Skip", "skip", 'aria-label="3 · Skip the rest of the meet"', "subtle small")}</div>`;
+  </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" role="group" aria-label="Meet speed">${speedButtons(view.meetSpeed || s.settings.meetSpeed || 1, "meet-speed")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${leagueDuel ? btn(view.meetStandards ? "Standings" : "Standards", "meet-standards", `aria-pressed="${!!view.meetStandards}"`, "subtle small") : ""}</div>`;
 }
 export function meetScore(s) {
   const m = s.match,
@@ -1049,7 +1074,7 @@ export function decide(s, view) {
     sigReady = G.canSignature(s, "home");
   if (view.meter)
     return `<div class="meter-panel"><span class="eyebrow">RELEASE ON THE GOLD</span><div class="meter"><span class="zone good"></span><span class="zone perfect" style="--w:${G.effects(s, a).perfect ? 22 : 14}%"></span><span id="needle"></span></div>${btn("Release!", "release")}<small>Tap Release, or press Space.</small></div>`;
-  return `<div class="decide ${m.last?.clutch ? "clutch" : ""}"><p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}${esc(a.name)} · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
+  return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All-out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}${esc(a.name)} · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
     <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>${approachPicker(a,EVENT_IDS[m.eventIndex])}<p>${esc(G.APPROACHES[EVENT_IDS[m.eventIndex]].find(d=>d.id===a.approaches[EVENT_IDS[m.eventIndex]])?.desc)}${EVENT_IDS[m.eventIndex] === "discus" ? " · Conditions: "+esc(m.wind||"calm") : ""}</p>
     <div class="tactics">${Object.entries(TACTICS)
       .map(([id, t]) => {
@@ -1104,7 +1129,7 @@ export function meetComplete(s, view = {}) {
   return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : m.kind === "cup" ? esc(r.invitational?.name || "INVITATIONAL").toUpperCase() : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b><span data-count="${m.score}">${m.score}</span> <small>–</small> <span data-count="${m.against}">${m.against}</span></b><span>${esc(m.name)}</span></div>${win ? `<div class="confetti" aria-hidden="true">${Array.from({ length: 16 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${((i * 13) % 9) / 10}s;--r:${(i * 71) % 360}deg;--c:${["#f2c94c", s.colors.primary, "#e0506a", "#5aa4c8", "#8cc152"][i % 5]}"></i>`).join("")}</div>` : ""}</header>
   <div class="meet-payout"><span>${ico("coin")} <b>+<span data-count="${r.money || 0}" data-cash>${cash(r.money || 0)}</span></b></span><span>${ico("heart")} +<span data-count="${r.fans || 0}">${r.fans || 0}</span> fans</span>${G.systemUnlocked(s,"sessions") ? `<span>${ico("idea")} +<span data-count="${r.insights || 0}">${r.insights || 0}</span> Insights</span>` : ""}${r.mvp ? `<span class="meet-mvp">${ico("mvp")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}${(r.worldRecords || []).map((w) => `<span class="meet-mvp wr-ours">${ico("trophy")} WORLD RECORD <b>${esc(w.name)} ${mark(w.mark)}</b></span>`).join("")}</div>
   ${m.leagueChampionship ? championshipTable(s) : ""}
-  ${r.introduction ? (() => { const d = G.INTRODUCTIONS.find(d => d.id === r.introduction); return `<article class="card introduction-card"><span class="eyebrow">NEW CLUB SYSTEM</span><h2>${esc(d.name)}</h2><p>${esc(d.desc)}</p><p class="hint">Explore it when you return to the club.</p></article>`; })() : ""}
+  ${r.introduction ? (() => { const d = G.INTRODUCTIONS.find(d => d.id === r.introduction); return `<article class="card introduction-card"><span class="eyebrow">NEW CLUB SYSTEM</span><h2>${esc(d.name)}</h2><p>${esc(d.desc)}</p>${btn("Try " + esc(d.name.toLowerCase()), "leave", `data-page="${d.page}"`, "subtle")}</article>`; })() : ""}
   ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
   <nav class="meet-result-tabs" aria-label="Meet report"><button class="report-menu" data-act="game-menu">Menu</button><button data-act="result-view" data-value="results" aria-pressed="${!growth && !standards}" class="${!growth && !standards?"active":""}">Results</button>${m.kind==="league" && G.championshipBooking(s) ? `<button data-act="result-view" data-value="standards" aria-pressed="${standards}" class="${standards?"active":""}">Qualification</button>` : ""}<button data-act="result-view" data-value="progress" aria-pressed="${growth}" class="${growth?"active":""}">Athlete growth${r.levelUps.length ? `<b>${r.levelUps.length} level-up${r.levelUps.length===1?"":"s"}</b>` : ""}</button></nav>
   ${standards ? qualifications(s,view) : growth ? meetGrowth(s) : `
