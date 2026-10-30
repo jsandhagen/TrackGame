@@ -96,6 +96,8 @@ Technique comes from form; the finish after release is the athlete's own, so two
 | Hammer | Three quarters of a turn more, then plant | A turn and a quarter, or a hop back for standing finishes | No turn: plant and sit back |
 | Javelin | Fold over the block, reverse and stand | A second hop on the right foot after the reverse | Hold the fold over the block, then rise |
 
+One finish is earned rather than chosen. After a big javelin throw (a personal best, a world record, taking the lead, or a best throw that holds it), a Natural Athlete with the elite approach does a Johannes Vetter-style flop. They carry over the blocked left leg instead of stepping through, dive with both legs off the runway, land flat on their hands behind the arc, then come up onto one knee pulling a fist down before standing for the reaction. Hands and shoes stay behind the arc, so the throw stays legal. `flopsForward` in `src/render/throw-motion.js` decides it, and the study page has a Flop toggle.
+
 Fouls use the same finish for everyone, carrying over the front. The style only changes the recovery: it does not alter distance, timing, saves or form. The study page has a Recovery selector.
 
 ## Animation and review

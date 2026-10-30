@@ -461,3 +461,26 @@ test('javelin crossovers run tall; the lean back is saved for the penultimate', 
  assert(shoulder(12) > shoulder(13) && shoulder(13) > shoulder(14), 'the lean builds from the last left contact into the impulse');
  assert(shoulder(16) <= shoulder(14) && shoulder(17) <= shoulder(14), 'and holds through the catch and block');
 });
+
+test('elite Natural Athletes flop forward after a big javelin throw, staying behind the arc', async () => {
+ const { flopsForward } = await import('../src/render/throw-motion.js');
+ const natural = { type: 'natural' }, big = { mark: 80, newPb: true, ownBest: 80 };
+ assert(flopsForward(natural, 'jav', 3, big));
+ assert(flopsForward(natural, 'jav', 3, { mark: 80, leading: true, ownBest: 80 }), 'a lead-holding best throw');
+ assert(!flopsForward(natural, 'jav', 3, { mark: 70, leading: true, ownBest: 80 }), 'not a weaker throw that only keeps an earlier lead');
+ assert(!flopsForward(natural, 'jav', 3, { mark: null, foul: true }), 'not after a foul');
+ assert(!flopsForward(natural, 'jav', 2, big), 'only with the elite approach');
+ assert(!flopsForward({ type: 'technician' }, 'jav', 3, big), 'only the Natural Athlete type');
+ assert(!flopsForward(natural, 'discus', 3, big), 'only in the javelin');
+ const flop = sample('jav', 3, 'follow', 200).map((_, i) => throwMotion('jav', 3, 'follow', i / 200, { flop: true }));
+ assert(flop.some(m => m.frame === 25), 'flat out on the runway');
+ assert.equal(flop[0].dx, throwMotion('jav', 3, 'release', 1).dx, 'no jump on release');
+ for (const m of flop) {
+  const o = spriteOptions('jav', m), ground = Math.round(-m.dx * 0.1);
+  assert(m.dx + 2 * frontFootOf(o) <= -2, 'shoes stay behind the arc');
+  for (const [, , [x, y]] of armJointsOf(o)) if (y >= -1) assert(m.dx + 2 * (x + 2) <= -2, 'hands land behind the arc');
+  assert.equal(m.dy, ground, 'on the runway');
+ }
+ assert.equal(flop.at(-1).frame, 3, 'back on their feet for the reaction');
+ assert.deepEqual(throwMotion('jav', 3, 'follow', 0.5, { flop: true, foul: true }).frame, throwMotion('jav', 3, 'follow', 0.5, { foul: true }).frame, 'a foul never flops');
+});

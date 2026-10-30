@@ -36,6 +36,12 @@ export function recoveryStyle(athlete) {
   const own = BACKGROUND_STYLE[athlete?.background];
   return own ?? (Math.abs(Math.round(Number(athlete?.id) || 0)) % 3);
 }
+// The Vetter flop: after a big throw, an elite Natural Athlete's javelin finish carries them over
+// the blocked leg onto the runway, hands down behind the arc, then up onto a knee to celebrate.
+export function flopsForward(athlete, ev, level, beat) {
+  return ev === "jav" && level === 3 && athlete?.type === "natural" && !beat?.foul && beat?.mark != null &&
+    !!(beat.newPb || beat.worldRecord || beat.tookLead || (beat.leading && beat.mark >= beat.ownBest));
+}
 // A quick hop on the support foot between progress a and b of the recovery.
 const hop = (m, p, a, b, h = 4) => {
   if (p > a && p < b) m.dy -= Math.sin((Math.PI * (p - a)) / (b - a)) * h;
@@ -43,13 +49,13 @@ const hop = (m, p, a, b, h = 4) => {
 };
 
 // phase: "ready" | "technique" | "release" | "follow"; p: progress through that phase, 0–1.
-export function throwMotion(ev, level, phase, p, { foul = false, style = 0 } = {}) {
+export function throwMotion(ev, level, phase, p, { foul = false, style = 0, flop = false } = {}) {
   p = Math.max(0, Math.min(1, p));
   const m = { frame: 0, flip: false, dx: 0, dy: 0, ball: null, released: phase === "release" || phase === "follow", ghost: level >= 3 && phase === "technique" };
   // A foul carries the thrower over the front whatever their style.
   if (foul) style = 0;
   if (ev === "jav") {
-    javelin(m, level, phase, p, foul, style);
+    javelin(m, level, phase, p, foul, style, flop && !foul);
     const before = m.dx;
     // Legal deliveries stop with the outlined shoe behind the near edge of the arc (dx = 0).
     // Keep this guard tied to the sprite geometry as new technique/recovery poses are added.
@@ -331,11 +337,18 @@ function javelinKeys(level) {
   [[0.25, 18], [0.5, 19], [0.78, 20], [1, 2]].forEach(([q, frame]) => plant(blockAt + q * quick, frame, L, block));
   return (javKeys[level] = keys);
 }
-function javelin(m, level, phase, p, foul, style) {
+function javelin(m, level, phase, p, foul, style, flop) {
   const slope = (dx) => Math.round(-dx * 0.1), keys = javelinKeys(level), [, , release] = keys.at(-1);
   if (phase === "ready") return Object.assign(m, { frame: keys[0][1], dx: keys[0][2], dy: slope(keys[0][2]) });
   if (phase === "release") {
     track(m, p, [[0, 2, release], [1, 21, release]], true); m.dy = slope(release); return m;
+  }
+  if (phase === "follow" && flop) {
+    // Over the block, airborne, flat on the runway, then up onto a knee and standing.
+    track(m, p, [[0, 21, release], [0.16, 23, release], [0.32, 24, release + 1], [0.46, 25, release + 1],
+      [0.68, 25, release + 1], [0.84, 26, release + 1], [1, 3, release + 2]], true);
+    m.dy = slope(m.dx);
+    return m;
   }
   if (phase === "follow") {
     const r = finish(m, p, foul, release);

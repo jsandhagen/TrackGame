@@ -287,6 +287,15 @@ const THROWS = {
     { y: 0, lean: 4, shoulders: [[-3, 1], [1, 1]], legs: [[[4, -3], [5, -1]], [[-1, -4], [-3, -3]]], arms: [[[-2, 1], [-4, 2]], [[3, -1], [6, 1]]] },
     // Reverse: the right leg catches the body, left leg kicks back, arm wraps across the torso.
     { y: 1, lean: 3, legs: [[[-2, -4], [-5, -4]], [[3, -3], [3, -1]]], arms: [[[-2, 0], [-4, 1]], [[2, 3], [-1, 5]]] },
+    // The flop, after a big throw: instead of stepping through, the body keeps going over the
+    // blocked left leg, the right leg swinging up behind…
+    { y: 2, lean: 6, hip: 2, legs: [[[3, -3], [4, -1]], [[-3, -4], [-7, -6]]], arms: [[[3, 2], [5, 4]], [[3, 1], [5, 4]]], face: "strain" },
+    // …a dive with both legs off the runway and the hands reaching for it…
+    { y: 3, lean: 8, hip: 1, legs: [[[-3, -3], [-6, -4]], [[-4, -4], [-8, -7]]], arms: [[[2, 3], [3, 5]], [[2, 2], [3, 5]]], face: "strain" },
+    // …flat out on the runway, hands under the shoulders, still behind the arc…
+    { y: 4, lean: 9, hip: 0, legs: [[[-4, -2], [-8, -2]], [[-4, -3], [-8, -4]]], arms: [[[0, 2], [1, 4]], [[1, 2], [1, 4]]], face: "happy" },
+    // …and up onto one knee, pulling a fist down in celebration.
+    { y: 2, lean: 2, hip: 1, legs: [[[3, -4], [3, -1]], [[-2, -1], [-6, -1]]], arms: [[[1, 2], [3, 4]], [[1, 3], [4, 2]]], face: "happy" },
   ],
 };
 export const THROW_FRAMES = { ready: 0, wind: 1, release: 2, follow: 3 };
