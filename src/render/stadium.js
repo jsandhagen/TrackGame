@@ -69,32 +69,39 @@ function spanOf(s, m, i, ev) {
 const ppmOf = () => sector.ppm;
 // Half the javelin runway's width on screen, in the oblique view.
 const RUNWAY = 9;
-// The discus and hammer cage, laid out like a real C-cage at the circle's scale (the 2.5 m ring
-// is 56 px wide): netting on an arc round the back of the circle, then straight side panels out
-// to a 6 m mouth in front of it. The discus cage's back netting is 3 m from the centre and its
-// mouth 5 m forward; the hammer cage stands 3.5 m back, its mouth 4.2 m forward, and is taller.
-// The far half is drawn behind the thrower, the near half in front, so the thrower stands inside.
+// The discus and hammer cage, laid out to World Athletics' cage rules at the circle's scale (the
+// 2.5 m ring is 56 px wide): U-shaped in plan, netting round the back of the circle and straight
+// sides out to a 6 m mouth 7 m in front of its centre. Discus netting is at least 4 m high. The
+// hammer cage is at least 7 m high, rising to 10 m for the last 2.8 m before the mouth, where
+// the movable gates hang (capped at the top of the scene). The far half is drawn behind the
+// thrower, the near half in front, so the thrower stands inside it.
 const CAGE_PX = 22.4, CAGE_DEPTH = 0.4;
-const CAGES = { discus: { r: 3, from: 80, mouth: 5, h: 96 }, hammer: { r: 3.5, from: 72, mouth: 4.2, h: 132 } };
+const CAGES = { discus: { mouth: 7, h: 4 }, hammer: { mouth: 7, h: 7, front: 10, frontFrom: 4.2 } };
 function cage(g, half, ev) {
   const c = CAGES[ev],
-    plan = [[c.mouth, -3]];
-  for (let i = 0; i <= 10; i++) {
-    const a = ((c.from + ((360 - 2 * c.from) * i) / 10) * Math.PI) / 180;
-    plan.push([Math.cos(a) * c.r, -Math.sin(a) * c.r]);
+    side = (v) => [...(c.front ? [[c.mouth, v], [c.frontFrom, v]] : [[c.mouth, v]]), [0, v]],
+    plan = [...side(-3)];
+  for (let i = 1; i < 8; i++) {
+    const a = Math.PI / 2 + (Math.PI * i) / 8;
+    plan.push([Math.cos(a) * 3, -Math.sin(a) * 3]);
   }
-  plan.push([c.mouth, 3]);
+  plan.push(...side(3).reverse());
+  // Height of a panel by how far forward it stands, never above the top of the scene.
+  const tall = (u1, u2) => Math.min(O.y - 6, Math.round((c.front && Math.min(u1, u2) >= c.frontFrom - 0.01 ? c.front : c.h) * CAGE_PX));
   // Far posts (negative v) sit above the circle on screen; near posts below it.
-  const posts = plan.map(([u, v]) => [Math.round(O.x + u * CAGE_PX), Math.round(O.y + v * CAGE_PX * CAGE_DEPTH), v]);
+  const posts = plan.map(([u, v]) => [Math.round(O.x + u * CAGE_PX), Math.round(O.y + v * CAGE_PX * CAGE_DEPTH), v, u]);
   const mine = (v) => (half === "back" ? v <= 0.05 : v > 0.05);
+  const heights = posts.map(() => 0);
   for (let i = 0; i + 1 < posts.length; i++) {
-    const [x1, y1, v1] = posts[i], [x2, y2, v2] = posts[i + 1];
+    const [x1, y1, v1, u1] = posts[i], [x2, y2, v2, u2] = posts[i + 1], h = tall(u1, u2);
+    heights[i] = Math.max(heights[i], h);
+    heights[i + 1] = Math.max(heights[i + 1], h);
     if (!mine((v1 + v2) / 2)) continue;
-    poly(g, [[x1, y1], [x2, y2], [x2, y2 - c.h], [x1, y1 - c.h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.08)");
-    for (let k = 8; k < c.h; k += 8) line(g, x1, y1 - k, x2, y2 - k, half === "back" ? "rgba(70,90,80,0.35)" : "rgba(70,90,80,0.22)");
-    line(g, x1, y1 - c.h, x2, y2 - c.h, "#3a4a42");
+    poly(g, [[x1, y1], [x2, y2], [x2, y2 - h], [x1, y1 - h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.08)");
+    for (let k = 8; k < h; k += 8) line(g, x1, y1 - k, x2, y2 - k, half === "back" ? "rgba(70,90,80,0.35)" : "rgba(70,90,80,0.22)");
+    line(g, x1, y1 - h, x2, y2 - h, "#3a4a42");
   }
-  for (const [x, y, v] of posts) if (mine(v)) rect(g, x, y - c.h, 2, c.h, "#4a5a52");
+  posts.forEach(([x, y, v], i) => mine(v) && rect(g, x, y - heights[i], 2, heights[i], "#4a5a52"));
 }
 function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
