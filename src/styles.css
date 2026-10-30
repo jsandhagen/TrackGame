@@ -5217,3 +5217,18 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .card-title .restock { font-size: 11px; font-weight: 700; color: var(--muted); }
 .item-card.book.sold { opacity: .55; }
 .sold-tag { font: 800 12px var(--display); letter-spacing: 1px; color: var(--muted); text-transform: uppercase; padding: 4px 10px; border: 1px dashed #c8b88a; border-radius: 6px; }
+
+/* ── Characters who talk: the shopkeeper in the shop, and pop-ups in the corner ── */
+.shopkeeper { display: flex; align-items: flex-end; gap: 10px; margin: 0 0 10px; }
+.shopkeeper .medallion, .speaker-card .medallion { flex: none; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff6dc, #f0d9a8); border: 3px solid var(--gold); box-shadow: 0 3px 0 #0003; overflow: hidden; }
+.shopkeeper .medallion canvas, .speaker-card .medallion canvas { width: 54px; height: 54px; image-rendering: pixelated; }
+.shopkeeper .speech, .speaker-card .speech { position: relative; flex: 1; margin: 0; padding: 8px 12px; background: #fffaf0; border: 2px solid #2a4a3a; border-radius: 12px 12px 12px 4px; font-size: 13px; line-height: 1.35; color: #2a2a22; box-shadow: 0 3px 0 #0002; }
+.shopkeeper .speech::before, .speaker-card .speech::before { content: ""; position: absolute; left: -9px; bottom: 8px; border: 7px solid transparent; border-right-color: #2a4a3a; border-left: 0; }
+.shopkeeper .speech b, .speaker-card .speech b { display: block; font: 700 11px/1.2 var(--display); letter-spacing: .8px; text-transform: uppercase; color: #b8622a; margin-bottom: 2px; }
+#speaker { position: absolute; z-index: 31; left: max(10px, env(safe-area-inset-left)); bottom: calc(max(8px, env(safe-area-inset-bottom)) + 96px); width: min(380px, calc(100vw - 24px)); animation: speaker-in .35s cubic-bezier(.2,1.4,.4,1); transition: opacity .4s, transform .4s; }
+#speaker[hidden] { display: none; }
+#speaker.out { opacity: 0; transform: translateY(10px); }
+.speaker-card { all: unset; box-sizing: border-box; display: flex; align-items: flex-end; gap: 8px; width: 100%; cursor: pointer; }
+.speaker-card .speech { box-shadow: 0 4px 0 #0b1a14, 0 10px 24px #0005; }
+@keyframes speaker-in { from { transform: translateY(16px) scale(.96); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #speaker { animation: none; } }

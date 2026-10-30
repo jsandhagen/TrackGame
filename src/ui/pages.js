@@ -2,6 +2,7 @@ import * as G from "../domain/game.js";
 import { line as voiceLine } from "../domain/voice.js";
 import { throwResult } from "../render/meet-presentation.js";
 import {
+  SHOPKEEPER,
   EVENTS,
   EVENT_IDS,
   LEAGUES,
@@ -677,6 +678,21 @@ export function build(s, view) {
 }
 
 // ── Shop & bag ──────────────────────────────────────────────────────────
+// What the shopkeeper has to say, most useful first: a sale, fresh books, an empty shelf, the
+// next delivery of stock, then a bit of chat that changes with the day.
+export function shopkeeperLine(s) {
+  const shelf = G.bookShelf(s), left = shelf.filter((k) => !G.bookSold(s, k)), days = G.shelfRestock(s);
+  const nextTier = SHOP_TIERS.find((t) => t > s.fans);
+  const cheapest = Math.min(...G.shopStock(s).map((k) => G.itemPrice(s, k)));
+  if (s.saleDay === s.day) return "Clearance day! Thirty percent off everything, today only.";
+  if (left.length && days === G.BOOK_WEEK) return `Fresh delivery this morning: ${left.map((k) => SKILLS[ITEMS[k].skill].name).join(", ")}. One copy each!`;
+  if (!left.length && shelf.length) return `Skill books are all gone. Next delivery in ${days} day${days === 1 ? "" : "s"}.`;
+  if (s.money < cheapest) return "Window shopping is free. Win a meet and come back!";
+  if (left.length) return `${left.length} skill book${left.length === 1 ? "" : "s"} still on the shelf. New ones in ${days} day${days === 1 ? "" : "s"}.`;
+  if (nextTier) return `Bring in ${nextTier.toLocaleString()} fans and I'll stock the good stuff.`;
+  return ["Chalk, spikes, the lot. What'll it be?", "Mind the shot rack, it bites.", "Fresh sweatbands, still warm from the wash."][s.day % 3];
+}
+const shopkeeperBanner = (s) => `<div class="shopkeeper"><span class="medallion"><canvas width="64" height="64" data-shopkeeper class="portrait"></canvas></span><p class="speech"><b>${SHOPKEEPER.name} · ${SHOPKEEPER.role}</b>${esc(shopkeeperLine(s))}</p></div>`;
 const SHOP_TABS = [["fuel"], ["implements"], ["wear"], ["books"], ["bag"]];
 export function shop(s, view) {
   if (!G.systemUnlocked(s,"kit")) return lockedSystem(s,"kit");
@@ -718,8 +734,8 @@ export function shop(s, view) {
     ${G.facilityLevel(s, "workshop") ? `<div class="card-title"><h2>Kit Workshop · forging</h2></div><p class="hint">Each forge level adds +0.6% distance to every copy of that item.</p><div class="item-grid">${[...new Set([...gear, ...worn.map(([k]) => k)])].map((k) => `<div class="item-card rarity-${ITEMS[k].rarity}">${icon(k)}<span><strong>${ITEMS[k].name}${s.forge[k] ? " +" + s.forge[k] : ""}</strong><small>Next: +${(s.forge[k] || 0) + 1}</small></span>${btn("Forge · " + cash(G.forgeCost(s, k)), "forge", `data-item="${k}" ${s.money < G.forgeCost(s, k) ? "disabled" : ""}`, "subtle small")}</div>`).join("")}</div>` : `<p class="hint">Build a Kit Workshop to forge your gear.</p>`}`;
   }
   const count = (f) => stock.filter((k) => f(ITEMS[k])).length;
-  const labels = { fuel: "Fuel · " + count((d) => d.kind === "use"), implements: "Implements · " + count((d) => d.slot === "implement"), wear: "Shoes & charms · " + count((d) => d.slot === "shoes" || d.slot === "charm"), books: "Skill books · " + G.bookShelf(s).filter((k) => !G.bookSold(s, k)).length, bag: "Kit bag · " + Object.values(s.bag).reduce((n, v) => n + v, 0) };
-  return `<nav class="tabs shop-tabs">${SHOP_TABS.map(([id]) => `<button data-act="shop-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${labels[id]}</button>`).join("")}<span class="tab-insights">${ico("coin")}<b>${cash(s.money)}</b></span></nav>${body}`;
+  const labels = { fuel: "Fuel · " + count((d) => d.kind === "use"), implements: "Implements · " + count((d) => d.slot === "implement"), wear: "Shoes & charms · " + count((d) => d.slot === "shoes" || d.slot === "charm"), books: "Books · " + G.bookShelf(s).filter((k) => !G.bookSold(s, k)).length, bag: "Kit bag · " + Object.values(s.bag).reduce((n, v) => n + v, 0) };
+  return `${shopkeeperBanner(s)}<nav class="tabs shop-tabs">${SHOP_TABS.map(([id]) => `<button data-act="shop-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${labels[id]}</button>`).join("")}<span class="tab-insights">${ico("coin")}<b>${cash(s.money)}</b></span></nav>${body}`;
 }
 // One-line effect label: stat items get a coloured stat pill so they read at a glance.
 function effectLine(d) {

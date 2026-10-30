@@ -469,3 +469,5 @@ export function towerColorsOf(s) {
 export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 
 export const HELPER = "Juno";
+// The club's kit-shop keeper, who also calls out each delivery and sale.
+export const SHOPKEEPER = { name: "Rudi", role: "kit shop", look: { skin: "#c98f66", hair: "#3a2a24", style: 1, special: "beard" }, colors: { primary: "#d0743a", secondary: "#f4efe2" } };

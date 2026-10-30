@@ -5,7 +5,7 @@ import "@fontsource/oswald/latin-500.css";
 import "@fontsource/oswald/latin-700.css";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
+import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER, SHOPKEEPER } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium } from "./render/stadium.js";
@@ -159,7 +159,7 @@ function menu() {
         : view.playing
           ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
           : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
-  $("#menu").innerHTML = `<div class="menu-items">${items.filter(([id]) => G.pageUnlocked(state, id)).map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
+  $("#menu").innerHTML = `<div class="menu-items">${items.filter(([id]) => G.pageUnlocked(state, id)).map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && (state.saleDay === state.day || (G.shelfRestock(state) === G.BOOK_WEEK && G.bookShelf(state).some((k) => !G.bookSold(state, k)))) ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
 }
 function tools() {
   $("#tools").innerHTML = state.match ? "" : `<button data-act="zoom" data-step="0.5" aria-label="Zoom in">${ico("plus")}</button><button data-act="zoom" data-step="-0.5" aria-label="Zoom out">${ico("minus")}</button><button data-act="recenter" aria-label="Centre on the stadium">${ico("stadium")}</button>`;
@@ -308,6 +308,50 @@ function paint(root) {
   });
   root.querySelectorAll("canvas[data-secret]").forEach((c) => paintPortrait(c, { look: SECRETS[c.dataset.secret].look, rank: 4 }, state.colors, { face: "happy" }));
   root.querySelectorAll("canvas[data-helper]").forEach((c) => paintPortrait(c, { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, rank: 2 }, state.colors, { face: "happy" }));
+  root.querySelectorAll("canvas[data-shopkeeper]").forEach((c) => paintPortrait(c, { look: SHOPKEEPER.look, rank: 0 }, SHOPKEEPER.colors, { face: "happy" }));
+}
+// A character pops up in the corner to say something worth knowing: the shopkeeper calling out
+// a delivery, the secretary announcing meet day. Tapping them goes where they point.
+const SPEAKERS = { shop: { name: SHOPKEEPER.name + " · " + SHOPKEEPER.role, canvas: "data-shopkeeper" }, helper: { name: HELPER + " · club secretary", canvas: "data-helper" } };
+let speakerTimer = 0;
+const speakQueue = [];
+function speak(who, text, act = "") {
+  const el = $("#speaker");
+  // One at a time: whoever speaks second waits for the first to finish, and nobody talks over
+  // a pop-up the player is reading.
+  if ((!el.hidden && !el.classList.contains("out")) || $("#dialog").open) {
+    speakQueue.push([who, text, act]);
+    if ($("#dialog").open) $("#dialog").addEventListener("close", () => !speakQueue.length || (el.hidden || el.classList.contains("out")) && speak(...speakQueue.shift()), { once: true });
+    return;
+  }
+  const sp = SPEAKERS[who];
+  el.innerHTML = `<button class="speaker-card" ${act}><span class="medallion"><canvas width="56" height="56" ${sp.canvas} class="portrait"></canvas></span><span class="speech"><b>${esc(sp.name)}</b>${esc(text)}</span></button>`;
+  el.hidden = false;
+  el.classList.remove("out");
+  el.onclick = () => setTimeout(() => { el.hidden = true; clearTimeout(speakerTimer); if (speakQueue.length) speak(...speakQueue.shift()); });
+  paint(el);
+  clearTimeout(speakerTimer);
+  speakerTimer = setTimeout(() => {
+    el.classList.add("out");
+    speakerTimer = setTimeout(() => { el.hidden = true; if (speakQueue.length) speak(...speakQueue.shift()); }, 400);
+  }, 6500);
+}
+// Payday, in the secretary's words: what came in, what went out and how the crowd grew.
+let fansAtPayday = null;
+function paydayNews(week) {
+  const fans = fansAtPayday == null ? 0 : state.fans - fansAtPayday;
+  fansAtPayday = state.fans;
+  const net = week.net >= 0 ? "+$" + week.net.toLocaleString() : "−$" + Math.abs(week.net).toLocaleString();
+  speak("helper", `Payday! ${net} this week after wages${week.upkeep ? " and upkeep" : ""}${fans > 0 ? ", and " + fans + " new fans" : ""}. ${week.net < 0 ? "We're spending more than we bring in." : "Nicely done, Coach."}`, `data-act="window" data-page="home"`);
+}
+// What changed at the kit shop overnight, in the shopkeeper's words.
+function shopNews(before) {
+  if (!G.systemUnlocked(state, "kit")) return;
+  const stock = G.shopStock(state).length, shelf = G.bookShelf(state).join();
+  const open = `data-act="window" data-page="shop"`;
+  if (before.stock && stock > before.stock) return speak("shop", "New stock just in for a bigger club. Come and have a look!", open);
+  if (state.saleDay === state.day) return speak("shop", "Clearance day! Thirty percent off everything, today only.", open);
+  if (before.shelf && shelf !== before.shelf) return speak("shop", "Fresh delivery! New skill books: " + G.bookShelf(state).map((k) => SKILLS[ITEMS[k].skill].name).join(", ") + ".", open);
 }
 
 // ── Windows and dialogs ─────────────────────────────────────────────────
@@ -564,7 +608,7 @@ function play(speed = state.settings.speed || 1) {
 }
 function doDay(now) {
   if (state.pendingEvent) return showEvent();
-  const before = snapshot();
+  const before = snapshot(), shopBefore = G.systemUnlocked(state, "kit") ? { stock: G.shopStock(state).length, shelf: G.bookShelf(state).join() } : {};
   const r = G.advanceDay(state);
   if (!r.ok) { if (r.reason) toast(r.reason); return stopPlaying(); }
   lastDayAt = now;
@@ -594,8 +638,11 @@ function doDay(now) {
   if (state.matchDay != null && state.day >= state.matchDay) {
     view.playing = false;
     world.banner("MEET DAY!", "VS " + G.opponent(state)?.name.toUpperCase(), "#f2c94c", now);
+    speak("helper", "Meet day! " + G.opponent(state)?.name + " are here. The squad's in the call room when you're ready.", `data-act="lobby"`);
     sfx("event");
   }
+  if (r.week) paydayNews(r.week);
+  if (!(state.matchDay != null && state.day >= state.matchDay)) shopNews(shopBefore);
   refresh();
   if (r.event) setTimeout(showEvent, 500);
 }
