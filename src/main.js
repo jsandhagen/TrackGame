@@ -1,4 +1,4 @@
-import { DAY_MS, playbackSpeed } from "./platform/pacing.js";
+import { DAY_MS, playbackSpeed, playbackRate } from "./platform/pacing.js";
 import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy, updateInfo, onUpdateChange } from "./platform/updates.js";
 import "@fontsource/oswald/latin-500.css";
@@ -9,7 +9,7 @@ import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, 
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium } from "./render/stadium.js";
-import { beatDuration, SETUP_MS, hasCutIn, throwOffset, throwTiming, advanceBeatClock } from "./render/meet-presentation.js";
+import { beatDuration, SETUP_MS, CUTIN_MS, hasCutIn, throwOffset, throwTiming, advanceBeatClock } from "./render/meet-presentation.js";
 import { playTraining } from "./render/training.js";
 import { portrait as paintPortrait } from "./render/sprites.js";
 import { paintIcon } from "./render/icons.js";
@@ -520,7 +520,7 @@ function help(welcome = false) {
     <ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
     <li><b>Train</b> and watch the days roll by. Stats pop up as they grow.</li>
     <li><b>Compete</b>, win prizes, then <b>build</b> and <b>shop</b> to get stronger.</li></ol>
-    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>${P.leagueTutorial()}`,
+    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>${P.leagueTutorial()}<details class="card league-tutorial"><summary>How meets work</summary>${P.meetGuide(state)}</details>`,
     [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
@@ -590,6 +590,34 @@ function doDay(now) {
 }
 
 // ── Meet presentation ───────────────────────────────────────────────────
+// One-time pointers through a club's first meets. A tip stays up until dismissed; one that
+// arrives while another is fresh waits its turn.
+const tips = { queue: [], shownAt: 0 };
+function meetTip(id) {
+  // Settled clubs (past the run of club-system introductions) have seen it all.
+  if (id !== "champs" && !G.nextIntroduction(state)) return;
+  if ((state.settings.meetTips || []).includes(id) || tips.queue.includes(id)) return;
+  tips.queue.push(id);
+  showTip();
+}
+function showTip(force = false) {
+  const el = $("#meetTip");
+  if (!state.match || state.match.phase === "complete" || !tips.queue.length) return;
+  if (!el.hidden && !force && performance.now() - tips.shownAt < 6000) return;
+  const id = tips.queue.shift();
+  state.settings.meetTips = [...(state.settings.meetTips || []), id];
+  el.innerHTML = P.meetTip(id);
+  el.hidden = false;
+  tips.shownAt = performance.now();
+  save();
+}
+function hideTip() {
+  $("#meetTip").hidden = true;
+  tips.queue = [];
+}
+function meetGuide() {
+  dialog("How meets work", P.meetGuide(state), [{ label: state.match && state.match.phase !== "complete" ? "Back to the meet" : "Got it" }], { eyebrow: "Meet guide", cls: "guide-dialog" });
+}
 function startBeat(beat) {
   presenter = { beat, el: 0, base: beatDuration(beat), cues: [] };
   const cue = (at, fn) => presenter.cues.push({ at, fn });
@@ -598,8 +626,10 @@ function startBeat(beat) {
     const offset = throwOffset(beat), timing = throwTiming(beat);
     if (hasCutIn(beat)) cue(SETUP_MS, () => sfx("skill"));
     cue(offset + timing.releaseAt, () => sfx("whoosh"));
+    if (hasCutIn(beat)) cue(SETUP_MS + CUTIN_MS, () => meetTip("skill"));
     cue(offset + timing.landAt, () => {
       view.hide = null;
+      meetTip(beat.foul ? "foul" : "field");
       sfx(beat.mark == null ? "foul" : "land");
       if (beat.side === "home" && beat.mark != null && (beat.newPb || beat.leading || beat.scoringSwing>0)) sfx("cheer");
       if (beat.worldRecord) {
@@ -608,10 +638,12 @@ function startBeat(beat) {
       }
       render();
     });
-  } else if (beat.type === "eventEnd") sfx(beat.h > beat.a ? "cheer" : "event");
+  } else if (beat.type === "eventEnd") sfx(beat.h > beat.a ? "cheer" : "event"), meetTip("eventEnd");
   else if (beat.type === "eventStart") sfx("event");
-  else if (beat.type === "meetStart") sfx("cheer");
+  else if (beat.type === "meetStart") sfx("cheer"), meetTip(state.match.prelimFinals ? "champs" : "start");
+  else if (beat.type === "decide" && beat.clutch) meetTip("clutch");
   else if (beat.type === "complete") {
+    hideTip();
     sfx(beat.win ? "win" : beat.draw ? "event" : "lose");
     for (const id of state.settings.quietMode === false ? state.match.rewards?.goals || [] : []) toast("Goal complete: " + G.GOALS.find((g) => g.id === id)?.name, "goal", "target");
   }
@@ -737,6 +769,11 @@ $("#app").addEventListener("click", async (e) => {
     case "meet-pause":
       view.meetPaused = !view.meetPaused;
       break;
+    case "meet-guide":
+      return meetGuide();
+    case "tip-ok":
+      $("#meetTip").hidden = true;
+      return showTip(true);
     case "meet-mode":
       state.settings.meetMode = b.dataset.value;
       if (state.settings.meetMode === "watch" && state.match?.phase === "decide") return decide(state.match.last?.recommended || "balanced");
@@ -767,9 +804,11 @@ $("#app").addEventListener("click", async (e) => {
     }
     case "leave":
       G.leaveMatch(state);
+      hideTip();
       presenter = null;
       world.reset();
-      view.window = state.phase === "seasonEnd" ? "home" : G.pageUnlocked(state, b.dataset.page) && P.WINDOW_TITLES[b.dataset.page] ? b.dataset.page : null;
+      // Land on the club desk, which says what comes next, unless a page was asked for.
+      view.window = state.phase !== "seasonEnd" && G.pageUnlocked(state, b.dataset.page) && P.WINDOW_TITLES[b.dataset.page] ? b.dataset.page : "home";
       if (state.phase === "seasonEnd") sfx(state.champion ? "win" : "event");
       break;
     case "book-league":
@@ -1504,7 +1543,9 @@ function frame(now) {
       const bar = $("#meetbar");
       const arena = $("#stadium").getBoundingClientRect();
       const sidePanel = !bar.hidden && bar.getBoundingClientRect().left >= arena.right;
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced(), insetTop: sidePanel ? 0 : $("#hud").offsetHeight + 8, insetBottom: bar.hidden || sidePanel ? 0 : bar.offsetHeight + 8 });
+      const barSpace = (bar.hidden || sidePanel ? 0 : bar.offsetHeight) + "px";
+      if (view.barSpace !== barSpace) $("#app").style.setProperty("--meetbar", (view.barSpace = barSpace));
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(view.meetSpeed || state.settings.meetSpeed), insetTop: sidePanel ? 0 : $("#hud").offsetHeight + 8, insetBottom: bar.hidden || sidePanel ? 0 : bar.offsetHeight + 8 });
       if (view.meter) {
         const n = $("#needle");
         if (n) n.style.left = meterPos(now) * 100 + "%";

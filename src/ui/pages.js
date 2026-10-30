@@ -762,6 +762,59 @@ function championshipStandards(s) {
   return `<details class="card" open><summary>Championship entry standards</summary><p>Earn these marks in this league’s duels. Training forecasts and lifetime PBs do not qualify.</p><table><thead><tr><th>Event</th><th>Minimum</th><th>Your best</th></tr></thead><tbody>${EVENT_IDS.map(ev=>`<tr><td>${EVENTS[ev].name}</td><td>${mark(G.qualifyingStandard(s,ev))}</td><td>${mark(Math.max(0,...s.roster.map(a=>G.qualifyingMark(s,a.id,ev))))}</td></tr>`).join("")}</tbody></table></details>`;
 }
 export const SCOREBOARD_LIMIT = 10;
+// ── How meets work ─────────────────────────────────────────────────────
+// The full guide, opened from the meet toolbar, the call room and How to play. It follows the
+// meet in progress where that changes the rules (championship scoring, finals).
+export function meetGuide(s) {
+  const m = s?.match, champs = !!m?.prelimFinals || !!m?.leagueChampionship;
+  const swatch = (c, dashed) => `<i class="guide-line${dashed ? " dashed" : ""}" style="--c:${c}"></i>`;
+  return `<div class="meet-guide">
+  <section><h3>The score</h3><ol class="howto">
+    <li>A meet is <b>four events</b>: shot put, discus, hammer and javelin.</li>
+    <li>Each thrower gets <b>three throws</b>. Only their <b>best legal throw</b> counts.</li>
+    <li>${champs ? "Places score <b>10–8–6–5–4–3–2–1</b> points. After three throws the <b>top six</b> get three more; all marks carry forward." : "Places score <b>5–3–1</b> points for the club. Lower places score nothing."}</li>
+    <li>Event points add up to the <b>meet score</b> at the top. Most points after four events wins.</li>
+  </ol><p class="hint">While an event is running its points are <b>provisional</b>: what each club would score if it ended now. Equal bests go to the next-best throw.</p></section>
+  <section><h3>Reading the field</h3><ul class="guide-legend">
+    <li>${swatch("#f2c94c")}<span><b>LEAD</b> · the mark to beat</span></li>
+    <li>${swatch("#ffe69a")}<span><b>TARGET</b> · what your thrower needs for a better place</span></li>
+    <li>${swatch("#9fe0ff", true)}<span><b>PB</b> · your thrower's personal best</span></li>
+    <li>${swatch("#d8b0ff", true)}<span><b>CLUB REC</b> · your club record</span></li>
+    <li><i class="guide-peg"></i><span><b>Pegs</b> · everyone else's best, numbered by place</span></li>
+    <li><i class="guide-x">X</i><span><b>Foul</b> · stepped out, or landed outside the sector lines. It scores nothing, but an earlier legal mark still counts. <b>NM</b> means no mark yet.</span></li>
+  </ul></section>
+  <section><h3>Watch or Coach</h3><ul class="howto">
+    <li><b>Watch</b>: your athletes pick their own tactics. ${s && !G.firstMeet(s) ? "You still get a call at clutch moments, when a last throw decides a place (switch this off in Settings)." : "From your second meet you'll also get a call at clutch moments."}</li>
+    <li><b>Coach</b>: you choose a tactic before every throw.<ul>
+      <li><b>${TACTICS.safe.name}</b> · shortest but almost never fouls. Use it to get a first mark on the board.</li>
+      <li><b>${TACTICS.balanced.name}</b> · the usual range and risk.</li>
+      <li><b>${TACTICS.attack.name}</b> · a little further on average with a wider spread, but fouls far more often and costs stamina. Best once a mark is banked.</li></ul></li>
+    <li>The <b>approach</b> is the athlete's technique for that event. The bolder approach unlocks with event mastery: more distance for more risk and effort.</li>
+  </ul></section>
+  <section><h3>What changes a throw</h3><ul class="howto">
+    <li><b>The athlete</b>: their event rating (stats and event mastery), mood and stamina. Tired or unhappy athletes throw shorter.</li>
+    <li><b>Weather</b>: a wet circle raises foul risk; cold implements cost about 1.5%; heat drains stamina faster.</li>
+    <li><b>Wind</b> (the windsock): matters in the discus. A headwind helps the <i>Ride the airflow</i> approach and a crosswind hurts it.</li>
+    <li><b>Skills</b> can fire during a throw. On the big moments a cut-in names the skill.</li>
+  </ul></section>
+  <section><h3>Pace</h3><p>One, two or three arrows play the meet at normal, fast or very fast. <b>Highlights</b> lingers on the big moments; <b>Every throw</b> gives each result the same time. Pause any time. Decisions always wait for you.</p></section>
+  </div>`;
+}
+// One-time pointers during a club's first meets, keyed by the moment they explain.
+export const MEET_TIPS = {
+  start: ["How a meet works", "Four events, three throws each. Only a thrower's best legal throw counts. Places score 5–3–1, and event points add up to the meet score at the top."],
+  champs: ["Championship scoring", "Places score 10–8–6–5–4–3–2–1. After three throws the top six get three more."],
+  field: ["Reading the field", "The gold line is the lead to beat. A dashed blue line is the thrower's PB, and pegs mark everyone else's best."],
+  foul: ["Foul", "X means a foul: no mark for that throw. An earlier legal mark still counts."],
+  eventEnd: ["Event over", "The event's points are now in the meet score. Most points after four events wins."],
+  clutch: ["Clutch moment", "A last throw that decides a place. You make the call even in Watch mode."],
+  skill: ["Skill!", "An equipped skill fired. Learn and equip skills in the athlete file."],
+};
+export function meetTip(id) {
+  const [title, body] = MEET_TIPS[id];
+  return `<div><b>${esc(title)}</b><span>${esc(body)}</span></div><div class="meet-tip-actions"><button data-act="meet-guide">How meets work</button><button data-act="tip-ok">Got it</button></div>`;
+}
+
 export function leagueTutorial() {
   return `<details class="card league-tutorial"><summary>How league qualification and finals work</summary><ol><li>Compete in <b>three league duels</b>, with three throws per athlete.</li><li>Earn the event's <b>minimum qualifying mark</b> in those duels. Open <b>Meets → Qualification</b> to see standards, marks and qualified athletes.</li><li>At the multi-club championship, every qualified entry gets <b>three preliminary throws</b>. The <b>top six</b> earn three more in the final; all marks carry forward.</li></ol><p>The scoreboard shows the top ten. Countback settles equal best throws; an exact tie at the final cut advances together. Set the pace with one, two or three arrows: normal, fast or very fast. Coaching decisions always wait for you.</p></details>`;
 }
@@ -963,7 +1016,7 @@ function meetModes(s) {
 }
 
 function firstMeetLobby(s, problem) {
-  return `<section class="card first-meet-brief"><span class="eyebrow">FIRST CHALLENGE · vs ${esc(G.opponent(s).name)}</span><h2>Make your best throw count</h2><p><b>Four events. Three throws each.</b> Only your best legal mark counts. Places earn club points; most points wins.</p><p class="hint">X means a foul: that throw scores no mark.</p></section>
+  return `<section class="card first-meet-brief"><span class="eyebrow">FIRST CHALLENGE · vs ${esc(G.opponent(s).name)}</span><h2>Make your best throw count</h2><p><b>Four events. Three throws each.</b> Only your best legal mark counts. Places earn club points; most points wins.</p><p class="hint">X means a foul: that throw scores no mark.</p>${btn("How meets work", "meet-guide", "", "text")}</section>
     <h2>Watch or coach?</h2>${meetModes(s)}
     <p class="hint">Change modes anytime. One, two or three arrows set the pace.</p>
     <details class="card"><summary>Your starting four · lineup ready</summary><div class="opening-squad">${s.roster.map(a=>`<div>${portrait(a)}<b>${esc(a.name.split(" ")[0])}</b><small>${EVENTS[a.event].short}</small></div>`).join("")}</div></details>
@@ -997,7 +1050,7 @@ export function lobby(s, view = {}) {
       <div class="lineup-them">${championship ? `<span>${field[ev].map(({athlete,club}) => `<span class="championship-entry"><strong>${esc(athlete.name)}</strong><small>${esc(club.name)} · ~${mark(G.rawMark(athlete,ev))}</small></span>`).join("")}</span>` : `${rivalPortrait(m.id, i)}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · ~${mark(theirs)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span>`}</div></div>`;
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
-  <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ★ marks a specialist.${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
+  <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ★ marks a specialist. ${btn("How meets work", "meet-guide", "", "text")}${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
   ${view.editLineup ? s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("") : ""}
   <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
@@ -1055,11 +1108,11 @@ export function meetBar(s, view) {
       <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(activeClub?.name || m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
     </section>
-    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event " + liveHome + "–" + liveAway} <small>${m.closed[i] ? "FINAL" : "PROVISIONAL"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${rows.map(row=>{
+    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event points " + liveHome + "–" + liveAway} <small title="${m.closed[i] ? "These points are in the meet score" : "Points if the event ended now"}">${m.closed[i] ? "FINAL" : m.prelimFinals ? "LIVE" : "IF IT ENDED NOW"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${rows.map(row=>{
       const {athlete,club}=meetAthlete(s,row.side,row.id);
       return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
     }).join("")}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}${leagueDuel ? `<small class="live-standard">Championship standard <b>${mark(G.qualifyingStandard(s,ev))}</b></small>` : ""}</section>`}
-  </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" role="group" aria-label="Meet speed">${speedButtons(view.meetSpeed || s.settings.meetSpeed || 1, "meet-speed")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${leagueDuel ? btn(view.meetStandards ? "Standings" : "Standards", "meet-standards", `aria-pressed="${!!view.meetStandards}"`, "subtle small") : ""}</div>`;
+  </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" role="group" aria-label="Meet speed">${speedButtons(view.meetSpeed || s.settings.meetSpeed || 1, "meet-speed")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${leagueDuel ? btn(view.meetStandards ? "Standings" : "Standards", "meet-standards", `aria-pressed="${!!view.meetStandards}"`, "subtle small") : ""}<button class="button subtle small meet-help" data-act="meet-guide" aria-label="How meets work">?</button></div>`;
 }
 export function meetScore(s) {
   const m = s.match,
@@ -1074,16 +1127,18 @@ export function decide(s, view) {
     sigReady = G.canSignature(s, "home");
   if (view.meter)
     return `<div class="meter-panel"><span class="eyebrow">RELEASE ON THE GOLD</span><div class="meter"><span class="zone good"></span><span class="zone perfect" style="--w:${G.effects(s, a).perfect ? 22 : 14}%"></span><span id="needle"></span></div>${btn("Release!", "release")}<small>Tap Release, or press Space.</small></div>`;
-  return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All-out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}${esc(a.name)} · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
-    <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>${approachPicker(a,EVENT_IDS[m.eventIndex])}<p>${esc(G.APPROACHES[EVENT_IDS[m.eventIndex]].find(d=>d.id===a.approaches[EVENT_IDS[m.eventIndex]])?.desc)}${EVENT_IDS[m.eventIndex] === "discus" ? " · Conditions: "+esc(m.wind||"calm") : ""}</p>
+  const ev = EVENT_IDS[m.eventIndex], approach = G.APPROACHES[ev].find(d=>d.id===a.approaches[ev]);
+  return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
+    <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>
     <div class="tactics">${Object.entries(TACTICS)
       .map(([id, t]) => {
         const p = G.throwPreview(s, id, "good", view.sig);
-        return `<button class="tactic t-${id}" data-act="tactic" data-value="${id}"><strong>${t.name}</strong><small>${mark(p.low)} – ${mark(p.high)}</small><em>${Math.round(p.foul * 100)}% foul risk</em></button>`;
+        return `<button class="tactic t-${id}" data-act="tactic" data-value="${id}" title="${esc(t.desc)}"><strong>${t.name}</strong><small>${mark(p.low)} – ${mark(p.high)}</small><em>${Math.round(p.foul * 100)}% foul risk</em></button>`;
       })
       .join("")}</div>
-    ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}
-    <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A banked mark always counts, so a foul now only costs confidence." : "No mark yet: a foul here could cost the event."}</p></div>`;
+    <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} The range is the likely distance.</p>
+    <div class="decide-approach">${approachPicker(a,ev)}<small>${esc(approach?.desc || "")}${ev === "discus" ? " Wind: " + esc(m.wind || "calm") + "." : ""} Bolder approaches unlock with event mastery.</small></div>
+    ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}</div>`;
 }
 function meetGrowth(s) {
   const r = s.match.rewards || {};

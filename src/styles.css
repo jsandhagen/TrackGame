@@ -5097,3 +5097,55 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .meet-mvp .ico-mvp { width:21px; height:21px; vertical-align:middle; }
 #meetbar .qualification-event { color:#203d32; background:#fffaf0; }
 #meetbar .qualification-event h3, #meetbar .qualification-event strong, #meetbar .qualification-event b { color:#203d32; }
+
+/* ── Meet guide, first-meet tips and a compact coaching call ─────────────── */
+#meetTip { position: absolute; z-index: 18; left: 50%; bottom: calc(var(--meetbar, 0px) + max(14px, env(safe-area-inset-bottom))); transform: translateX(-50%); width: min(420px, calc(100% - 24px)); display: grid; gap: 6px; padding: 9px 11px; background: #fff6dcf2; color: #2a2a22; border: 2px solid var(--gold); border-radius: 10px; box-shadow: 0 3px 0 #0004, 0 10px 24px #0005; font-size: 13px; line-height: 1.35; animation: rise 0.25s ease-out; }
+#meetTip[hidden] { display: none; }
+#meetTip b { display: block; font: 700 15px/1.1 var(--display); color: #1f3d34; margin-bottom: 2px; letter-spacing: .3px; }
+#meetTip span { display: block; }
+.meet-tip-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.meet-tip-actions button { min-height: 30px; padding: 3px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #c8b88a; background: #fffaf0; color: #1f3d34; font-weight: 700; }
+.meet-tip-actions button:last-child { background: #2e6a50; color: #fff6dc; border-color: #1f4a38; }
+.meet-toolbar .meet-help { min-width: 32px; padding: 4px 8px; font-weight: 800; font-size: 14px; }
+.meet-guide section { margin-bottom: 12px; }
+.meet-guide h3 { font: 700 16px/1.2 var(--display); margin: 0 0 4px; color: #1f3d34; letter-spacing: .4px; }
+.meet-guide .howto, .meet-guide ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.45; }
+.meet-guide .howto li, .meet-guide ul li { margin-bottom: 3px; }
+.meet-guide p { font-size: 13px; line-height: 1.45; margin: 4px 0 0; }
+.meet-guide .guide-legend { list-style: none; padding: 0; display: grid; gap: 5px; }
+.guide-legend li { display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 8px; }
+.guide-line { display: block; height: 4px; border-radius: 2px; background: var(--c); box-shadow: 0 0 0 1px #0003; }
+.guide-line.dashed { background: repeating-linear-gradient(90deg, var(--c) 0 6px, transparent 6px 10px); box-shadow: none; }
+.guide-peg { display: block; width: 6px; height: 14px; margin: 0 auto; background: linear-gradient(#e0506a 0 4px, #f4f4f0 4px); border: 1px solid #0003; }
+.guide-x { display: block; text-align: center; font: 800 16px/1 var(--display); color: var(--red); font-style: normal; }
+.guide-dialog .dialog-body { max-height: min(70vh, 640px); overflow: auto; }
+.decide .tactics { grid-template-columns: repeat(3, 1fr); }
+.decide .tactic { padding: 8px 4px; }
+.decide .tactic small { white-space: nowrap; }
+.decide-approach { display: grid; gap: 3px; margin-top: 4px; padding-top: 6px; border-top: 1px dashed #c8b88a; }
+.decide-approach label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+.decide-approach select { min-height: 32px; flex: 1; min-width: 0; }
+.decide-approach small { font-size: 11px; color: var(--muted); line-height: 1.35; }
+@media (max-aspect-ratio: 1/1) {
+  /* Your call, coach: docked low, so the camera on the thrower stays in view above it. */
+  #window.center.low { top: auto; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-height: 62vh; }
+  .decide { margin: 4px 0; }
+  .decide .tactic strong { font-size: 13px; }
+  .decide .tactic small, .decide .tactic em { font-size: 10px; }
+}
+@media (min-aspect-ratio: 1/1) {
+  .meet-live #meetTip { left: calc((100% - var(--meet-rail, 0px) - 16px) / 2); bottom: max(10px, env(safe-area-inset-bottom)); width: min(400px, calc(100% - var(--meet-rail, 0px) - 40px)); }
+}
+@media (orientation: landscape) and (min-width: 700px) {
+  /* The camera keeps the thrower in the left of the arena; the call sits beside them. */
+  .meet-live #window.center.low { left: auto; right: calc(var(--meet-rail) + max(8px, env(safe-area-inset-right)) + 16px); width: min(420px, calc((100% - var(--meet-rail) - 32px) * 0.54)); transform: none; }
+  .meet-live #meetTip { left: max(12px, env(safe-area-inset-left)); top: calc(max(8px, env(safe-area-inset-top)) + 58px); bottom: auto; transform: none; width: min(340px, calc((100% - var(--meet-rail) - 32px) * 0.42)); }
+  .meet-live .decide p { font-size: 12px; margin-bottom: 5px; }
+  .meet-live .decide .tactic { padding: 6px 3px; }
+  .meet-live .decide .tactic strong { font-size: 13px; }
+  .meet-live .decide .tactic small, .meet-live .decide .tactic em { font-size: 10px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .meet-toolbar { flex-wrap: nowrap; }
+  .meet-toolbar > .button, .meet-toolbar .seg button { padding-left: 6px; padding-right: 6px; }
+}
