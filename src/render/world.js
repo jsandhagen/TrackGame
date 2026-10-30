@@ -11,7 +11,7 @@ import { facilityModel, drawFacilityGround, drawFacilityStructure } from "./faci
 import { surface } from "./terrain.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
 import { PLANS, LEAGUES, PLOT_ORDER, PLOTS_BY_LEAGUE, STAT_SHORT, STAT_COLORS, SKINS, HAIRS, CLUB_PLOT } from "../game-content.js";
-import { formOf, plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
+import { formOf, plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, stadiumCrowd, meetVenue, automaticDuties, effectiveDuty, dutySite, seasonOfDay, clockMinutes, nightness, weatherToday } from "../domain/game.js";
 
 // Walking pace in ms per pixel. When the day is short, people speed up (jogging, then running)
 // so they always reach the next session within ARRIVE_IN of a day instead of missing it.
@@ -679,7 +679,8 @@ export function createWorld(cv) {
     }
     g.imageSmoothingEnabled = false;
     g.drawImage(base.image, 0, 0);
-    animateArena(g, s, now, Math.min(0.85, 0.06 + s.fans / 3000));
+    // The stands fill with the fans, up to their capacity; a home meet day draws the most.
+    animateArena(g, s, now, Math.min(0.97, stadiumCrowd(s, { meet: s.matchDay === s.day && !!meetVenue(s)?.home }).fill));
     // Selection highlight.
     const pulse = Math.floor(now / 250) % 2;
     const box = (x, y, w, h, col) => {

@@ -2,7 +2,7 @@ import { canvas, rect, poly, ellipse, ring, line, shade, hash, px, mix } from ".
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf, roofColorOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, stadiumCrowd, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, throwingSector, meetCamera } from "./meet-geometry.js";
@@ -51,7 +51,7 @@ function venueOf(s, m) {
     // Home is where the club's story hangs: its name, its records and its titles.
     club: v.home ? { name: s.clubName, records: Object.fromEntries(Object.entries(s.records || {}).map(([ev, r]) => [ev, r.mark])), titles: honours(s) } : null,
     backdrop: v.home ? styleOf(s).backdrop : v.backdrop,
-    crowd: v.home ? Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) : v.special ? 0.92 : CROWDS[grand],
+    crowd: v.home ? Math.min(0.97, stadiumCrowd(s, { meet: true, weather: m.weather }).fill) : v.special ? 0.92 : CROWDS[grand],
   };
 }
 let O = THROW_ORIGIN;

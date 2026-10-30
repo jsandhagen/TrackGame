@@ -603,13 +603,19 @@ export function recruit(s) {
 // ── Build: stadium and plots ────────────────────────────────────────────
 const STADIUM_ICON = { track: "track", shot: "ball", discus: "cage", hammer: "cage", jav: "runway", stands: "stands", studio: "video", lights: "lights" };
 const pips = (lvl, max) => `<span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? "on" : ""}"></i>`).join("")}</span>`;
+// Who fills the grandstand: its capacity, and how many of the club's fans come to a home meet.
+function standsCrowd(s) {
+  const { attendance, capacity } = G.stadiumCrowd(s, { meet: true, weather: "cloudy" }),
+    next = STADIUM.stands.capacity[s.stadium.stands + 1];
+  return `<p class="hint">Capacity <b>${capacity.toLocaleString()}</b> · a home meet draws about <b>${attendance.toLocaleString()}</b> of your ${s.fans.toLocaleString()} fans${attendance >= capacity ? " · <b>sold out</b>" : ""}.${next ? ` The next stand holds ${next.toLocaleString()}.` : ""}</p>`;
+}
 function stadiumCard(s, key, open) {
   const d = STADIUM[key],
     lvl = s.stadium[key],
     problem = G.stadiumProblem(s, key),
     cost = d.cost[lvl];
   return `<div class="stadium-row ${open ? "open" : ""}"><button class="stadium-head" data-act="spot" data-key="${key}">${ico(STADIUM_ICON[key])}<span><strong>${d.name}</strong><small>${esc(d.levels[lvl])}</small></span>${pips(lvl, d.max)}</button>
-  ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
+  ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "stands" ? standsCrowd(s) : ""}${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
 }
 // What a construction or upgrade will cost and do, shown before any money is spent.
 export function constructionConfirm(s, o) {
@@ -1080,7 +1086,7 @@ export function lobby(s, view = {}) {
   const sky = G.weatherToday(s);
   // A lineup that needs fixing opens straight into the entry pickers.
   view = { ...view, editLineup: view.editLineup || !!problem };
-  return `${championship ? championshipStandards(s) : ""}<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${G.isLeagueChampionship(s) ? "3 preliminary throws · top six earn 3 more · marks carry forward" : s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
+  return `${championship ? championshipStandards(s) : ""}<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${G.isLeagueChampionship(s) ? "3 preliminary throws · top six earn 3 more · marks carry forward" : s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}${G.meetVenue(s)?.home ? (({ attendance, capacity }) => ` · crowd ~${attendance.toLocaleString()} of ${capacity.toLocaleString()}`)(G.stadiumCrowd(s, { meet: true, weather: s.match?.weather || G.weatherOn(s, s.matchDay) })) : ""}</p>
   <p class="meet-forecast">${weatherChip(sky)} <span>${esc(G.WEATHER[sky].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
     // Every entry slot for the event sits in one row, beside the rival's specialist.

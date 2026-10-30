@@ -311,6 +311,14 @@ export function plannedActivity(s, a, assignments) {
   if (a.autoRest && (a.stamina < 25 || plan === "balanced" && balancedNeedsRest(s, a))) return "rest";
   return plan;
 }
+// How full the club's own stands are: a share of the fans turns up (more for a home meet than
+// an ordinary day, and fewer in bad weather), up to the grandstand's capacity.
+export function stadiumCrowd(s, { meet = false, weather = weatherToday(s) } = {}) {
+  const capacity = STADIUM.stands.capacity[Math.min(s.stadium.stands, STADIUM.stands.capacity.length - 1)],
+    turnout = (meet ? 0.7 : 0.3) * (WEATHER[weather]?.visitors ?? 1),
+    attendance = Math.round(Math.min(capacity, s.fans * turnout));
+  return { attendance, capacity, fill: Math.max(0.03, attendance / capacity) };
+}
 export function visitorsPerDay(s) {
   const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.15 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);
   return Math.round((3 + Math.sqrt(s.fans) * 0.55) * lift * WEATHER[weatherToday(s)].visitors);
