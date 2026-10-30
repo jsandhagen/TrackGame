@@ -1,4 +1,4 @@
-import { masteryOf, competeMastery, disciplineModel } from "./mastery.js";
+import { masteryOf, competeMastery, disciplineModel, formOf } from "./mastery.js";
 import { EVENTS, EVENT_IDS, TACTICS, SKILLS, BACKGROUNDS, ITEMS, GEAR_SLOTS, SPONSORS } from "../game-content.js";
 import {
   clamp,
@@ -517,6 +517,8 @@ function throwFor(s, side, tactic, quality, sig) {
     attempt: c.k,
     athleteId: a.id,
     name: a.name,
+    // The technique the thrower used, which sets how long the delivery takes to watch.
+    form: formOf(a, c.ev),
     mark,
     // Keep the actual flight for sector fouls without turning it into a legal mark.
     flightDistance,

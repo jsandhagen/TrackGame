@@ -563,12 +563,14 @@ export function createStadium(cv) {
     // The thrower.
     if (active && (throwing || beat?.type === "eventStart" || beat?.type === "meetStart")) {
       // The throw follows the athlete's form: see throw-motion.js.
-      const level = formOf(active, ev),
+      const level = beat?.form ?? formOf(active, ev),
         recoveredAt = timing.releaseAt + timing.releaseMs + timing.recoveryMs,
         // Technique comes from form; the finish after release is the athlete's own.
         style = recoveryStyle(active),
         flop = beat?.type === "throw" && flopsForward(active, ev, level, beat),
-        motionAt = (t) => throwMotion(ev, level, ...throwPhase(timing, t), { foul: !!beat?.foul, style, flop });
+        // Throws saved before forms were recorded keep the event's full window.
+        trim = beat?.type !== "throw" || beat.form != null,
+        motionAt = (t) => throwMotion(ev, level, ...throwPhase(timing, t), { foul: !!beat?.foul, style, flop, trim });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
         flip = false,
@@ -585,7 +587,7 @@ export function createStadium(cv) {
         const good = beat.mark != null && (beat.newPb || beat.leading);
         pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
         frame = Math.floor(now / 220) % 2;
-        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style, flop });
+        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style, flop, trim });
         x = O.x + end.dx;
         y = O.y + end.dy;
       } else {
@@ -636,7 +638,7 @@ export function createStadium(cv) {
       const f = Math.min(1, (tt - timing.releaseAt) / timing.flightMs),
         dist = timing.distance,
         angle = beat.foul ? -sector.halfAngle * 1.2 : (hash(bi * 7 + beat.attempt * 3 + (beat.side === "home" ? 1 : 2)) - 0.5) * sector.halfAngle,
-        [rx, ry] = throwReleasePoint(ev, formOf(active, ev)),
+        [rx, ry] = throwReleasePoint(ev, beat.form ?? formOf(active, ev)),
         sx = O.x + rx,
         sy = O.y + ry,
         [ex, ey] = sector.point(dist, angle),

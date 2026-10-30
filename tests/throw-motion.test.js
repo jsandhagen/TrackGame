@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
+import { throwTiming } from '../src/render/meet-presentation.js';
 import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
@@ -99,11 +100,12 @@ test('javelin penultimate travels farther than the final block step in every for
 
 test('discus accelerates into a short right-left delivery while retaining its centre support', () => {
  for (const level of [1, 2, 3]) {
-  const motion = sample('discus', level, 'technique', 2000);
-  const at = frame => motion.findIndex(m => m.frame === frame) / 2000;
+  const meet = throwTiming({ event: 'discus', form: level }), ms = meet.releaseAt - meet.readyMs;
+  const motion = sample('discus', level, 'technique', ms);
+  const at = frame => motion.findIndex(m => m.frame === frame);
   assert(at(8) - at(7) < at(9) - at(8), 'a brief flight, then a longer pivot on the right foot');
-  assert(at(9) - at(8) < 0.16, 'right catch to left plant is still quick');
-  assert(1 - at(9) < at(9) - at(8), 'delivery after the left plant is the quickest phase');
+  assert(at(9) - at(8) <= 300, 'right catch to left plant is still quick');
+  assert(ms - at(9) < at(9) - at(8), 'delivery after the left plant is the quickest phase');
   for (const m of motion.filter(m => [8, 10, 9, 1, 11, 14].includes(m.frame)))
    assert(worldFeet('discus', m).some(([x]) => Math.abs(x) < 1e-8), 'the right foot retains its catch position while the other leg plants');
  }
@@ -390,9 +392,8 @@ test('an athlete keeps one recovery style, led by their background', () => {
 
 test('the club map loops the meet throw: same frames, a release, then a rest before the next', async () => {
  const { throwLoop, throwLoopPhases, throwLoopMs } = await import('../src/render/throw-motion.js');
- const { throwTiming } = await import('../src/render/meet-presentation.js');
  for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) {
-  const THROW_LOOP = throwLoopPhases(ev), total = throwLoopMs(ev), meet = throwTiming({ event: ev });
+  const THROW_LOOP = throwLoopPhases(ev, level), total = throwLoopMs(ev, level), meet = throwTiming({ event: ev, form: level });
   assert.equal(THROW_LOOP.technique, meet.releaseAt - meet.readyMs, `${ev}: practice runs the technique at meet speed`);
   const at = (t) => throwLoop(ev, level, t, { style: 1 });
   assert.deepEqual(at(THROW_LOOP.ready + THROW_LOOP.technique / 2).frame, throwMotion(ev, level, 'technique', 0.5).frame, `${ev}/${level}: technique matches the meet`);
@@ -419,7 +420,7 @@ test('discus and javelin support feet never slide while they carry the body', ()
 
 test('javelin rhythm: even strides, the longest penultimate, a quick block step and a fast delivery', () => {
  for (let level = 0; level < 4; level++) {
-  const ms = 2300, landings = [];
+  const meet = throwTiming({ event: 'jav', form: level }), ms = meet.releaseAt - meet.readyMs, landings = [];
   let before = null;
   for (let t = 0; t <= ms; t++) {
    const m = throwMotion('jav', level, 'technique', t / ms);
@@ -485,4 +486,17 @@ test('elite Natural Athletes flop forward after a big javelin throw, staying beh
  }
  assert.equal(flop.at(-1).frame, 3, 'back on their feet for the reaction');
  assert.deepEqual(throwMotion('jav', 3, 'follow', 0.5, { flop: true, foul: true }).frame, throwMotion('jav', 3, 'follow', 0.5, { foul: true }).frame, 'a foul never flops');
+});
+
+test('every thrower starts moving within about a second of stepping up', async () => {
+ const { SETUP_MS } = await import('../src/render/meet-presentation.js');
+ const signature = (ev, m) => JSON.stringify([m.dx, m.dy, feetOf(spriteOptions(ev, m)), gripOf(spriteOptions(ev, m)), m.turn ?? 0, m.ball]);
+ for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) {
+  const timing = throwTiming({ event: ev, form: level }), ms = timing.releaseAt - timing.readyMs;
+  const ready = signature(ev, throwMotion(ev, level, 'ready', 0));
+  assert.equal(signature(ev, throwMotion(ev, level, 'technique', 0)), ready, `${ev}/${level}: the technique starts from the ready stance`);
+  let still = ms;
+  for (let t = 0; t <= ms; t += 5) if (signature(ev, throwMotion(ev, level, 'technique', t / ms)) !== ready) { still = t; break; }
+  assert(SETUP_MS + timing.readyMs + still <= 1250, `${ev}/${level}: stands still for ${SETUP_MS + timing.readyMs + still} ms`);
+ }
 });

@@ -40,7 +40,7 @@ Discus full-turn preparation uses a dedicated planted stance for the forward swi
 
 ## Rhythm and timing
 
-Every phase runs in real time at the meet's 1× speed, with durations taken from elite biomechanics. Ranges are approximate; reference values vary by athlete and study. Meet durations are unchanged. Club-map practice uses the same technique and release times as the meet for each event, so a throw there is never hurried.
+Every phase runs in real time at the meet's 1× speed, with durations taken from elite biomechanics. Ranges are approximate; reference values vary by athlete and study. Meet durations are unchanged. Club-map practice uses the same technique and release times as the meet for each event, so a throw there is never hurried. Before each throw the meet shows the next thrower for 0.7 s, then a 0.3 s ready settle. The technique window is trimmed for short forms (the three-step javelin, standing and half-turn discus, standing and glide shot), so they don't stand still to fill an event's full window. Every thrower starts moving within about 1.2 s of stepping up. Each throw records the thrower's form, and throws saved before that keep the full window.
 
 | Javelin | Game: three-step · full · crossover · elite | Real (approx.) |
 | --- | --- | --- |

@@ -9,7 +9,7 @@
 // A right-handed thrower turns anticlockwise seen from above: back to the sector (side-on,
 // flipped), round to face the camera, side-on to the sector, facing away, and so on.
 import { frontFootOf, feetOf, implementPointOf } from "./sprites.js";
-import { throwTiming } from "./meet-presentation.js";
+import { throwTiming, techniqueTrim } from "./meet-presentation.js";
 
 const ease = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
@@ -50,8 +50,15 @@ const hop = (m, p, a, b, h = 4) => {
 };
 
 // phase: "ready" | "technique" | "release" | "follow"; p: progress through that phase, 0–1.
-export function throwMotion(ev, level, phase, p, { foul = false, style = 0, flop = false } = {}) {
+// A trimmed technique (see techniqueTrim) runs the end of the full timeline at the same speed;
+// pass trim: false for a throw timed over the event's full window.
+export function throwMotion(ev, level, phase, p, { foul = false, style = 0, flop = false, trim = true } = {}) {
   p = Math.max(0, Math.min(1, p));
+  const cut = trim ? techniqueTrim(ev, level) : 0;
+  if (phase === "technique" && cut) {
+    const full = throwTiming({ event: ev }), window = full.releaseAt - full.readyMs;
+    p = 1 - (1 - p) * (window - cut) / window;
+  }
   const m = { frame: 0, flip: false, dx: 0, dy: 0, ball: null, released: phase === "release" || phase === "follow", ghost: level >= 3 && phase === "technique" };
   // A foul carries the thrower over the front whatever their style.
   if (foul) style = 0;
@@ -166,7 +173,7 @@ const DISCUS = [
   // South African / sprint-turn drill: start at the rear facing the sector, right foot behind the
   // left support leg. Settle, step through, drive onto the right foot in the middle, then turn and
   // plant the left before delivery. It omits the full throw's rear-facing wind and left sweep.
-  [[0, 20, -18, 0, 0], [0.22, 20, -18, -0.08, -0.03], [0.4, 20, -18, 0, 0], [0.6, 21, -10, 0.1, 0.2],
+  [[0, 20, -18, 0, 0], [0.24, 20, -18, 0, 0], [0.32, 20, -18, -0.08, -0.03], [0.4, 20, -18, 0, 0], [0.6, 21, -10, 0.1, 0.2],
     [0.705, 7, -6, 0.35, 0.5, false, -2], [0.745, 8, -2, 0.65, 0.85], [0.81, 10, -2, 1, 1.2],
     [0.886, 9, 0, 1.15, 1.45, true], [0.91, 1, 0, 1.5, 1.7], [0.945, 11, 2, 1.72, 1.9], [0.977, 14, 4, 1.9, 2], [1, 2, 4, 2, 2]],
   // One and a half turns: forward, then a long backswing wound right round, so the entry starts
@@ -387,13 +394,13 @@ export function throwReleasePoint(ev, level) {
 // The meet's throw on repeat, for the club map and coaching scenes: the same motion at the
 // athlete's own form and finish, at the meet's real-time technique and release for the event, then
 // a breather before the next attempt. t is in ms; sinceRelease is negative until the implement goes.
-export function throwLoopPhases(ev) {
-  const meet = throwTiming({ event: ev });
+export function throwLoopPhases(ev, level) {
+  const meet = throwTiming({ event: ev, form: level });
   return { ready: 500, technique: meet.releaseAt - meet.readyMs, release: meet.releaseMs, follow: 1100, rest: 800 };
 }
-export const throwLoopMs = ev => Object.values(throwLoopPhases(ev)).reduce((a, b) => a + b, 0);
+export const throwLoopMs = (ev, level) => Object.values(throwLoopPhases(ev, level)).reduce((a, b) => a + b, 0);
 export function throwLoop(ev, level, t, { style = 0 } = {}) {
-  const phases = throwLoopPhases(ev), total = throwLoopMs(ev);
+  const phases = throwLoopPhases(ev, level), total = throwLoopMs(ev, level);
   let left = ((t % total) + total) % total;
   const at = left;
   let phase = "follow",
