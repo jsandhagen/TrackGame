@@ -69,39 +69,79 @@ function spanOf(s, m, i, ev) {
 const ppmOf = () => sector.ppm;
 // Half the javelin runway's width on screen, in the oblique view.
 const RUNWAY = 9;
-// The discus and hammer cage, laid out to World Athletics' cage rules at the circle's scale (the
-// 2.5 m ring is 56 px wide): U-shaped in plan, netting round the back of the circle and straight
-// sides out to a 6 m mouth 7 m in front of its centre. Discus netting is at least 4 m high. The
-// hammer cage is at least 7 m high, rising to 10 m for the last 2.8 m before the mouth, where
-// the movable gates hang (capped at the top of the scene). The far half is drawn behind the
+// The discus and hammer cage, at the circle's scale (the 2.5 m ring is 56 px wide). In plan it
+// is a horseshoe: netting 3.5 m round the back of the circle, sides narrowing to World
+// Athletics' 6 m mouth 7 m in front of the centre. Steel posts every two or three metres carry
+// dark netting that sags between them and hangs to the ground; a net seen face-on is nearly
+// clear, one seen edge-on reads darker. The hammer cage stands 7 m, 10 m for the last 2.8 m
+// before the mouth, where two 2 m gates hang: the far one swung in, the near one open along
+// the sector line (heights capped at the top of the scene). The far half is drawn behind the
 // thrower, the near half in front, so the thrower stands inside it.
 const CAGE_PX = 22.4, CAGE_DEPTH = 0.4;
-const CAGES = { discus: { mouth: 7, h: 4 }, hammer: { mouth: 7, h: 7, front: 10, frontFrom: 4.2 } };
+const CAGES = {
+  discus: { r: 3.5, mouth: 7, h: 5, sides: [7, 4.7, 2.3] },
+  hammer: { r: 3.5, mouth: 7, h: 7, front: 10, frontFrom: 4.2, sides: [7, 4.2, 2.1], gates: true },
+};
+function cagePlan(c) {
+  const side = (v) => c.sides.map((u) => [u, v * (3 + ((c.r - 3) * (c.mouth - u)) / c.mouth)]);
+  const arc = [];
+  for (let i = 0; i <= 5; i++) {
+    const a = Math.PI / 2 + (Math.PI * i) / 5;
+    arc.push([Math.cos(a) * c.r, -Math.sin(a) * c.r]);
+  }
+  const panels = [];
+  const run = [...side(-1), ...arc, ...side(1).reverse()];
+  for (let i = 0; i + 1 < run.length; i++) {
+    const [a, b] = [run[i], run[i + 1]];
+    panels.push({ a, b, h: c.front && Math.min(a[0], b[0]) >= c.frontFrom - 0.01 ? c.front : c.h });
+  }
+  if (c.gates) {
+    const swing = (v, angle) => [c.mouth + 2 * Math.cos(angle), v * (3 - 2 * Math.sin(angle))];
+    panels.push({ a: [c.mouth, -3], b: swing(-1, 0.5), h: c.front, gate: true });
+    panels.push({ a: [c.mouth, 3], b: swing(1, -0.3), h: c.front, gate: true });
+  }
+  return panels;
+}
 function cage(g, half, ev) {
   const c = CAGES[ev],
-    side = (v) => [...(c.front ? [[c.mouth, v], [c.frontFrom, v]] : [[c.mouth, v]]), [0, v]],
-    plan = [...side(-3)];
-  for (let i = 1; i < 8; i++) {
-    const a = Math.PI / 2 + (Math.PI * i) / 8;
-    plan.push([Math.cos(a) * 3, -Math.sin(a) * 3]);
+    at = ([u, v]) => [O.x + u * CAGE_PX, O.y + v * CAGE_PX * CAGE_DEPTH],
+    cap = (m) => Math.min(O.y - 6, Math.round(m * CAGE_PX)),
+    back = half === "back",
+    posts = new Map();
+  for (const p of cagePlan(c)) {
+    if ((p.a[1] + p.b[1]) / 2 > 0.05 === back) continue;
+    const [x1, y1] = at(p.a), [x2, y2] = at(p.b), h = cap(p.h),
+      len = Math.hypot(p.b[0] - p.a[0], p.b[1] - p.a[1]) * CAGE_PX,
+      // 1 when the panel faces the camera, 0 when it is seen edge-on.
+      face = Math.min(1, Math.abs(x2 - x1) / Math.max(1, len)),
+      alpha = (0.1 + 0.26 * (1 - face)) * (back ? 1 : 0.55),
+      sag = Math.min(7, 2 + Math.abs(x2 - x1) * 0.06),
+      n = Math.max(2, Math.ceil(Math.abs(x2 - x1) / 3)),
+      pt = (k) => {
+        const f = k / n, x = x1 + (x2 - x1) * f, y = y1 + (y2 - y1) * f;
+        return [Math.round(x), Math.round(y), Math.round(y - h + sag * Math.sin(Math.PI * f))];
+      };
+    for (let k = 0; k < n; k++) {
+      const [xa, ya, ta] = pt(k), [xb, yb, tb] = pt(k + 1);
+      poly(g, [[xa, ta], [xb, tb], [xb, yb], [xa, ya]], `rgba(18,24,22,${alpha.toFixed(3)})`);
+      // The mesh: a fine grid, faint enough to read as netting rather than bars.
+      if (xa !== xb) rect(g, xa, ta, 1, ya - ta, `rgba(18,24,22,${(alpha * 0.6).toFixed(3)})`);
+      // Netting bunched where it meets the ground.
+      line(g, xa, ya, xb, yb, `rgba(16,20,18,${Math.min(0.7, alpha * 2.4).toFixed(3)})`);
+      line(g, xa, ta, xb, tb, "#2a3230");
+    }
+    if (back) for (let k = 4; k < h - sag; k += 4) line(g, x1, y1 - k, x2, y2 - k, `rgba(18,24,22,${(alpha * 0.5).toFixed(3)})`);
+    // Each post is as tall as the tallest panel it carries.
+    for (const [x, y] of [[x1, y1], [x2, y2]]) {
+      const key = Math.round(x) + "," + Math.round(y);
+      posts.set(key, [Math.round(x), Math.round(y), Math.max(posts.get(key)?.[2] || 0, h)]);
+    }
   }
-  plan.push(...side(3).reverse());
-  // Height of a panel by how far forward it stands, never above the top of the scene.
-  const tall = (u1, u2) => Math.min(O.y - 6, Math.round((c.front && Math.min(u1, u2) >= c.frontFrom - 0.01 ? c.front : c.h) * CAGE_PX));
-  // Far posts (negative v) sit above the circle on screen; near posts below it.
-  const posts = plan.map(([u, v]) => [Math.round(O.x + u * CAGE_PX), Math.round(O.y + v * CAGE_PX * CAGE_DEPTH), v, u]);
-  const mine = (v) => (half === "back" ? v <= 0.05 : v > 0.05);
-  const heights = posts.map(() => 0);
-  for (let i = 0; i + 1 < posts.length; i++) {
-    const [x1, y1, v1, u1] = posts[i], [x2, y2, v2, u2] = posts[i + 1], h = tall(u1, u2);
-    heights[i] = Math.max(heights[i], h);
-    heights[i + 1] = Math.max(heights[i + 1], h);
-    if (!mine((v1 + v2) / 2)) continue;
-    poly(g, [[x1, y1], [x2, y2], [x2, y2 - h], [x1, y1 - h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.08)");
-    for (let k = 8; k < h; k += 8) line(g, x1, y1 - k, x2, y2 - k, half === "back" ? "rgba(70,90,80,0.35)" : "rgba(70,90,80,0.22)");
-    line(g, x1, y1 - h, x2, y2 - h, "#3a4a42");
+  for (const [x, y, h] of posts.values()) {
+    rect(g, x - 1, y - h, 2, h + 1, "#3a4044");
+    px(g, x - 1, y - h, "#7a8286");
+    rect(g, x - 1, y, 3, 1, "#2a2e30");
   }
-  posts.forEach(([x, y, v], i) => mine(v) && rect(g, x, y - heights[i], 2, heights[i], "#4a5a52"));
 }
 function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
@@ -667,8 +707,8 @@ export function createStadium(cv) {
     const foulShown = beat?.type === "throw" && beat.foul && landed;
     // People at the circle are drawn at double size, like a sports sim's close-up; the field
     // judge out in the sector stays small with the distance.
-    // In the cage events the circle judge stands outside, beside the mouth.
-    const judge = CAGES[ev] ? [O.x + Math.round(CAGES[ev].mouth * CAGE_PX) + 14, O.y - 30] : [O.x + 44, O.y - 20];
+    // In the cage events the circle judge stands clear of the netting, on the near side of the sector.
+    const judge = CAGES[ev] ? [O.x + Math.round((CAGES[ev].mouth + 3) * CAGE_PX), O.y + 54] : [O.x + 44, O.y - 20];
     figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, judge[0], judge[1], 2);
     if (foulShown) rect(g, judge[0] - 14, judge[1] - 52, 10, 7, "#e04a3a");
     // Team benches along the front: your squad on the left, theirs beside them. Teammates jump
