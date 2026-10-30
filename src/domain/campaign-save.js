@@ -329,6 +329,10 @@ export function validateCampaign(input) {
   if (!Number.isInteger(s.rng) || !int(s.nextId, 1, 1e9)) bad();
   s.weatherSeed ??= weatherSeedFrom(s.rng);
   if (!int(s.weatherSeed, 0, 2 ** 32 - 1)) bad();
+  // The ledger is a record, not game state: a malformed one is dropped and rebuilt from here.
+  const ledgerOk = (L) => L && typeof L === "object" && Array.isArray(L.days) && L.days.length <= 60 && L.seen && typeof L.seen === "object" &&
+    L.days.every((d) => d && Number.isFinite(d.day) && ["money", "fans", "insights"].every((c) => d[c] && typeof d[c] === "object" && Object.values(d[c]).every(Number.isFinite)));
+  if (s.ledger !== undefined && !ledgerOk(s.ledger)) delete s.ledger;
   if (!Array.isArray(s.plots) || s.plots.length !== PLOT_COUNT || s.plots[CLUB_PLOT]?.type !== "club") bad();
   for (const p of s.plots) if (p && (!FACILITIES[p.type] || !int(p.level, 1, FACILITIES[p.type].maxLevel ?? 99))) bad();
   const types = s.plots.filter(Boolean).map((p) => p.type).filter((k) => !FACILITIES[k].decor);

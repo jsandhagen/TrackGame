@@ -1,6 +1,6 @@
 import { systemUnlocked } from "./progression.js";
 import { FACILITIES, STADIUM } from '../game-content.js';
-import { clamp, grantXp, count, recordTakings } from './core.js';
+import { clamp, grantXp, count, recordTakings, ledgerAdd } from './core.js';
 
 export const DUTIES = {
   club: { name:'Club open day', desc:'Welcome visitors and help with community club sessions.', money:6, fans:1, stamina:6 },
@@ -46,6 +46,7 @@ export function workFacility(s,a,key,visitors,report) {
   if(!site || !out) return null;
   a.stamina=clamp(a.stamina-out.stamina,0,100);
   s.money+=out.money;s.coaching.insights+=out.insights;s.fans+=out.fans;
+  for(const cur of ['money','insights','fans']) ledgerAdd(s,cur,'Athletes on duty',out[cur]);
   if(site.index!=null) recordTakings(s,s.plots[site.index],'staff',out.money);
   grantXp(s,a,2,report.levelUps);
   count(s,'facilityDays');count(s,'facilityMoney',out.money);count(s,'facilityInsights',out.insights);count(s,'facilityFans',out.fans);

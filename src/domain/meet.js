@@ -20,6 +20,7 @@ import {
   fansFactor,
   facilityLevel,
   hasCombo,
+  ledgerAdd,
 } from "./core.js";
 import { checkGoals, yearStat } from "./story.js";
 import { competitionTier } from "./competition.js";
@@ -758,6 +759,7 @@ export function settleMatch(s) {
   if (m.kind === "duel") money = Math.round(money * 0.6);
   if (m.kind === "cup") money = Math.round(money * 1.5);
   s.money += money;
+  ledgerAdd(s, "money", m.kind === "cup" ? "Invitational prizes" : "Meet prizes", money);
   let fans = win ? 15 + 10 * L : draw ? 6 + 4 * L : 3 + 2 * L;
   fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue")) * (win && m.home ? 1 + 0.2 * facilityLevel(s, "lights") : 1);
   const rewards = { athleteProgress: [], mastery: [], money, fans: 0, items: [], levelUps: [], pbs: [], mvp: null, goals: [], development: [] };
@@ -766,6 +768,7 @@ export function settleMatch(s) {
     s.circuit.duels.push(duelKey);
     const bonus = 200 + 100 * L;
     s.money += bonus;
+    ledgerAdd(s, "money", "First-win bonuses", bonus);
     rewards.money += bonus;
     rewards.firstDuel = true;
     fans += 20;
@@ -826,6 +829,7 @@ export function settleMatch(s) {
   for (const wr of rewards.worldRecords) {
     const a = s.roster.find((x) => x.id === wr.id);
     s.money += 2500; rewards.money += 2500; fans += 400;
+    ledgerAdd(s, "money", "World records", 2500);
     count(s, "worldRecords");
     a?.career.unshift({ season: s.season, label: "WORLD RECORD · " + EVENTS[wr.event].name, mark: wr.mark });
     note(s, "WORLD RECORD! " + wr.name + " throws " + wr.mark.toFixed(2) + " m in the " + EVENTS[wr.event].name.toLowerCase() + ", beating " + wr.previous.toFixed(2) + ".", "win");
@@ -833,6 +837,8 @@ export function settleMatch(s) {
   rewards.insights = meetInsights(s,rewards.pbs.length + 3 * rewards.worldRecords.length);
   rewards.fans = Math.round(fans);
   s.fans += rewards.fans;
+  ledgerAdd(s, "fans", "World records", 400 * rewards.worldRecords.length);
+  ledgerAdd(s, "fans", "Meets", rewards.fans - 400 * rewards.worldRecords.length);
   if (m.kind === "cup") settleInvitation(s, win, rewards);
   else {
     // A reward chest: wins always drop something, finals drop more.

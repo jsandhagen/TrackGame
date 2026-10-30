@@ -43,6 +43,34 @@ export function weighted(s, entries) {
   for (const [value, w] of entries) if ((r -= w) < 0) return value;
   return entries.at(-1)[0];
 }
+// The club ledger: every change to money, fans and Coaching Insights, by category, for the last
+// four weeks. Each change is made where it happens and booked beside it with ledgerAdd;
+// reconcileLedger books anything that moved without an entry as "Other", so the ledger always
+// adds up to the real balance.
+export const LEDGER_DAYS = 28;
+const balanceOf = (s, cur) => (cur === "insights" ? s.coaching?.insights ?? 0 : s[cur] ?? 0);
+export function ledgerAdd(s, cur, cat, n) {
+  if (!n) return;
+  const L = (s.ledger ??= { days: [], seen: {} });
+  L.seen[cur] ??= balanceOf(s, cur) - n;
+  let d = L.days.at(-1);
+  if (d?.day !== s.day) {
+    d = { day: s.day, money: {}, fans: {}, insights: {} };
+    L.days.push(d);
+    while (L.days.length > LEDGER_DAYS) L.days.shift();
+  }
+  d[cur][cat] = (d[cur][cat] || 0) + n;
+  L.seen[cur] += n;
+}
+// cat names what caused an unbooked change, when the caller knows (a club story's choice).
+export function reconcileLedger(s, cat = "Other") {
+  const L = (s.ledger ??= { days: [], seen: {} });
+  for (const cur of ["money", "fans", "insights"]) {
+    const now = balanceOf(s, cur);
+    if (L.seen[cur] == null) L.seen[cur] = now;
+    else if (Math.abs(now - L.seen[cur]) > 1e-9) ledgerAdd(s, cur, cat, now - L.seen[cur]);
+  }
+}
 // A building's books: the last seven days of takings (counter sales and staff on duty) and
 // lifetime totals, so the coach can see whether it pays its way. Kept on the plot itself, so
 // they move with the building.

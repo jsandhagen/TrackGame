@@ -4595,10 +4595,6 @@ dialog > .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscr
 
 /* Train window: tabs with the Insight balance on the right, then the session board. */
 .train-tabs { align-items: center; margin-bottom: 8px; }
-.tab-insights { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; white-space: nowrap; }
-.tab-insights .ico { width: 20px; height: 20px; }
-.tab-insights b { font: 700 18px var(--display); }
-.tab-insights small { font-size: 10.5px; color: var(--muted); }
 .session-list { min-width: 0; }
 .session-hint { margin: 0 0 6px; font-size: 11px; color: var(--muted); }
 .session-hint b { color: #a8741a; }
@@ -4697,11 +4693,7 @@ button.drill.high-tier { background: linear-gradient(#b8862a 0 4px, #fff8e2 4px)
 .drill-cost .money { font-size: 12px; }
 .drill-lv { display: flex; align-items: center; flex-wrap: wrap; }
 .xp-bar .bar { width: 46px; height: 5px; }
-.tools-insights { display: none; align-items: center; gap: 3px; font: 700 15px var(--display); }
-.tools-insights .ico { width: 18px; height: 18px; }
 @media (max-aspect-ratio: 1/1) {
-  .train-tabs .tab-insights { display: none; }
-  .tools-insights { display: inline-flex; }
   .fam-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex-basis: 100%; }
   .fam-filter button { flex: none; }
 }
@@ -5436,3 +5428,31 @@ dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1
 .sales-books .hint { margin: 6px 0 0; }
 @media (max-width: 380px) { .books-grid { grid-template-columns: 1fr; } }
 .books-grid .amt { font-style: normal; white-space: nowrap; }
+
+/* The ledger behind the top-bar counters. */
+#hud button.res { cursor: pointer; color: inherit; }
+.ledger { display: grid; gap: 10px; }
+.ledger-tabs button { display: inline-flex; align-items: center; gap: 4px; }
+.ledger-tabs .ico { width: 16px; height: 16px; }
+.ledger-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.ledger-head > div { display: grid; }
+.ledger-head small { font: 700 10px var(--display); letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+.ledger-head b { font: 700 24px var(--display); color: var(--ink); }
+.ledger-head .pos { color: #2f7d4a; }
+.ledger-head .neg { color: var(--red); }
+.ledger-days { margin-left: auto; }
+.ledger-list { padding: 8px 10px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); }
+.ledger-list h3 { display: flex; justify-content: space-between; margin: 0 0 6px; font: 700 13px var(--display); letter-spacing: 0.5px; text-transform: uppercase; }
+.ledger-list.in h3 b, .ledger-list.in .ledger-row b { color: #2f7d4a; }
+.ledger-list.out h3 b, .ledger-list.out .ledger-row b { color: var(--red); }
+.ledger-row { display: grid; grid-template-columns: minmax(0, 1.3fr) 1fr auto; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
+.ledger-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ledger-row b { font: 700 14px var(--display); text-align: right; min-width: 58px; }
+.ledger-bar { display: block; height: 8px; border-radius: 4px; background: #00000010; overflow: hidden; }
+.ledger-bar em { display: block; height: 100%; border-radius: 4px; }
+.ledger-list.in .ledger-bar em { background: #6ac08a; }
+.ledger-list.out .ledger-bar em { background: #e58a78; }
+.ledger-next { margin: 0; }
+.ledger-days { background: var(--paper2); border-color: var(--line); box-shadow: none; }
+.ledger-days button { color: var(--ink); }
+.ledger-list h3 b:only-child, .ledger-list h3 b { font: 700 14px var(--display); }

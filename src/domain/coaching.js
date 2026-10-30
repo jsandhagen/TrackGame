@@ -1,7 +1,7 @@
 import { athleteDuty } from "./facility-duties.js";
 import { practiceMastery, masteryOf, masteryCap, formOf, FORMS } from "./mastery.js";
 import { EVENT_IDS, PLANS, STADIUM, FACILITIES, ITEMS } from "../game-content.js";
-import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random, hasCombo, grantXp } from "./core.js";
+import { capOf, facilityLevel, effects, moodOf, MOOD_TRAIN, count, note, random, hasCombo, grantXp, ledgerAdd } from "./core.js";
 
 import { systemUnlocked, systemProblem } from "./progression.js";
 
@@ -147,6 +147,7 @@ export function unlockPlan(s, athleteId, id) {
   const a = s.roster.find((x) => x.id === athleteId), p = PLANS[id];
   if (!a || !p?.course || s.match || s.pendingEvent || !["planning","season"].includes(s.phase) || s.coaching.unlocked.includes(id) || planRequirements(s,a,id) || s.coaching.insights < p.cost) return false;
   s.coaching.insights -= p.cost; s.coaching.unlocked.push(id);
+  ledgerAdd(s, "insights", "Training plans", -p.cost);
   note(s,"Training plan unlocked: " + p.name + ". Available to athletes with the required facilities.","level");
   return true;
 }
@@ -234,6 +235,8 @@ export function coachGroup(s, ids, id) {
   const chem = systemUnlocked(s, "chemistry") ? chemistryOf(s, ids) : null, coachBefore = coachLevel(s);
   s.coaching.insights -= bill.insights;
   s.money -= bill.money;
+  ledgerAdd(s, "insights", "Coaching sessions", -bill.insights);
+  ledgerAdd(s, "money", "Coaching sessions", -bill.money);
   s.coaching.chemistry ??= [];
   const discovered = chem && !s.coaching.chemistry.includes(chem.key);
   if (discovered) s.coaching.chemistry.push(chem.key);
@@ -286,10 +289,16 @@ export function practiceInsights(s, trained) {
   const total = (trained ? PRACTICE_INSIGHTS : 0) + insightRate(s) + (s.coaching.spare || 0),
     earned = Math.floor(total + 1e-9);
   s.coaching.spare = Math.round((total - earned) * 1000) / 1000;
-  s.coaching.insights += earned; return earned;
+  s.coaching.insights += earned;
+  const practice = trained ? Math.min(earned, PRACTICE_INSIGHTS) : 0;
+  ledgerAdd(s, "insights", "Training practice", practice);
+  ledgerAdd(s, "insights", "Buildings", earned - practice);
+  return earned;
 }
 export function meetInsights(s, personalBests) {
   if (!systemUnlocked(s, "sessions")) return 0;
   const earned = 4 + Math.min(3,personalBests) + (facilityLevel(s,"studio") > 0 ? 2 : 0);
-  s.coaching.insights += earned; return earned;
+  s.coaching.insights += earned;
+  ledgerAdd(s, "insights", "Meet reviews", earned);
+  return earned;
 }

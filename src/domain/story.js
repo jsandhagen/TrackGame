@@ -14,6 +14,8 @@ import {
   facilityLevel,
   statTotal,
   capOf,
+  ledgerAdd,
+  reconcileLedger,
 } from "./core.js";
 import { weatherToday, dateOf } from "./calendar.js";
 import { clubVersusWorld } from "./world.js";
@@ -77,6 +79,8 @@ export function rewardText(r) {
 export function grantReward(s, r) {
   if (r.money) s.money += r.money;
   if (r.fans) s.fans += r.fans;
+  ledgerAdd(s, "money", "Goals", r.money || 0);
+  ledgerAdd(s, "fans", "Goals", r.fans || 0);
   for (const [id, n] of Object.entries(r.items || {})) addItem(s, id, n);
 }
 export function checkGoals(s) {
@@ -108,6 +112,7 @@ export function signSecret(s, key) {
   if (!d || !s.secretsOffered.includes(key) || s.roster.some((a) => a.secret === key) || (s.secretsSigned || []).includes(key)) return false;
   if (s.roster.length >= rosterCap(s) || s.money < secretFee(s, key)) return false;
   s.money -= secretFee(s, key);
+  ledgerAdd(s, "money", "Signings", -secretFee(s, key));
   const a = createAthlete(s, d.event, {
     name: d.name,
     rarity: "legend",
@@ -427,7 +432,10 @@ export function resolveEvent(s, index) {
     e = p && STORY[p.id],
     c = e?.choices[index];
   if (!c || (c.ok && !c.ok(s, p.data))) return null;
+  // A story's choice can move money and fans in many ways; book whatever it changed.
+  reconcileLedger(s);
   const message = c.run(s, p.data);
+  reconcileLedger(s, "Club stories");
   s.pendingEvent = null;
   note(s, message, "story");
   checkGoals(s);
