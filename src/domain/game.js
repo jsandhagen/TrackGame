@@ -7,6 +7,7 @@ import {
   RARITY,
   SKILLS,
   ITEMS,
+  ELITES,
   FACILITIES,
   STADIUM,
   PLOT_COUNT,
@@ -177,7 +178,22 @@ export function newGame(seed = Date.now() >>> 0) {
   return ensureCustom(s);
 }
 
+// The World League's clubs field the world's elite: each takes the place of one of the club's
+// throwers in their event, with their own name, nation and look. Strength still comes from the
+// difficulty curve, so the league plays as it always has.
+export function seatElites(club, league) {
+  if (league !== 4) return club;
+  for (const e of ELITES.filter((x) => x.club === club.id)) {
+    if (club.athletes.some((a) => a.elite === e.id)) continue;
+    const a = club.athletes.find((x) => x.event === e.event && !x.elite);
+    if (a) Object.assign(a, { name: e.name, look: { ...e.look }, elite: e.id, nation: e.nation });
+  }
+  return club;
+}
 export function makeClubs(s, league, stage = 0, indices = [0, 1, 2]) {
+  return buildClubs(s, league, stage, indices).map((c) => seatElites(c, league));
+}
+function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
   const meetSkills = Object.keys(SKILLS).filter((k) => SKILLS[k].cat === "meet" && SKILLS[k].rank <= Math.min(2, league));
   return indices.map((index) => {
     const club = CLUBS[league][index], identity = club.identity;

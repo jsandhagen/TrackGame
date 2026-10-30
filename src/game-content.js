@@ -468,29 +468,29 @@ export function towerColorsOf(s) {
 }
 export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 
-// The world's elite: invented throwers, each in a style drawn from the sport's great traditions
-// (rotational shot putters, Nordic javelin, Central European hammer and so on), not real people.
-// level is their mark as a share of the event's world record in a good year.
+// The world's elite: nods to the sport's real champions, with altered names, who compete for the
+// World League clubs (club: index into CLUBS[4]). level is their mark as a share of the event's
+// world record in a good year.
 export const ELITES = [
-  { id: "harlan", name: "Dax Harlan", nation: "USA", event: "shot", level: 0.985, look: { skin: "#e2b08a", hair: "#3a2a20", style: 1, gear: "cap", gearColor: "#e04a3a" }, blurb: "Spins out of the back like a turntable and sends it into the next postcode." },
-  { id: "brekke", name: "Anja Brekke", nation: "NOR", event: "shot", level: 0.962, look: { skin: "#f0c6a0", hair: "#d8b060", style: 5 }, blurb: "A glide purist. Same rhythm, same roar, every throw." },
-  { id: "asante", name: "Kofi Asante-Ward", nation: "GHA", event: "shot", level: 0.955, look: { skin: "#7a4e36", hair: "#1a1a1a", style: 3, gear: "band", gearColor: "#f2c94c" }, blurb: "Former rugby prop. Treats the stop board like a scrum." },
-  { id: "marchetti", name: "Ivo Marchetti", nation: "ITA", event: "shot", level: 0.945, look: { skin: "#e2b08a", hair: "#2a2420", style: 0, special: "beard" }, blurb: "Eats pasta between rounds. Nobody has ever seen him nervous." },
-  { id: "halvorsen", name: "Sten Halvorsen", nation: "SWE", event: "discus", level: 0.968, look: { skin: "#f0c6a0", hair: "#e8d090", style: 2 }, blurb: "Two metres tall and loose as a whip. Waits for a headwind like a sailor." },
-  { id: "clarke", name: "Imani Clarke", nation: "JAM", event: "discus", level: 0.958, look: { skin: "#7a4e36", hair: "#1a1a1a", style: 5, gear: "shades", gearColor: "#2a2a32" }, blurb: "Throws in shades, celebrates in slow motion." },
-  { id: "strand", name: "Mikkel Strand", nation: "DEN", event: "discus", level: 0.95, look: { skin: "#f0c6a0", hair: "#a06a3a", style: 4 }, blurb: "Technician's technician. Has filmed every throw since he was twelve." },
-  { id: "kalnina", name: "Ruta Kalnina", nation: "LAT", event: "discus", level: 0.94, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 6, gear: "band", gearColor: "#e04a3a" }, blurb: "Fast feet, faster release. A crowd favourite in every stadium." },
-  { id: "zurek", name: "Pawel Zurek", nation: "POL", event: "hammer", level: 0.97, look: { skin: "#f0c6a0", hair: "#3a2a20", style: 0 }, blurb: "Four turns so smooth the ball barely seems to move. Then it's gone." },
-  { id: "brennan", name: "Aoife Brennan", nation: "IRL", event: "hammer", level: 0.955, look: { skin: "#f0c6a0", hair: "#c0502a", style: 2 }, blurb: "Trained in a farm field with a wire and a bucket of sand. Now the world's her field." },
-  { id: "arata", name: "Kenji Arata", nation: "JPN", event: "hammer", level: 0.948, look: { skin: "#f0d0b0", hair: "#1a1a1a", style: 1, gear: "band", gearColor: "#f4f4f0" }, blurb: "Counts every turn under his breath. Has never fouled at a championship." },
-  { id: "kravets", name: "Bohdan Kravets", nation: "UKR", event: "hammer", level: 0.94, look: { skin: "#e2b08a", hair: "#5a3a2a", style: 3, special: "beard" }, blurb: "Old-school strength and new-school speed. Throws further every spring." },
-  { id: "rautio", name: "Jonas Rautio", nation: "FIN", event: "jav", level: 0.965, look: { skin: "#f0c6a0", hair: "#e8d090", style: 1 }, blurb: "From a country where every village has a runway. Silent until the javelin lands." },
-  { id: "sethi", name: "Vikram Sethi", nation: "IND", event: "jav", level: 0.958, look: { skin: "#c98f66", hair: "#1a1a1a", style: 0, gear: "cap", gearColor: "#3a7ad0" }, blurb: "Turns to the crowd before the javelin lands. He already knows." },
-  { id: "mala", name: "Kristyna Mala", nation: "CZE", event: "jav", level: 0.95, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 5, gear: "shades", gearColor: "#2a2a32" }, blurb: "The fastest approach in the sport. Hits the block like a door slamming." },
-  { id: "wendt", name: "Tobias Wendt", nation: "GER", event: "jav", level: 0.94, look: { skin: "#f0c6a0", hair: "#a06a3a", style: 4 }, blurb: "A shoulder made of rubber and a smile made for the cameras." },
+  { id: "krauser", name: "Rian Krauser", nation: "USA", event: "shot", club: 1, level: 0.985, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 0, special: "beard" }, blurb: "A rotational giant. The shot looks like a marble in his hand." },
+  { id: "walshe", name: "Tom Walshe", nation: "NZL", event: "shot", club: 2, level: 0.965, look: { skin: "#e2b08a", hair: "#3a2a20", style: 1, special: "beard" }, blurb: "Kiwi grit. Has thrown through every kind of weather the Pacific can invent." },
+  { id: "fabri", name: "Leo Fabri", nation: "ITA", event: "shot", club: 4, level: 0.958, look: { skin: "#e2b08a", hair: "#2a2420", style: 4, gear: "band", gearColor: "#2a6ad0" }, blurb: "Plays to the crowd before, during and after every put." },
+  { id: "jaxon", name: "Chase Jaxon", nation: "USA", event: "shot", club: 0, level: 0.94, look: { skin: "#7a4e36", hair: "#1a1a1a", style: 5 }, blurb: "Fast and fierce through the ring, and saves her best for the last round." },
+  { id: "aleknas", name: "Mykolas Aleknas", nation: "LTU", event: "discus", club: 5, level: 0.975, look: { skin: "#f0c6a0", hair: "#a06a3a", style: 1 }, blurb: "Born into a discus dynasty, and writing his own chapter." },
+  { id: "che", name: "Kristjan Che", nation: "SLO", event: "discus", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#3a2a20", style: 0 }, blurb: "A towering Slovenian with a release like a whip crack." },
+  { id: "stol", name: "Daniel Stol", nation: "SWE", event: "discus", club: 1, level: 0.955, look: { skin: "#f0c6a0", hair: "#d8b060", style: 2, special: "beard" }, blurb: "So big he makes the cage look like a phone box." },
+  { id: "allmon", name: "Valerie Allmon", nation: "USA", event: "discus", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#e8d090", style: 5 }, blurb: "A former dancer. Her spin is pure choreography." },
+  { id: "katzberger", name: "Ethan Katzberger", nation: "CAN", event: "hammer", club: 0, level: 0.975, look: { skin: "#f0c6a0", hair: "#7a4a2a", style: 2 }, blurb: "Spins faster than anyone alive, mullet flying." },
+  { id: "nowicky", name: "Wojtek Nowicky", nation: "POL", event: "hammer", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#3a2a20", style: 1 }, blurb: "Calm as a pond, consistent as a clock, deadly in a final." },
+  { id: "wlodarek", name: "Anita Wlodarek", nation: "POL", event: "hammer", club: 4, level: 0.95, look: { skin: "#f0c6a0", hair: "#7a4a2a", style: 5, gear: "band", gearColor: "#d03040" }, blurb: "A legend of the ring with more titles than she can carry." },
+  { id: "rodgers", name: "Camryn Rodgers", nation: "CAN", event: "hammer", club: 2, level: 0.94, look: { skin: "#7a4e36", hair: "#2a1a10", style: 5 }, blurb: "Smooth, fast and fearless when the medals are on the line." },
+  { id: "chopra", name: "Neerav Chopra", nation: "IND", event: "jav", club: 5, level: 0.97, look: { skin: "#c98f66", hair: "#1a1a1a", style: 0 }, blurb: "Calm and precise. Often wins it with his very first throw." },
+  { id: "nadim", name: "Arshad Nadim", nation: "PAK", event: "jav", club: 1, level: 0.965, look: { skin: "#a06a48", hair: "#1a1a1a", style: 1, special: "beard" }, blurb: "Learned on a dirt runway. Now he owns the biggest stages." },
+  { id: "vadlech", name: "Jakub Vadlech", nation: "CZE", event: "jav", club: 3, level: 0.952, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 4 }, blurb: "A rangy Czech with an approach as long as a summer evening." },
+  { id: "webber", name: "Julian Webber", nation: "GER", event: "jav", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#2a2420", style: 3, gear: "cap", gearColor: "#2a2a2a" }, blurb: "German precision with a crowd-pleaser's grin." },
 ];
 // Kit colours the elites wear for their nations.
-export const NATION_COLORS = { USA: "#2a4a9a", NOR: "#c8302a", GHA: "#2a8a4a", ITA: "#2a6ad0", SWE: "#2a6ab0", JAM: "#2a9a4a", DEN: "#c8302a", LAT: "#8a2a3a", POL: "#d03040", IRL: "#2a9a5a", JPN: "#e8e8e0", UKR: "#2a5ad0", FIN: "#2a5ab0", IND: "#e08a2a", CZE: "#2a4a9a", GER: "#2a2a2a" };
+export const NATION_COLORS = { USA: "#2a4a9a", NZL: "#2a2a2a", ITA: "#2a6ad0", LTU: "#e0b030", SLO: "#2a5ab0", SWE: "#2a6ab0", CAN: "#d03040", POL: "#d03040", IND: "#e08a2a", PAK: "#2a7a4a", CZE: "#2a4a9a", GER: "#2a2a2a" };
 export const HELPER = "Juno";
 // The club's kit-shop keeper, who also calls out each delivery and sale.
 export const SHOPKEEPER = { name: "Rudi", role: "kit shop", look: { skin: "#c98f66", hair: "#3a2a24", style: 1, special: "beard" }, colors: { primary: "#d0743a", secondary: "#f4efe2" } };

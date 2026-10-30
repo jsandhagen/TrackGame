@@ -5365,3 +5365,4 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
   .meet-live .meet-toolbar .tool[data-act="meet-standards"] .lbl { display: none; }
   .meet-live .meet-toolbar .tool[data-act="meet-standards"] { justify-content: center; }
 }
+.elite-line { display: block; font-style: italic; color: var(--muted); font-size: 11px; }

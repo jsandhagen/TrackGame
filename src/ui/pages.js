@@ -953,7 +953,7 @@ export function league(s, view) {
       const r = s.results.find((x) => x.kind === "league" && x.name === c.name);
       const open = view.rival === c.id;
       return `<div class="rival ${open ? "open" : ""}" style="--c:${c.color}"><button class="rival-head" data-act="rival" data-id="${c.id}"><span class="crest" style="--rival:${c.color}">${esc(c.name[0])}</span><span><strong>${esc(c.name)}</strong><small>${esc(c.style)}</small></span><b>${r ? (r.win ? "W " : r.draw ? "D " : "L ") + r.score + "–" + r.against : ci === s.fixture ? "NEXT" : ci < s.fixture ? "—" : "Fixture " + (ci + 1)}</b></button>
-      ${open ? `<div class="rival-squad">${c.athletes.map((a, i) => `<div class="rival-athlete">${rivalPortrait(c.id, i)}<span><strong>${esc(a.name)}</strong><small>${EVENTS[a.event].name} · ~${mark(G.rawMark(a, a.event))}</small><small>${a.skills.map((k) => SKILLS[k].name).join(" · ") || "No skills"} · ${esc(G.PROFILES[a.profile].name)} · mastery ${Math.floor(G.masteryOf(a,a.event))} · ${Object.values(a.gear).filter(Boolean).map(k=>ITEMS[k].name).join(" / ")}</small></span>${ovrBadge(a)}</div>`).join("")}</div>` : ""}</div>`;
+      ${open ? `<div class="rival-squad">${c.athletes.map((a, i) => `<div class="rival-athlete">${rivalPortrait(c.id, i)}<span><strong>${esc(a.name)}${nationTag(a)}</strong><small>${EVENTS[a.event].name} · ~${mark(G.rawMark(a, a.event))}</small>${a.elite ? `<small class="elite-line">${esc(ELITES.find((e) => e.id === a.elite)?.blurb || "")}</small>` : ""}<small>${a.skills.map((k) => SKILLS[k].name).join(" · ") || "No skills"} · ${esc(G.PROFILES[a.profile].name)} · mastery ${Math.floor(G.masteryOf(a,a.event))} · ${Object.values(a.gear).filter(Boolean).map(k=>ITEMS[k].name).join(" / ")}</small></span>${ovrBadge(a)}</div>`).join("")}</div>` : ""}</div>`;
     })
     .join("")}`;
 }
@@ -1126,7 +1126,7 @@ function resultTable(s, event) {
     <table class="placing-table"><caption class="sr-only">${EVENTS[event.event].name} individual results</caption><colgroup><col class="col-place"><col><col class="col-mark"><col class="col-points"></colgroup><thead><tr><th scope="col">Pl.</th><th scope="col">Athlete</th><th scope="col">Best (m)</th><th scope="col">Pts</th></tr></thead><tbody>${rows.slice(0,SCOREBOARD_LIMIT).map(row => {
       const {athlete, face, club} = meetAthlete(s, row.side, row.id);
       const pb = s.match.rewards?.pbs?.some(p => p.id === row.id && p.event === event.event);
-      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(club?.name || s.match.name)}${s.match.rewards?.worldRecords?.some((w) => w.id === row.id && w.event === event.event) ? ' <em class="pb-tag">WR</em>' : pb ? ' <em class="pb-tag pb-mark">PB</em>' : ""}${s.match.kind === "league" && G.championshipBooking(s) && G.championshipQualified(s, row.id, event.event) ? ' <em class="pb-tag q-tag" title="Championship standard reached">Q</em>' : ""}${s.match.championship && row.finalist ? ' <em class="pb-tag final-tag">FINAL</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
+      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}${nationTag(athlete)}<small>${row.side === "home" ? "Your club" : esc(club?.name || s.match.name)}${s.match.rewards?.worldRecords?.some((w) => w.id === row.id && w.event === event.event) ? ' <em class="pb-tag">WR</em>' : pb ? ' <em class="pb-tag pb-mark">PB</em>' : ""}${s.match.kind === "league" && G.championshipBooking(s) && G.championshipQualified(s, row.id, event.event) ? ' <em class="pb-tag q-tag" title="Championship standard reached">Q</em>' : ""}${s.match.championship && row.finalist ? ' <em class="pb-tag final-tag">FINAL</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
     }).join("")}</tbody></table>
     ${rows.length>SCOREBOARD_LIMIT ? `<p class="hint scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${rows.length}. All attempts remain in the throw series.</p>` : ""}
     <details class="throw-series"><summary>Throw series <span>${rows.length} athletes</span></summary>${rows.map(row => {
@@ -1152,7 +1152,7 @@ function standingRows(s, board, rows, side, id) {
     if (!standardShown && (row.mark == null || row.mark < board.standard)) { out.push(divider("standard-line", "CHAMPIONSHIP STANDARD", board.standard)); standardShown = true; }
     const {athlete,club}=meetAthlete(s,row.side,row.id);
     const badges = (row.out ? BADGES.out() : "") + (row.pb ? BADGES.pb(row) : "") + (row.qualified ? BADGES.q(row) : "");
-    out.push(`<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === id ? "throwing" : ""} ${row.inFinal ? "in-final" : ""} ${row.out ? "out" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><span class="badges">${badges}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`);
+    out.push(`<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === id ? "throwing" : ""} ${row.inFinal ? "in-final" : ""} ${row.out ? "out" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${nationTag(athlete)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><span class="badges">${badges}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`);
     if (n === cutAfter) out.push(divider("cut-line", `FINAL CUT · TOP ${board.cut}${open ? ` · ${open} OPEN` : ""}`, null));
   });
   if (!standardShown) out.push(divider("standard-line", "CHAMPIONSHIP STANDARD", board.standard));
@@ -1168,6 +1168,8 @@ function throwerGoals(s, board, row, athlete, ev) {
   if (board.finals && row && !row.out) goals.push(`<span class="goal cut done">Finalist</span>`);
   return goals.length ? `<div class="thrower-goals">${goals.join("")}</div>` : "";
 }
+// One of the world's elite wears their nation beside their name.
+const nationTag = (a) => (a?.nation ? flag(a.nation) : "");
 // A meet toolbar button: an icon always, its label when there's room for it.
 const toolButton = (icon, label, act, extra = "", aria = label) => `<button class="button subtle small tool" data-act="${act}" ${extra} aria-label="${aria}" title="${aria}">${ico(icon)}<span class="lbl">${label}</span></button>`;
 // Watch or Coach, highlights, the league standards and the guide: in the toolbar where there's
@@ -1196,7 +1198,7 @@ export function meetBar(s, view) {
   </div><div class="meet-desk">
     <section class="current-thrower ${side === "home" ? "our-athlete" : ""}" aria-label="Current thrower">
       <div class="thrower-heading"><b>${EVENTS[ev].name}</b><span>Throw ${attempt} / ${m.attempts}${m.finalRound ? " · Final" : ""}</span></div>
-      <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(activeClub?.name || m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
+      <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(activeClub?.name || m.name)}</small><strong>${esc(a.name)}${nationTag(a)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : marks[k] === G.best(marks) ? "best" + (thrower?.pb ? " pb" : "") : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
       ${throwerGoals(s, board, thrower, side === "home" ? a : null, ev)}
     </section>
