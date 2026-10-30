@@ -1,7 +1,7 @@
 import { canvas, rect, poly, ellipse, ring, line, shade, hash, px, mix } from "./pixel.js";
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
-import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
+import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf, roofColorOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
@@ -30,7 +30,9 @@ const TRACK_COLORS = ["#b07850", "#c46a4e", "#c46a4e", "#3a6ab0", "#3a6ab0"];
 const CROWDS = [0.3, 0.45, 0.6, 0.78, 0.95];
 // Venue look for the meet in progress: your own stadium at home, the rival's ground away
 // (sized by the level it competes at), a neutral showpiece for finals. Bigger venues hold
-// evening meets under lights; the meet-day weather sets the sky.
+// evening meets under lights; the meet-day weather sets the sky. At home the stands and track
+// match the campus: the grandstand and track levels, and the seat pattern and roof the club
+// has chosen.
 function venueOf(s, m) {
   const v = meetVenue(s) || { grand: 0, color: m.color, trim: "#f4efe2", backdrop: "town", name: "", lights: false };
   const grand = Math.max(0, Math.min(4, v.grand));
@@ -41,6 +43,10 @@ function venueOf(s, m) {
     time,
     weather: m.weather || "cloudy",
     track: v.home ? trackColorOf(s.stadium.track, styleOf(s).track) : TRACK_COLORS[grand],
+    // 0 grass loop, 1 gravel or cinder, 2 synthetic, 3 championship.
+    trackLevel: v.home ? s.stadium.track : grand === 0 ? 1 : grand >= 3 ? 3 : 2,
+    seats: v.home ? { pattern: styleOf(s).seats, a: s.colors.primary, b: s.colors.secondary } : { pattern: "solid", a: v.color },
+    roof: v.home ? roofColorOf(s) : null,
     crowd: v.home ? Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) : v.special ? 0.92 : CROWDS[grand],
   };
 }
@@ -228,7 +234,7 @@ function seatRows(venue) {
     rows = [];
   if (g === 0) {
     for (let r = 4; r < 10; r++) rows.push([34 + r * 6, 0, W, 0.5]);
-    for (let r = 0; r < 4; r++) rows.push([70 + r * 6, W * 0.36, W * 0.64, 1]);
+    if (!venue.home) for (let r = 0; r < 4; r++) rows.push([70 + r * 6, W * 0.36, W * 0.64, 1]);
   } else if (g === 1) for (let r = 0; r < 5; r++) rows.push([64 + r * 6, 0, W, 1]);
   else {
     for (let r = 0; r < 10; r++) rows.push([34 + r * 6, 0, W, 1]);
@@ -239,13 +245,23 @@ function seatRows(venue) {
 function stands(g, venue) {
   const G = venue.grand,
     seat = [shade(venue.color, -0.25), shade(venue.color, -0.1)],
-    metal = venue.time === "night" ? "#3a4448" : "#8a9498";
+    metal = venue.time === "night" ? "#3a4448" : "#8a9498",
+    { pattern, a: seatA, b: seatB } = venue.seats || { pattern: "solid", a: venue.color };
+  // A seat's colour by row (of n) and x, following the club's chosen pattern; solid seats
+  // alternate two shades of one colour so the rows read.
+  const seatAt = (r, n, x) => {
+    const pick = pattern === "stripes" ? r % 2 : pattern === "twotone" ? +(r >= n / 2) : pattern === "blocks" ? Math.floor(x / 72) % 2 : 0;
+    return shade(pick ? seatB : seatA, r % 2 ? -0.1 : -0.25);
+  };
   if (G === 0) {
-    // A park: grass banks, a little bleacher and a clubhouse hut.
+    // A park: grass banks, a little bleacher and a clubhouse hut. A club's own open field has
+    // no bleacher yet: the crowd stands on the bank behind the rail.
     for (let r = 2; r < 10; r++) rect(g, 0, 34 + r * 6, W, 6, r % 2 ? "#5a8a48" : "#64944e");
     rect(g, 0, 44, W, 2, "#7aa858");
-    rect(g, W * 0.36 - 2, 68, W * 0.28 + 4, 26, metal);
-    for (let r = 0; r < 4; r++) rect(g, W * 0.36, 70 + r * 6, W * 0.28, 5, seat[r % 2]);
+    if (!venue.home) {
+      rect(g, W * 0.36 - 2, 68, W * 0.28 + 4, 26, metal);
+      for (let r = 0; r < 4; r++) rect(g, W * 0.36, 70 + r * 6, W * 0.28, 5, seat[r % 2]);
+    }
     const hx = W * 0.8;
     rect(g, hx, 58, 46, 22, "#e8dcc0");
     poly(g, [[hx - 4, 58], [hx + 23, 46], [hx + 50, 58]], venue.color);
@@ -255,12 +271,14 @@ function stands(g, venue) {
     rect(g, 0, 92, W, 1, "#e8e4d8");
     return;
   }
-  // Stepped rows: a seat, the dark riser under it and a lit lip on the step below.
-  const rows = (y0, n, offset = 0) => {
+  // Stepped rows: a seat, the dark riser under it and a lit lip on the step below. Bleachers
+  // are bare aluminium benches, like the campus's.
+  const rows = (y0, n, offset = 0, bench = false) => {
     for (let r = 0; r < n; r++) {
       const y = y0 + r * 6;
-      rect(g, 0, y, W, 4, seat[(r + offset) % 2]);
-      rect(g, 0, y + 4, W, 1, shade(seat[0], -0.35));
+      if (bench) rect(g, 0, y, W, 4, (r + offset) % 2 ? "#c4c8cc" : "#d4d8dc");
+      else for (let x = 0; x < W; x += 72) rect(g, x, y, Math.min(72, W - x), 4, seatAt(r + offset, n, x));
+      rect(g, 0, y + 4, W, 1, bench ? "#6a6e72" : shade(seat[0], -0.35));
       rect(g, 0, y + 5, W, 1, shade(metal, 0.25));
     }
   };
@@ -273,7 +291,7 @@ function stands(g, venue) {
   if (G === 1) {
     // Metal bleachers along the straight with a press box.
     rect(g, 0, 62, W, 32, metal);
-    rows(64, 5);
+    rows(64, 5, 0, true);
     aisles(62, 94, 80);
     for (let x = 6; x < W; x += 40) rect(g, x, 62, 2, 32, shade(metal, -0.3));
     rect(g, 0, 91, W, 3, shade(metal, -0.15));
@@ -293,7 +311,8 @@ function stands(g, venue) {
   for (let r = 0; r < 4; r++) rect(g, 0, 34 + r * 6, W, 6, `rgba(0,0,0,${(0.18 - r * 0.045).toFixed(3)})`);
   if (G === 2) {
     const x0 = W * 0.12, x1 = W * 0.88;
-    rect(g, x0, 20, x1 - x0, 6, "#2e3a3e");
+    rect(g, x0, 20, x1 - x0, 6, venue.roof || "#2e3a3e");
+    rect(g, x0, 25, x1 - x0, 1, shade(venue.roof || "#2e3a3e", -0.3));
     rect(g, x0, 26, x1 - x0, 1, venue.color);
     for (let x = x0 + 8; x < x1; x += 60) rect(g, x, 26, 2, 8, "#3a4a4a");
     return;
@@ -302,8 +321,8 @@ function stands(g, venue) {
   rows(10, 4, 1);
   aisles(10, 32, 96);
   rect(g, 0, 32, W, 2, venue.color);
-  rect(g, 0, 2, W, 6, G === 4 ? "#e8ecef" : "#2e3a3e");
-  if (G === 4) for (let x = 0; x < W; x += 8) line(g, x, 2, x + 8, 7, "#b8c0c8");
+  rect(g, 0, 2, W, 6, venue.roof || (G === 4 ? "#e8ecef" : "#2e3a3e"));
+  if (G === 4) for (let x = 0; x < W; x += 8) line(g, x, 2, x + 8, 7, shade(venue.roof || "#e8ecef", -0.2));
   // The big screen.
   const sx = W / 2 - 36;
   rect(g, sx - 2, 4, 76, 30, "#1a1e24");
@@ -348,9 +367,13 @@ function stadiumBase(s, ev, venue) {
   }
   // The ad boards cast a shadow onto the track that runs in front of the stands.
   const FH = H + GROUND, night = venue.time === "night", wet = venue.weather === "rain";
+  // The track: a mown grass loop or a gravel track with four chalked lanes, then synthetic
+  // with six painted lanes, as on the campus.
+  const loose = (venue.trackLevel ?? 2) <= 1;
   rect(g, 0, 106, W, 15, venue.track);
-  for (let y = 109; y < 121; y += 4) rect(g, 0, y, W, 1, "rgba(255,255,240,0.45)");
-  for (let i = 0; i < W / 3; i++) px(g, hash(i * 11) * W, 107 + hash(i * 13) * 13, shade(venue.track, hash(i) > 0.5 ? 0.12 : -0.12));
+  if (loose) for (let i = 0; i < W; i++) px(g, hash(i * 11) * W, 107 + hash(i * 13) * 13, shade(venue.track, hash(i) > 0.5 ? 0.14 : -0.14));
+  for (const y of loose ? [109, 113, 117] : [108, 110, 113, 115, 118]) rect(g, 0, y, W, 1, loose ? shade(venue.track, 0.3) : "rgba(255,255,240,0.6)");
+  if (!loose) for (let i = 0; i < W / 3; i++) px(g, hash(i * 11) * W, 107 + hash(i * 13) * 13, shade(venue.track, hash(i) > 0.5 ? 0.08 : -0.08));
   rect(g, 0, 106, W, 2, "rgba(0,0,0,0.28)");
   rect(g, 0, 121, W, 2, "#e8e4d4");
   // Field: broad mowing stripes along the throwing direction, sloped with the ground plane.
