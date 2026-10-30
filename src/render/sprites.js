@@ -2,10 +2,10 @@ import { canvas, outlined, flipped, shade, line, ellipse, OUTLINE } from "./pixe
 import { SHORTS_COLORS } from "../game-content.js";
 
 // Chibi figures: a big head, a small body, a crisp outline. Drawn facing right on a
-// 44×40 canvas with the feet at (22, 36); cached per look/pose/frame.
-export const SPRITE_W = 44,
+// 64×40 canvas with the feet at (32, 36), wide enough for a javelin; cached per look/pose/frame.
+export const SPRITE_W = 64,
   SPRITE_H = 40,
-  OX = 22,
+  OX = 32,
   OY = 36;
 const GOLD = "#f2c94c",
   SHOE = "#f4efe2",
@@ -83,8 +83,9 @@ const JAVELIN_WITHDRAWN = {
   shoulders: [[1, 1], [-2, 0]],
   arms: [[[3, 0], [6, -2]], [[-3, -1], [-7, -2]]],
 };
-// Carrying the javelin on the run-up: palm up, the hand just behind the head.
-const JAVELIN_CARRY = [[-4, 0], [-6, -2]];
+// Carrying the javelin on the run-up: the forearm up behind the ear, palm up under the shaft, the
+// javelin level above the shoulder at forehead height and clear of the eyes.
+const JAVELIN_CARRY = [[-1, -4], [-3, -8]];
 const THROWS = {
   shot: [
     // Side-on to the sector, shot tucked under the jaw with the elbow up, left arm reaching out.
@@ -310,7 +311,9 @@ function poseArmJoints(p, dy = p.y || 0, lean = p.lean || 0) {
   });
 }
 
-const SHAFTS = { jav: [-8, 2, 15, -3], javback: [-9, 2, 14, -3], javwithdraw: [-10, 2, 13, -3], javup: [-9, 4, 13, -9] };
+// [tail x, tail y, tip x, tip y] from the hand. The grip is on the cord at the balance point, so
+// more of the shaft trails behind the hand than leads it. Withdrawn, the tip sits by the brow.
+const SHAFTS = { jav: [-17, 1, 11, -1], javback: [-16, 6, 15, -6], javwithdraw: [-16, 4, 13, -4], javup: [-14, 10, 9, -6] };
 const mixNumber = (a, b, t) => a + (b - a) * t;
 const mixPoint = (a, b, t) => a.map((v, i) => mixNumber(v, b[i], t));
 function poseHips(p) {

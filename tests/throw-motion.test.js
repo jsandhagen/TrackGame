@@ -264,7 +264,9 @@ test('discus and javelin arms keep compact proportions through preparation, deli
     const o = { pose: 'throw', event, frame };
     for (const [shoulder, elbow, hand] of armJointsOf(o)) {
       assert(length(shoulder, elbow) <= 4.5 && length(elbow, hand) <= 4.5, `${event}/${frame}: compact upper arm and forearm`);
-      assert(length(shoulder, elbow) + length(elbow, hand) <= 8, `${event}/${frame}: no stretched reach`);
+      // Only the javelin carry reaches up to the hairline, and only just past the usual reach.
+      const reach = event === 'jav' && [0, 4, 5, 6, 7].includes(frame) && hand[1] < shoulder[1] - 6 ? 8.6 : 8;
+      assert(length(shoulder, elbow) + length(elbow, hand) <= reach, `${event}/${frame}: no stretched reach`);
     }
     if (event === 'jav') {
       const hand = armJointsOf(o)[1][2];
