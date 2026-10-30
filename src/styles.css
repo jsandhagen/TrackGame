@@ -5214,3 +5214,6 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .level-rewards span { padding: 2px 8px; border-radius: 10px; background: #a465d6; color: #fff; font-size: 11px; font-weight: 700; }
 .skill-row.library { opacity: .95; }
 .skill-row .skill-needs { display: block; color: var(--muted); font-size: 10px; margin-top: 1px; }
+.card-title .restock { font-size: 11px; font-weight: 700; color: var(--muted); }
+.item-card.book.sold { opacity: .55; }
+.sold-tag { font: 800 12px var(--display); letter-spacing: 1px; color: var(--muted); text-transform: uppercase; padding: 4px 10px; border: 1px dashed #c8b88a; border-radius: 6px; }

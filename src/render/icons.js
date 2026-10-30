@@ -155,6 +155,19 @@ const SHAPES = {
     g.fillStyle = "#9aa4aa";
     g.fillRect(3, 13, 2, 2), g.fillRect(11, 13, 2, 2);
   },
+  // A bound skill book: coloured cover, page edge and a gold title band.
+  book(g, c) {
+    g.fillStyle = shade(c, -0.35);
+    g.fillRect(3, 2, 10, 12);
+    g.fillStyle = c;
+    g.fillRect(4, 2, 9, 11);
+    g.fillStyle = "#f4ecd8";
+    g.fillRect(4, 13, 9, 1);
+    g.fillStyle = "#f2c94c";
+    g.fillRect(6, 5, 5, 2);
+    g.fillStyle = shade(c, 0.25);
+    g.fillRect(4, 2, 1, 11);
+  },
   scroll(g, c) {
     g.fillStyle = c;
     g.fillRect(4, 3, 8, 10);

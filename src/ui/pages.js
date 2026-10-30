@@ -256,8 +256,8 @@ function athletePage(s, a, view) {
         const lock = G.learnProblem(s, a, k);
         return skillRow(a, k, lock || "Learn · " + SKILLS[k].sp + " SP", "learn", !!lock);
       })
-      .join("") || "<p class='hint'>Nothing left to learn from the library. Add rarer skills below.</p>"}
-    ${skillLibrary(s, a)}`;
+      .join("") || "<p class='hint'>Every common skill learned.</p>"}
+    ${athleteBooks(s, a)}`;
   }
   if (tab === "gear") {
     body = `<div class="gear-slots">${GEAR_SLOTS.map((slot) => {
@@ -550,19 +550,25 @@ export function itemTargets(s, id) {
     .join("")}</div>`;
 }
 
-// Rarer skills the club hasn't bought yet. Once bought, every eligible athlete can learn them.
-export function skillLibrary(s, a = null) {
-  const locked = Object.keys(SKILLS).filter((k) => !G.skillUnlocked(s, k) && G.skillPrice(k) != null && (!a || G.skillAvailable(a, k) || SKILLS[k].event === a.event))
-    .sort((x, y) => G.skillPrice(x) - G.skillPrice(y) || SKILLS[x].rank - SKILLS[y].rank);
-  if (!locked.length) return `<p class="hint">Every skill is in the club library.</p>`;
-  const intro = `<p class="hint">Common skills are free to learn. Rarer ones are bought once for the whole club, then each athlete learns them with skill points.</p>`;
-  const rows = locked.map((k) => {
-    const d = SKILLS[k], problem = G.unlockSkillProblem(s, k), r = RARITY[d.rarity];
-    const needs = [d.rank ? RANKS[d.rank].name + " rank" : "", d.event ? EVENTS[d.event].name + " mastery 60" : ""].filter(Boolean).join(" · ");
-    return `<div class="skill-row library rarity-${d.rarity}">${skillIcon(k)}<span><strong>${d.name} ${chip(r.name, r.color, "rarity")}</strong><small>${d.desc}</small><small class="skill-needs">${d.sp} SP to learn${needs ? " · needs " + needs : ""}</small></span>${btn("Add · " + cash(G.skillPrice(k)), "unlock-skill", `data-skill="${k}" ${problem ? "disabled" : ""} title="${esc(problem || "")}"`, "subtle small")}</div>`;
-  }).join("");
-  // In an athlete's file the library folds away under their own skills; the shop shows it open.
-  return a ? `<details class="card skill-library"><summary>Club skill library · ${locked.length} to add</summary>${intro}${rows}</details>` : `<div class="card-title"><h2>Club skill library</h2></div>${intro}${rows}`;
+// Who a skill book is for, and what reading it costs.
+const bookNeeds = (k) => { const d = SKILLS[ITEMS[k].skill]; return [d.sp + " SP to read", d.rank ? RANKS[d.rank].name + " rank" : "", d.event ? EVENTS[d.event].name + " mastery 60" : ""].filter(Boolean).join(" · "); };
+// The shop's skill-book shelf: three books a week, one copy of each.
+export function bookShelfPanel(s) {
+  const shelf = G.bookShelf(s), days = G.shelfRestock(s);
+  return `<div class="card-title"><h2>This week's skill books</h2><span class="restock">New books in ${days} day${days === 1 ? "" : "s"}</span></div><p class="hint">Common skills are learned with skill points. Rarer skills come only from books: each teaches one athlete, then it's gone. One copy of each book per week.</p>
+  <div class="item-grid">${shelf.map((k) => {
+    const d = ITEMS[k], sold = G.bookSold(s, k), price = G.itemPrice(s, k), owned = G.ownedCount(s, k);
+    return `<div class="item-card shop-item book rarity-${d.rarity} ${sold ? "sold" : ""}">${icon(k, 40)}<span><strong>${d.name}</strong><small>${esc(SKILLS[d.skill].desc)}</small><span class="owned">${chip(RARITY[d.rarity].name, RARITY[d.rarity].color, "rarity")} <small class="skill-needs">${esc(bookNeeds(k))}</small>${owned ? " · Have " + owned : ""}</span></span><span class="buy-actions">${sold ? `<span class="sold-tag">Sold</span>` : btn("Buy · " + `${price < d.price ? `<s>${cash(d.price)}</s> ` : ""}${cash(price)}`, "buy-book", `data-item="${k}" ${s.money < price ? "disabled" : ""}`, "small")}</span></div>`;
+  }).join("")}</div>`;
+}
+// Books in the kit bag that this athlete could read.
+function athleteBooks(s, a) {
+  const books = Object.keys(s.bag).filter((k) => ITEMS[k].kind === "book" && !a.skills.includes(ITEMS[k].skill) && (!SKILLS[ITEMS[k].skill].event || SKILLS[ITEMS[k].skill].event === a.event));
+  const intro = G.systemUnlocked(s, "kit") ? "Rarer skills come from skill books in the shop, a few each week." : "Rarer skills come from skill books, once the club has a kit shop.";
+  return `<div class="card-title"><h2>Skill books</h2></div>${books.length ? books.map((k) => {
+    const d = ITEMS[k], problem = G.bookProblem(s, a, k);
+    return `<div class="skill-row book rarity-${d.rarity}">${skillIcon(d.skill)}<span><strong>${SKILLS[d.skill].name} ${chip(RARITY[d.rarity].name, RARITY[d.rarity].color, "rarity")}</strong><small>${esc(SKILLS[d.skill].desc)}</small><small class="skill-needs">${esc(bookNeeds(k))} · ${s.bag[k]} in the bag</small></span>${btn(problem || "Read · " + SKILLS[d.skill].sp + " SP", "read-book", `data-id="${a.id}" data-item="${k}" ${problem ? "disabled" : ""}`, problem ? "subtle small" : "primary small")}</div>`;
+  }).join("") : ""}<p class="hint">${intro}</p>`;
 }
 const skillIcon = (k) => `<span class="skill-icon c-${SKILLS[k].cat}">${ico({ train: "levelup", meet: "target", team: "heart", signature: "spark", unique: "star" }[SKILLS[k].cat])}</span>`;
 function skillRow(a, k, label, act, disabled) {
@@ -671,7 +677,7 @@ export function build(s, view) {
 }
 
 // ── Shop & bag ──────────────────────────────────────────────────────────
-const SHOP_TABS = [["fuel"], ["implements"], ["wear"], ["skills"], ["bag"]];
+const SHOP_TABS = [["fuel"], ["implements"], ["wear"], ["books"], ["bag"]];
 export function shop(s, view) {
   if (!G.systemUnlocked(s,"kit")) return lockedSystem(s,"kit");
   // The counter is split into aisles so each one fits on a screen or so.
@@ -679,7 +685,7 @@ export function shop(s, view) {
   const stock = G.shopStock(s);
   const nextTier = SHOP_TIERS.find((t) => t > s.fans);
   let body;
-  if (tab === "skills") body = skillLibrary(s);
+  if (tab === "books") body = bookShelfPanel(s);
   else if (tab !== "bag") {
     const groups = {
       fuel: [["Fuel & recovery", "Handed over at the side of the track.", (d) => d.kind === "use"]],
@@ -701,16 +707,18 @@ export function shop(s, view) {
   } else {
     const ids = Object.keys(s.bag);
     const uses = ids.filter((k) => ITEMS[k].kind === "use"),
-      gear = ids.filter((k) => ITEMS[k].kind === "gear");
+      gear = ids.filter((k) => ITEMS[k].kind === "gear"),
+      books = ids.filter((k) => ITEMS[k].kind === "book");
     const worn = s.roster.flatMap((a) => GEAR_SLOTS.map((slot) => a.gear[slot] && [a.gear[slot], a]).filter(Boolean));
     body = `${ids.length ? "" : "<p class='hint'>The kit bag is empty.</p>"}
     ${uses.length ? `<div class="card-title"><h2>Fuel & recovery</h2></div><div class="item-grid">${uses.map((k) => itemCard(s, k, "use")).join("")}</div>` : ""}
+    ${books.length ? `<div class="card-title"><h2>Skill books</h2></div><p class="hint">Read a book from an athlete's Skills tab.</p><div class="item-grid">${books.map((k) => `<div class="item-card rarity-${ITEMS[k].rarity}">${icon(k)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${esc(bookNeeds(k))}</small></span></div>`).join("")}</div>` : ""}
     ${gear.length ? `<div class="card-title"><h2>Spare gear</h2></div><div class="item-grid">${gear.map((k) => itemCard(s, k, "equip")).join("")}</div>` : ""}
     ${worn.length ? `<div class="card-title"><h2>Being worn</h2></div>${worn.map(([k, a]) => `<div class="history"><span>${esc(ITEMS[k].name)}${s.forge[k] ? " +" + s.forge[k] : ""}</span><b>${esc(a.name)}</b></div>`).join("")}` : ""}
     ${G.facilityLevel(s, "workshop") ? `<div class="card-title"><h2>Kit Workshop · forging</h2></div><p class="hint">Each forge level adds +0.6% distance to every copy of that item.</p><div class="item-grid">${[...new Set([...gear, ...worn.map(([k]) => k)])].map((k) => `<div class="item-card rarity-${ITEMS[k].rarity}">${icon(k)}<span><strong>${ITEMS[k].name}${s.forge[k] ? " +" + s.forge[k] : ""}</strong><small>Next: +${(s.forge[k] || 0) + 1}</small></span>${btn("Forge · " + cash(G.forgeCost(s, k)), "forge", `data-item="${k}" ${s.money < G.forgeCost(s, k) ? "disabled" : ""}`, "subtle small")}</div>`).join("")}</div>` : `<p class="hint">Build a Kit Workshop to forge your gear.</p>`}`;
   }
   const count = (f) => stock.filter((k) => f(ITEMS[k])).length;
-  const labels = { fuel: "Fuel · " + count((d) => d.kind === "use"), implements: "Implements · " + count((d) => d.slot === "implement"), wear: "Shoes & charms · " + count((d) => d.slot === "shoes" || d.slot === "charm"), skills: "Skills · " + Object.keys(SKILLS).filter((k) => !G.skillUnlocked(s, k) && G.skillPrice(k) != null).length, bag: "Kit bag · " + Object.values(s.bag).reduce((n, v) => n + v, 0) };
+  const labels = { fuel: "Fuel · " + count((d) => d.kind === "use"), implements: "Implements · " + count((d) => d.slot === "implement"), wear: "Shoes & charms · " + count((d) => d.slot === "shoes" || d.slot === "charm"), books: "Skill books · " + G.bookShelf(s).filter((k) => !G.bookSold(s, k)).length, bag: "Kit bag · " + Object.values(s.bag).reduce((n, v) => n + v, 0) };
   return `<nav class="tabs shop-tabs">${SHOP_TABS.map(([id]) => `<button data-act="shop-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${labels[id]}</button>`).join("")}<span class="tab-insights">${ico("coin")}<b>${cash(s.money)}</b></span></nav>${body}`;
 }
 // One-line effect label: stat items get a coloured stat pill so they read at a glance.

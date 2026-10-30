@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import * as G from "./helpers/developed-club.js";
-import { EVENT_IDS, ITEMS } from "../src/game-content.js";
+import { EVENT_IDS, ITEMS, SKILLS } from "../src/game-content.js";
 import { validateCampaign, exportCampaign } from "../src/domain/campaign-save.js";
 
 const v3 = () => JSON.parse(readFileSync(new URL("./fixtures/v3-career.json", import.meta.url)));
@@ -243,7 +243,7 @@ test("items are bought, used, equipped and forged; gear changes the projection",
   assert.equal(a.stamina, 60);
   assert(G.buyItem(s, "feast"));
   assert(G.useItem(s, "feast"));
-  for (const id of Object.keys(ITEMS)) assert(ITEMS[id].kind === "use" || ITEMS[id].slot);
+  for (const id of Object.keys(ITEMS)) assert(ITEMS[id].kind === "use" || ITEMS[id].slot || (ITEMS[id].kind === "book" && SKILLS[ITEMS[id].skill]));
 });
 
 test("skill points buy skills; slots, signatures and ranks gate what an athlete can use", () => {
@@ -252,15 +252,11 @@ test("skill points buy skills; slots, signatures and ranks gate what an athlete 
   a.sp = 10;
   assert(G.learnSkill(s, a.id, "gymrat"), "common skills are free to learn");
   assert(a.equipped.includes("gymrat"));
-  assert(!G.learnSkill(s, a.id, "clutch"), "rarer skills need the club library");
-  assert.equal(G.learnProblem(s, a, "clutch"), "Add to the library first");
-  s.money = 300;
-  assert.equal(G.unlockSkillProblem(s, "clutch"), "Needs $450");
-  s.money = 1000;
-  assert(G.unlockSkill(s, "clutch"));
-  assert.equal(s.money, 550);
-  assert(!G.unlockSkill(s, "clutch"), "bought once for the club");
-  assert(G.learnSkill(s, a.id, "clutch"));
+  assert(!G.learnSkill(s, a.id, "clutch"), "rarer skills need their book");
+  assert.equal(G.learnProblem(s, a, "clutch"), "Needs its skill book");
+  G.addItem(s, "book_clutch");
+  assert(G.readBook(s, a.id, "book_clutch"));
+  assert(!s.bag.book_clutch, "the book is used up");
   assert.equal(a.equipped.length, 1, "rookies have one slot");
   assert(!G.toggleSkill(s, a.id, "clutch"));
   assert(!G.learnSkill(s, a.id, "meteor"), "signatures need Star rank");

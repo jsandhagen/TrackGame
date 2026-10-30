@@ -93,9 +93,8 @@ export const PLANS = {
 //  train:[stat,mult] gain xp stamina condFloor cond mentor  (training)
 //  first last foul afterFoul trailing leading variance crowd final attackBoost perfect streak (meet)
 //  captain hype teamTrailing (team) · sig (signature, once per meet, never fouls) · mark (always)
-// Common skills can be learned by any athlete with skill points. Rare and above must first be
-// added to the club's skill library with money; then any eligible athlete learns them with points.
-export const SKILL_PRICES = { rare: 450, epic: 1400, legend: 3600 };
+// Common skills can be learned by any athlete with skill points. Rare and above come from skill
+// books: consumables the shop stocks a few at a time (see BOOK_PRICES and the weekly shelf).
 export const SKILLS = {
   gymrat: { name: "Gym Rat", cat: "train", rarity: "common", sp: 1, rank: 0, desc: "Power training +25%.", train: [0, 1.25] },
   formfreak: { name: "Form Freak", cat: "train", rarity: "common", sp: 1, rank: 0, desc: "Technique training +25%.", train: [1, 1.25] },
@@ -188,6 +187,13 @@ export const ITEMS = {
   letter: { name: "Promotion Letter", kind: "use", rarity: "epic", price: null, icon: "letter", color: "#f0f0e0", desc: "The next rank-up costs nothing.", promote: true },
   elixir: { name: "Talent Elixir", kind: "use", rarity: "legend", price: null, icon: "elixir", color: "#d070f0", desc: "Potential +4.", potential: 4 },
 };
+// One skill book for every rare, epic and legend skill. Reading it teaches that skill to one
+// athlete (who still spends the skill points), and the book is gone.
+export const BOOK_PRICES = { rare: 350, epic: 1000, legend: 2600 };
+for (const [id, k] of Object.entries(SKILLS)) {
+  if (k.cat === "unique" || k.rarity === "common") continue;
+  ITEMS["book_" + id] = { name: k.name + " Book", kind: "book", skill: id, rarity: k.rarity, price: BOOK_PRICES[k.rarity], icon: "book", color: { rare: "#5a8ad0", epic: "#9a5ad0", legend: "#e0a83a" }[k.rarity], desc: "Teaches " + k.name + ": " + k.desc };
+}
 export const GEAR_SLOTS = ["implement", "shoes", "charm"];
 export const SLOT_NAMES = { implement: "Implement", shoes: "Shoes", charm: "Charm" };
 

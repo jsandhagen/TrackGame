@@ -137,7 +137,7 @@ function menu() {
     return;
   }
   $("#menu").hidden = false;
-  const squadBadge = G.systemUnlocked(state, "skills") && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && !G.learnProblem(state, a, k))));
+  const squadBadge = G.systemUnlocked(state, "skills") && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && (Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && !G.learnProblem(state, a, k)) || Object.keys(state.bag).some((k) => ITEMS[k].kind === "book" && !G.bookProblem(state, a, k)))));
   const trainBadge = state.roster.some((a) => Object.keys(G.DRILLS).some((d) => !G.drillProblem(state, a, d)));
   const items = [
     ["home", "home", "Club"],
@@ -938,13 +938,13 @@ $("#app").addEventListener("click", async (e) => {
       world.replan();
       break;
     }
-    case "unlock-skill": {
-      const k = b.dataset.skill, problem = G.unlockSkillProblem(state, k);
-      if (problem) { toast(problem, "warn"); break; }
-      G.unlockSkill(state, k);
-      toast(SKILLS[k].name + " is in the club library. Any eligible athlete can learn it now.", "level", "spark");
-      sfx("coin");
-      save();
+    case "buy-book":
+      if (G.buyBook(state, b.dataset.item)) { toast(ITEMS[b.dataset.item].name + " is in the kit bag. Read it from an athlete's Skills tab.", "level", "spark"); sfx("coin"); save(); }
+      else toast("That book isn't on the shelf any more.", "warn");
+      break;
+    case "read-book": {
+      const k = b.dataset.item, skill = ITEMS[k]?.skill;
+      if (G.readBook(state, id, k)) { toast("Learned " + SKILLS[skill].name + "!", "level", "spark"); sfx("level"); save(); }
       break;
     }
     case "learn":

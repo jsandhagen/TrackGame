@@ -309,7 +309,8 @@ export function rollRarity(s, luck = 0) {
   );
 }
 export function randomItem(s, rarity, filter = () => true) {
-  const pool = Object.keys(ITEMS).filter((k) => ITEMS[k].rarity === rarity && filter(ITEMS[k]));
+  // Skill books only come from the shop's shelf.
+  const pool = Object.keys(ITEMS).filter((k) => ITEMS[k].rarity === rarity && ITEMS[k].kind !== "book" && filter(ITEMS[k]));
   return pool.length ? pick(s, pool) : "drink";
 }
 export const lineupAthletes = (s, lineup = s.lineup) => EVENT_IDS.map((ev) => s.roster.find((a) => a.id === lineup[ev]));

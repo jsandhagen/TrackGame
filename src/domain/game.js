@@ -6,7 +6,6 @@ import {
   RANKS,
   RARITY,
   SKILLS,
-  SKILL_PRICES,
   ITEMS,
   FACILITIES,
   STADIUM,
@@ -96,7 +95,6 @@ export function newGame(seed = Date.now() >>> 0) {
   const s = {
     v: 8,
     onboarding: { meets: 0 },
-    skillLibrary: [],
     balance: 2,
     rivalClubs: {},
     facilityDuties: {},
@@ -545,7 +543,39 @@ export const itemPrice = (s, id) => Math.round(ITEMS[id].price * (s.saleDay === 
 export function shopStock(s) {
   if (!systemUnlocked(s, "kit")) return [];
   const tier = shopTier(s, SHOP_TIERS);
-  return Object.keys(ITEMS).filter((k) => ITEMS[k].price != null && ITEMS[k].tier <= tier);
+  return Object.keys(ITEMS).filter((k) => ITEMS[k].price != null && ITEMS[k].kind !== "book" && ITEMS[k].tier <= tier);
+}
+// The skill-book shelf: three books a week, one copy of each, drawn from the save's own seed.
+// Rare books from the start; epic from 400 fans; legend from 3,000.
+export const BOOK_WEEK = 7;
+const shelfWeek = (s) => Math.floor(s.day / BOOK_WEEK);
+// A fixed number in [0, 1) for each input, so the shelf never draws on the game's random stream.
+const unit = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+export const shelfRestock = (s) => BOOK_WEEK - (s.day % BOOK_WEEK);
+export function bookShelf(s) {
+  if (!systemUnlocked(s, "kit")) return [];
+  const week = shelfWeek(s), tier = shopTier(s, SHOP_TIERS);
+  const weight = { rare: 6, epic: tier >= 2 ? 3 : 0, legend: tier >= 4 ? 1 : 0 };
+  let pool = Object.keys(ITEMS).filter((k) => ITEMS[k].kind === "book" && weight[ITEMS[k].rarity] > 0);
+  const out = [];
+  for (let n = 0; n < 3 && pool.length; n++) {
+    const total = pool.reduce((t, k) => t + weight[ITEMS[k].rarity], 0);
+    let roll = unit((s.weatherSeed || 1) % 100003 + week * 7.31 + n * 1.7) * total;
+    const k = pool.find((k) => (roll -= weight[ITEMS[k].rarity]) < 0) || pool.at(-1);
+    out.push(k);
+    pool = pool.filter((x) => x !== k);
+  }
+  return out;
+}
+const soldThisWeek = (s) => (s.bookShelf?.week === shelfWeek(s) ? s.bookShelf.sold : []);
+export const bookSold = (s, id) => soldThisWeek(s).includes(id);
+export function buyBook(s, id) {
+  if (!bookShelf(s).includes(id) || bookSold(s, id) || s.match || s.money < itemPrice(s, id)) return false;
+  s.money -= itemPrice(s, id);
+  addItem(s, id);
+  s.bookShelf = { week: shelfWeek(s), sold: [...soldThisWeek(s), id] };
+  count(s, "bought");
+  return true;
 }
 export function buyItem(s, id) {
   if (!shopStock(s).includes(id) || s.money < itemPrice(s, id)) return false;
@@ -658,31 +688,40 @@ export function skillAvailable(a, id) {
   if (k.event && masteryOf(a,k.event)<60) return false;
   return true;
 }
-// The club's skill library: common skills are always in it; rarer ones are bought once.
-export const skillUnlocked = (s, id) => SKILLS[id]?.rarity === "common" || !!s.skillLibrary?.includes(id);
-export const skillPrice = (id) => SKILL_PRICES[SKILLS[id]?.rarity] ?? null;
-export function unlockSkillProblem(s, id) {
-  if (!systemUnlocked(s, "skills")) return systemProblem(s, "skills");
-  if (!SKILLS[id] || skillPrice(id) == null) return "Not for sale";
-  if (skillUnlocked(s, id)) return "Already in the library";
-  if (s.match) return "Not during a meet";
-  if (s.money < skillPrice(id)) return "Needs $" + skillPrice(id).toLocaleString();
-  return null;
-}
-export function unlockSkill(s, id) {
-  if (unlockSkillProblem(s, id)) return false;
-  s.money -= skillPrice(id);
-  (s.skillLibrary ??= []).push(id);
-  note(s, SKILLS[id].name + " added to the club's skill library.", "story");
-  return true;
-}
+// Common skills are learned with skill points alone; rarer ones need their book.
+export const skillUnlocked = (s, id) => SKILLS[id]?.rarity === "common";
 // Why an athlete can't learn a skill right now, in the order a player fixes things.
 export function learnProblem(s, a, id) {
   const k = SKILLS[id];
-  if (!skillUnlocked(s, id)) return "Add to the library first";
+  if (!skillUnlocked(s, id)) return "Needs its skill book";
   if (k.rank > a.rank) return "Needs " + RANKS[k.rank].name;
   if (k.sp > a.sp) return k.sp + " SP";
   return null;
+}
+// Reading a skill book: the athlete must be able to use the skill and have the points for it.
+export function bookProblem(s, a, itemId) {
+  const d = ITEMS[itemId], k = SKILLS[d?.skill];
+  if (!systemUnlocked(s, "skills")) return systemProblem(s, "skills");
+  if (!k || d.kind !== "book") return "Not a skill book";
+  if (!s.bag[itemId]) return "None in the kit bag";
+  if (s.match) return "Not during a meet";
+  if (a.skills.includes(d.skill)) return "Already knows it";
+  if (k.event && masteryOf(a, k.event) < 60) return EVENTS[k.event].name + " mastery 60";
+  if (k.rank > a.rank) return "Needs " + RANKS[k.rank].name;
+  if (k.sp > a.sp) return k.sp + " SP";
+  return null;
+}
+export function readBook(s, athleteId, itemId) {
+  const a = s.roster.find((x) => x.id === athleteId);
+  if (!a || bookProblem(s, a, itemId)) return false;
+  const k = SKILLS[ITEMS[itemId].skill];
+  takeItem(s, itemId);
+  a.sp -= k.sp;
+  learnFree(a, ITEMS[itemId].skill);
+  count(s, "skillsLearned");
+  note(s, a.name + " read the " + ITEMS[itemId].name + " and learned " + k.name + ".", "story");
+  checkGoals(s);
+  return true;
 }
 export function learnSkill(s, athleteId, id) {
   if (!systemUnlocked(s, "skills")) return false;
