@@ -492,7 +492,7 @@ function chooseAthlete(title, item, fn, cancel = "Cancel") {
       }),
   );
 }
-const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, condition: a.condition, level: a.level, sp: a.sp, injury: a.injury });
+const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, condition: a.condition, level: a.level, sp: a.sp, injury: a.injury, xp: a.xp, potential: a.potential });
 // The payoff moment: a card with the athlete and their bars filling up.
 function showGrowth(a, before, eyebrow, extra = []) {
   const ups = a.stats.map((v, i) => v - before.stats[i]),
@@ -501,6 +501,49 @@ function showGrowth(a, before, eyebrow, extra = []) {
   sfx("level");
   if (state.settings.quietMode !== false) { toast(a.name + ": " + title, "level"); return; }
   dialog(title, P.growth(a, before, extra), [{ label: "Back to the infield" }], { eyebrow, tone: "gold" });
+}
+// The item animation (P.itemFx): a small window over everything, which plays its sounds and
+// counts each number up as its row arrives, then closes itself. A tap closes it early. It
+// always plays, quiet mode or not: it is the answer to the coach's own tap.
+const IFX = { land: 420, rows: 700, row: 280, hold: 1500 };
+function itemFx(item, a, before) {
+  let dlg = $("#item-fx");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "item-fx";
+    dlg.className = "item-fx";
+    dlg.addEventListener("click", () => dlg.close());
+    dlg.addEventListener("close", () => (dlg.timers || []).forEach(clearTimeout));
+    document.body.append(dlg);
+  }
+  if (dlg.open) dlg.close();
+  dlg.innerHTML = P.itemFx(state, item, a, before);
+  paint(dlg);
+  const still = reduced(),
+    rows = [...dlg.querySelectorAll(".ifx-row")],
+    later = (ms, fn) => dlg.timers.push(setTimeout(fn, still ? 0 : ms));
+  dlg.classList.toggle("still", still);
+  dlg.timers = [];
+  dlg.showModal();
+  later(IFX.land, () => sfx("stamp"));
+  later(IFX.rows - 60, () => sfx("level"));
+  rows.forEach((row, i) =>
+    later(IFX.rows + i * IFX.row, () => {
+      if (i) sfx("tap");
+      const b = row.querySelector("b[data-to]");
+      if (!b) return;
+      const from = +b.dataset.from,
+        to = +b.dataset.to,
+        t0 = performance.now(),
+        step = (now) => {
+          const p = still ? 1 : Math.min(1, (now - t0) / 450);
+          b.textContent = String(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
+          if (p < 1 && dlg.open) requestAnimationFrame(step);
+        };
+      requestAnimationFrame(step);
+    }),
+  );
+  dlg.timers.push(setTimeout(() => dlg.open && dlg.close(), (still ? 900 : IFX.rows + rows.length * IFX.row) + IFX.hold));
 }
 // Special training: run the session, then play it out on a little stage with ratings and results.
 function runTraining(ids, drill) {
@@ -549,18 +592,12 @@ function runTraining(ids, drill) {
 }
 // Use a consumable and show what it did.
 function applyItem(item, aid) {
-  const d = ITEMS[item],
-    snap = snapshot(),
+  const snap = snapshot(),
     a = state.roster.find((x) => x.id === aid),
     before = a && growthBefore(a);
   const problem = G.itemProblem(state, item, aid);
-  if (G.useItem(state, item, aid)) {
-    if (a) showGrowth(a, before, d.name);
-    else {
-      toast(d.name + ": the whole squad feels great.", "level", "gift");
-      sfx("level");
-    }
-  } else toast(problem || "That item won't help right now.", "warn");
+  if (G.useItem(state, item, aid)) itemFx(item, a, before);
+  else toast(problem || "That item won't help right now.", "warn");
   announce(snap);
   save();
   render();

@@ -542,6 +542,37 @@ export function growth(a, before, extra = []) {
   ].filter(Boolean);
   return `<div class="growth">${portrait(a, "large")}<div class="grows">${rows}</div></div>${notes.length ? `<p class="growth-notes">${notes.join("<br>")}</p>` : ""}`;
 }
+// Using an item, Kairosoft style: the item drops onto the athlete with a burst of sparkles,
+// then each change slides in, its bar filling from the old value to the new as the number
+// counts up and a "+N" pops. A whole-squad item lands on the squad instead. The timing lives
+// in CSS (--i staggers the rows); main.js counts the numbers and closes it.
+export function itemFx(s, id, a, before) {
+  const d = ITEMS[id],
+    rows = [];
+  const bar = (label, color, from, to, max, fmt = (v) => String(Math.round(v))) =>
+    rows.push(`<div class="ifx-row"><span class="ifx-label">${esc(label)}</span><span class="ifx-track"><i style="width:${Math.min(100, (from / max) * 100)}%;--c:${color}"></i><em style="--from:${Math.min(100, (from / max) * 100)}%;--to:${Math.min(100, (to / max) * 100)}%;--c:${color}"></em></span><b data-from="${fmt(from)}" data-to="${fmt(to)}">${fmt(from)}</b><span class="ifx-plus">+${+fmt(to) - +fmt(from) || plus(to - from).slice(1)}</span></div>`);
+  const chip = (icn, html) => rows.push(`<div class="ifx-row ifx-chip">${ico(icn)}<span>${html}</span></div>`);
+  if (!a) {
+    chip("heart", `Whole squad · condition <b>+${d.teamCond || 0}</b>${d.teamStamina ? ` · stamina <b>+${d.teamStamina}</b>` : ""}`);
+  } else {
+    // Stats fill against the athlete's own limit, so a +2 visibly moves the bar.
+    a.stats.forEach((v, i) => showStat(v) > showStat(before.stats[i]) && bar(STAT_NAMES[i], STAT_COLORS[i], showStat(before.stats[i]), showStat(v), Math.max(showStat(v), G.capOf(a))));
+    if (Math.round(a.stamina) > Math.round(before.stamina)) bar("Stamina", "#e2b04a", before.stamina, a.stamina, 100);
+    if (Math.round(a.condition) > Math.round(before.condition)) bar("Condition", "#6ac08a", before.condition, a.condition, 100);
+    if (a.potential > before.potential) bar("Potential", "#a465d6", before.potential, a.potential, 100);
+    if (a.level > before.level) chip("levelup", `<b>Level up!</b> Lv. ${before.level} → <b>${a.level}</b>`);
+    else if (a.xp > before.xp) bar("XP", "#4f8fd6", before.xp, a.xp, G.xpNeeded(a.level));
+    if (a.sp > before.sp) chip("spark", `<b>+${a.sp - before.sp} skill point${a.sp - before.sp > 1 ? "s" : ""}</b>`);
+    if (a.injury < before.injury) chip("bandage", "<b>Injury healed</b>");
+    if (d.buff) chip("bolt", `<b>+${Math.round((d.buff - 1) * 100)}%</b> at the next meet`);
+    if (d.promote) chip("star", "<b>Next rank-up is free</b>");
+  }
+  if (!rows.length) chip("check", "Used");
+  const who = a ? `<span class="ifx-portrait">${portrait(a, "large")}</span>` : `<span class="ifx-squad">${s.roster.slice(0, 5).map((b) => portrait(b)).join("")}</span>`;
+  return `<div class="ifx-card"><div class="ifx-stage">${who}<span class="ifx-item">${icon(id, 40)}</span><span class="ifx-burst">${"<i></i>".repeat(8)}</span></div>
+    <div class="ifx-title"><small>${esc(d.name)}</small><strong>${esc(a ? a.name : "The squad")}</strong></div>
+    <div class="ifx-rows">${rows.map((r, i) => r.replace('class="ifx-row', `style="--i:${i}" class="ifx-row`)).join("")}</div></div>`;
+}
 // Athlete picker for an item: previews the effect on each athlete and blocks wasted uses.
 export function itemTargets(s, id) {
   const d = ITEMS[id];
