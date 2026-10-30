@@ -2740,15 +2740,24 @@ dialog[open] {
     flex-basis: 100%;
     order: 4;
   }
+  /* Two rows: the club, the date and the menu; then the speed controls and the currencies,
+     which stay together as one group. */
   #hud .brand {
+    order: 1;
     margin-right: auto;
+  }
+  .hud-date {
+    order: 2;
+  }
+  #hud .hud-btn {
+    order: 3;
   }
   #hud .seg {
     order: 5;
-    margin-right: auto;
   }
-  #hud .hud-btn {
+  #hud .hud-wallet {
     order: 6;
+    margin-left: auto;
   }
   #window {
     left: 6px;
@@ -3868,8 +3877,9 @@ ol.howto li::marker {
 .thrower-identity small { color: #b8cbbb; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thrower-best { font: 700 23px var(--display); color: #f2d070; text-align: right; }
 .thrower-best small { display: block; font: 700 8px var(--display); letter-spacing: 1px; }
-.thrower-attempts { display: flex; gap: 3px; }
-.thrower-attempts > span { display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; background: #ffffff12; border: 1px solid #ffffff18; border-radius: 3px; padding: 2px 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+/* Three attempts to a row: a six-throw series (preliminaries and final) takes two rows. */
+.thrower-attempts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+.thrower-attempts > span { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 6px; background: #ffffff12; border: 1px solid #ffffff18; border-radius: 3px; padding: 2px 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
 .thrower-attempts small { color: #a1baa8; font-size: 9px; }
 .thrower-attempts .pending { color: #8b9e90; }
 .thrower-attempts .foul, .series-row .foul { color: #ef8d78; }
@@ -3978,7 +3988,7 @@ ol.howto li::marker {
 .throw-series > summary > span, .meet-reward-details > summary > span { float: right; color: #7b836d; }
 .series-row { padding: 5px 8px; border-top: 1px solid #dce0cd; font-size: 10px; }
 .series-row > strong { display: block; margin-bottom: 3px; }
-.series-row > span { display: flex; gap: 4px; }
+.series-row > span { display: flex; flex-wrap: wrap; gap: 4px; }
 .series-row b { padding: 3px; flex: 1; text-align: center; background: #e9eadc; font-variant-numeric: tabular-nums; }
 .series-row b.best { background: #dae7bc; color: #2b532b; }
 .meet-reward-details { margin-top: 8px; border: 1px solid #bdc2ac; border-radius: 4px; overflow: hidden; }
@@ -5456,3 +5466,13 @@ dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1
 .ledger-days { background: var(--paper2); border-color: var(--line); box-shadow: none; }
 .ledger-days button { color: var(--ink); }
 .ledger-list h3 b:only-child, .ledger-list h3 b { font: 700 14px var(--display); }
+
+/* The currencies sit together as one group in the top bar, whatever the screen. */
+#hud .hud-wallet { display: flex; align-items: stretch; flex: none; pointer-events: auto; background: rgba(18, 38, 31, 0.86); border: 2px solid #0b1d16; border-radius: 10px; box-shadow: 0 3px 0 #0006; overflow: hidden; }
+#hud .hud-wallet .res { background: none; border: 0; border-radius: 0; box-shadow: none; }
+#hud .hud-wallet .res + .res { border-left: 1px solid #ffffff1f; }
+#hud .hud-wallet .res:hover { background: #ffffff10; }
+@media (max-aspect-ratio: 1/1) {
+  #hud .hud-wallet .res { padding: 5px 6px; }
+  #hud .seg.time button { min-width: 30px; padding: 4px 5px; }
+}

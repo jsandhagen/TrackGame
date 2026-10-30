@@ -126,9 +126,9 @@ function hud() {
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time" role="group" aria-label="Training speed">${P.speedButtons(speed, "speed", { pause: true, disabled: !canPlay })}</div>
-  <button class="res fans" data-act="ledger" data-cur="fans" aria-label="${state.fans} fans. Open the ledger">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></button>
-  ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="ledger" data-cur="insights" aria-label="${insights} Coaching Insights. Open the ledger">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
-  <button class="res money" data-act="ledger" data-cur="money" aria-label="${cash(state.money)}. Open the ledger">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></button>
+  <div class="hud-wallet"><button class="res fans" data-act="ledger" data-cur="fans" aria-label="${state.fans} fans. Open the ledger">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></button>
+  ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="ledger" data-cur="insights" aria-label="${insights} Coaching Insights. Open the ledger">${ico("idea")}<b>${insights.toLocaleString()}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
+  <button class="res money" data-act="ledger" data-cur="money" aria-label="${cash(state.money)}. Open the ledger">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></button></div>
   <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
 }
 function menu() {
@@ -1723,9 +1723,11 @@ function frame(now) {
       const bar = $("#meetbar");
       const arena = $("#stadium").getBoundingClientRect();
       const sidePanel = !bar.hidden && bar.getBoundingClientRect().left >= arena.right;
+      // The camera keeps clear of the score bar and the meet panel where they actually sit on screen,
+      // which includes the safe-area gap above the bar on phones with a notch or status bar.
       const barSpace = (bar.hidden || sidePanel ? 0 : bar.offsetHeight) + "px";
       if (view.barSpace !== barSpace) $("#app").style.setProperty("--meetbar", (view.barSpace = barSpace));
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(view.meetSpeed || state.settings.meetSpeed), insetTop: sidePanel ? 0 : $("#hud").offsetHeight + 8, insetBottom: bar.hidden || sidePanel ? 0 : bar.offsetHeight + 8 });
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(view.meetSpeed || state.settings.meetSpeed), insetTop: sidePanel ? 0 : Math.max(0, $("#hud").getBoundingClientRect().bottom - arena.top + 8), insetBottom: bar.hidden || sidePanel ? 0 : Math.max(0, arena.bottom - bar.getBoundingClientRect().top + 8) });
       if (view.meter) {
         const n = $("#needle");
         if (n) n.style.left = meterPos(now) * 100 + "%";
