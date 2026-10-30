@@ -1723,9 +1723,11 @@ function frame(now) {
       const bar = $("#meetbar");
       const arena = $("#stadium").getBoundingClientRect();
       const sidePanel = !bar.hidden && bar.getBoundingClientRect().left >= arena.right;
+      // The camera keeps clear of the score bar and the meet panel where they actually sit on screen,
+      // which includes the safe-area gap above the bar on phones with a notch or status bar.
       const barSpace = (bar.hidden || sidePanel ? 0 : bar.offsetHeight) + "px";
       if (view.barSpace !== barSpace) $("#app").style.setProperty("--meetbar", (view.barSpace = barSpace));
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(view.meetSpeed || state.settings.meetSpeed), insetTop: sidePanel ? 0 : $("#hud").offsetHeight + 8, insetBottom: bar.hidden || sidePanel ? 0 : bar.offsetHeight + 8 });
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(view.meetSpeed || state.settings.meetSpeed), insetTop: sidePanel ? 0 : Math.max(0, $("#hud").getBoundingClientRect().bottom - arena.top + 8), insetBottom: bar.hidden || sidePanel ? 0 : Math.max(0, arena.bottom - bar.getBoundingClientRect().top + 8) });
       if (view.meter) {
         const n = $("#needle");
         if (n) n.style.left = meterPos(now) * 100 + "%";

@@ -850,19 +850,24 @@ export function createStadium(cv) {
     // The thrower's own best so far, flagged in their colours.
     const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
     if (own != null) lines.push({ mark: own, label: own === leader?.mark ? null : own.toFixed(2), color: "#fff6dc", flag: upSide === "home" ? s.colors.primary : m.color });
-    // Stack labels in rows so close marks don't overprint each other.
-    const rowsEnd = [];
+    // Stack labels in rows so close marks don't overprint each other, and keep each one inside
+    // what the camera shows (last frame's view): near the edge a label slides in from its line
+    // rather than being cut off.
+    const rowsEnd = [],
+      seenL = cam ? Math.max(0, cam.x - view2.width / (2 * cam.z)) : 0,
+      seenR = cam ? Math.min(W, cam.x + view2.width / (2 * cam.z)) : W;
     for (const l of lines.sort((a, b) => a.mark - b.mark)) {
       if (l.mark > SPAN) continue;
       const x = atX(l.mark);
       if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
       else distanceArc(g, l.mark, l.color, l.dash);
       if (!l.label) continue;
-      const half = measure(l.label) / 2 + 3;
+      const half = measure(l.label) / 2 + 3,
+        lx = Math.round(Math.max(seenL + half + 4, Math.min(seenR - half - 4, x)));
       let row = 0;
-      while (rowsEnd[row] != null && rowsEnd[row] > x - half) row++;
-      rowsEnd[row] = x + half;
-      text(g, l.label, x, upperY(x) - 9 - row * 10, { color: l.color, align: "center" });
+      while (rowsEnd[row] != null && rowsEnd[row] > lx - half) row++;
+      rowsEnd[row] = lx + half;
+      text(g, l.label, lx, upperY(x) - 9 - row * 10, { color: l.color, align: "center" });
     }
     // Who is in the circle?
     const throwing = beat?.type === "throw" ? beat.side : beat?.type === "decide" ? "home" : null;
