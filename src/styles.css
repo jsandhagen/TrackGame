@@ -5362,3 +5362,60 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
   .meet-live .meet-toolbar .tool[data-act="meet-standards"] { justify-content: center; }
 }
 .elite-line { display: block; font-style: italic; color: var(--muted); font-size: 11px; }
+
+/* Using an item, Kairosoft style: a small window pops up, the item drops onto the athlete in a
+   burst of sparkles, then each change slides in with its bar filling and a "+N" popping.
+   --i staggers the rows; main.js (IFX) keeps its sounds and count-ups in step. */
+dialog.item-fx { outline: none; width: fit-content; height: fit-content; max-width: none; max-height: none; margin: auto; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+dialog.item-fx[open] { animation: none; }
+dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1422, #07120e66); }
+.ifx-card { width: min(300px, calc(100vw - 32px)); padding: 10px 14px 14px; background: var(--card); color: var(--ink); border: 3px solid var(--frame); border-radius: 12px; box-shadow: 0 4px 0 #0003, 0 14px 30px #0005; animation: ifx-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) both; cursor: pointer; }
+@keyframes ifx-pop { from { opacity: 0; transform: scale(0.6); } }
+.ifx-stage { position: relative; height: 96px; display: grid; place-items: end center; }
+.ifx-portrait { position: relative; }
+.ifx-portrait .portrait.large { display: block; width: 80px; height: 80px; animation: ifx-hop 0.5s 0.42s ease-out both; }
+.ifx-portrait::after { content: ""; position: absolute; inset: 0; border-radius: 8px; background: #fff; opacity: 0; animation: ifx-flash 0.4s 0.42s ease-out both; }
+@keyframes ifx-hop { 35% { transform: translateY(-12px); } 70% { transform: translateY(0); } }
+@keyframes ifx-flash { 20% { opacity: 0.75; } }
+.ifx-squad { display: flex; gap: 4px; }
+.ifx-squad .portrait { width: 44px; height: 44px; animation: ifx-hop 0.5s 0.42s ease-out both; }
+.ifx-squad .portrait:nth-child(2n) { animation-delay: 0.5s; }
+.ifx-item { position: absolute; left: 50%; top: 0; transform: translateX(-50%); animation: ifx-drop 0.75s ease-in both; pointer-events: none; }
+.ifx-item canvas { display: block; width: 40px; height: 40px; image-rendering: pixelated; }
+@keyframes ifx-drop {
+  0% { opacity: 0; transform: translate(-50%, -34px) rotate(-25deg); }
+  15% { opacity: 1; }
+  55% { opacity: 1; transform: translate(-50%, 34px) rotate(0deg) scale(1); }
+  68% { opacity: 1; transform: translate(-50%, 26px) scale(1.3); }
+  100% { opacity: 0; transform: translate(-50%, 30px) scale(0.2); }
+}
+.ifx-burst { position: absolute; left: 50%; top: 54px; pointer-events: none; }
+.ifx-burst i { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background: var(--gold); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); opacity: 0; animation: ifx-spark 0.65s 0.45s ease-out both; }
+.ifx-burst i:nth-child(2n) { background: #fff6a8; }
+.ifx-burst i:nth-child(1) { --a: 0deg; } .ifx-burst i:nth-child(2) { --a: 45deg; } .ifx-burst i:nth-child(3) { --a: 90deg; } .ifx-burst i:nth-child(4) { --a: 135deg; }
+.ifx-burst i:nth-child(5) { --a: 180deg; } .ifx-burst i:nth-child(6) { --a: 225deg; } .ifx-burst i:nth-child(7) { --a: 270deg; } .ifx-burst i:nth-child(8) { --a: 315deg; }
+@keyframes ifx-spark {
+  from { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(0.4); }
+  to { opacity: 0; transform: rotate(var(--a)) translateY(-46px) scale(1.1); }
+}
+.ifx-title { display: grid; justify-items: center; margin: 6px 0 10px; }
+.ifx-title small { font: 700 10px var(--display); letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); }
+.ifx-title strong { font: 700 18px var(--display); }
+.ifx-rows { display: grid; gap: 6px; }
+.ifx-row { display: grid; grid-template-columns: 78px 1fr 32px 34px; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; animation: ifx-row 0.3s calc(0.7s + var(--i) * 0.28s) ease-out both; }
+@keyframes ifx-row { from { opacity: 0; transform: translateX(-14px); } }
+.ifx-track { position: relative; height: 12px; border-radius: 6px; background: #00000014; overflow: hidden; }
+.ifx-track i { position: absolute; inset: 0 auto 0 0; background: var(--c); opacity: 0.75; box-shadow: inset 0 -3px 0 #0002; }
+.ifx-track em { position: absolute; top: 0; bottom: 0; left: var(--from); width: calc(var(--to) - var(--from)); min-width: 3px; background: #fff6a8; box-shadow: 0 0 8px 2px #fff6, inset 0 -3px 0 #0001; transform-origin: left; animation: ifx-fill 0.5s calc(0.75s + var(--i) * 0.28s) ease-out both; }
+@keyframes ifx-fill { from { transform: scaleX(0); background: #fff; } }
+.ifx-row b { font: 700 15px var(--display); text-align: right; }
+.ifx-plus { font-weight: 800; color: #3a9a5a; animation: ifx-plus 0.45s calc(1.1s + var(--i) * 0.28s) cubic-bezier(0.3, 1.8, 0.5, 1) both; }
+@keyframes ifx-plus { from { opacity: 0; transform: translateY(6px) scale(0.3); } }
+.ifx-chip { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 8px; border-radius: 8px; background: #fff3c4; font-size: 13px; font-weight: 400; }
+.ifx-chip .ico { width: 16px; height: 16px; }
+.item-fx.still *, .item-fx.still *::after { animation: none !important; }
+.item-fx.still .ifx-item, .item-fx.still .ifx-burst { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .item-fx *, .item-fx *::after { animation: none !important; }
+  .item-fx .ifx-item, .item-fx .ifx-burst { display: none; }
+}
