@@ -67,7 +67,7 @@ test('both discus shoes stay planted throughout the full wind, including the cha
 
 test('discus torso and pelvis turn counterclockwise without reversing during the throw', () => {
  for (const level of [1, 2, 3]) {
-  const start = [0, 0.4, 0.42, 0.45][level];
+  const start = [0, 0.4, 0.42, 0.524][level];
   const motion = sample('discus', level, 'technique', 2000).filter((_, i) => i / 2000 >= start);
   for (let i = 1; i < motion.length; i++) {
    assert(motion[i].turn >= motion[i - 1].turn - 1e-10, 'chest heading does not reverse after the wind');
@@ -389,9 +389,11 @@ test('an athlete keeps one recovery style, led by their background', () => {
 });
 
 test('the club map loops the meet throw: same frames, a release, then a rest before the next', async () => {
- const { throwLoop, THROW_LOOP } = await import('../src/render/throw-motion.js');
- const total = Object.values(THROW_LOOP).reduce((a, b) => a + b, 0);
+ const { throwLoop, throwLoopPhases, throwLoopMs } = await import('../src/render/throw-motion.js');
+ const { throwTiming } = await import('../src/render/meet-presentation.js');
  for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) {
+  const THROW_LOOP = throwLoopPhases(ev), total = throwLoopMs(ev), meet = throwTiming({ event: ev });
+  assert.equal(THROW_LOOP.technique, meet.releaseAt - meet.readyMs, `${ev}: practice runs the technique at meet speed`);
   const at = (t) => throwLoop(ev, level, t, { style: 1 });
   assert.deepEqual(at(THROW_LOOP.ready + THROW_LOOP.technique / 2).frame, throwMotion(ev, level, 'technique', 0.5).frame, `${ev}/${level}: technique matches the meet`);
   assert(at(THROW_LOOP.ready + THROW_LOOP.technique + 1).released, 'released after the technique');

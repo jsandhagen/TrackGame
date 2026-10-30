@@ -40,25 +40,28 @@ Discus full-turn preparation uses a dedicated planted stance for the forward swi
 
 ## Rhythm and timing
 
-Contact times come from elite phase lengths, scaled to the meet's technique window (2.3 s for javelin, 2.1 s for discus) without changing meet durations.
+Every phase runs in real time at the meet's 1× speed, with durations taken from elite biomechanics. Ranges are approximate; reference values vary by athlete and study. Meet durations are unchanged. Club-map practice uses the same technique and release times as the meet for each event, so a throw there is never hurried.
 
-| Javelin (crossover approach) | Time |
-| --- | --- |
-| Standing start, lean and first push | about 0.5 s |
-| Carry strides, then the withdrawal over two strides and one crossover | 230–265 ms each, slightly quicker each stride |
-| Penultimate: last left contact, then a long, low airborne impulse to the right catch | 320 ms, the longest stride in time and distance |
-| Final step: right catch to left block | 160 ms |
-| Block to release: free arm, hips, elbow, release | 130 ms (150 ms novice, 120 ms elite) |
+| Javelin | Game: three-step · full · crossover · elite | Real (approx.) |
+| --- | --- | --- |
+| Carry and crossover strides | — · 255→240 · 245→225 · 230→215 ms, quickening | 0.22–0.27 s |
+| Penultimate: last left contact to the right catch, airborne and low | 300 · 285 · 280 · 290 ms, the longest stride in time and distance | 0.25–0.30 s |
+| Final step: right catch to left block | 170 · 160 · 160 · 150 ms | 0.15–0.25 s |
+| Block to release: free arm, hips, elbow | 150 · 150 · 130 · 120 ms | 0.10–0.15 s |
+| Release to the right leg landing in the reverse | about 280 ms | 0.2–0.3 s |
 
-The rhythm reads "da · da · da · da · daa-da-DUM". The full approach runs three carry strides with the javelin over the shoulder, withdraws on a left contact, crosses over and takes off from the left for the penultimate. The three-step form starts withdrawn, settles, then goes left, right, left. Each stride lands where `throw-motion.js` plants it: the body is placed from the supporting shoe's position in the pose, so a support foot never slides. The body travels at about the same speed through the crossovers and the impulse. It only brakes once the left leg blocks.
+The rhythm reads "da · da · da · da · daa-da-DUM". The full approach runs three carry strides with the javelin over the shoulder, withdraws on a left contact, crosses over and takes off from the left for the penultimate. The three-step form starts withdrawn, settles, then goes left, right, left. Each stride lands where `throw-motion.js` plants it: the body is placed from the supporting shoe's position in the pose, so a support foot never slides. Before release the body travels at about the same speed through the crossovers and the impulse. It only brakes once the left leg blocks.
 
-| Discus (one and a half turns) | Share of the turn after the deepest backswing |
-| --- | --- |
-| Double support: weight onto the left, the right foot still pushing | about a quarter |
-| Left-foot single support: sweep and right knee through | nearly a third |
-| Flight | under a tenth |
-| Right-foot pivot in the middle | about a quarter |
-| Left plant to release | about a sixth, the quickest phase |
+| Discus, from the deepest backswing | Half turn · 1½ turns · fast spin | Real (approx.) |
+| --- | --- | --- |
+| Double support: weight onto the left, the right foot still pushing | — · 280 · 230 ms | 0.20–0.35 s |
+| Left-foot single support: sweep and right knee through | 220 · 360 · 300 ms | 0.30–0.40 s |
+| Flight | 85 · 100 · 70 ms | 0.05–0.10 s |
+| Right-foot pivot in the middle | 300 · 280 · 230 ms | 0.20–0.30 s |
+| Left plant to release | 240 · 200 · 170 ms, the quickest phase | 0.15–0.25 s |
+| The whole turn | 0.84 · 1.22 · 1.00 s | 1.0–1.4 s |
+
+The wind before the turn takes 0.9 s for one and a half turns and 1.1 s for the fast spin, whose patient wind sets up a visibly quicker turn. The standing throw settles, winds back over about 0.8 s and delivers in under 0.4 s.
 
 The forward swing and backswing are eased and unhurried, and everything after them is slow to fast. The deepest backswing stays side-on, so the head never flickers to a back view at the turnaround. The entry sits low into the bent left leg while the right leg sweeps wide and low. Every finish ends facing the sector, watching the discus: spinners after their turn runs on, everyone else after checking the turn. The pelvis heading leads the chest from the entry to the strike.
 

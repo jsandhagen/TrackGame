@@ -5,7 +5,7 @@ import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResi
 import { MAP_W, MAP_H, LOTS, LOT_W, STREETS, LOWER_LOT_TOP, streetOf, baseOf, front, parcelBounds, PARKING, POCKET_PARK, BUS_BAY, BUS_STOP } from "./campus-layout.js";
 export { MAP_W, MAP_H, LOTS } from "./campus-layout.js";
 import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
-import { throwLoop, throwMotion, throwReleasePoint, recoveryStyle, THROW_LOOP } from "./throw-motion.js";
+import { throwLoop, throwLoopMs, throwMotion, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
 import { lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
 import { facilityModel, drawFacilityGround, drawFacilityStructure } from "./facility-scene.js";
 import { surface } from "./terrain.js";
@@ -18,8 +18,7 @@ import { formOf, plotUnlocked, plotsOpen, plannedActivity, visitorsPerDay, autom
 const WALK_PACE = 25,
   ARRIVE_IN = 0.15;
 // Throwing practice on the map: a few throws, a walk out to collect the implements, then back.
-const LOOP_MS = Object.values(THROW_LOOP).reduce((a, b) => a + b, 0),
-  FETCH_AFTER = { shot: 3, discus: 2, hammer: 2, jav: 2 },
+const FETCH_AFTER = { shot: 3, discus: 2, hammer: 2, jav: 2 },
   REACH = { shot: 26, discus: 52, hammer: 52, jav: 70 },
   PICKUP_MS = 700;
 const lerpTo = (a, b, q) => a + (b - a) * Math.max(0, Math.min(1, q));
@@ -37,12 +36,13 @@ function practice(ev, level, style, t, west) {
     far = landing(0)[0],
     out = Math.abs(far - end) * WALK_PACE,
     back = Math.abs(far - start) * WALK_PACE,
-    cycle = throws * LOOP_MS + out + PICKUP_MS + back;
+    loop = throwLoopMs(ev),
+    cycle = throws * loop + out + PICKUP_MS + back;
   let u = ((t % cycle) + cycle) % cycle;
   const lying = (n) => Array.from({ length: n }, (_, k) => landing(k));
-  if (u < throws * LOOP_MS) {
-    const k = Math.floor(u / LOOP_MS),
-      m = throwLoop(ev, level, u - k * LOOP_MS, { style }),
+  if (u < throws * loop) {
+    const k = Math.floor(u / loop),
+      m = throwLoop(ev, level, u - k * loop, { style }),
       down = m.sinceRelease >= 800;
     return {
       ...toMap(m), pose: m.pose || (m.run ? "carry" : "throw"), frame: m.frame, flip: west ? !m.flip : m.flip, released: m.released,
@@ -52,7 +52,7 @@ function practice(ev, level, style, t, west) {
       lying: lying(k + (down ? 1 : 0)),
     };
   }
-  u -= throws * LOOP_MS;
+  u -= throws * loop;
   const walk = (a, b, q) => {
     const x = lerpTo(a, b, q);
     return { ox: x, oy: 0, pose: "walk", frame: walkFrame(Math.abs(x - a)), flip: b < a };
@@ -433,7 +433,7 @@ function targetFor(s, a, index, now, activity, counts) {
       const runway = [0, 46, 56, 66][s.stadium.jav],
         arc = sp.x + 30 - runway,
         size = s.roster.filter((b) => (b.trainingEvent || b.event) === "jav").length || 1,
-        turn = Math.floor(now / (LOOP_MS * FETCH_AFTER.jav + 4000)) % size;
+        turn = Math.floor(now / (throwLoopMs("jav") * FETCH_AFTER.jav + 4000)) % size;
       if (turn !== n % size) return { x: sp.x + 34 + (n % 3) * 7, y: sp.y + 1 + (n % 2) * 4, pose: "idle", frame: Math.floor(now / 600 + index) % 2, flip: true };
       return { x: arc, y: sp.y + 1, event: ev, ...practice(ev, level, style, now, true) };
     }
