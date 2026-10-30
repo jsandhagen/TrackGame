@@ -10,6 +10,7 @@
 // flipped), round to face the camera, side-on to the sector, facing away, and so on.
 import { frontFootOf, feetOf, implementPointOf } from "./sprites.js";
 import { throwTiming, techniqueTrim } from "./meet-presentation.js";
+import { groundRise } from "./meet-geometry.js";
 
 const ease = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
@@ -68,7 +69,7 @@ export function throwMotion(ev, level, phase, p, { foul = false, style = 0, flop
     // Legal deliveries stop with the outlined shoe behind the near edge of the arc (dx = 0).
     // Keep this guard tied to the sprite geometry as new technique/recovery poses are added.
     if (!foul || phase !== "follow") m.dx = Math.min(m.dx, -2 - 2 * frontFootOf({ pose: m.pose || (m.run ? "carry" : "throw"), event: ev, frame: m.frame, flip: m.flip, blend: m.blend }));
-    m.dy += Math.round(-m.dx * 0.1) - Math.round(-before * 0.1);
+    m.dy += groundRise(m.dx) - groundRise(before);
     return m;
   }
   if (ev === "hammer") return hammer(m, level, phase, p, foul, style);
@@ -352,7 +353,7 @@ function javelinKeys(level) {
   return (javKeys[level] = keys);
 }
 function javelin(m, level, phase, p, foul, style, flop) {
-  const slope = (dx) => Math.round(-dx * 0.1), keys = javelinKeys(level), [, , release] = keys.at(-1);
+  const slope = groundRise, keys = javelinKeys(level), [, , release] = keys.at(-1);
   if (phase === "ready") return Object.assign(m, { frame: keys[0][1], dx: keys[0][2], dy: slope(keys[0][2]) });
   if (phase === "release") {
     track(m, p, [[0, 2, release], [1, 21, release]], true); m.dy = slope(release); return m;

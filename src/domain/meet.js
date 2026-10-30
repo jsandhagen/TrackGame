@@ -28,7 +28,7 @@ import { checkDevelopment } from "./development.js";
 import { WEATHER, weatherToday } from "./calendar.js";
 import { venueFor } from "./venues.js";
 import { invitation, clubById, settleInvitation } from "./invitational.js";
-import { CHAMPIONSHIP_FINALISTS, CHAMPIONSHIP_POINTS, championshipBooking, championshipQualified, qualifyingMark, recordQualifier, simulateQualifiers } from "./qualification.js";
+import { CHAMPIONSHIP_FINALISTS, CHAMPIONSHIP_POINTS, championshipBooking, championshipQualified, qualifyingMark, qualifyingStandard, recordQualifier, simulateQualifiers } from "./qualification.js";
 import { introduceAfterMeet, firstMeet } from "./progression.js";
 
 export const isLeagueChampionship = (s) => s.competition?.kind === "league" && s.competition.format === "championship" && s.fixture === 3;
@@ -297,6 +297,30 @@ export function fieldLeaderboard(s,i=s.match?.eventIndex,hide) {
   if(hide && hide.eventIndex===i) field={home:field.home.map((e,n)=>({...e,marks:hide.side==="home"&&n===s.match.entryIndex?e.marks.slice(0,hide.attempt):e.marks})),away:field.away.map((e,n)=>({...e,marks:hide.side==="away"&&n===s.match.entryIndex?e.marks.slice(0,hide.attempt):e.marks}))};
   return scoreField(field,true,s.match.prelimFinals ? CHAMPIONSHIP_POINTS : undefined);
 }
+// The live scoreboard: every row with the marks that matter beyond its place. A PB beats the
+// athlete's best from before this meet (only your own club's bests are known). In a league duel
+// the championship standard counts this meet's marks and those from earlier duels; in a
+// championship the top places go through to the final, and after the cut the rest are out.
+export function scoreboard(s,i=s.match?.eventIndex,hide) {
+  const m=s.match,ev=EVENT_IDS[i],rows=fieldLeaderboard(s,i,hide);
+  const standard=m?.kind==="league"&&championshipBooking(s)?qualifyingStandard(s,ev):null;
+  const limit=m?.championship?finalistLimit(m):null,prelims=limit!=null&&!(m.finalRound&&i===m.eventIndex)&&!m.closed?.[i];
+  const marked=rows.filter(r=>r.mark!=null);
+  // A cut only bites when more athletes have marks than there are places in the final.
+  const cut=prelims&&rows.length>limit?limit:null;
+  const settled=m?.phase==="complete"?new Set((m.rewards?.pbs||[]).filter(p=>p.event===ev).map(p=>p.id)):null;
+  return {
+    standard, cut, cutMark: cut&&marked.length>=cut?marked[cut-1].mark:null, finals: limit!=null&&!prelims,
+    rows: rows.map(r=>{
+      const a=r.side==="home"?s.roster.find(x=>x.id===r.id):null, before=a?.pb?.[ev]||0;
+      const pb=!!a&&r.mark!=null&&(settled?settled.has(r.id):r.mark>before);
+      const earlier=standard!=null?qualifyingMark(s,r.id,ev):0;
+      const qualified=standard!=null&&Math.max(earlier,r.mark||0)>=standard;
+      return {...r, pb, firstMark:pb&&!before, qualified, newlyQualified:qualified&&earlier<standard,
+        inFinal:cut!=null&&r.place!=null&&r.place<=cut, out:limit!=null&&!prelims&&r.finalist===false};
+    }),
+  };
+}
 export function fieldTarget(s,side="home") {
   const m=s.match;
   if(!m?.fields)return null;
@@ -509,6 +533,9 @@ function throwFor(s, side, tactic, quality, sig) {
   }
   const ownBest = best(c.own),
     oppBest = c.oppBest;
+  // Reaching the championship standard during a league duel, for the first time this league.
+  const standard = m.kind === "league" && championshipBooking(s) ? qualifyingStandard(s, c.ev) : null;
+  const madeStandard = standard != null && mark != null && mark >= standard && Math.max(qualifyingMark(s, a.id, c.ev), best(c.own.slice(0, -1)) || 0) < standard;
   return {
     type: "throw",
     side,
@@ -543,6 +570,7 @@ function throwFor(s, side, tactic, quality, sig) {
     tookLead: row?.place === 1 && previousRow?.place !== 1,
     qualified: !!(m.championship && !m.finalRound && row?.place != null && row.place <= finalistLimit(m) && (!previousRow?.place || previousRow.place > finalistLimit(m))),
     finalistLimit: finalistLimit(m),
+    madeStandard,
     improvement: mark != null && c.ownBest != null ? Math.max(0, mark - c.ownBest) : 0,
   };
 }

@@ -5097,3 +5097,113 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .meet-mvp .ico-mvp { width:21px; height:21px; vertical-align:middle; }
 #meetbar .qualification-event { color:#203d32; background:#fffaf0; }
 #meetbar .qualification-event h3, #meetbar .qualification-event strong, #meetbar .qualification-event b { color:#203d32; }
+
+/* ── Meet guide, first-meet tips and a compact coaching call ─────────────── */
+#meetTip { position: absolute; z-index: 18; left: 50%; bottom: calc(var(--meetbar, 0px) + max(14px, env(safe-area-inset-bottom))); transform: translateX(-50%); width: min(420px, calc(100% - 24px)); display: grid; gap: 6px; padding: 9px 11px; background: #fff6dcf2; color: #2a2a22; border: 2px solid var(--gold); border-radius: 10px; box-shadow: 0 3px 0 #0004, 0 10px 24px #0005; font-size: 13px; line-height: 1.35; animation: rise 0.25s ease-out; }
+#meetTip[hidden] { display: none; }
+#meetTip b { display: block; font: 700 15px/1.1 var(--display); color: #1f3d34; margin-bottom: 2px; letter-spacing: .3px; }
+#meetTip span { display: block; }
+.meet-tip-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.meet-tip-actions button { min-height: 30px; padding: 3px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #c8b88a; background: #fffaf0; color: #1f3d34; font-weight: 700; }
+.meet-tip-actions button:last-child { background: #2e6a50; color: #fff6dc; border-color: #1f4a38; }
+.meet-toolbar .meet-help { min-width: 32px; padding: 4px 8px; font-weight: 800; font-size: 14px; }
+.meet-guide section { margin-bottom: 12px; }
+.meet-guide h3 { font: 700 16px/1.2 var(--display); margin: 0 0 4px; color: #1f3d34; letter-spacing: .4px; }
+.meet-guide .howto, .meet-guide ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.45; }
+.meet-guide .howto li, .meet-guide ul li { margin-bottom: 3px; }
+.meet-guide p { font-size: 13px; line-height: 1.45; margin: 4px 0 0; }
+.meet-guide .guide-legend { list-style: none; padding: 0; display: grid; gap: 5px; }
+.guide-legend li { display: grid; grid-template-columns: 46px 1fr; align-items: center; gap: 8px; }
+.guide-line { display: block; height: 4px; border-radius: 2px; background: var(--c); box-shadow: 0 0 0 1px #0003; }
+.guide-line.dashed { background: repeating-linear-gradient(90deg, var(--c) 0 6px, transparent 6px 10px); box-shadow: none; }
+.guide-peg { display: block; width: 6px; height: 14px; margin: 0 auto; background: linear-gradient(#e0506a 0 4px, #f4f4f0 4px); border: 1px solid #0003; }
+.guide-x { display: block; text-align: center; font: 800 16px/1 var(--display); color: var(--red); font-style: normal; }
+.guide-dialog .dialog-body { max-height: min(70vh, 640px); overflow: auto; }
+.decide .tactics { grid-template-columns: repeat(3, 1fr); }
+.decide .tactic { padding: 8px 4px; }
+.decide .tactic small { white-space: nowrap; }
+.decide-approach { display: grid; gap: 3px; margin-top: 4px; padding-top: 6px; border-top: 1px dashed #c8b88a; }
+.decide-approach label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+.decide-approach select { min-height: 32px; flex: 1; min-width: 0; }
+.decide-approach small { font-size: 11px; color: var(--muted); line-height: 1.35; }
+@media (max-aspect-ratio: 1/1) {
+  /* Your call, coach: docked low, so the camera on the thrower stays in view above it. */
+  #window.center.low { top: auto; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); max-height: 62vh; }
+  .decide { margin: 4px 0; }
+  .decide .tactic strong { font-size: 13px; }
+  .decide .tactic small, .decide .tactic em { font-size: 10px; }
+}
+@media (min-aspect-ratio: 1/1) {
+  .meet-live #meetTip { left: calc((100% - var(--meet-rail, 0px) - 16px) / 2); bottom: max(10px, env(safe-area-inset-bottom)); width: min(400px, calc(100% - var(--meet-rail, 0px) - 40px)); }
+}
+@media (orientation: landscape) and (min-width: 700px) {
+  /* The camera keeps the thrower in the left of the arena; the call sits beside them. */
+  .meet-live #window.center.low { left: auto; right: calc(var(--meet-rail) + max(8px, env(safe-area-inset-right)) + 16px); width: min(420px, calc((100% - var(--meet-rail) - 32px) * 0.54)); transform: none; }
+  .meet-live #meetTip { left: max(12px, env(safe-area-inset-left)); top: auto; bottom: max(10px, env(safe-area-inset-bottom)); transform: none; width: min(300px, calc((100% - var(--meet-rail) - 32px) * 0.4)); font-size: 12px; padding: 7px 9px; }
+  .meet-live #meetTip b { font-size: 13px; }
+  .meet-live .decide p { font-size: 12px; margin-bottom: 5px; }
+  .meet-live .decide .tactic { padding: 6px 3px; }
+  .meet-live .decide .tactic strong { font-size: 13px; }
+  .meet-live .decide .tactic small, .meet-live .decide .tactic em { font-size: 10px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .meet-toolbar { flex-wrap: nowrap; }
+  .meet-toolbar > .button, .meet-toolbar .seg button { padding-left: 6px; padding-right: 6px; }
+}
+
+/* ── Scoreboard: the marks that matter ───────────────────────────────────────
+   One colour per status, matching the lines on the field: PB sky blue,
+   championship standard green, final cut orange. */
+:root { --mk-pb: #9fe0ff; --mk-q: #8fe08a; --mk-cut: #ffad5f; }
+.standings-list { grid-template-columns: 1fr !important; }
+.standing { grid-template-columns: 20px minmax(0,1fr) auto 42px !important; }
+.standing .badges { display: flex; gap: 2px; justify-content: flex-end; }
+.badge { display: inline-block; min-width: 16px; padding: 0 3px; border-radius: 3px; font: 800 8px/13px var(--display); letter-spacing: .3px; text-align: center; font-style: normal; }
+.badge.pb { background: var(--mk-pb); color: #0f3344; }
+.badge.q { background: transparent; color: var(--mk-q); box-shadow: inset 0 0 0 1px var(--mk-q); }
+.badge.q.new { background: var(--mk-q); color: #12351a; animation: badge-pop .5s ease-out; }
+.badge.out { background: #ffffff1a; color: #b5c2b8; }
+@keyframes badge-pop { 0% { transform: scale(1.6); } 100% { transform: scale(1); } }
+.standing.in-final { border-left-color: var(--mk-cut); }
+.standing.our-athlete.in-final { box-shadow: inset 3px 0 0 var(--mk-cut); }
+.standing.out { opacity: .5; }
+.standing-divider { display: flex; align-items: center; gap: 6px; margin: 2px 0; font: 700 8px/1 var(--display); letter-spacing: .8px; white-space: nowrap; }
+.standing-divider::before, .standing-divider::after { content: ""; flex: 1; border-top: 1px dashed currentColor; opacity: .8; }
+.standing-divider::before { flex: 0 0 8px; }
+.standing-divider b { order: 3; font-size: 10px; letter-spacing: 0; }
+.standing-divider.cut-line { color: var(--mk-cut); }
+.standing-divider.cut-line::after { border-top-style: solid; border-top-width: 2px; }
+.standing-divider.standard-line { color: var(--mk-q); }
+.thrower-goals { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.goal { display: inline-flex; align-items: center; gap: 3px; padding: 1px 5px; border-radius: 9px; font-size: 9px; font-weight: 700; color: #a8bcae; border: 1px dashed #ffffff40; font-variant-numeric: tabular-nums; }
+.goal b { font-weight: 800; }
+.goal.pb { color: var(--mk-pb); border-color: color-mix(in srgb, var(--mk-pb) 55%, transparent); }
+.goal.q { color: var(--mk-q); border-color: color-mix(in srgb, var(--mk-q) 55%, transparent); }
+.goal.cut { color: var(--mk-cut); border-color: color-mix(in srgb, var(--mk-cut) 55%, transparent); }
+.goal.done { border-style: solid; color: #10221a; }
+.goal.done::before { content: "✓"; }
+.goal.pb.done { background: var(--mk-pb); }
+.goal.q.done { background: var(--mk-q); }
+.goal.cut.done { background: var(--mk-cut); }
+.thrower-attempts .best b { color: #fff0bc; }
+.thrower-attempts .pb { border-color: var(--mk-pb); box-shadow: inset 0 -2px 0 var(--mk-pb); }
+.live-standings .standings-list { max-height: var(--standings-max, none); overflow-y: auto; scrollbar-width: thin; }
+@media (max-aspect-ratio: 1/1) { .live-standings { --standings-max: 136px; } }
+.q-tag { background: var(--mk-q); color: #12351a; }
+.final-tag { background: var(--mk-cut); color: #3a1f06; }
+.pb-tag.pb-mark { background: var(--mk-pb); color: #0f3344; }
+.guide-legend .badge { justify-self: center; font-size: 10px; line-height: 16px; min-width: 22px; }
+.guide-legend .badge.q { color: #12351a; }
+.guide-cut { justify-self: center; font: 800 8px/1 var(--display); color: #b8621a; border-top: 2px solid #ffad5f; padding-top: 2px; white-space: nowrap; }
+.meet-help.rail { display: none; }
+@media (orientation: landscape) and (min-width: 700px) {
+  .meet-live .meet-rail-score > small { display: flex; align-items: center; justify-content: space-between; }
+  .meet-live .meet-help.rail { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; margin: 0; border-radius: 50%; border: 1px solid #f0cd74; background: transparent; color: #f0cd74; font: 800 12px/1 var(--display); letter-spacing: 0; }
+  .meet-live .meet-toolbar > .meet-help { display: none; }
+}
+@media (orientation: landscape) and (min-width: 700px) {
+  /* The thrower's card stays put; the standings take the rest of the rail and scroll. */
+  .meet-live .meet-desk { overflow: hidden; }
+  .meet-live .live-standings { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .meet-live .live-standings .standings-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+}
