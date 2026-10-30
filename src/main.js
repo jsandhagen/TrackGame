@@ -159,7 +159,11 @@ function menu() {
         : view.playing
           ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
           : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
-  $("#menu").innerHTML = `<div class="menu-items">${items.filter(([id]) => G.pageUnlocked(state, id)).map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && (state.saleDay === state.day || (G.shelfRestock(state) === G.BOOK_WEEK && G.bookShelf(state).some((k) => !G.bookSold(state, k)))) ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
+  // The next meet, always in sight above the main button: who, and how many days to go.
+  const opp = state.phase === "season" && state.matchDay != null && !G.firstMeet(state) ? G.opponent(state) : null,
+    left = opp ? state.matchDay - state.day : null;
+  const countdown = opp ? `<button class="meet-countdown ${left <= 0 ? "today" : ""}" data-act="window" data-page="home" style="--rival:${opp.color || "#888"}" aria-label="${left <= 0 ? "Meet day" : left + " days to the meet"} against ${esc(opp.name)}"><small>${left <= 0 ? "MEET DAY" : "NEXT MEET"}</small><b>${left <= 0 ? "Today" : left === 1 ? "Tomorrow" : left + " days"}</b><span>vs ${esc(opp.name)}</span></button>` : "";
+  $("#menu").innerHTML = `${countdown}<div class="menu-items">${items.filter(([id]) => G.pageUnlocked(state, id)).map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && (state.saleDay === state.day || (G.shelfRestock(state) === G.BOOK_WEEK && G.bookShelf(state).some((k) => !G.bookSold(state, k)))) ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
 }
 function tools() {
   $("#tools").innerHTML = state.match ? "" : `<button data-act="zoom" data-step="0.5" aria-label="Zoom in">${ico("plus")}</button><button data-act="zoom" data-step="-0.5" aria-label="Zoom out">${ico("minus")}</button><button data-act="recenter" aria-label="Centre on the stadium">${ico("stadium")}</button>`;
@@ -721,6 +725,28 @@ function startBeat(beat) {
   }
   render();
 }
+// Skip ahead: "mine" runs on to the start of your next throw, "event" to the end of this event.
+// Anything that needs you (a coaching call, the meet's end) still stops the skip.
+function skipMeet(to) {
+  const m = state.match;
+  if (!m || m.phase === "complete" || m.phase === "decide" || $("#dialog").open) return;
+  if (presenter?.beat?.type === "throw") view.lastMark = presenter.beat;
+  presenter = null;
+  view.hide = null;
+  view.meetPaused = false;
+  const event = m.eventIndex;
+  for (let guard = 0; guard < 4000; guard++) {
+    const beat = G.advanceMatch(state);
+    if (!beat) break;
+    const stop = beat.type === "decide" || beat.type === "complete" || m.phase === "complete" ||
+      (to === "mine" && beat.type === "throw" && beat.side === "home") || (to === "event" && beat.type === "eventEnd" && beat.eventIndex === event);
+    if (stop) return save(), startBeat(beat);
+    if (beat.type === "throw") view.lastMark = beat;
+    if (beat.type === "eventStart") view.lastMark = null;
+  }
+  save();
+  render();
+}
 function pumpMeet(dt) {
   const m = state.match;
   if (!m) return;
@@ -839,6 +865,8 @@ $("#app").addEventListener("click", async (e) => {
       view.meter = null;
       view.meetPaused = false;
       break;
+    case "meet-skip":
+      return skipMeet(b.dataset.to);
     case "meet-pause":
       view.meetPaused = !view.meetPaused;
       break;

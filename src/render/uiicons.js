@@ -145,6 +145,20 @@ const ICONS = {
       R(g, 6, y, w, 1, "#fff6dc");
     }
   },
+  // Skip to your next throw: a play arrow against a bar.
+  skip(g) {
+    for (let y = 2; y <= 9; y++) R(g, 2, y, Math.round((y <= 5.5 ? y - 1 : 10 - y) * 1.3), 1, "#fff6dc");
+    R(g, 8, 2, 2, 8, "#fff6dc");
+  },
+  // Finish the event: two arrows against a bar.
+  finish(g) {
+    for (let y = 2; y <= 9; y++) {
+      const w = y <= 5.5 ? y - 1 : 10 - y;
+      R(g, 0, y, w, 1, "#fff6dc");
+      R(g, 4, y, w, 1, "#fff6dc");
+    }
+    R(g, 9, 2, 2, 8, "#fff6dc");
+  },
   plus(g) {
     R(g, 5, 2, 2, 8, "#fff6dc");
     R(g, 2, 5, 8, 2, "#fff6dc");
