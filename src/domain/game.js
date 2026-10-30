@@ -52,7 +52,7 @@ import {
   rankName,
   STAR_CAP,
 } from "./core.js";
-import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
+import { checkGoals, rollStoryEvent, closeYear, yearStat } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 
 import { competitionTier, competitionName, circuitKey, TITLE_GIFTS, rivalBase, rivalMastery } from "./competition.js";
@@ -70,6 +70,7 @@ export * from "./customize.js";
 export * from "./calendar.js";
 export * from "./venues.js";
 export * from "./invitational.js";
+export * from "./world.js";
 import { invitationDay, closeInvitation, ensureInvitations } from "./invitational.js";
 import { ensureCustom } from "./customize.js";
 import { WEATHER, weatherToday, weatherTrainFactor, weatherSeedFrom } from "./calendar.js";
@@ -95,6 +96,8 @@ export function newGame(seed = Date.now() >>> 0) {
   const s = {
     v: 8,
     onboarding: { meets: 0 },
+    yearStats: { year: 1, athletes: {} },
+    ceremony: null,
     balance: 2,
     rivalClubs: {},
     facilityDuties: {},
@@ -335,9 +338,11 @@ export function advanceDay(s) {
   if (firstMeet(s) && !s.competition) return { ok: false, reason: "The squad is ready. Start your first duel from Meets." };
   s.day++;
   count(s, "days");
+  // A new calendar year opens with awards night for the last one.
+  const ceremony = closeYear(s);
   const weather = weatherToday(s),
     sky = WEATHER[weather];
-  const report = { weather, duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
+  const report = { weather, duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null, ceremony };
   const dailyVisitors = visitorsPerDay(s);
   const autoDuties = automaticDuties(s,dailyVisitors);
   const clubCond = clubCondition(s),
@@ -916,7 +921,6 @@ export function leaveMatch(s) {
       }
     }
   }
-  if (s.phase === "seasonEnd") computeAwards(s);
   s.match = null;
   checkGoals(s);
   return true;

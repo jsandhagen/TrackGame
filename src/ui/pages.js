@@ -3,6 +3,8 @@ import { line as voiceLine } from "../domain/voice.js";
 import { throwResult } from "../render/meet-presentation.js";
 import {
   SHOPKEEPER,
+  HELPER,
+  ELITES,
   EVENTS,
   EVENT_IDS,
   LEAGUES,
@@ -956,7 +958,7 @@ export function league(s, view) {
     .join("")}`;
 }
 function leagueRecords(s) {
-  return `<div class="card-title"><h2>Club records</h2></div><div class="records">${EVENT_IDS.map((ev) => `<span>${EVENTS[ev].name}<b>${s.records[ev] ? mark(s.records[ev].mark) : "—"}</b><small>${s.records[ev] ? esc(s.records[ev].name) + " · S" + s.records[ev].season : ""}</small><small class="${s.worldRecords?.[ev] ? "wr-ours" : ""}">World record ${G.worldRecord(s, ev).toFixed(2)}${s.worldRecords?.[ev] ? " · " + esc(s.worldRecords[ev].name) : ""}</small></span>`).join("")}</div>
+  return `${worldBoard(s)}<div class="card-title"><h2>Club records</h2></div><div class="records">${EVENT_IDS.map((ev) => `<span>${EVENTS[ev].name}<b>${s.records[ev] ? mark(s.records[ev].mark) : "—"}</b><small>${s.records[ev] ? esc(s.records[ev].name) + " · S" + s.records[ev].season : ""}</small><small class="${s.worldRecords?.[ev] ? "wr-ours" : ""}">World record ${G.worldRecord(s, ev).toFixed(2)}${s.worldRecords?.[ev] ? " · " + esc(s.worldRecords[ev].name) : ""}</small></span>`).join("")}</div>
   <div class="card-title"><h2>${ico("trophy")} Trophy cabinet</h2></div><div class="trophies">${s.trophies.length || s.invitations?.won.length ? s.trophies.map((t) => `<div>${ico("trophy", "big")}<strong>${LEAGUES[t.league].name} · ${G.CIRCUIT_STAGES[t.stage ?? 2]}</strong><small>Season ${t.season}</small></div>`).join("") + (s.invitations?.won || []).map((t) => `<div class="invite-trophy">${ico("star", "big")}<strong>${esc(t.name)}</strong><small>${LEAGUES[t.tier].name} · ${esc(G.shortDate(t.day))}</small></div>`).join("") : "<p class='hint'>A space is waiting for the first one.</p>"}</div>`;
 }
 
@@ -1319,11 +1321,39 @@ function championshipTable(s) {
   return `<section class="card"><h2>League championship standings</h2><div class="table-wrap"><table><thead><tr><th>Club</th><th>Points</th></tr></thead><tbody>${G.championshipScores(s.match).map((c,i) => `<tr class="${c.id === "us" ? "us" : ""}"><td>${i+1}. ${esc(c.id === "us" ? s.clubName : c.name)}</td><td>${c.points}</td></tr>`).join("")}</tbody></table></div></section>`;
 }
 
+// ── The world's best ────────────────────────────────────────────────────
+const elitePortrait = (e, size = 40) => `<canvas class="portrait elite-portrait" width="${size}" height="${size}" data-elite="${e.id}"></canvas>`;
+const flag = (nation) => `<span class="nation">${esc(nation)}</span>`;
+export function worldBoard(s) {
+  const year = G.yearOf(s), club = G.clubVersusWorld(s);
+  return `<div class="card-title"><h2>${ico("star")} The world's best · Year ${year}</h2></div><p class="hint">The marks to aim for. Your athletes join this list when they throw far enough.</p>
+  <div class="world-board">${EVENT_IDS.map((ev, i) => {
+    const rows = G.worldList(s, ev), mine = club[i];
+    return `<article class="world-event" style="--event-color:${EVENTS[ev].color}"><header>${EVENTS[ev].name}</header><ol>${rows.map((r, n) => `${n && r.rank > rows[n - 1].rank + 1 ? `<li class="world-gap" aria-hidden="true">⋯</li>` : ""}<li class="${r.athlete ? "our-athlete" : ""}"><b>${r.rank.toLocaleString()}</b>${r.elite ? elitePortrait(r.elite, 28) : portrait(r.athlete)}<span>${esc(r.name)} ${flag(r.nation)}</span><strong>${mark(r.mark)}</strong></li>`).join("")}</ol>
+    <p class="world-you">${mine.athlete ? `Your best: <b>${esc(mine.athlete.name)}</b> ${mark(mine.mark)} · world #${mine.rank.toLocaleString()}${mine.gap > 0 ? ` · ${mine.gap.toFixed(2)} m to the top` : " · <b>world leader!</b>"}` : "No mark yet."}</p></article>`;
+  }).join("")}</div>`;
+}
+// Awards night, one step at a time: Juno's welcome, each award, then the world's best.
+export function ceremonySteps(s) {
+  const c = s.ceremony;
+  if (!c) return [];
+  const steps = [{ title: "Awards night · Year " + c.year, eyebrow: HELPER + " · your host", body: `<div class="ceremony-intro"><p>Welcome, everyone, to the ${esc(s.clubName)} awards for Year ${c.year}!</p><div class="facts"><span>Event points <b>${c.totals.points}</b></span><span>Personal bests <b>${c.totals.pbs}</b></span><span>Fans <b>${s.fans.toLocaleString()}</b></span></div><p>${c.list.length ? "Before we look at the world's best, let's celebrate our own." : "A quiet year on the field. Next year the stage is yours."}</p></div>` }];
+  for (const w of c.list) {
+    const a = s.roster.find((x) => x.id === w.id);
+    steps.push({ title: w.award, eyebrow: (w.mvp ? "AND THE MVP IS…" : "THE AWARD GOES TO…"), cls: w.mvp ? "ceremony-mvp" : "", body: `<div class="award-reveal ${w.mvp ? "mvp" : ""}">${w.mvp ? `<div class="confetti" aria-hidden="true">${Array.from({ length: 18 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${((i * 13) % 9) / 10}s;--r:${(i * 71) % 360}deg;--c:${["#f2c94c", s.colors.primary, "#e0506a", "#5aa4c8", "#8cc152"][i % 5]}"></i>`).join("")}</div>` : ""}${a ? `<span class="award-portrait">${portrait(a)}</span>` : ""}<strong>${esc(w.name)}</strong><p>${esc(w.value)}</p><em>${ico("spark")} ${esc(w.reward)}</em></div>` });
+  }
+  steps.push({ title: "The world's best", eyebrow: "WHERE WE'RE HEADED", body: `<div class="world-tease"><p>Out there, the best throwers on the planet are waiting. One day, one of ours could stand with them.</p>${c.world.map((r) => {
+    const e = ELITES.find((x) => x.id === r.leader.id);
+    return `<div class="tease-row" style="--event-color:${EVENTS[r.event].color}"><small>${EVENTS[r.event].short}</small>${e ? elitePortrait(e, 48) : ""}<span><b>${esc(r.leader.name)} ${flag(r.leader.nation)}</b><em>${e ? esc(e.blurb) : "That's us!"}</em></span><strong>${mark(r.leader.mark)}</strong><p class="tease-you">${r.name ? `${esc(r.name)} ${mark(r.mark)} · world #${r.rank.toLocaleString()}${r.gap > 0 ? " · " + r.gap.toFixed(2) + " m to go" : ""}` : "No club mark yet"}</p></div>`;
+  }).join("")}</div>` });
+  return steps;
+}
 // ── Season end & awards ─────────────────────────────────────────────────
 function seasonEnd(s) {
   const won = s.champion,
     aw = s.lastAwards;
   return `<div class="season-end ${won ? "won" : ""}"><div class="trophy">${ico(won ? "trophy" : "sprout", "huge")}</div>${heading("SEASON " + s.season + " COMPLETE", won ? G.competitionName(s) + " champions!" : "The next chapter is yours.", won ? "Title bonus " + cash(s.lastTitlePrize || 0) + " added." + (s.lastTitleGift ? " First-title gift: " + ITEMS[s.lastTitleGift].name + "." : "") : "Everything you built stays. A rebuild camp boosts key stats.")}
+  <p class="hint awards-teaser">${ico("medal")} Awards night closes Year ${G.yearOf(s)}, in ${168 - ((s.day - 1) % 168)} days. MVP, breakout and record breaker, and a look at the world's best.</p>
   ${aw?.list.length ? `<section class="card awards"><div class="card-title"><h2>${ico("medal")} Awards night</h2></div>${aw.list.map((w) => {
     const a = s.roster.find((x) => x.id === w.id);
     return `<div class="award">${a ? portrait(a) : ""}<span><small>${esc(w.award)}</small><strong>${esc(w.name)}</strong><em>${esc(w.value)}${w.sp ? " · +1 SP" : ""}${w.item ? " · " + ITEMS[w.item].name : ""}</em></span></div>`;

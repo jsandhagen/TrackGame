@@ -5,7 +5,7 @@ import "@fontsource/oswald/latin-500.css";
 import "@fontsource/oswald/latin-700.css";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER, SHOPKEEPER } from "./game-content.js";
+import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER, SHOPKEEPER, ELITES, NATION_COLORS } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium } from "./render/stadium.js";
@@ -312,6 +312,10 @@ function paint(root) {
   });
   root.querySelectorAll("canvas[data-secret]").forEach((c) => paintPortrait(c, { look: SECRETS[c.dataset.secret].look, rank: 4 }, state.colors, { face: "happy" }));
   root.querySelectorAll("canvas[data-helper]").forEach((c) => paintPortrait(c, { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, rank: 2 }, state.colors, { face: "happy" }));
+  root.querySelectorAll("canvas[data-elite]").forEach((c) => {
+    const e = ELITES.find((x) => x.id === c.dataset.elite);
+    if (e) paintPortrait(c, { look: e.look, rank: 0 }, { primary: NATION_COLORS[e.nation] || "#888", secondary: "#f4efe2" }, { face: "happy" });
+  });
   root.querySelectorAll("canvas[data-shopkeeper]").forEach((c) => paintPortrait(c, { look: SHOPKEEPER.look, rank: 0 }, SHOPKEEPER.colors, { face: "happy" }));
 }
 // A character pops up in the corner to say something worth knowing: the shopkeeper calling out
@@ -655,7 +659,8 @@ function doDay(now) {
   if (r.week) paydayNews(r.week);
   if (!(state.matchDay != null && state.day >= state.matchDay)) shopNews(shopBefore);
   refresh();
-  if (r.event) setTimeout(showEvent, 500);
+  if (r.ceremony) stopPlaying(), setTimeout(() => showCeremony(), 600);
+  else if (r.event) setTimeout(showEvent, 500);
 }
 
 // ── Meet presentation ───────────────────────────────────────────────────
@@ -1415,6 +1420,22 @@ async function chooseSlot(n) {
     }
   }
   closeMainMenu();
+  // A ceremony the club hasn't seen yet still takes place.
+  if (state.ceremony) setTimeout(() => showCeremony(), 400);
+}
+// Awards night: Juno's welcome, each award in turn, then a look at the world's best.
+function showCeremony(step = 0) {
+  const steps = P.ceremonySteps(state);
+  if (!steps.length) return;
+  const st = steps[step], last = step === steps.length - 1;
+  dialog(st.title, st.body, [{ label: last ? "Back to the club" : step === 0 ? "On with the show" : "Next", fn: () => {
+    if (!last) return showCeremony(step + 1);
+    state.ceremony = null;
+    save();
+    render();
+    if (state.pendingEvent) setTimeout(showEvent, 400);
+  } }], { eyebrow: st.eyebrow, tone: "gold", cls: "ceremony-dialog " + (st.cls || ""), helper: step === 0, locked: true });
+  sfx(st.cls === "ceremony-mvp" ? "win" : step === 0 ? "cheer" : last ? "goal" : "level");
 }
 async function newClub(n) {
   const slots = await listSlots(summarise);

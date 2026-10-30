@@ -660,6 +660,23 @@ function drawFigure(g, o) {
       for (const x of side ? [7, 11] : [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
     }
   }
+  // Accessories: sunglasses over the eyes, a sweatband or a cap. From behind only the band and cap show.
+  const gear = look.gear, gc = look.gearColor || "#e04a3a";
+  if (gear === "shades" && !back && !metal) {
+    if (side) H(7, 5, 5, 2, "#1c2028"), H(8, 5, 2, 1, "#5a6a80");
+    else H(3, 5, 8, 2, "#1c2028"), H(4, 5, 2, 1, "#5a6a80"), H(8, 5, 2, 1, "#5a6a80");
+  }
+  if (gear === "band" && !metal && !(rank >= 2)) {
+    H(0, 3, 12, 1, gc);
+    H(0, 4, 12, 1, shade(gc, -0.25));
+  }
+  if (gear === "cap" && !metal) {
+    H(1, -1, 10, 4, gc);
+    H(2, -1, 8, 1, shade(gc, 0.25));
+    H(5, 0, 2, 1, shade(gc, -0.3));
+    if (side) H(10, 2, 4, 1, shade(gc, -0.2));
+    else if (!back) H(2, 3, 8, 1, shade(gc, -0.2));
+  }
   // Arms in front of the body and head: the near arm, or from the front both.
   if (p.behind) [farLimb, near].forEach(k => !p.behind[k] && arm(k, true));
   else if (side || !jointed) arm(near, true);

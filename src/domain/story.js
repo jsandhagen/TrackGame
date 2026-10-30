@@ -15,7 +15,8 @@ import {
   statTotal,
   capOf,
 } from "./core.js";
-import { weatherToday } from "./calendar.js";
+import { weatherToday, dateOf } from "./calendar.js";
+import { clubVersusWorld } from "./world.js";
 
 // ── Club goals: a steady stream of short- and long-term targets ───────────
 const bestMark = (s, ev) => s.records?.[ev]?.mark || 0;
@@ -434,28 +435,47 @@ export function resolveEvent(s, index) {
 }
 
 // ── Season awards ─────────────────────────────────────────────────────
-export function computeAwards(s) {
+// ── Awards night ─────────────────────────────────────────────────────────
+// Each calendar year keeps its own tally per athlete: event points, PBs, meets and where their
+// stats stood when the year began. On the first day of a new year the club holds awards night.
+export function yearStat(s, a) {
+  s.yearStats ??= { year: dateOf(s.day).year, athletes: {} };
+  return (s.yearStats.athletes[a.id] ??= { points: 0, pbs: 0, meets: 0, start: +statTotal(a).toFixed(2) });
+}
+export function closeYear(s) {
+  const year = dateOf(s.day).year;
+  s.yearStats ??= { year, athletes: {} };
+  if (s.yearStats.year >= year) return null;
+  s.ceremony = yearAwards(s, s.yearStats.year);
+  s.yearStats = { year, athletes: {} };
+  for (const a of s.roster) yearStat(s, a);
+  return s.ceremony;
+}
+export function yearAwards(s, year) {
+  const st = (a) => s.yearStats?.athletes?.[a.id] || { points: 0, pbs: 0, meets: 0, start: statTotal(a) };
+  const top = (fn, ok) => [...s.roster].filter(ok).sort((a, b) => fn(b) - fn(a))[0];
   const list = [];
-  const top = (fn) => [...s.roster].sort((a, b) => fn(b) - fn(a))[0];
-  const mvp = top((a) => a.seasonPoints * 10 + a.seasonPbs);
-  if (mvp && mvp.seasonPoints > 0) list.push({ award: "Most Valuable Athlete", id: mvp.id, name: mvp.name, value: mvp.seasonPoints + " event points", sp: 1 });
-  const growth = (a) => statTotal(a) - (a.seasonStart || statTotal(a));
-  const breakout = top(growth);
-  if (breakout && growth(breakout) > 0.5) list.push({ award: "Breakout Athlete", id: breakout.id, name: breakout.name, value: "+" + Math.round(growth(breakout)) + " stat points", sp: 1 });
-  const records = top((a) => a.seasonPbs);
-  if (records && records.seasonPbs > 0) list.push({ award: "Record Breaker", id: records.id, name: records.name, value: records.seasonPbs + " PBs", item: "goldchalk" });
+  const mvp = top((a) => st(a).points * 10 + st(a).pbs, (a) => st(a).meets > 0);
+  if (mvp) list.push({ award: "Most Valuable Athlete", id: mvp.id, name: mvp.name, value: st(mvp).points + " event points in " + st(mvp).meets + " meet" + (st(mvp).meets === 1 ? "" : "s"), reward: "+1 SP", sp: 1, mvp: true });
+  const growth = (a) => statTotal(a) - st(a).start;
+  const breakout = top(growth, (a) => growth(a) > 0.5 && a !== mvp);
+  if (breakout) list.push({ award: "Breakout Athlete", id: breakout.id, name: breakout.name, value: "+" + Math.round(growth(breakout)) + " stat points this year", reward: "+1 SP", sp: 1 });
+  const records = top((a) => st(a).pbs, (a) => st(a).pbs > 0);
+  if (records) list.push({ award: "Record Breaker", id: records.id, name: records.name, value: st(records).pbs + " personal best" + (st(records).pbs === 1 ? "" : "s"), reward: ITEMS.goldchalk.name, item: "goldchalk" });
   for (const w of list) {
     const a = s.roster.find((x) => x.id === w.id);
-    if (!a) continue;
     if (w.sp) a.sp += w.sp;
     if (w.item) addItem(s, w.item);
     a.condition = 100;
-    a.career.unshift({ season: s.season, label: w.award });
-    a.career = a.career.slice(0, 20);
+    a.career.unshift({ season: s.season, label: (w.mvp ? "MVP" : w.award) + " · Year " + year });
+    a.career = a.career.slice(0, 40);
   }
-  s.lastAwards = { season: s.season, league: s.competition?.tier ?? s.league, champion: !!s.champion, list };
-  s.awardHistory.unshift(...list.map((w) => ({ season: s.season, award: w.award, name: w.name })));
+  s.awardHistory.unshift(...list.map((w) => ({ season: s.season, year, award: w.award, name: w.name })));
   s.awardHistory = s.awardHistory.slice(0, 60);
-  return s.lastAwards;
+  const totals = Object.values(s.yearStats?.athletes || {}).reduce((t, x) => ({ points: t.points + x.points, pbs: t.pbs + x.pbs }), { points: 0, pbs: 0 });
+  // The world's best, as they stood when the year closed, and how far the club's best has to go.
+  const world = clubVersusWorld(s, year).map((r) => ({ event: r.event, id: r.athlete?.id ?? null, name: r.athlete?.name ?? null, mark: r.mark, rank: r.rank, gap: r.gap, leader: { id: r.leader.elite?.id ?? null, name: r.leader.name, nation: r.leader.nation, mark: r.leader.mark } }));
+  note(s, "Awards night for Year " + year + (mvp ? ": " + mvp.name + " is the club's MVP." : "."), "story");
+  return { year, list, totals, world };
 }
 

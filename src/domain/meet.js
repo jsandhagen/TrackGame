@@ -21,7 +21,7 @@ import {
   facilityLevel,
   hasCombo,
 } from "./core.js";
-import { checkGoals } from "./story.js";
+import { checkGoals, yearStat } from "./story.js";
 import { competitionTier } from "./competition.js";
 import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
@@ -699,6 +699,7 @@ function closeEvent(s, i) {
       for (const row of e.placings || []) if (row.side === "home") {
         const athlete = s.roster.find((x) => x.id === row.id);
         athlete.seasonPoints += row.points;
+        yearStat(s, athlete).points += row.points;
         if (row.place === 1) count(s, "eventWins");
       }
       for(const side of ["home","away"]) {
@@ -789,7 +790,7 @@ export function settleMatch(s) {
       rewards.mastery.push({id:a.id,name:a.name,event:ev,gain:masteryGain,mastery:masteryOf(a,ev)});
       const mark = best(entry.marks), old = a.pb[ev] || 0;
       if (mark != null && mark > old) {
-        a.pb[ev] = mark; a.seasonPbs++; a.development.pbs++; count(s,"pbs"); fans += 2;
+        a.pb[ev] = mark; a.seasonPbs++; a.development.pbs++; count(s,"pbs"); fans += 2; yearStat(s, a).pbs++;
         earn(a.id, old ? EVENTS[ev].short + " PB" : "First " + EVENTS[ev].short + " mark", old ? MEET_XP.pb : MEET_XP.firstMark);
         rewards.pbs.push({ id:a.id, name:a.name, event:ev, mark, delta:old ? mark-old : 0 });
         a.career.unshift({ season:s.season, label:EVENTS[ev].name + " PB", mark });
@@ -806,7 +807,7 @@ export function settleMatch(s) {
   for (const id of participants) {
     const a = s.roster.find((x) => x.id === id);
     const before = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
-    a.meets++; a.stamina = clamp(a.stamina-15,0,100); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
+    a.meets++; yearStat(s, a).meets++; a.stamina = clamp(a.stamina-15,0,100); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
     earn(a.id, win ? "Team win" : "Team draw", win ? MEET_XP.win : draw ? MEET_XP.draw : 0);
     const sources = xpSources.get(a.id) || [], factor = m.kind === "duel" ? 0.7 : 1;
     grantXp(s,a,sources.reduce((n,[,xp])=>n+xp,0)*factor,rewards.levelUps);
