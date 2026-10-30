@@ -4,7 +4,7 @@ import { EVENTS, EVENT_IDS } from "../game-content.js";
 // Animation speed and reading time are separate: highlights may shorten the
 // delivery, but never flash a result past the coach.
 export const CUTIN_MS = 1000;
-export const SETUP_MS = 1500;
+export const SETUP_MS = 700;
 export const RESULT_MS = 3200;
 export const HIGHLIGHT_MS = 4000;
 export const ROUTINE_MS = RESULT_MS;
@@ -19,13 +19,17 @@ export function hasCutIn(beat) {
 }
 export const throwOffset = beat => SETUP_MS + (hasCutIn(beat) ? CUTIN_MS : 0);
 
+// Short techniques drop the standing start a full event window would leave them, so every thrower
+// gets going within a moment of stepping up. Ms trimmed, by form.
+const TECHNIQUE_TRIM = { shot: [400, 250, 200, 0], jav: [1000, 75, 165, 235], discus: [800, 500, 0, 0] };
+export const techniqueTrim = (event, form) => TECHNIQUE_TRIM[event]?.[form] ?? 0;
 // Give the delivery time to build speed. Flight depends on the actual mark,
 // rather than stretching a short put across the same time as a long javelin.
 export function throwTiming(beat = {}) {
   const event = EVENTS[beat?.event] ? beat.event : EVENT_IDS[beat?.eventIndex] || "shot";
   const measured = Number.isFinite(beat?.mark) && beat.mark > 0 ? beat.mark : beat?.flightDistance;
   const distance = Number.isFinite(measured) && measured > 0 ? measured : EVENTS[event].min;
-  const releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event];
+  const releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event] - techniqueTrim(event, beat?.form);
   const flightMs = Math.round(Math.max(400, Math.min(1400, Math.sqrt(distance) * 140)));
   return {
     readyMs: 300, releaseAt, releaseMs: event === "hammer" || event === "jav" ? 120 : 180,

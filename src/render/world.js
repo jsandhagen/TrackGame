@@ -36,7 +36,7 @@ function practice(ev, level, style, t, west) {
     far = landing(0)[0],
     out = Math.abs(far - end) * WALK_PACE,
     back = Math.abs(far - start) * WALK_PACE,
-    loop = throwLoopMs(ev),
+    loop = throwLoopMs(ev, level),
     cycle = throws * loop + out + PICKUP_MS + back;
   let u = ((t % cycle) + cycle) % cycle;
   const lying = (n) => Array.from({ length: n }, (_, k) => landing(k));

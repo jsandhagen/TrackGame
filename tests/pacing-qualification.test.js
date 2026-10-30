@@ -18,7 +18,8 @@ function prepare(s) {
 test('watching has full preparation, flight and result time even with highlights enabled',()=>{
   const beat={type:'throw',athleteId:1,attempt:0};
   const duration=beatDuration(beat),landing=throwOffset(beat)+throwTiming(beat).landAt;
-  assert(duration>=7000);
+  assert(duration>=6000);
+  assert(throwOffset(beat)>=600&&throwOffset(beat)<=800,'a brief look at the next thrower, not a long wait');
   for(const highlights of [false,true]) {
     assert.equal(advanceBeatClock(beat,0,1000,1,{highlights}),1000);
     assert.equal(advanceBeatClock(beat,0,1000,2,{highlights}),2000);
