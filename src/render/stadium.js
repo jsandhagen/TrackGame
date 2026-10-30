@@ -6,7 +6,7 @@ import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, scoreboar
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, throwingSector, meetCamera } from "./meet-geometry.js";
-import { frameShot, followCamera, clampCamera, throwShot } from "./meet-camera.js";
+import { frameShot, followCamera, clampCamera, throwShot, eventShot } from "./meet-camera.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
 import { line as voiceLine, throwSituation } from "../domain/voice.js";
 import { measure } from "./font.js";
@@ -523,6 +523,7 @@ export function createStadium(cv) {
   let base = null,
     key = "",
     cam = null,
+    centre = null,
     camAt = 0,
     camSize = "";
   const fireworks = [];
@@ -920,8 +921,9 @@ export function createStadium(cv) {
     }
     // The camera: which shot this moment deserves, eased towards (or cut to, with reduced motion).
     let shot = { rect: null, rate: 3 };
-    const thrown = beat?.type === "throw";
-    if (thrown && focus.thrower && tt < timing.releaseAt + timing.releaseMs)
+    const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 8;
+    if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.origin, sector.point(SPAN)[0], upperY);
+    else if (thrown && focus.thrower && tt < timing.releaseAt + timing.releaseMs)
       shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y] }) : throwShot("thrower", focus);
     else if (thrown && !landed && focus.implement) shot = view.reduced ? { rect: null, rate: 3 } : throwShot("flight", focus);
     else if (thrown && focus.landing && sinceLand < LANDING_HOLD_MS) shot = throwShot("landing", focus);
@@ -929,14 +931,19 @@ export function createStadium(cv) {
     else if (thrown && el < 1e8) shot = throwShot("result", focus);
     else if (beat?.type === "decide" && focus.thrower) shot = { ...throwShot("thrower", { thrower: [O.x, O.y] }), cap: 2.1 };
     const target = shot.rect ? frameShot(shot.rect, view2, shot.cap) : clampCamera({ x: W / 2, y: H / 2, z: 1 }, view2),
-      size = [cw, ch, insetTop, insetBottom, W].join();
-    const dt = Math.min(100, Math.max(0, now - camAt));
+      // Only a new canvas size cuts the camera; the overlays changing height never does.
+      size = [cw, ch, W].join();
+    const dt = Math.min(100, Math.max(0, now - camAt)), cut = view.reduced || !cam || size !== camSize;
     camAt = now;
-    cam = view.reduced || !cam || size !== camSize ? target : followCamera(cam, target, dt, shot.rate * Math.min(3, view.pace || 1), view2);
+    // Faster playback hurries the camera a little, never into a whip.
+    cam = cut ? target : followCamera(cam, target, dt, shot.rate * Math.min(1.5, view.pace || 1), view2);
     camSize = size;
+    // The space between the overlays sets the frame's centre; ease it when they resize.
+    const middle = (insetTop + ch - insetBottom) / 2;
+    centre = cut || centre == null ? middle : centre + (middle - centre) * (1 - Math.exp(-dt / 180));
     const S = scale * cam.z,
       x0 = Math.round(cw / 2 - (cam.x - shake[0]) * S),
-      y0 = Math.round((insetTop + ch - insetBottom) / 2 - (cam.y - shake[1]) * S);
+      y0 = Math.round(centre - (cam.y - shake[1]) * S);
     out.imageSmoothingEnabled = false;
     out.fillStyle = skyFor(venue)[0];
     out.fillRect(0, 0, cw, Math.max(0, y0 + 1));

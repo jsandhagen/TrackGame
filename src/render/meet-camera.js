@@ -23,40 +23,53 @@ export function frameShot(rect, view, cap = ZOOM_MAX) {
   return clampCamera({ x: (rect[0] + rect[2]) / 2, y: (rect[1] + rect[3]) / 2, z }, view);
 }
 
-// Ease towards the target. Zoom moves in log space so pulling out feels as even as pushing in.
-// rate is per second; dt in milliseconds.
+// The fastest the camera may move: zoom by at most this factor per second, and pan by at most
+// this many screen-widths per second. Beyond that a move reads as a jump, not a camera.
+export const MAX_ZOOM_RATE = 1.9;
+export const MAX_PAN_RATE = 0.9;
+// Ease towards the target, within those limits. Zoom moves in log space so pulling out feels as
+// even as pushing in. rate is per second; dt in milliseconds.
 export function followCamera(cam, target, dt, rate, view) {
   if (!cam) return { ...target };
-  const k = 1 - Math.exp((-Math.max(0, dt) * rate) / 1000),
-    z = Math.exp(Math.log(cam.z) + (Math.log(target.z) - Math.log(cam.z)) * k);
-  return clampCamera({ x: cam.x + (target.x - cam.x) * k, y: cam.y + (target.y - cam.y) * k, z }, view);
+  const t = Math.max(0, dt) / 1000, k = 1 - Math.exp(-t * rate);
+  const dz = Math.max(-1, Math.min(1, (Math.log(target.z) - Math.log(cam.z)) * k / (Math.log(MAX_ZOOM_RATE) * t || 1))) * Math.log(MAX_ZOOM_RATE) * t;
+  const z = Math.exp(Math.log(cam.z) + (t ? dz : 0));
+  let dx = (target.x - cam.x) * k, dy = (target.y - cam.y) * k;
+  const limit = (MAX_PAN_RATE * view.width / z) * t, d = Math.hypot(dx, dy);
+  if (d > limit) (dx *= limit / d), (dy *= limit / d);
+  return clampCamera({ x: cam.x + dx, y: cam.y + dy, z }, view);
 }
 
 // Which shot each moment of a throw deserves.
 //  - Before release: tight on the thrower, with room in front of them.
-//  - In flight: follow the implement, keeping it and its shadow in frame.
-//  - Just landed: on the mark.
-//  - Reading the result: from the circle out past the mark and the leader.
+//  - In flight: from the circle out past the implement and its shadow.
+//  - Just landed: the circle and the mark.
+//  - Reading the result: the same, out to the leader's line.
 // Anything else (meet and event openings, results, decisions) sees the whole venue or thrower.
+//
+// The flight shot starts as the thrower shot and only ever widens: it keeps the circle at its
+// left edge and reaches out past the implement, so a throw is one continuous pull-out that ends
+// framing the circle and the mark. The landing holds that frame; the result adds the lead line.
+const SPACE = { back: 80, ahead: 96, above: 104, below: 24, lead: 86 };
+const reach = (origin, x, y, upperAt, ground = origin[1]) => [origin[0] - SPACE.back, Math.min(origin[1] - SPACE.above, y - 30, upperAt ? upperAt(x) - 24 : Infinity), Math.max(origin[0] + SPACE.ahead, x + SPACE.lead), Math.max(origin[1] + SPACE.below, ground + SPACE.below)];
 export function throwShot(phase, f) {
   if (phase === "thrower") {
     const [x, y] = f.thrower;
-    return { rect: [x - 80, y - 104, x + 96, y + 24], rate: 4 };
+    return { rect: [x - SPACE.back, y - SPACE.above, x + SPACE.ahead, y + SPACE.below], rate: 4 };
   }
   if (phase === "flight") {
-    const [ix, iy] = f.implement, [gx, gy] = f.ground,
-      top = Math.min(iy, gy) - 30, bottom = Math.max(gy + 28, top + 120),
-      left = Math.min(gx - 100, ix - 60), right = Math.max(gx + 130, left + 230);
-    return { rect: [left, top, right, bottom], rate: 8, cap: 2.2 };
+    const [ix, iy] = f.implement, [gx, gy] = f.ground;
+    return { rect: reach(f.origin, Math.max(ix, gx), iy, f.upperAt, gy), rate: 6 };
   }
-  if (phase === "landing") {
-    const [ex, ey] = f.landing;
-    return { rect: [ex - 120, ey - 74, ex + 110, ey + 40], rate: 5, cap: 2.2 };
-  }
+  if (phase === "landing") return { rect: reach(f.origin, f.landing[0], f.landing[1], f.upperAt, f.landing[1]), rate: 4 };
   if (phase === "result") {
-    const [ox, oy] = f.origin,
-      far = Math.max(f.landing?.[0] ?? ox, f.lead ?? ox) + 80;
-    return { rect: [ox - 60, Math.min(oy - 110, f.upperAt(far) - 30), far, oy + 34], rate: 2.5 };
+    const far = Math.max(f.landing?.[0] ?? f.origin[0], f.lead ?? f.origin[0]);
+    return { rect: reach(f.origin, far, f.landing?.[1] ?? f.origin[1], f.upperAt, f.landing?.[1]), rate: 2.5 };
   }
   return { rect: null, rate: 3 };
+}
+// At top speed throws pass in under a second: hold one steady frame per event, from the circle
+// to the far end of the sector.
+export function eventShot(origin, sectorEnd, upperAt) {
+  return { rect: reach(origin, sectorEnd - SPACE.lead + 10, origin[1], upperAt), rate: 3 };
 }
