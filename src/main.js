@@ -313,17 +313,23 @@ function paint(root) {
 // A character pops up in the corner to say something worth knowing: the shopkeeper calling out
 // a delivery, the secretary announcing meet day. Tapping them goes where they point.
 const SPEAKERS = { shop: { name: SHOPKEEPER.name + " · " + SHOPKEEPER.role, canvas: "data-shopkeeper" }, helper: { name: HELPER + " · club secretary", canvas: "data-helper" } };
-let speakerTimer = 0;
+let speakerTimer = 0, speaking = null;
 const speakQueue = [];
+// A dialog opening puts whoever was talking back at the front of the queue until it closes.
+function holdSpeaker() {
+  const el = $("#speaker");
+  if (speaking && !el.hidden) speakQueue.unshift(speaking);
+  clearTimeout(speakerTimer);
+  el.hidden = true;
+  speaking = null;
+  $("#dialog").addEventListener("close", () => speakQueue.length && speak(...speakQueue.shift()), { once: true });
+}
 function speak(who, text, act = "") {
   const el = $("#speaker");
   // One at a time: whoever speaks second waits for the first to finish, and nobody talks over
   // a pop-up the player is reading.
-  if ((!el.hidden && !el.classList.contains("out")) || $("#dialog").open) {
-    speakQueue.push([who, text, act]);
-    if ($("#dialog").open) $("#dialog").addEventListener("close", () => !speakQueue.length || (el.hidden || el.classList.contains("out")) && speak(...speakQueue.shift()), { once: true });
-    return;
-  }
+  if ($("#dialog").open || (!el.hidden && !el.classList.contains("out"))) return speakQueue.push([who, text, act]);
+  speaking = [who, text, act];
   const sp = SPEAKERS[who];
   el.innerHTML = `<button class="speaker-card" ${act}><span class="medallion"><canvas width="56" height="56" ${sp.canvas} class="portrait"></canvas></span><span class="speech"><b>${esc(sp.name)}</b>${esc(text)}</span></button>`;
   el.hidden = false;
@@ -333,7 +339,7 @@ function speak(who, text, act = "") {
   clearTimeout(speakerTimer);
   speakerTimer = setTimeout(() => {
     el.classList.add("out");
-    speakerTimer = setTimeout(() => { el.hidden = true; if (speakQueue.length) speak(...speakQueue.shift()); }, 400);
+    speakerTimer = setTimeout(() => { el.hidden = true; speaking = null; if (speakQueue.length && !$("#dialog").open) speak(...speakQueue.shift()); }, 400);
   }, 6500);
 }
 // Payday, in the secretary's words: what came in, what went out and how the crowd grew.
@@ -425,6 +431,7 @@ function dialog(title, body, choices, o = {}) {
       }),
   );
   dlg.dataset.locked = o.locked ? "1" : "";
+  if (!dlg.open) holdSpeaker();
   dlg.showModal();
   dlg.querySelector(".dialog-body").scrollTop = 0;
 }
