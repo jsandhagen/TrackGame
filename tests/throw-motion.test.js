@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
 import { throwTiming } from '../src/render/meet-presentation.js';
+import { groundRise } from '../src/render/meet-geometry.js';
 import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
@@ -93,7 +94,7 @@ test('javelin penultimate travels farther than the final block step in every for
   const left = worldFeet('jav', motion[push])[0][0], right = worldFeet('jav', motion[catchAt])[1][0], front = worldFeet('jav', motion[block])[0][0];
   assert(right - left > front - right, 'penultimate is the longer stride');
   assert(catchAt - push > 1.5 * (block - catchAt), 'right catch is followed by a quick final left block');
-  assert(motion[impulse].dy < Math.round(-motion[impulse].dx * 0.1), 'impulse has a low flight');
+  assert(motion[impulse].dy < groundRise(motion[impulse].dx), 'impulse has a low flight');
   assert(worldFeet('jav', motion[impulse]).every(([, y]) => y < motion[impulse].dy - 2), 'both shoes are clear during the impulse');
  }
 });
@@ -155,7 +156,7 @@ test('legal javelin shoes stay behind the arc throughout the delivery and the re
     for (const phase of phases) for (const m of sample('jav', level, phase, 400)) {
       const toe = m.dx + 2 * frontFootOf(spriteOptions('jav', m));
       assert(toe <= -2, `level ${level}/${phase}/${m.frame}: shoe crosses arc at ${toe}`);
-      assert(Math.abs(m.dy - Math.round(-m.dx * 0.1)) <= 2, 'feet stay on the runway, with a low impulse');
+      assert(Math.abs(m.dy - groundRise(m.dx)) <= 2, 'feet stay on the runway, with a low impulse');
     }
     const end = throwMotion('jav', level, 'follow', 1);
     for (const pose of ['idle', 'cheer', 'sad']) for (const frame of [0, 1])
@@ -374,7 +375,7 @@ test('recovery styles give athletes different finishes without breaking the thro
       assert(list.every(m => m.released && m.frame !== 2 && Number.isInteger(m.frame) && m.frame < THROW_FRAME_COUNTS[ev]), `${ev}/${level}/${style}: valid empty-handed frames`);
       assert(Math.abs(list[0].dx - throwMotion(ev, level, 'release', 1, { style }).dx) < 0.01, `${ev}/${level}/${style}: no jump on release`);
       const end = list.at(-1);
-      assert(Math.abs(end.dy - (ev === 'jav' ? Math.round(-end.dx * 0.1) : 0)) < 0.01, `${ev}/${level}/${style}: lands back on the ground`);
+      assert(Math.abs(end.dy - (ev === 'jav' ? groundRise(end.dx) : 0)) < 0.01, `${ev}/${level}/${style}: lands back on the ground`);
       if (ev === 'jav') for (const m of list) assert(m.dx + 2 * frontFootOf(spriteOptions(ev, m)) <= -2 + 1e-9, `jav/${level}/${style}: stays behind the arc`);
     }
     const fouls = [0, 1, 2].map(style => key(sample(ev, level, 'follow', 40).map((_, i) => throwMotion(ev, level, 'follow', i / 40, { style, foul: true }))));
@@ -407,7 +408,7 @@ test('the club map loops the meet throw: same frames, a release, then a rest bef
 
 test('discus and javelin support feet never slide while they carry the body', () => {
  for (const ev of ['discus', 'jav']) for (let level = 0; level < 4; level++) {
-  const ground = m => ev === 'jav' ? Math.round(-m.dx * 0.1) : 0;
+  const ground = m => ev === 'jav' ? groundRise(m.dx) : 0;
   const planted = m => worldFeet(ev, m).map(([x, y]) => Math.abs(y - (ground(m) - 2)) < 1e-6 ? x : null);
   let before = planted(throwMotion(ev, level, 'technique', 0));
   for (let i = 1; i <= 2000; i++) {
@@ -424,7 +425,7 @@ test('javelin rhythm: even strides, the longest penultimate, a quick block step 
   let before = null;
   for (let t = 0; t <= ms; t++) {
    const m = throwMotion('jav', level, 'technique', t / ms);
-   const down = worldFeet('jav', m).map(([, y]) => Math.abs(y - (Math.round(-m.dx * 0.1) - 2)) < 1e-6);
+   const down = worldFeet('jav', m).map(([, y]) => Math.abs(y - (groundRise(m.dx) - 2)) < 1e-6);
    if (before) down.forEach((d, k) => d && !before[k] && landings.push([t, k]));
    before = down;
   }
@@ -479,7 +480,7 @@ test('elite Natural Athletes flop forward after a big javelin throw, staying beh
  assert(flop.some(m => m.frame === 25), 'flat out on the runway');
  assert.equal(flop[0].dx, throwMotion('jav', 3, 'release', 1).dx, 'no jump on release');
  for (const m of flop) {
-  const o = spriteOptions('jav', m), ground = Math.round(-m.dx * 0.1);
+  const o = spriteOptions('jav', m), ground = groundRise(m.dx);
   assert(m.dx + 2 * frontFootOf(o) <= -2, 'shoes stay behind the arc');
   for (const [, , [x, y]] of armJointsOf(o)) if (y >= -1) assert(m.dx + 2 * (x + 2) <= -2, 'hands land behind the arc');
   assert.equal(m.dy, ground, 'on the runway');

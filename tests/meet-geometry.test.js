@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {throwingSector, meetCamera, SCENE_HEIGHT} from '../src/render/meet-geometry.js';
+import {throwingSector, meetCamera, SCENE_HEIGHT, GROUND_SLOPE} from '../src/render/meet-geometry.js';
 
 test('throwing sectors use the event angle and circular distance arcs on one ground plane', () => {
  for(const [event,angle] of [['shot',34.92],['discus',34.92],['hammer',34.92],['jav',28.96]]) {
@@ -8,7 +8,7 @@ test('throwing sectors use the event angle and circular distance arcs on one gro
   const arc=sector.arc(40);
   const toGround=([x,y])=>{
    const forward=(x-sector.origin.x)/sector.ppm;
-   return [forward,(y-sector.origin.y+(x-sector.origin.x)*0.1)/(sector.ppm*0.45)];
+   return [forward,(y-sector.origin.y+(x-sector.origin.x)*GROUND_SLOPE)/(sector.ppm*0.45)];
   };
   for(const point of arc){const [x,y]=toGround(point);assert(Math.abs(Math.hypot(x,y)-40)<1e-8);}
   const [x,y]=toGround(arc[0]);

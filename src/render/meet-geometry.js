@@ -1,6 +1,11 @@
 export const SCENE_HEIGHT = 360;
-export const THROW_ORIGIN = { x: 96, y: 266 };
-const JAVELIN_ORIGIN = { x: 128, y: 266 }; // room for the withdrawn run and long penultimate
+// How far the throwing direction climbs the screen per pixel forward. Level with the track and
+// the stands, so the field reads as one ground plane under the camera.
+export const GROUND_SLOPE = 0;
+// Height change along that direction, in whole pixels (never -0).
+export const groundRise = dx => Math.round(-dx * GROUND_SLOPE) || 0;
+export const THROW_ORIGIN = { x: 96, y: 214 };
+const JAVELIN_ORIGIN = { x: 128, y: 214 }; // room for the withdrawn run and long penultimate
 
 // An oblique view of the ground plane. Angles and distances are measured on
 // that plane first; the same projection draws sectors, arcs and landing marks.
@@ -11,10 +16,10 @@ export function throwingSector(event, width, span) {
   const point = (metres, angle = 0) => {
     const forward = metres * Math.cos(angle) * ppm;
     const sideways = metres * Math.sin(angle) * ppm;
-    return [origin.x + forward, origin.y - forward * 0.10 + sideways * 0.45];
+    return [origin.x + forward, origin.y - forward * GROUND_SLOPE + sideways * 0.45];
   };
   const arc = (metres, steps = 32) => Array.from({length:steps + 1}, (_,i) => point(metres, -halfAngle + 2 * halfAngle * i / steps));
-  const centerY = x => origin.y - (x - origin.x) * 0.10;
+  const centerY = x => origin.y - (x - origin.x) * GROUND_SLOPE;
   const upperY = x => centerY(x) - (x - origin.x) * Math.tan(halfAngle) * 0.45;
   const lowerY = x => centerY(x) + (x - origin.x) * Math.tan(halfAngle) * 0.45;
   return { origin, halfAngle, ppm, point, arc, centerY, upperY, lowerY };

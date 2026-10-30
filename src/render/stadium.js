@@ -4,8 +4,8 @@ import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.j
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
-import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult } from "./meet-presentation.js";
-import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
+import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
+import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, throwingSector, meetCamera } from "./meet-geometry.js";
 import { frameShot, followCamera, clampCamera, throwShot } from "./meet-camera.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
 import { line as voiceLine, throwSituation } from "../domain/voice.js";
@@ -96,6 +96,8 @@ function distanceArc(g, metres, color, dashed = false) {
 }
 // Colours for the marks that matter, shared with the scoreboard: PB, championship standard, final cut.
 const MARK = { pb: "#9fe0ff", q: "#8fe08a", cut: "#ffad5f" };
+// People on the field shrink a little with depth: the far side of the sector is further from the camera.
+const depthScale = (y) => Math.max(1.3, Math.min(2, 2 + (y - O.y) * 0.006));
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
 function skyFor(venue) {
@@ -287,10 +289,11 @@ function stadiumBase(s, ev, venue) {
   // Field: broad mowing stripes along the throwing direction, sloped with the ground plane.
   const turf = wet ? ["#5e9e44", "#68a84c"] : ["#68ac48", "#76b852"];
   rect(g, 0, 123, W, FH - 123, turf[0]);
-  for (let k = 0; ; k++) {
-    const y = 123 + k * 18 - 2;
-    if (y - W * 0.1 > FH) break;
-    if (k % 2) poly(g, [[0, y], [W, y - W * 0.1], [W, y - W * 0.1 + 18], [0, y + 18]], turf[1]);
+  // Level bands, parallel to the track, that widen as the field comes towards the camera.
+  for (let k = 0, y = 123; y < FH; k++) {
+    const band = Math.round(9 + k * 2.2);
+    if (k % 2) rect(g, 0, y, W, band, turf[1]);
+    y += band;
   }
   rect(g, 0, 121, W, 2, "#e8e4d4");
   rect(g, 0, 123, W, 1, "rgba(0,0,0,0.18)");
@@ -329,7 +332,7 @@ function stadiumBase(s, ev, venue) {
   // about as wide as the thrower is tall, and a cage that stands well above their head.
   if (ev === "jav") {
     // A straight runway along the sector's centre line, ending at the curved throwing arc.
-    const cy = (x) => O.y + (O.x - x) * 0.1;
+    const cy = (x) => O.y + (O.x - x) * GROUND_SLOPE;
     poly(g, [[0, cy(0) - RUNWAY], [O.x, O.y - RUNWAY], [O.x, O.y + RUNWAY], [0, cy(0) + RUNWAY]], venue.track);
     line(g, 0, cy(0) - RUNWAY, O.x, O.y - RUNWAY, "#f4e8d0");
     line(g, 0, cy(0) + RUNWAY, O.x, O.y + RUNWAY, "#f4e8d0");
@@ -446,6 +449,71 @@ function weatherFx(g, venue, now, reduced, H) {
     for (let i = 0; i < 5; i++) rect(g, 0, ((t * 14 + (i * H) / 5) % H) | 0, W, 1, "rgba(255,240,200,0.08)");
   }
 }
+// Achievement tags for a throw, in the scoreboard's colours.
+function markTags(b, flash) {
+  const tags = [];
+  if (b.worldRecord) tags.push(["WORLD RECORD", flash ? "#f2c94c" : "#fff6dc"]);
+  if (b.newPb) tags.push([b.previousPb ? "PB +" + b.pbDelta.toFixed(2) : "FIRST MARK", MARK.pb]);
+  if (b.qualified && b.finalistLimit) tags.push(["INTO THE FINAL", MARK.cut]);
+  if (b.madeStandard) tags.push(["QUALIFIED", MARK.q]);
+  if (b.tookLead && !tags.length) tags.push(["LEADS", "#f2c94c"]);
+  return tags;
+}
+const ordinal = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? "ST" : n % 10 === 2 && n % 100 !== 12 ? "ND" : n % 10 === 3 && n % 100 !== 13 ? "RD" : "TH");
+const shortName = (name = "") => { const [first, ...rest] = name.split(" "); return rest.length ? first[0] + ". " + rest.join(" ") : first; };
+function pills(g, tags, x, y, scale) {
+  for (const [t, c] of tags) {
+    const w = measure(t) * scale + 8;
+    rect(g, x, y, w, 7 * scale, c);
+    text(g, t, x + w / 2, y + Math.round(scale / 2), { color: "#10221a", outline: null, scale, align: "center" });
+    x += w + 3;
+  }
+  return x;
+}
+const pillsWidth = (tags, scale) => tags.reduce((n, [t]) => n + measure(t) * scale + 11, 0) - (tags.length ? 3 : 0);
+// The full board for the throw that just landed: who threw, which attempt, the place it earns,
+// the distance, and what it achieved.
+function markBoard(g, b, { y, shown, popped, club, flash, home }) {
+  const head = (shortName(b.name) + " · THROW " + (b.attempt + 1)).toUpperCase(),
+    place = b.mark == null ? "FOUL" : b.place ? ordinal(b.place) : "",
+    dist = shown == null ? "X" : shown.toFixed(2) + " M",
+    tags = markTags(b, flash),
+    note = tags.length ? null : b.mark == null ? (b.ownBest == null ? "NO MARK YET" : b.ownBest.toFixed(2) + " STILL COUNTS") : throwResult(b).headline.toUpperCase();
+  let ts = 2;
+  if (pillsWidth(tags, 2) > W - 40) ts = 1;
+  const width = Math.min(W - 8, Math.max(measure(head) * 2 + measure(place) * 2 + 30, measure(dist) * 3 + 24, tags.length ? pillsWidth(tags, ts) + 20 : measure(note) * 2 + 20, 180)),
+    x = Math.round(W / 2 - width / 2), bh = 70;
+  rect(g, x - 1, y - 1, width + 2, bh + 2, "rgba(255,246,220,0.35)");
+  rect(g, x, y, width, bh, "#0f1a16");
+  rect(g, x, y, width, 3, club);
+  rect(g, x + 4, y + 21, width - 8, 1, "rgba(255,246,220,0.12)");
+  rect(g, x, y + bh - 1, width, 1, tags[0]?.[1] || "rgba(255,246,220,0.3)");
+  // Who and which attempt, with the place on the right.
+  rect(g, x + 6, y + 8, 6, 10, club);
+  text(g, head, x + 16, y + 7, { color: "#e8eedf", outline: null, scale: 2 });
+  if (place) text(g, place, x + width - 6, y + 7, { color: b.mark == null ? "#f06050" : b.place === 1 ? "#f2c94c" : "#e8eedf", outline: null, scale: 2, align: "right" });
+  // The distance.
+  const color = b.mark == null ? "#f06050" : home ? "#fff6dc" : shade(club, 0.55);
+  text(g, dist, W / 2, y + 23 - (popped ? 3 : 0), { color, scale: popped ? 4 : 3, align: "center" });
+  // What it achieved.
+  if (tags.length) pills(g, tags, Math.round(W / 2 - pillsWidth(tags, ts) / 2), y + 51 + (ts === 1 ? 3 : 0), ts);
+  else text(g, note, W / 2, y + 51, { color: "#c8d6c4", outline: null, scale: 2, align: "center" });
+}
+// The last mark, kept in the corner through the next thrower's attempt.
+function lastMarkBoard(g, b, { y, club }) {
+  const name = shortName(b.name).toUpperCase(), dist = b.mark == null ? "FOUL" : b.mark.toFixed(2),
+    tags = markTags(b, 0).map(([t, c]) => [t.startsWith("PB") ? "PB" : t === "FIRST MARK" ? "PB" : t === "INTO THE FINAL" ? "FINAL" : t === "QUALIFIED" ? "Q" : t === "WORLD RECORD" ? "WR" : t, c]),
+    width = Math.max(measure("LAST MARK") + 20, measure(name) * 2 + measure(dist) * 2 + pillsWidth(tags, 1) + 34),
+    x = W - width - 6;
+  rect(g, x - 1, y - 1, width + 2, 32, "rgba(255,246,220,0.3)");
+  rect(g, x, y, width, 30, "#0f1a16");
+  rect(g, x, y, 3, 30, club);
+  text(g, "LAST MARK", x + 8, y + 4, { color: "#a8bcae", outline: null });
+  text(g, name, x + 8, y + 14, { color: "#e8eedf", outline: null, scale: 2 });
+  const dx = x + 14 + measure(name) * 2;
+  text(g, dist, dx, y + 14, { color: b.mark == null ? "#f06050" : "#fff0bc", outline: null, scale: 2 });
+  pills(g, tags, dx + measure(dist) * 2 + 6, y + 16, 1);
+}
 export function createStadium(cv) {
   const off = canvas(W, H + GROUND),
     g = off.getContext("2d"),
@@ -512,7 +580,7 @@ export function createStadium(cv) {
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     drawCrowd(g, s, m, now, cheer, venue);
     // Flashbulbs pop in the stands after a big throw.
-    if (big && !view.reduced && sinceLand >= 0 && sinceLand < 1600)
+    if (big && !view.reduced && sinceLand >= 0 && sinceLand < (celebrates(beat) ? LANDING_HOLD_MS + CELEBRATION_MS : 1600))
       for (let n = 0; n < 9; n++) {
         const flash = hash(n * 31 + Math.floor(now / 90)),
           fx = Math.round(flash * W),
@@ -527,6 +595,12 @@ export function createStadium(cv) {
     const home = homeAthlete(s, bi),
       rival = rivalAthlete(s, bi),
       rivalColors = { primary: rivalClubFor(s,rivalAthlete(s)?.id)?.color || m.color, secondary: "#f4efe2" };
+    // The field judge waits just outside the far sector line, level with the mark, drawn under the
+    // field labels; further from
+    // the camera than the circle, so a little smaller than the people beside it.
+    const judgeX = Math.min(W - 20, O.x + (landed && beat?.type === "throw" && beat.mark != null ? beat.mark : (e.min + e.max) / 2) * ppm + 10),
+      judgeY = Math.round(upperY(judgeX) - 4);
+    figure(g, { ...OFFICIAL, pose: "idle", frame: Math.floor(now / 700) % 2 }, judgeX, judgeY, depthScale(judgeY));
     // Field markers, hiding the mark still in the air: a peg at every entrant's best, a gold
     // flag for the leader, and lines for the thrower's PB, the club record and the target.
     const inAir = beat?.type === "throw" && !landed && beat.eventIndex === bi ? { side: beat.side, eventIndex: bi, attempt: beat.attempt } : null;
@@ -576,8 +650,6 @@ export function createStadium(cv) {
       waiting = throwing === "away" ? home : rival,
       waitingColors = throwing === "away" ? s.colors : rivalColors;
     // Officials.
-    const judgeX = Math.min(W - 20, O.x + (landed && beat?.type === "throw" && beat.mark != null ? beat.mark : (e.min + e.max) / 2) * ppm + 10);
-    figure(g, { ...OFFICIAL, pose: "idle", frame: Math.floor(now / 700) % 2 }, judgeX, centreY(judgeX) - 18, 1);
     const foulShown = beat?.type === "throw" && beat.foul && landed;
     // People at the circle are drawn at double size, like a sports sim's close-up; the field
     // judge out in the sector stays small with the distance.
@@ -592,7 +664,8 @@ export function createStadium(cv) {
       const ids = [...entries.map((e) => e.id), ...pool.map((a) => a.id)];
       return [...new Set(ids)].map((id) => pool.find((a) => a.id === id)).filter((a) => a && a !== busy && !a.injury).slice(0, 3);
     };
-    const celebrate = big && sinceLand >= 0 && sinceLand < 1600 ? beat.side : null;
+    const party = celebrates(beat), partyEnd = LANDING_HOLD_MS + (party ? CELEBRATION_MS : 200);
+    const celebrate = big && sinceLand >= 0 && sinceLand < partyEnd ? beat.side : null;
     for (const [side, x0, colors] of [["home", 6, s.colors], ["away", 128, rivalColors]]) {
       if (m.leagueChampionship && side === "away") continue;
       const by = H - 10;
@@ -689,8 +762,17 @@ export function createStadium(cv) {
         for (let k = 0; k < 3; k++) line(g, x + 14 + k * 2, y - 50 + k * 9, x + 28 + k * 3, y - 54 + k * 9, `rgba(255,255,255,${(0.75 * a).toFixed(2)})`);
       }
       if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 18, y - 76, { color: "#f2c94c", scale: 2 });
+      // A celebration: confetti in the club's colours falls over the thrower.
+      if (party && !view.reduced && sinceLand >= LANDING_HOLD_MS - 300 && sinceLand < partyEnd) {
+        const t = sinceLand - LANDING_HOLD_MS + 300, colors = [s.colors.primary, s.colors.secondary, "#f2c94c", "#fff6dc", MARK.pb];
+        for (let k = 0; k < 54; k++) {
+          const cx = x + (hash(k + 3) - 0.5) * 170 + Math.sin(t / 200 + k) * 5,
+            cy = y - 140 + hash(k + 7) * 30 + t * (0.05 + hash(k) * 0.035);
+          if (cy < y + 14) rect(g, cx, cy, (k + Math.floor(t / 120)) % 2 ? 2 : 1, 2, colors[k % colors.length]);
+        }
+      }
       // The thrower reacts once the mark is up: a speech bubble in their own voice.
-      if (beat?.type === "throw" && tt >= Math.max(timing.landAt + 150, recoveredAt) && tt < timing.landAt + 1900) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
+      if (beat?.type === "throw" && tt >= Math.max(timing.landAt + 150, recoveredAt) && sinceLand < (party ? partyEnd : 1900)) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
     // The near side of the cage passes in front of whoever is in the circle.
     if (ev === "discus" || ev === "hammer") cage(g, "front");
@@ -775,38 +857,16 @@ export function createStadium(cv) {
         flag(g, ex, ey, beat.foul ? "#e04a3a" : team);
       }
     }
-    // Landing callouts.
+    // The mark board: the throw that just landed, full size; until the next one lands, the last
+    // mark stays up as a smaller board in the corner.
+    const sideColor = (b) => b.side === "home" ? s.colors.primary : rivalClubFor(s, b.athleteId)?.color || m.color;
     if (beat?.type === "throw" && landed) {
-      // The distance rolls up to the mark, then pops on the big ones.
       const roll = Math.min(1, Math.max(0, sinceLand) / 420),
         shown = beat.mark == null ? null : beat.mark * (view.reduced ? 1 : 1 - Math.pow(1 - roll, 3)),
-        label = shown == null ? "FOUL" : shown.toFixed(2) + " M",
         popped = big && !view.reduced && sinceLand >= 420 && sinceLand < 620;
-      const color = beat.mark == null ? "#f06050" : beat.side === "home" ? "#fff6dc" : shade(m.color, 0.5);
-      const labelY = Math.round(aTop + 12);
-      // Tags under the distance for everything this throw achieved, in the scoreboard's colours.
-      const tags = [];
-      if (beat.worldRecord) tags.push(["WORLD RECORD!", (Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc"]);
-      if (beat.newPb) tags.push([beat.previousPb ? "NEW PB +" + beat.pbDelta.toFixed(2) : "FIRST MARK", MARK.pb]);
-      if (beat.qualified && beat.finalistLimit) tags.push(["INTO THE FINAL", MARK.cut]);
-      if (beat.madeStandard) tags.push(["QUALIFIED!", MARK.q]);
-      const plain = tags.length ? null : beat.mark == null ? (beat.ownBest == null ? "NO MARK YET" : beat.ownBest.toFixed(2) + " STILL COUNTS") : throwResult(beat).headline.toUpperCase();
-      let ts = 2, row = tags.reduce((n, [t]) => n + measure(t) * ts + 10, 0) + (tags.length - 1) * 4;
-      if (row > W - 24) (ts = 1), (row = tags.reduce((n, [t]) => n + measure(t) + 10, 0) + (tags.length - 1) * 4);
-      const plate = Math.max(measure(label) * 3, plain ? measure(plain) * 2 : row) + 20;
-      // A plate behind the callout keeps it legible over the crowd and the ad boards.
-      rect(h, Math.round(W / 2 - plate / 2), labelY - 6, Math.round(plate), 46, "rgba(14,24,20,0.62)");
-      rect(h, Math.round(W / 2 - plate / 2), labelY + 39, Math.round(plate), 1, tags[0]?.[1] || color);
-      text(h, label, W / 2, labelY - (popped ? 4 : 0), { color, scale: popped ? 4 : 3, align: "center" });
-      if (plain) text(h, plain, W / 2, labelY + 26, { color: "#fff6dc", scale: 2, align: "center" });
-      let tx = Math.round(W / 2 - row / 2);
-      for (const [t, c] of tags) {
-        const w = measure(t) * ts + 10;
-        rect(h, tx, labelY + 24, w, ts === 2 ? 14 : 9, c);
-        text(h, t, tx + w / 2, labelY + 25 + (ts === 2 ? 1 : 0), { color: "#10221a", outline: null, scale: ts, align: "center" });
-        tx += w + 4;
-      }
-    }
+      markBoard(h, beat, { y: Math.round(aTop + 8), shown, popped, club: sideColor(beat), flash: Math.floor(tt / 180) % 2, home: beat.side === "home" });
+    } else if (view.lastMark && view.lastMark !== beat && !["meetStart", "eventStart", "eventEnd", "complete"].includes(beat?.type))
+      lastMarkBoard(h, view.lastMark, { y: Math.round(aTop + 8), club: sideColor(view.lastMark) });
     if (hasCut && el >= SETUP_MS && el < SETUP_MS + CUTIN_MS) {
       const a = beat.side === "home" ? home : rival;
       cutin(h, a, beat.side === "home" ? s.colors : rivalColors, beat.name, beat.activations[0] + (beat.activations.length > 1 ? " +" + (beat.activations.length - 1) : ""), (el - SETUP_MS) / CUTIN_MS, beat.side === "home" ? s.colors.secondary : m.color, Math.round(aTop + 56));
@@ -864,7 +924,8 @@ export function createStadium(cv) {
     if (thrown && focus.thrower && tt < timing.releaseAt + timing.releaseMs)
       shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y] }) : throwShot("thrower", focus);
     else if (thrown && !landed && focus.implement) shot = view.reduced ? { rect: null, rate: 3 } : throwShot("flight", focus);
-    else if (thrown && focus.landing && sinceLand < 1400) shot = throwShot("landing", focus);
+    else if (thrown && focus.landing && sinceLand < LANDING_HOLD_MS) shot = throwShot("landing", focus);
+    else if (thrown && party && focus.thrower && sinceLand < partyEnd) shot = { ...throwShot("thrower", focus), rate: 3 };
     else if (thrown && el < 1e8) shot = throwShot("result", focus);
     else if (beat?.type === "decide" && focus.thrower) shot = { ...throwShot("thrower", { thrower: [O.x, O.y] }), cap: 2.1 };
     const target = shot.rect ? frameShot(shot.rect, view2, shot.cap) : clampCamera({ x: W / 2, y: H / 2, z: 1 }, view2),

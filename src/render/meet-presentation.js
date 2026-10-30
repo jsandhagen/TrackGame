@@ -8,11 +8,20 @@ export const SETUP_MS = 700;
 export const RESULT_MS = 3200;
 export const HIGHLIGHT_MS = 4000;
 export const ROUTINE_MS = RESULT_MS;
+// The landing holds on the mark this long; a celebration then gets its own time on top.
+export const LANDING_HOLD_MS = 1400;
+export const CELEBRATION_MS = 2200;
 
 export function isHighlight(beat) {
   return beat?.type === "throw" && !!(beat.worldRecord || beat.signature ||
     (beat.newPb && beat.previousPb > 0) ||
     (beat.attempt > 0 && (beat.scoringSwing > 0 || beat.tookLead || beat.qualified)));
+}
+// Your own big moments earn a celebration: a world record, a PB, making the final, reaching the
+// championship standard or taking the lead with a later throw.
+export function celebrates(beat) {
+  return beat?.type === "throw" && beat.side === "home" && beat.mark != null && !!(beat.worldRecord ||
+    (beat.newPb && beat.previousPb > 0) || beat.qualified || beat.madeStandard || (beat.attempt > 0 && beat.tookLead));
 }
 export function hasCutIn(beat) {
   return beat?.type === "throw" && !!beat.activations?.length && isHighlight(beat);
@@ -53,7 +62,7 @@ export function flightPoint(start, end, progress, height) {
 
 export function beatDuration(beat) {
   if (!beat) return 0;
-  if (beat.type === "throw") return throwOffset(beat) + throwTiming(beat).landAt + (isHighlight(beat) ? HIGHLIGHT_MS : RESULT_MS);
+  if (beat.type === "throw") return throwOffset(beat) + throwTiming(beat).landAt + (isHighlight(beat) ? HIGHLIGHT_MS : RESULT_MS) + (celebrates(beat) ? CELEBRATION_MS : 0);
   return { meetStart: 3200, eventStart: 2800, eventEnd: 4000, complete: 0, decide: 0 }[beat.type] ?? 1000;
 }
 

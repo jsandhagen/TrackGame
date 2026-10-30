@@ -5139,7 +5139,8 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 @media (orientation: landscape) and (min-width: 700px) {
   /* The camera keeps the thrower in the left of the arena; the call sits beside them. */
   .meet-live #window.center.low { left: auto; right: calc(var(--meet-rail) + max(8px, env(safe-area-inset-right)) + 16px); width: min(420px, calc((100% - var(--meet-rail) - 32px) * 0.54)); transform: none; }
-  .meet-live #meetTip { left: max(12px, env(safe-area-inset-left)); top: calc(max(8px, env(safe-area-inset-top)) + 58px); bottom: auto; transform: none; width: min(340px, calc((100% - var(--meet-rail) - 32px) * 0.42)); }
+  .meet-live #meetTip { left: max(12px, env(safe-area-inset-left)); top: auto; bottom: max(10px, env(safe-area-inset-bottom)); transform: none; width: min(300px, calc((100% - var(--meet-rail) - 32px) * 0.4)); font-size: 12px; padding: 7px 9px; }
+  .meet-live #meetTip b { font-size: 13px; }
   .meet-live .decide p { font-size: 12px; margin-bottom: 5px; }
   .meet-live .decide .tactic { padding: 6px 3px; }
   .meet-live .decide .tactic strong { font-size: 13px; }
