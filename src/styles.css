@@ -5232,3 +5232,49 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 .speaker-card .speech { box-shadow: 0 4px 0 #0b1a14, 0 10px 24px #0005; }
 @keyframes speaker-in { from { transform: translateY(16px) scale(.96); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #speaker { animation: none; } }
+
+/* ── Meet UI: nothing clipped or hidden on small screens ───────────────────── */
+.meet-toolbar .tool { display: inline-flex; align-items: center; gap: 4px; }
+.meet-toolbar .tool .ico, .meet-toolbar .seg .ico { flex: none; }
+.meet-toolbar { min-width: 0; }
+@media (max-width: 480px) {
+  /* Phones: icons carry the toolbar; the labels stay for screen readers. */
+  .meet-toolbar .lbl { display: none; }
+  .meet-toolbar { justify-content: space-between; flex-wrap: nowrap; gap: 4px; }
+  .meet-toolbar > .button, .meet-toolbar .seg button { min-width: 34px; padding-left: 7px; padding-right: 7px; }
+  .meet-toolbar > button:first-child { margin-right: 0; }
+}
+/* The landing headline wraps; the distance beside it never gets pushed off the edge. */
+.meet-moment > div { flex: 1 1 auto; min-width: 0; }
+.meet-moment > div > strong, .meet-moment > div > span { overflow-wrap: anywhere; }
+.meet-moment > b { flex: none; }
+@media (max-width: 480px) { .meet-moment > b { font-size: 26px; } }
+/* The standings header wraps instead of cutting its state off. */
+.live-standings > header { flex-wrap: wrap; row-gap: 0; }
+.live-standings > header > strong { white-space: normal; min-width: 0; }
+@media (max-width: 480px) { .live-standings > header .standings-state { display: block; } }
+/* Standings sit at the top of the rail rather than stretching to fill it. */
+.standings-list { align-content: start; grid-auto-rows: min-content; }
+@media (orientation: landscape) and (min-width: 700px) {
+  .meet-live .meet-toolbar > .tool[data-act="meet-standards"] .lbl { display: none; }
+}
+/* Short landscape phones: the coaching call takes the arena's width so all three tactics fit,
+   and first-meet tips stay small. */
+@media (orientation: landscape) and (min-width: 700px) and (max-width: 900px) {
+  .meet-live #window.center.low { left: max(8px, env(safe-area-inset-left)); right: calc(var(--meet-rail) + max(8px, env(safe-area-inset-right)) + 16px); width: auto; }
+}
+@media (orientation: landscape) and (max-height: 440px) {
+  .meet-live #meetTip { width: min(250px, calc((100% - var(--meet-rail, 0px) - 32px) * 0.36)); font-size: 11px; padding: 6px 8px; gap: 4px; }
+  .meet-live #meetTip b { font-size: 12px; }
+  .meet-live .meet-tip-actions button { min-height: 26px; font-size: 11px; padding: 2px 7px; }
+}
+.decide-standings { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.decide-standings li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto 48px; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 4px; background: #00000008; }
+.decide-standings li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decide-standings li strong { text-align: right; font-variant-numeric: tabular-nums; }
+.decide-standings li.throwing { outline: 1px solid var(--gold); background: #f2c94c22; }
+.decide-standings .badge { color: #0f3344; }
+.decide-standings li { grid-auto-flow: column; }
+.decide-note { margin: -4px 0 8px; }
+/* An icon-only toggle still shows when it's on. */
+.meet-toolbar .tool[aria-pressed="true"]:not([data-act="meet-pause"]) { background: #f0cb63; color: #302612; border-color: #c9a23e; }

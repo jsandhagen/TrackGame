@@ -1165,6 +1165,8 @@ function throwerGoals(s, board, row, athlete, ev) {
   if (board.finals && row && !row.out) goals.push(`<span class="goal cut done">Finalist</span>`);
   return goals.length ? `<div class="thrower-goals">${goals.join("")}</div>` : "";
 }
+// A meet toolbar button: an icon always, its label when there's room for it.
+const toolButton = (icon, label, act, extra = "", aria = label) => `<button class="button subtle small tool" data-act="${act}" ${extra} aria-label="${aria}" title="${aria}">${ico(icon)}<span class="lbl">${label}</span></button>`;
 export function meetBar(s, view) {
   const m = s.match, i = m.eventIndex, ev = EVENT_IDS[i];
   const side = view.hide?.side || m.turnSide || (m.phase === "decide" ? "home" : m.last?.side) || "away";
@@ -1190,8 +1192,8 @@ export function meetBar(s, view) {
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : marks[k] === G.best(marks) ? "best" + (thrower?.pb ? " pb" : "") : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
       ${throwerGoals(s, board, thrower, side === "home" ? a : null, ev)}
     </section>
-    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event points " + liveHome + "–" + liveAway} <small title="${m.closed[i] ? "These points are in the meet score" : "Points if the event ended now"}">${m.closed[i] ? "FINAL" : m.prelimFinals ? "LIVE" : "IF IT ENDED NOW"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${standingRows(s, board, rows, side, a.id)}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}</section>`}
-  </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" role="group" aria-label="Meet speed">${speedButtons(view.meetSpeed || s.settings.meetSpeed || 1, "meet-speed")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${leagueDuel ? btn(view.meetStandards ? "Standings" : "Standards", "meet-standards", `aria-pressed="${!!view.meetStandards}"`, "subtle small") : ""}<button class="button subtle small meet-help" data-act="meet-guide" aria-label="How meets work">?</button></div>`;
+    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event points " + liveHome + "–" + liveAway} <small class="standings-state" title="${m.closed[i] ? "These points are in the meet score" : "Points if the event ended now"}">${m.closed[i] ? "FINAL" : m.prelimFinals ? "LIVE" : "IF IT ENDED NOW"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${standingRows(s, board, rows, side, a.id)}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}</section>`}
+  </div><div class="meet-toolbar">${toolButton(view.meetPaused ? "play" : "pause", view.meetPaused ? "Resume" : "Pause", "meet-pause", `aria-pressed="${!!view.meetPaused}"`, view.meetPaused ? "Resume meet" : "Pause meet")}<div class="seg" role="group" aria-label="Meet speed">${speedButtons(view.meetSpeed || s.settings.meetSpeed || 1, "meet-speed")}</div><div class="seg" role="group" aria-label="Meet mode">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}" aria-label="${mode === "watch" ? "Watch" : "Coach"}" title="${mode === "watch" ? "Watch" : "Coach"}">${ico(mode === "watch" ? "eye" : "clipboard")}<span class="lbl">${mode === "watch" ? "Watch" : "Coach"}</span></button>`).join("")}</div>${toolButton("spark", s.settings.highlights ? "Highlights" : "Every throw", "highlights", `aria-pressed="${s.settings.highlights}"`)}${leagueDuel ? toolButton("target", view.meetStandards ? "Standings" : "Standards", "meet-standards", `aria-pressed="${!!view.meetStandards}"`) : ""}<button class="button subtle small meet-help" data-act="meet-guide" aria-label="How meets work" title="How meets work">?</button></div>`;
 }
 export function meetScore(s) {
   const m = s.match,
@@ -1199,6 +1201,17 @@ export function meetScore(s) {
   return `<div class="meet-score"><span class="side"><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b><div class="event-chips">${scores.map((e, n) => `<span class="ev ${n === m.eventIndex && m.phase !== "complete" ? "now" : ""} ${e.done ? (e.h > e.a ? "won" : e.a > e.h ? "lost" : "tied") : ""}" style="--c:${EVENTS[e.event].color}">${EVENTS[e.event].short}<em>${e.done ? e.h + ":" + e.a : n === m.eventIndex ? "LIVE" : "·"}</em></span>`).join("")}</div><b>${m.against}</b><span class="side">${esc(m.leadingClub || m.name)}<i class="dot" style="--c:${m.color}"></i></span></div>`;
 }
 // The decision window for one of your throws.
+// The standings as they are while you choose, since the call covers the scoreboard on a phone:
+// the top three and your thrower, with the standard or the cut where they apply.
+function decideStandings(s, a) {
+  const board = G.scoreboard(s), rows = board.rows;
+  if (!rows.length) return "";
+  const mine = rows.findIndex((r) => r.side === "home" && r.id === a.id);
+  const shown = rows.filter((r, n) => n < 3 || n === mine);
+  const line = (r) => { const {athlete} = meetAthlete(s, r.side, r.id); return `<li class="${r.side === "home" ? "our-athlete" : ""} ${r.side === "home" && r.id === a.id ? "throwing" : ""}"><b>${r.place || "—"}</b><span>${esc(athlete?.name || "")}</span>${r.pb ? BADGES.pb(r) : ""}${r.qualified ? BADGES.q(r) : ""}<strong>${r.mark == null ? "NM" : r.mark.toFixed(2)}</strong></li>`; };
+  const note = board.standard != null ? `Standard ${mark(board.standard)}` : board.cut != null ? `Final cut: top ${board.cut}${board.cutMark != null ? " · " + mark(board.cutMark) : ""}` : "";
+  return `<ol class="decide-standings">${shown.map(line).join("")}</ol>${note ? `<p class="hint decide-note">${note}</p>` : ""}`;
+}
 export function decide(s, view) {
   const m = s.match,
     a = G.homeAthlete(s),
@@ -1209,6 +1222,7 @@ export function decide(s, view) {
   const ev = EVENT_IDS[m.eventIndex], approach = G.APPROACHES[ev].find(d=>d.id===a.approaches[ev]);
   return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
     <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>
+    ${decideStandings(s, a)}
     <div class="tactics">${Object.entries(TACTICS)
       .map(([id, t]) => {
         const p = G.throwPreview(s, id, "good", view.sig);
