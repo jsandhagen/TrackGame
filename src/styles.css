@@ -5361,3 +5361,7 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
 @media (prefers-reduced-motion: reduce) { .award-reveal .award-portrait canvas, .award-reveal .award-portrait .portrait { animation: none; } }
 .world-event li.world-gap { display: block; text-align: center; color: var(--muted); padding: 0; line-height: 10px; }
 .world-event li { grid-template-columns: minmax(16px, auto) 28px minmax(0, 1fr) auto; }
+@media (orientation: landscape) and (min-width: 700px) {
+  .meet-live .meet-toolbar .tool[data-act="meet-standards"] .lbl { display: none; }
+  .meet-live .meet-toolbar .tool[data-act="meet-standards"] { justify-content: center; }
+}
