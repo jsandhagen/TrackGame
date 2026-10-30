@@ -19,9 +19,9 @@ Typical rival specialists throw like this:
 
 | Level | Shot | Discus | Hammer | Javelin |
 | --- | ---: | ---: | ---: | ---: |
-| Community Open | ~9.5 m | ~27 m | ~31 m | ~34 m |
-| National Open | ~19 m | ~60 m | ~73 m | ~79 m |
-| World Championship | ~21 m | ~67 m | ~81 m | ~86 m |
+| County Open | ~9.5 m | ~27 m | ~31 m | ~34 m |
+| International Open | ~19 m | ~60 m | ~73 m | ~79 m |
+| Diamond Championship | ~21 m | ~67 m | ~81 m | ~86 m |
 
 ### World records and the long game
 
@@ -42,8 +42,8 @@ Coaching Insights, the lightbulb that pays for coached sessions and advanced pla
 
 | Building | Insights a day per level |
 | --- | ---: |
-| Coaches' Library (new, Community, $380) | 0.5 |
-| Sports Science Institute (new, Regional, $2,400) | 1.5 |
+| Coaches' Library (new, County, $380) | 0.5 |
+| Sports Science Institute (new, National, $2,400) | 1.5 |
 | Sports Lab | 0.6 |
 | Coaching Lodge, Equipment Testing Centre | 0.5, 0.6 |
 | Video room, Indoor Training Hall | 0.4, 0.3 |
@@ -53,15 +53,15 @@ A **Think Tank** combo (library beside institute) adds 25%. Each training day st
 
 ## One difficulty curve
 
-`RIVAL_RATING` (`src/domain/competition.js`) sets a typical rival specialist's event rating at each of the fifteen stages, Community Open to World Championship:
+`RIVAL_RATING` (`src/domain/competition.js`) sets a typical rival specialist's event rating at each of the fifteen stages, County Open to Diamond Championship:
 
 `21, 37, 49 · 63, 71, 76 · 79, 82, 85 · 87, 89, 91 · 93, 94, 97`
 
-`rivalBase` and `rivalMastery` turn that into the stats and mastery `makeClubs` gives new clubs. Clubs that carry over between stages develop by the difference between their old and new stage. Each stage asks for about a season's growth from a well-run club, so the steps are large early, when athletes improve quickly, and small near the top. The flat County and Regional values allow for the deeper squads, gear and developed approaches rivals bring from Regional upwards.
+`rivalBase` and `rivalMastery` turn that into the stats and mastery `makeClubs` gives new clubs. Clubs that carry over between stages develop by the difference between their old and new stage. Each stage asks for about a season's growth from a well-run club, so the steps are large early, when athletes improve quickly, and small near the top. The flat Regional and National values allow for the deeper squads, gear and developed approaches rivals bring from National upwards.
 
 Other changes that kept fixtures and finals consistent:
 
-- Rival stars get their edge from club identity alone. Rarity no longer adds stats on top of the curve, and the Regional-and-up key-stat boost is +2, not +4.
+- Rival stars get their edge from club identity alone. Rarity no longer adds stats on top of the curve, and the National-and-up key-stat boost is +2, not +4.
 - **Rival Hunter** in field meets means behind the *other club's* best mark in that event. It used to trigger behind anyone, teammates included, which gave rivals +3% on almost every throw.
 - **Big Stage** is the clutch clubs' finals signature. Speed clubs bring High Roller instead, and no rival carries the Old Medal, so a final is a final against that rival, not a second difficulty layer.
 - **Auto-pick best lineup** fills up to three entries per event, as rivals do. It used to stop at two, which decided many finals.
@@ -70,35 +70,35 @@ Other changes that kept fixtures and finals consistent:
 
 | Stage | Engaged: seasons | Fixtures won | Finals won | Managed: seasons | Idle: seasons |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Community Open | 1.0 | 83% | 100% | 1.0 | 1.9 |
-| Community Challenger | 2.0 | 58% | 91% | 2.0 | 2.7 |
-| Community Championship | 1.0 | 93% | 100% | 1.0 | 3.8 |
-| County Open | 1.9 | 65% | 100% | 2.1 | 10.6 |
-| County Challenger | 1.2 | 89% | 83% | 1.1 | 18.1 |
-| County Championship | 1.0 | 100% | 100% | 1.0 | not cleared |
-| Regional Open | 1.0 | 93% | 100% | 1.1 | — |
-| Regional Challenger | 1.2 | 86% | 91% | 1.1 | — |
-| Regional Championship | 1.0 | 93% | 100% | 1.0 | — |
-| National Open | 1.8 | 74% | 63% | 1.1 | — |
-| National Challenger | 1.1 | 94% | 91% | 1.0 | — |
-| National Championship | 2.0 | 85% | 50% | 1.2 | — |
-| World Open | 2.2 | 68% | 53% | 1.1 | — |
-| World Challenger | 1.9 | 93% | 53% | 1.1 | — |
-| World Championship | 1.5 | 78% | 77% | 1.2 | — |
+| County Open | 1.0 | 83% | 100% | 1.0 | 1.9 |
+| County Challenger | 2.0 | 58% | 91% | 2.0 | 2.7 |
+| County Championship | 1.0 | 93% | 100% | 1.0 | 3.8 |
+| Regional Open | 1.9 | 65% | 100% | 2.1 | 10.6 |
+| Regional Challenger | 1.2 | 89% | 83% | 1.1 | 18.1 |
+| Regional Championship | 1.0 | 100% | 100% | 1.0 | not cleared |
+| National Open | 1.0 | 93% | 100% | 1.1 | — |
+| National Challenger | 1.2 | 86% | 91% | 1.1 | — |
+| National Championship | 1.0 | 93% | 100% | 1.0 | — |
+| International Open | 1.8 | 74% | 63% | 1.1 | — |
+| International Challenger | 1.1 | 94% | 91% | 1.0 | — |
+| International Championship | 2.0 | 85% | 50% | 1.2 | — |
+| Diamond Open | 2.2 | 68% | 53% | 1.1 | — |
+| Diamond Challenger | 1.9 | 93% | 53% | 1.1 | — |
+| Diamond Championship | 1.5 | 78% | 77% | 1.2 | — |
 
-The engaged bot's first World Championship comes in seasons 18–24 (median 22); the fully managed bot's in 17–20 (median 18). A club that goes all in pulls ahead, which is intended. An idle club is held at County. Before this update, an engaged club won every Community and County meet at the first attempt, an idle club cleared both tiers, and the National Open and World Challenger finals were multi-season walls. These are scripted bots, not people: they show the shape of the curve, not a promised human campaign length.
+The engaged bot's first Diamond Championship comes in seasons 18–24 (median 22); the fully managed bot's in 17–20 (median 18). A club that goes all in pulls ahead, which is intended. An idle club is held at Regional. Before this update, an engaged club won every County and Regional meet at the first attempt, an idle club cleared both tiers, and the International Open and Diamond Challenger finals were multi-season walls. These are scripted bots, not people: they show the shape of the curve, not a promised human campaign length.
 
 ## Money
 
 - **Café and merch stand** sell to a share of visitors, but each counter level serves a limited number of customers a day (café 30 +15 per level, stand 20 +10 per level). Takings at level 1 are as before; higher levels mostly add capacity, so late takings no longer grow without limit with fans.
 - **Upkeep**: every building and stadium upgrade costs 3% of its price a week, paid on payday with wages. Build cards and stadium upgrades show the upkeep they add.
 - **Wages** rise more steeply with rank (Pro $75, Ace $130, Star $220, Legend $340 a week, plus level and rarity).
-- **Entry fees**: County $250, Regional $600, National $1,500, World $3,000 per league entry, refunded if you cancel before the first meet. Community leagues and all duels are free, so a short-of-cash club can always earn its way back.
+- **Entry fees**: Regional $250, National $600, International $1,500, Diamond $3,000 per league entry, refunded if you cancel before the first meet. County leagues and all duels are free, so a short-of-cash club can always earn its way back.
 - **Pricier late stadium work**: championship track $2,400, competition throwing areas $1,800–2,000, an Olympic stadium $10,000, stadium lights $3,000.
 - **Facility duties** earn about a quarter less.
 - The Clubhouse's **Weekly** figure is the true net: sponsor and club income plus a week of café and merch takings, minus wages and upkeep. The Office breaks it down.
 
-An engaged club's median bank is about $1.8k after season 1, $5k after season 7, $15k after season 10 and $25–45k through the National and World years. Before, it reached $317k by season 19. A fully managed club, with reserves on facility duty, builds a bigger cushion ($98k by season 19): that is its reward for running the economy hard.
+An engaged club's median bank is about $1.8k after season 1, $5k after season 7, $15k after season 10 and $25–45k through the International and Diamond years. Before, it reached $317k by season 19. A fully managed club, with reserves on facility duty, builds a bigger cushion ($98k by season 19): that is its reward for running the economy hard.
 
 ### Saves
 

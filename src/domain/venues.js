@@ -1,6 +1,6 @@
 // Where a meet is held. Home meets use your own stadium; each rival club has its own
 // ground whose size follows the level it competes at, from a park with a grass bank
-// in the Community League to an Olympic bowl in the World League. League finals go to
+// in the County League to an Olympic bowl in the Diamond League. League finals go to
 // the level's neutral showpiece venue.
 import { LEAGUES, stadiumNameOf } from "../game-content.js";
 

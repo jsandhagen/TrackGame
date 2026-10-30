@@ -10,7 +10,7 @@ The campaign uses a deliberately fictional club-duel format. The objective is to
 2. **Field the team:** assign one athlete to each of four events. Specialists are strongest; a cross-event athlete performs at 90% of rating, and a second event costs another 3%. The lobby shows each projected mark against the rival athlete.
 3. **Meet a rival club:** in each round the rival throws first, then you. Best mark wins the event: 3 meet points, or 1 each for a tie. Regular fixtures have two attempts; finals have three. Watch mode lets athletes choose their approach and pauses for clutch moments; Coach mode asks for every throw. Rivals use skills and adaptive tactics.
 4. **React:** see the landing, the PB, the skills that fired and the event score. Club wins award league points and more money; every meet pays an appearance fee so defeat is recoverable. Wins drop an item chest.
-5. **Finish a season:** three round-robin fixtures lead to a top-two final. Win it to promote, or repeat the league with everything you earned plus a rebuild camp. Awards night celebrates the season. World champions can keep defending against an improving field.
+5. **Finish a season:** three round-robin fixtures lead to a top-two final. Win it to promote, or repeat the league with everything you earned plus a rebuild camp. Awards night celebrates the season. Diamond champions can keep defending against an improving field.
 
 A tied final is decided by aggregate performance relative to each event's distance scale, awarding one tiebreak point. This is a transparent fictional cup rule, not an official athletics scoring standard.
 
@@ -18,11 +18,11 @@ A tied final is decided by aggregate performance relative to each event's distan
 
 | League | Gameplay role | Opens |
 | --- | --- | --- |
-| Community | Learn the loop against a forgiving field; the first meet is after three days | 7 plots, starter buildings, discus and hammer cages, throwing areas to level 2, a main stand |
-| County | Preparation and a first rank-up start to matter | 2 plots, video room, cinder track, covered stands, Scout Office, Kit Workshop |
-| Regional | Stadium upgrades, combos and gear close the gap | 2 plots, competition throwing areas, floodlights, Sports Lab |
-| National | A developed roster and economy | The last 2 plots, championship track, full bowl, stadium lights |
-| World | The wall: Star ranks, rare recruits and skills needed | Title defences |
+| County | Learn the loop against a forgiving field; the first meet is after three days | 7 plots, starter buildings, discus and hammer cages, throwing areas to level 2, a main stand |
+| Regional | Preparation and a first rank-up start to matter | 2 plots, video room, cinder track, covered stands, Scout Office, Kit Workshop |
+| National | Stadium upgrades, combos and gear close the gap | 2 plots, competition throwing areas, floodlights, Sports Lab |
+| International | A developed roster and economy | The last 2 plots, championship track, full bowl, stadium lights |
+| Diamond | The wall: Star ranks, rare recruits and skills needed | Title defences |
 
 Every league has three named clubs with different event strengths: a power-first squad, technical throwers, and a fast-turning hammer/javelin squad. Rival athletes persist across repeat seasons at the same level. Promotion introduces a new field. Failed seasons do not automatically inflate the opposition away from the player.
 

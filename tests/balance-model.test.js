@@ -88,7 +88,7 @@ test('rival strength rises smoothly through every stage of the circuit', () => {
   }
   for (let i = 1; i < ratings.length; i++) assert(ratings[i] >= ratings[i - 1] - 1, 'stage ' + i + ' is not easier than the one before');
   assert(ratings[2] - ratings[0] > 20, 'Community has a real climb from Open to Championship');
-  assert(ratings[5] - ratings[3] > 8, 'so does County');
+  assert(ratings[5] - ratings[3] > 8, 'so does Regional');
 });
 
 test('auto-pick enters a deep squad three deep in every event', () => {
@@ -119,7 +119,7 @@ test('buildings and stadium upgrades cost upkeep, paid on payday', () => {
   assert(G.upkeep(s) > 400, 'an Olympic stadium is expensive to run');
 });
 
-test('higher leagues charge entry, refunded on cancel; Community and duels stay free', () => {
+test('higher leagues charge entry, refunded on cancel; County and duels stay free', () => {
   const s = G.newGame(9);
   s.league = 1;
   for (let st = 0; st < 3; st++) s.circuit.cleared.push('0:' + st);

@@ -74,7 +74,7 @@ test('accessories add variety without drawing from the game\'s random stream', (
   assert.deepEqual(new Set(worn.map((l) => l.gear)), new Set(['shades', 'band', 'cap']));
 });
 
-test('the elites compete for the World League clubs, and older World League saves get them on load', () => {
+test('the elites compete for the Diamond League clubs, and older Diamond League saves get them on load', () => {
   const s = G.newGame(21);
   const world = G.makeClubs(s, 4, 0, [0, 1, 2, 3, 4, 5]);
   const seated = world.flatMap((c) => c.athletes.filter((a) => a.elite));
@@ -83,7 +83,7 @@ test('the elites compete for the World League clubs, and older World League save
     const a = seated.find((x) => x.elite === e.id), club = world.find((c) => c.athletes.includes(a));
     assert.equal(a.name, e.name); assert.equal(a.event, e.event); assert.equal(a.nation, e.nation); assert.equal(club.id, e.club);
   }
-  for (const league of [0, 1, 2, 3]) assert(!G.makeClubs(s, league, 0, [0, 1, 2, 3, 4, 5]).some((c) => c.athletes.some((a) => a.elite)), 'only the World League');
+  for (const league of [0, 1, 2, 3]) assert(!G.makeClubs(s, league, 0, [0, 1, 2, 3, 4, 5]).some((c) => c.athletes.some((a) => a.elite)), 'only the Diamond League');
   const plain = G.newGame(22);
   plain.rivalClubs[4] = world.map((c) => ({ ...c, athletes: c.athletes.map((a) => { const b = { ...a }; delete b.elite; delete b.nation; return b; }) }));
   const copy = validateCampaign(exportCampaign(plain));

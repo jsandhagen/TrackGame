@@ -8,15 +8,15 @@ An event-specific implement only contributes in its event. In a second disciplin
 
 Every division now has six clubs. A tournament still contains three fixtures and a final. Draws rotate across stages and every three seasons; duels allow selecting any of the six clubs. Club IDs and their athletes persist when a club sits out a draw. Existing active tournaments retain their opponents and ordering; the additional clubs are created on the next booking. JSON save reloads reconcile the active squads back into the division registry before choosing a new draw.
 
-Club identities determine specialist events, supporting familiarity, competition profiles and skills. Power teams threaten shot and hammer; speed teams threaten hammer and javelin; control teams emphasise legal series; adaptable teams have stronger secondary-event familiarity; deep squads and clutch performers have their own supporting strengths. National and World teams retain developed supporting scorers. They do not simply receive the same bonus under different names.
+Club identities determine specialist events, supporting familiarity, competition profiles and skills. Power teams threaten shot and hammer; speed teams threaten hammer and javelin; control teams emphasise legal series; adaptable teams have stronger secondary-event familiarity; deep squads and clutch performers have their own supporting strengths. International and Diamond teams retain developed supporting scorers. They do not simply receive the same bonus under different names.
 
 Three optional buildings extend the development choices through later divisions:
 
 | Building | Available | Purpose |
 | --- | --- | --- |
-| Indoor Training Hall | Regional | Low-energy technical rehearsal, including event mastery within its practice ceiling |
-| Coaching Lodge | National | Peer review and extra training XP for lower-level athletes alongside a higher-level teammate training the same event |
-| Equipment Testing Centre | World | Implement trials with equipment matched to the selected event; develops technique and mastery |
+| Indoor Training Hall | National | Low-energy technical rehearsal, including event mastery within its practice ceiling |
+| Coaching Lodge | International | Peer review and extra training XP for lower-level athletes alongside a higher-level teammate training the same event |
+| Equipment Testing Centre | Diamond | Implement trials with equipment matched to the selected event; develops technique and mastery |
 
 The new sessions use the existing group-training system: daily limits, shared group costs, session quality, drill levels, animations and saved progress. They do not remove competition requirements or mastery ceilings. Upgrading the buildings improves session gains; the Lodge's XP benefit increases by level.
 

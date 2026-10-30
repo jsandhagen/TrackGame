@@ -393,7 +393,7 @@ export function validateCampaign(input) {
   if (typeof s.worldRecords !== "object" || Array.isArray(s.worldRecords) || Object.entries(s.worldRecords).some(([ev, r]) => !EVENT_IDS.includes(ev) || !num(r?.mark, 0, 1000) || !word(r.name))) bad();
   if (!SPONSORS[s.sponsor] || !s.colors || !color(s.colors.primary) || !color(s.colors.secondary)) bad();
   ensureCustom(s);
-  // A World League already generated before the elites joined it gets them now.
+  // A Diamond League already generated before the elites joined it gets them now.
   for (const c of s.rivalClubs?.[4] || []) seatElites(c, 4);
   if (s.clubTier === 4) for (const c of s.clubs || []) seatElites(c, 4);
   // The year's tally for awards night, and a ceremony still to be shown.

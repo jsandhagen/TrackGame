@@ -7,7 +7,7 @@ export const STAT_COLORS = ["#e07a4f", "#5aa4c8", "#8cc152", "#b48ad8"];
 export const showStat = (v) => Math.floor(v + 1e-6);
 
 // min: a raw beginner. max: a top-rated thrower before gear, skills and approach bonuses, which
-// carry the best World League throwers to real world-class marks. record: the senior men's world
+// carry the best Diamond League throwers to real world-class marks. record: the senior men's world
 // record, which marks approach but never pass (see realMark).
 export const EVENTS = {
   shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.56, 0.29, 0.07, 0.08], min: 7, max: 20.5, record: 23.56, hint: "Drive through the ring. Power first, technique close behind." },
@@ -279,11 +279,11 @@ export const GRADES = [
 export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1);
 
 export const LEAGUES = [
-  { name: "Community League", entry: 0, tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
-  { name: "County League", entry: 250, tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
-  { name: "Regional League", entry: 600, tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
-  { name: "National League", entry: 1500, tag: "Your little club has made a name.", rating: 79, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
-  { name: "World League", entry: 3000, tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
+  { name: "County League", entry: 0, tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
+  { name: "Regional League", entry: 250, tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
+  { name: "National League", entry: 600, tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "National Athletics Centre", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
+  { name: "International League", entry: 1500, tag: "Your little club has made a name abroad.", rating: 79, prize: 2400, color: "#cf986d", venue: "Aurora International Arena", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
+  { name: "Diamond League", entry: 3000, tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Diamond Bowl", crowd: 0.95, unlock: "Defend the world title" },
 ];
 
 export const CLUBS = [
@@ -349,7 +349,7 @@ export const SECRETS = {
   bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", type: "powerhouse", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
   r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", type: "technician", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
   yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", type: "speedster", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
-  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the World League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
+  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the Diamond League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
   pip: { name: "Pip", event: "discus", skill: "wonderkid", type: "allrounder", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
 };
 
@@ -469,7 +469,7 @@ export function towerColorsOf(s) {
 export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 
 // The world's elite: nods to the sport's real champions, with altered names, who compete for the
-// World League clubs (club: index into CLUBS[4]). level is their mark as a share of the event's
+// Diamond League clubs (club: index into CLUBS[4]). level is their mark as a share of the event's
 // world record in a good year.
 export const ELITES = [
   { id: "krauser", name: "Rian Krauser", nation: "USA", event: "shot", club: 1, level: 0.985, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 0, special: "beard" }, blurb: "A rotational giant. The shot looks like a marble in his hand." },

@@ -152,8 +152,8 @@ test("buildings line the streets, discover combos with neighbours and unlock by 
   const s = G.newGame(7);
   assert.equal(s.plots[9].type, "club");
   assert.equal(s.plots[10].type, "gym");
-  assert(!G.canBuild(s, 0, "garden"), "plot 0 opens in the County League");
-  assert(!G.build(s, 8, "scout"), "scout office needs County League");
+  assert(!G.canBuild(s, 0, "garden"), "plot 0 opens in the Regional League");
+  assert(!G.build(s, 8, "scout"), "scout office needs Regional League");
   s.money = 5000;
   const built = G.build(s, 11, "cafe");
   assert(built.discoveries.some((c) => c.key === "fuel"), "café next to the gym");
@@ -183,7 +183,7 @@ test("the stadium's throwing areas train each event's technique and upgrade in p
   const before = G.trainingGains(s, discus, "technique")[1];
   assert(G.trainingGains(s, shot, "technique")[1] > before, "shot circle exists, discus cage does not");
   s.money = 10000;
-  assert.equal(G.stadiumProblem(s, "studio"), "Unlocks in the County League");
+  assert.equal(G.stadiumProblem(s, "studio"), "Unlocks in the Regional League");
   assert(G.upgradeStadium(s, "discus"));
   assert(G.trainingGains(s, discus, "technique")[1] > before);
   for (const k of ["shot", "discus", "hammer", "jav"]) while (s.stadium[k] < 2) assert(G.upgradeStadium(s, k), k);

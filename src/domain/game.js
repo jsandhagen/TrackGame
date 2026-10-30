@@ -178,7 +178,7 @@ export function newGame(seed = Date.now() >>> 0) {
   return ensureCustom(s);
 }
 
-// The World League's clubs field the world's elite: each takes the place of one of the club's
+// The Diamond League's clubs field the world's elite: each takes the place of one of the club's
 // throwers in their event, with their own name, nation and look. Strength still comes from the
 // difficulty curve, so the league plays as it always has.
 export function seatElites(club, league) {

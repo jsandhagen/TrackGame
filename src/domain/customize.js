@@ -1,4 +1,4 @@
-import { CUSTOMISE, CUSTOM_IDS, STYLE_DEFAULT } from "../game-content.js";
+import { CUSTOMISE, CUSTOM_IDS, STYLE_DEFAULT, LEAGUES } from "../game-content.js";
 
 // Kit and stadium customisation. Options unlock through progress and are then bought once;
 // owned options can be switched freely. Kit choices live with the club colours (they travel
@@ -26,7 +26,7 @@ export const ownsCustom = (s, cat, key) => s.wardrobe?.[cat]?.includes(key);
 
 const REQ_TEXT = {
   fans: (n) => n.toLocaleString() + " fans",
-  league: (n) => ["Community", "County", "Regional", "National", "World"][n] + " League",
+  league: (n) => LEAGUES[n].name,
   trophies: (n) => n + (n === 1 ? " trophy" : " trophies"),
   stands: (n) => ["", "Bleachers", "a covered main stand", "stands all round", "an Olympic stadium"][n],
   track: (n) => ["", "a gravel track", "a synthetic track", "a championship track"][n],

@@ -11,7 +11,7 @@ export const CIRCUIT_FORMATS = [
 ];
 export const TITLE_GIFTS = ["scroll", "letter", "elixir"];
 export const circuitKey = (tier, stage) => `${tier}:${stage}`;
-// One smooth difficulty curve across all fifteen stages, Community Open to World Championship:
+// One smooth difficulty curve across all fifteen stages, County Open to Diamond Championship:
 // the event rating of a typical rival specialist. Each stage asks for about a season's growth
 // from a well-run club, so steps are big while athletes improve quickly and small near the top.
 export const RIVAL_RATING = [21, 37, 49, 63, 71, 76, 79, 82, 85, 87, 89, 91, 93, 94, 97];
@@ -28,10 +28,10 @@ export const competitionName = (s) => s.competition?.kind === "cup"
   : s.competition?.kind === "duel"
   ? "Duel · " + CLUBS[s.competition.tier][s.competition.rival].name
   : LEAGUES[competitionTier(s)].name + " · " + CIRCUIT_STAGES[s.competition?.stage ?? 2];
-// Leagues above Community charge entry; duels are always free, so a club can always earn.
+// Leagues above County charge entry; duels are always free, so a club can always earn.
 export const entryFee = (kind, tier) => (kind === "league" ? LEAGUES[tier]?.entry || 0 : 0);
 export function entryProblem(s, kind, tier, stage = 0, rival = 0) {
-  if (firstMeet(s) && (kind !== "duel" || tier !== 0 || rival !== 0)) return "Start with your first Community duel.";
+  if (firstMeet(s) && (kind !== "duel" || tier !== 0 || rival !== 0)) return "Start with your first County duel.";
   if (s.phase !== "planning" || s.match || s.competition) return "Finish your current competition first.";
   if (s.pendingEvent) return "Resolve the club decision first.";
   if (!["league", "duel"].includes(kind) || !Number.isInteger(tier) || tier < 0 || tier > 4) return "Unknown competition.";
