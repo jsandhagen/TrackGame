@@ -5207,12 +5207,6 @@ dialog[open] .dialog-body > :nth-child(n + 5) { animation-delay: 0.24s; }
   .meet-live .live-standings { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .meet-live .live-standings .standings-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
 }
-
-/* Where each athlete's meet XP came from. */
-.xp-sources { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
-.xp-sources li { display: inline-flex; gap: 5px; align-items: baseline; padding: 2px 7px; border-radius: 10px; background: #a465d61a; border: 1px solid #a465d655; font-size: 11px; }
-.xp-sources li b { color: #7a3fb0; font-variant-numeric: tabular-nums; }
-.xp-sources li.xp-note { background: transparent; border-style: dashed; color: var(--muted); }
 .level-road { margin: 4px 0 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 .level-road > span { font-weight: 700; color: #7a3fb0; text-transform: uppercase; font-size: 9px; letter-spacing: .6px; margin-right: 3px; }
 .level-road .sp-ready { color: #7a3fb0; }
