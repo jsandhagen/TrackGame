@@ -3877,8 +3877,9 @@ ol.howto li::marker {
 .thrower-identity small { color: #b8cbbb; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thrower-best { font: 700 23px var(--display); color: #f2d070; text-align: right; }
 .thrower-best small { display: block; font: 700 8px var(--display); letter-spacing: 1px; }
-.thrower-attempts { display: flex; gap: 3px; }
-.thrower-attempts > span { display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; background: #ffffff12; border: 1px solid #ffffff18; border-radius: 3px; padding: 2px 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+/* Three attempts to a row: a six-throw series (preliminaries and final) takes two rows. */
+.thrower-attempts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; }
+.thrower-attempts > span { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 6px; background: #ffffff12; border: 1px solid #ffffff18; border-radius: 3px; padding: 2px 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
 .thrower-attempts small { color: #a1baa8; font-size: 9px; }
 .thrower-attempts .pending { color: #8b9e90; }
 .thrower-attempts .foul, .series-row .foul { color: #ef8d78; }
@@ -3987,7 +3988,7 @@ ol.howto li::marker {
 .throw-series > summary > span, .meet-reward-details > summary > span { float: right; color: #7b836d; }
 .series-row { padding: 5px 8px; border-top: 1px solid #dce0cd; font-size: 10px; }
 .series-row > strong { display: block; margin-bottom: 3px; }
-.series-row > span { display: flex; gap: 4px; }
+.series-row > span { display: flex; flex-wrap: wrap; gap: 4px; }
 .series-row b { padding: 3px; flex: 1; text-align: center; background: #e9eadc; font-variant-numeric: tabular-nums; }
 .series-row b.best { background: #dae7bc; color: #2b532b; }
 .meet-reward-details { margin-top: 8px; border: 1px solid #bdc2ac; border-radius: 4px; overflow: hidden; }
