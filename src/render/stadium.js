@@ -70,8 +70,10 @@ const ppmOf = () => sector.ppm;
 // Half the javelin runway's width on screen, in the oblique view.
 const RUNWAY = 9;
 // The discus and hammer cage, at the circle's scale (the 2.5 m ring is 56 px wide). In plan it
-// is a horseshoe: netting 3.5 m round the back of the circle, sides narrowing to World
-// Athletics' 6 m mouth 7 m in front of the centre. Steel posts every two or three metres carry
+// is a horseshoe: netting round the back of the circle, sides narrowing to a 6 m mouth. Cages
+// grow with the venue: a club practice cage is short and opens just past the circle, a full
+// cage reaches further, and the competition cage follows World Athletics: 3.5 m round the
+// back, the mouth 7 m in front of the centre. Steel posts every two or three metres carry
 // dark netting that sags between them and hangs to the ground; a net seen face-on is nearly
 // clear, one seen edge-on reads darker. The hammer cage stands 7 m, 10 m for the last 2.8 m
 // before the mouth, where two 2 m gates hang: the far one swung in, the near one open along
@@ -79,9 +81,21 @@ const RUNWAY = 9;
 // thrower, the near half in front, so the thrower stands inside it.
 const CAGE_PX = 22.4, CAGE_DEPTH = 0.4;
 const CAGES = {
-  discus: { r: 3.5, mouth: 7, h: 5, sides: [7, 4.7, 2.3] },
-  hammer: { r: 3.5, mouth: 7, h: 7, front: 10, frontFrom: 4.2, sides: [7, 4.2, 2.1], gates: true },
+  discus: [
+    { r: 3, mouth: 3, h: 3, sides: [3, 1.5] },
+    { r: 3.2, mouth: 5, h: 4, sides: [5, 2.5] },
+    { r: 3.5, mouth: 7, h: 5, sides: [7, 4.7, 2.3] },
+  ],
+  hammer: [
+    { r: 3, mouth: 3.5, h: 4, sides: [3.5, 1.7] },
+    { r: 3.3, mouth: 5, h: 5.5, sides: [5, 2.5] },
+    { r: 3.5, mouth: 7, h: 7, front: 10, frontFrom: 4.2, sides: [7, 4.2, 2.1], gates: true },
+  ],
 };
+// Which cage a venue has (1 practice, 2 full, 3 competition): your own at home, otherwise by
+// the size of the ground.
+const cageLevel = (s, venue, ev) => Math.max(1, Math.min(3, venue.home ? s.stadium[ev] || 1 : venue.grand >= 3 ? 3 : venue.grand >= 2 ? 2 : 1));
+const cageOf = (s, venue, ev) => CAGES[ev]?.[cageLevel(s, venue, ev) - 1];
 function cagePlan(c) {
   const side = (v) => c.sides.map((u) => [u, v * (3 + ((c.r - 3) * (c.mouth - u)) / c.mouth)]);
   const arc = [];
@@ -102,8 +116,8 @@ function cagePlan(c) {
   }
   return panels;
 }
-function cage(g, half, ev) {
-  const c = CAGES[ev],
+function cage(g, half, c) {
+  const
     at = ([u, v]) => [O.x + u * CAGE_PX, O.y + v * CAGE_PX * CAGE_DEPTH],
     cap = (m) => Math.min(O.y - 6, Math.round(m * CAGE_PX)),
     back = half === "back",
@@ -394,7 +408,7 @@ function stadiumBase(s, ev, venue) {
       rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, "#f8f8f0");
     }
   } else {
-    if (ev !== "shot") cage(g, "back", ev);
+    if (ev !== "shot") cage(g, "back", cageOf(s, venue, ev));
     ellipse(g, O.x, O.y + 3, 30, 11, "#5a6a5a");
     ellipse(g, O.x, O.y, 28, 10, "#e8e4d0");
     ellipse(g, O.x, O.y, 24, 8, "#a8a898");
@@ -623,7 +637,7 @@ export function createStadium(cv) {
       sinceLand = tt - timing.landAt,
       jolt = big && !view.reduced && sinceLand >= 0 && sinceLand < 280 ? (1 - sinceLand / 280) * (beat.worldRecord ? 4 : 2) : 0;
     const shake = [Math.round(Math.sin(sinceLand * 0.9) * jolt), Math.round(Math.cos(sinceLand * 1.3) * jolt)];
-    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN;
+    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN + (CAGES[ev] ? cageLevel(s, venue, ev) : "");
     if (k !== key) {
       base = stadiumBase(s, ev, venue);
       key = k;
@@ -708,7 +722,7 @@ export function createStadium(cv) {
     // People at the circle are drawn at double size, like a sports sim's close-up; the field
     // judge out in the sector stays small with the distance.
     // In the cage events the circle judge stands clear of the netting, on the near side of the sector.
-    const judge = CAGES[ev] ? [O.x + Math.round((CAGES[ev].mouth + 3) * CAGE_PX), O.y + 54] : [O.x + 44, O.y - 20];
+    const cageHere = cageOf(s, venue, ev), judge = cageHere ? [O.x + Math.round((cageHere.mouth + 3) * CAGE_PX), O.y + 54] : [O.x + 44, O.y - 20];
     figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, judge[0], judge[1], 2);
     if (foulShown) rect(g, judge[0] - 14, judge[1] - 52, 10, 7, "#e04a3a");
     // Team benches along the front: your squad on the left, theirs beside them. Teammates jump
@@ -831,7 +845,7 @@ export function createStadium(cv) {
       if (beat?.type === "throw" && tt >= Math.max(timing.landAt + 150, recoveredAt) && sinceLand < (party ? partyEnd : 1900)) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
     // The near side of the cage passes in front of whoever is in the circle.
-    if (ev === "discus" || ev === "hammer") cage(g, "front", ev);
+    if (ev === "discus" || ev === "hammer") cage(g, "front", cageOf(s, venue, ev));
     // Projectile: drawn large with a light rim so it reads against sky, crowd and grass, with a
     // short trail and its shadow running along the ground. Nothing marks the landing spot before
     // it comes down, so the distance stays a surprise. After landing, a flag in the thrower's
