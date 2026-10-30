@@ -137,7 +137,7 @@ function menu() {
     return;
   }
   $("#menu").hidden = false;
-  const squadBadge = G.systemUnlocked(state, "skills") && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)));
+  const squadBadge = G.systemUnlocked(state, "skills") && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && !G.learnProblem(state, a, k))));
   const trainBadge = state.roster.some((a) => Object.keys(G.DRILLS).some((d) => !G.drillProblem(state, a, d)));
   const items = [
     ["home", "home", "Club"],
@@ -572,6 +572,12 @@ function doDay(now) {
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
   // One toast for everyone who levelled up today; the world shows each of them celebrating.
+  // Quiet mode keeps routine level-ups in the journal, but a level that opens a rank is news.
+  const opened = r.levelUps.filter((l) => state.roster.find((a) => a.id === l.id) && G.levelRewards(state.roster.find((a) => a.id === l.id), l.level).length > 1);
+  if (opened.length && state.settings.quietMode !== false && G.systemUnlocked(state, "skills")) {
+    toast(opened.map((l) => l.name.split(" ")[0] + " reached Lv. " + l.level + ": " + G.levelRewards(state.roster.find((a) => a.id === l.id), l.level).slice(1).join(", ")).join(" · ") + ".", "level", "levelup");
+    sfx("level");
+  }
   if (r.levelUps.length && state.settings.quietMode === false) {
     const names = r.levelUps.map((l) => l.name.split(" ")[0]);
     toast((names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) + " levelled up!" : r.levelUps[0].name + " hits level " + r.levelUps[0].level + "!") + (G.systemUnlocked(state, "skills") ? " Skill points to spend." : ""), "level", "levelup");
@@ -823,6 +829,8 @@ $("#app").addEventListener("click", async (e) => {
       world.reset();
       // Land on the club desk, which says what comes next, unless a page was asked for.
       view.window = state.phase !== "seasonEnd" && G.pageUnlocked(state, b.dataset.page) && P.WINDOW_TITLES[b.dataset.page] ? b.dataset.page : "home";
+      // Straight to an athlete's skills, from their growth card.
+      if (view.window === "squad" && b.dataset.athlete) (view.athlete = +b.dataset.athlete), (view.tab = "skills");
       if (state.phase === "seasonEnd") sfx(state.champion ? "win" : "event");
       break;
     case "book-league":
@@ -928,6 +936,15 @@ $("#app").addEventListener("click", async (e) => {
       const a = state.roster.find((x) => x.id === id);
       if (a) G.setTrainingPlan(state,a.id,b.dataset.value);
       world.replan();
+      break;
+    }
+    case "unlock-skill": {
+      const k = b.dataset.skill, problem = G.unlockSkillProblem(state, k);
+      if (problem) { toast(problem, "warn"); break; }
+      G.unlockSkill(state, k);
+      toast(SKILLS[k].name + " is in the club library. Any eligible athlete can learn it now.", "level", "spark");
+      sfx("coin");
+      save();
       break;
     }
     case "learn":

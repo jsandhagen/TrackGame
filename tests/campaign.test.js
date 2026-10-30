@@ -250,8 +250,16 @@ test("skill points buy skills; slots, signatures and ranks gate what an athlete 
   const s = G.newGame(14),
     a = s.roster[0];
   a.sp = 10;
-  assert(G.learnSkill(s, a.id, "gymrat"));
+  assert(G.learnSkill(s, a.id, "gymrat"), "common skills are free to learn");
   assert(a.equipped.includes("gymrat"));
+  assert(!G.learnSkill(s, a.id, "clutch"), "rarer skills need the club library");
+  assert.equal(G.learnProblem(s, a, "clutch"), "Add to the library first");
+  s.money = 300;
+  assert.equal(G.unlockSkillProblem(s, "clutch"), "Needs $450");
+  s.money = 1000;
+  assert(G.unlockSkill(s, "clutch"));
+  assert.equal(s.money, 550);
+  assert(!G.unlockSkill(s, "clutch"), "bought once for the club");
   assert(G.learnSkill(s, a.id, "clutch"));
   assert.equal(a.equipped.length, 1, "rookies have one slot");
   assert(!G.toggleSkill(s, a.id, "clutch"));

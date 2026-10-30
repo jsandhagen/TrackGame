@@ -6,6 +6,7 @@ import {
   RANKS,
   RARITY,
   SKILLS,
+  SKILL_PRICES,
   ITEMS,
   FACILITIES,
   STADIUM,
@@ -95,6 +96,7 @@ export function newGame(seed = Date.now() >>> 0) {
   const s = {
     v: 8,
     onboarding: { meets: 0 },
+    skillLibrary: [],
     balance: 2,
     rivalClubs: {},
     facilityDuties: {},
@@ -656,11 +658,37 @@ export function skillAvailable(a, id) {
   if (k.event && masteryOf(a,k.event)<60) return false;
   return true;
 }
+// The club's skill library: common skills are always in it; rarer ones are bought once.
+export const skillUnlocked = (s, id) => SKILLS[id]?.rarity === "common" || !!s.skillLibrary?.includes(id);
+export const skillPrice = (id) => SKILL_PRICES[SKILLS[id]?.rarity] ?? null;
+export function unlockSkillProblem(s, id) {
+  if (!systemUnlocked(s, "skills")) return systemProblem(s, "skills");
+  if (!SKILLS[id] || skillPrice(id) == null) return "Not for sale";
+  if (skillUnlocked(s, id)) return "Already in the library";
+  if (s.match) return "Not during a meet";
+  if (s.money < skillPrice(id)) return "Needs $" + skillPrice(id).toLocaleString();
+  return null;
+}
+export function unlockSkill(s, id) {
+  if (unlockSkillProblem(s, id)) return false;
+  s.money -= skillPrice(id);
+  (s.skillLibrary ??= []).push(id);
+  note(s, SKILLS[id].name + " added to the club's skill library.", "story");
+  return true;
+}
+// Why an athlete can't learn a skill right now, in the order a player fixes things.
+export function learnProblem(s, a, id) {
+  const k = SKILLS[id];
+  if (!skillUnlocked(s, id)) return "Add to the library first";
+  if (k.rank > a.rank) return "Needs " + RANKS[k.rank].name;
+  if (k.sp > a.sp) return k.sp + " SP";
+  return null;
+}
 export function learnSkill(s, athleteId, id) {
   if (!systemUnlocked(s, "skills")) return false;
   const a = s.roster.find((x) => x.id === athleteId),
     k = SKILLS[id];
-  if (!a || !skillAvailable(a, id) || a.sp < k.sp || a.rank < k.rank || s.match) return false;
+  if (!a || !skillAvailable(a, id) || !skillUnlocked(s, id) || a.sp < k.sp || a.rank < k.rank || s.match) return false;
   a.sp -= k.sp;
   learnFree(a, id);
   count(s, "skillsLearned");
@@ -675,6 +703,23 @@ export function toggleSkill(s, athleteId, id) {
   else if (a.equipped.length < slotsOf(a)) a.equipped.push(id);
   else return false;
   return true;
+}
+// What reaching a level brings, so levels read as rewards rather than a number: skill points
+// (two on every fifth level) and the rank a level opens up.
+export function levelRewards(a, level) {
+  const out = [level % 5 === 0 ? "+2 skill points" : "+1 skill point"];
+  const rank = RANKS.findIndex((r, i) => i > (a.rank || 0) && r.level === level);
+  if (rank > 0) out.push(RANKS[rank].name + " rank available");
+  else if ((a.rank || 0) >= 4 && level === starLevel(a)) out.push("★" + ((a.stars || 0) + 1) + " available");
+  return out;
+}
+// The next level that brings more than a single skill point.
+export function nextMilestone(a) {
+  for (let level = a.level + 1; level <= a.level + 12; level++) {
+    const rewards = levelRewards(a, level);
+    if (rewards.length > 1 || level % 5 === 0) return { level, rewards };
+  }
+  return null;
 }
 // After Legend, stars: each one costs more and asks for more levels, with no last one.
 export const starLevel = (a) => RANKS[4].level + 3 * ((a.stars || 0) + 1);

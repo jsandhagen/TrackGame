@@ -203,7 +203,7 @@ function athletePage(s, a, view) {
   if (tab === "stats") {
     const next = RANKS[a.rank + 1],
       problem = G.promoteProblem(s, a);
-    body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>
+    body = `<div class="vitals"><div><span>${ico("bolt")} Stamina</span>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}<b>${Math.round(a.stamina)}</b></div><div><span>${mood(a)} Condition</span>${bar(a.condition, 100, "#f0b04a")}<b>${G.MOODS[G.moodOf(a)]}</b></div><div><span>${ico("levelup")} Level ${a.level}</span>${bar(a.xp, G.xpNeeded(a.level), "#a465d6")}<b>${Math.floor(a.xp)}/${G.xpNeeded(a.level)}</b></div></div>${levelRoad(s, a)}
     ${statRows(a)}
     ${G.systemUnlocked(s,"skills") ? `<p class="skill-line"><span>${a.equipped.length ? a.equipped.map((k) => esc(SKILLS[k].name)).join(" · ") : "No skills equipped"}${a.secret ? " · Unique: " + esc(SKILLS[SECRETS[a.secret].skill].name) : ""}</span>${btn("Manage skills", "tab", 'data-tab="skills"', "subtle small")}</p>` : ""}
     <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
@@ -250,14 +250,14 @@ function athletePage(s, a, view) {
     <div class="card-title"><h2>Learned</h2><span class="sp">${a.sp} SP</span></div>
     ${a.skills.map((k) => skillRow(a, k, a.equipped.includes(k) ? "Unequip" : a.equipped.length < slots ? "Equip" : "Slots full", "skill-toggle", !a.equipped.includes(k) && a.equipped.length >= slots)).join("") || "<p class='hint'>Nothing yet. Levels earn skill points.</p>"}
     <div class="card-title"><h2>Learn with skill points</h2></div>
-    ${learnable
+    ${learnable.filter((k) => G.skillUnlocked(s, k))
       .sort((x, y) => SKILLS[x].rank - SKILLS[y].rank || SKILLS[x].sp - SKILLS[y].sp)
       .map((k) => {
-        const d = SKILLS[k],
-          lock = d.rank > a.rank ? "Needs " + RANKS[d.rank].name : d.sp > a.sp ? d.sp + " SP" : null;
-        return skillRow(a, k, lock || "Learn · " + d.sp + " SP", "learn", !!lock);
+        const lock = G.learnProblem(s, a, k);
+        return skillRow(a, k, lock || "Learn · " + SKILLS[k].sp + " SP", "learn", !!lock);
       })
-      .join("")}`;
+      .join("") || "<p class='hint'>Nothing left to learn from the library. Add rarer skills below.</p>"}
+    ${skillLibrary(s, a)}`;
   }
   if (tab === "gear") {
     body = `<div class="gear-slots">${GEAR_SLOTS.map((slot) => {
@@ -550,6 +550,20 @@ export function itemTargets(s, id) {
     .join("")}</div>`;
 }
 
+// Rarer skills the club hasn't bought yet. Once bought, every eligible athlete can learn them.
+export function skillLibrary(s, a = null) {
+  const locked = Object.keys(SKILLS).filter((k) => !G.skillUnlocked(s, k) && G.skillPrice(k) != null && (!a || G.skillAvailable(a, k) || SKILLS[k].event === a.event))
+    .sort((x, y) => G.skillPrice(x) - G.skillPrice(y) || SKILLS[x].rank - SKILLS[y].rank);
+  if (!locked.length) return `<p class="hint">Every skill is in the club library.</p>`;
+  const intro = `<p class="hint">Common skills are free to learn. Rarer ones are bought once for the whole club, then each athlete learns them with skill points.</p>`;
+  const rows = locked.map((k) => {
+    const d = SKILLS[k], problem = G.unlockSkillProblem(s, k), r = RARITY[d.rarity];
+    const needs = [d.rank ? RANKS[d.rank].name + " rank" : "", d.event ? EVENTS[d.event].name + " mastery 60" : ""].filter(Boolean).join(" · ");
+    return `<div class="skill-row library rarity-${d.rarity}">${skillIcon(k)}<span><strong>${d.name} ${chip(r.name, r.color, "rarity")}</strong><small>${d.desc}</small><small class="skill-needs">${d.sp} SP to learn${needs ? " · needs " + needs : ""}</small></span>${btn("Add · " + cash(G.skillPrice(k)), "unlock-skill", `data-skill="${k}" ${problem ? "disabled" : ""} title="${esc(problem || "")}"`, "subtle small")}</div>`;
+  }).join("");
+  // In an athlete's file the library folds away under their own skills; the shop shows it open.
+  return a ? `<details class="card skill-library"><summary>Club skill library · ${locked.length} to add</summary>${intro}${rows}</details>` : `<div class="card-title"><h2>Club skill library</h2></div>${intro}${rows}`;
+}
 const skillIcon = (k) => `<span class="skill-icon c-${SKILLS[k].cat}">${ico({ train: "levelup", meet: "target", team: "heart", signature: "spark", unique: "star" }[SKILLS[k].cat])}</span>`;
 function skillRow(a, k, label, act, disabled) {
   const d = SKILLS[k];
@@ -657,7 +671,7 @@ export function build(s, view) {
 }
 
 // ── Shop & bag ──────────────────────────────────────────────────────────
-const SHOP_TABS = [["fuel"], ["implements"], ["wear"], ["bag"]];
+const SHOP_TABS = [["fuel"], ["implements"], ["wear"], ["skills"], ["bag"]];
 export function shop(s, view) {
   if (!G.systemUnlocked(s,"kit")) return lockedSystem(s,"kit");
   // The counter is split into aisles so each one fits on a screen or so.
@@ -665,7 +679,8 @@ export function shop(s, view) {
   const stock = G.shopStock(s);
   const nextTier = SHOP_TIERS.find((t) => t > s.fans);
   let body;
-  if (tab !== "bag") {
+  if (tab === "skills") body = skillLibrary(s);
+  else if (tab !== "bag") {
     const groups = {
       fuel: [["Fuel & recovery", "Handed over at the side of the track.", (d) => d.kind === "use"]],
       implements: [
@@ -695,7 +710,7 @@ export function shop(s, view) {
     ${G.facilityLevel(s, "workshop") ? `<div class="card-title"><h2>Kit Workshop · forging</h2></div><p class="hint">Each forge level adds +0.6% distance to every copy of that item.</p><div class="item-grid">${[...new Set([...gear, ...worn.map(([k]) => k)])].map((k) => `<div class="item-card rarity-${ITEMS[k].rarity}">${icon(k)}<span><strong>${ITEMS[k].name}${s.forge[k] ? " +" + s.forge[k] : ""}</strong><small>Next: +${(s.forge[k] || 0) + 1}</small></span>${btn("Forge · " + cash(G.forgeCost(s, k)), "forge", `data-item="${k}" ${s.money < G.forgeCost(s, k) ? "disabled" : ""}`, "subtle small")}</div>`).join("")}</div>` : `<p class="hint">Build a Kit Workshop to forge your gear.</p>`}`;
   }
   const count = (f) => stock.filter((k) => f(ITEMS[k])).length;
-  const labels = { fuel: "Fuel · " + count((d) => d.kind === "use"), implements: "Implements · " + count((d) => d.slot === "implement"), wear: "Shoes & charms · " + count((d) => d.slot === "shoes" || d.slot === "charm"), bag: "Kit bag · " + Object.values(s.bag).reduce((n, v) => n + v, 0) };
+  const labels = { fuel: "Fuel · " + count((d) => d.kind === "use"), implements: "Implements · " + count((d) => d.slot === "implement"), wear: "Shoes & charms · " + count((d) => d.slot === "shoes" || d.slot === "charm"), skills: "Skills · " + Object.keys(SKILLS).filter((k) => !G.skillUnlocked(s, k) && G.skillPrice(k) != null).length, bag: "Kit bag · " + Object.values(s.bag).reduce((n, v) => n + v, 0) };
   return `<nav class="tabs shop-tabs">${SHOP_TABS.map(([id]) => `<button data-act="shop-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${labels[id]}</button>`).join("")}<span class="tab-insights">${ico("coin")}<b>${cash(s.money)}</b></span></nav>${body}`;
 }
 // One-line effect label: stat items get a coloured stat pill so they read at a glance.
@@ -1180,12 +1195,18 @@ export function decide(s, view) {
     <div class="decide-approach">${approachPicker(a,ev)}<small>${esc(approach?.desc || "")}${ev === "discus" ? " Wind: " + esc(m.wind || "calm") + "." : ""} Bolder approaches unlock with event mastery.</small></div>
     ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}</div>`;
 }
+// Under the level bar: what the next level brings and the next bigger milestone.
+function levelRoad(s, a) {
+  const next = G.levelRewards(a, a.level + 1), milestone = G.nextMilestone(a);
+  const later = milestone && milestone.level !== a.level + 1 ? ` · <b>Lv. ${milestone.level}</b> ${esc(milestone.rewards.join(" · "))}` : "";
+  return `<p class="level-road"><span>Next level</span> ${esc(next.join(" · "))}${later}${G.systemUnlocked(s, "skills") && a.sp ? ` · <b class="sp-ready">${a.sp} SP ready</b>` : ""}</p>`;
+}
 function meetGrowth(s) {
   const r = s.match.rewards || {};
   const recorded = Array.isArray(r.athleteProgress);
   const ids = [...new Set(s.match.fields ? s.match.fields.flatMap(f => f.home.map(e => e.id)) : Object.values(s.match.lineup).filter(Boolean))];
   const progress = recorded ? r.athleteProgress : ids.map(id => ({id, name: s.roster.find(a=>a.id===id)?.name}));
-  return `<section class="meet-growth"><header class="growth-intro"><h2>Every meet builds your athletes</h2><p>XP is earned once per athlete. Mastery grows in each event they entered.</p></header>${!recorded ? '<p class="hint">This older meet has no XP or attribute breakdown. Recorded mastery, PBs and milestones are shown below.</p>' : ""}<div class="growth-grid">${progress.map(p=>{
+  return `<section class="meet-growth"><header class="growth-intro"><h2>Every meet builds your athletes</h2><p>XP follows how each athlete threw: clean throws, places, PBs and the team result. Mastery grows in each event they entered.</p></header>${!recorded ? '<p class="hint">This older meet has no XP or attribute breakdown. Recorded mastery, PBs and milestones are shown below.</p>' : ""}<div class="growth-grid">${progress.map(p=>{
     const a=s.roster.find(a=>a.id===p.id), before=p.before, after=p.after;
     const levels=after ? after.level-before.level : 0;
     const levelUp=(r.levelUps||[]).find(d=>d.id===p.id);
@@ -1194,8 +1215,11 @@ function meetGrowth(s) {
     const pbs=(r.pbs||[]).filter(d=>d.id===p.id);
     return `<article class="athlete-growth ${levels || levelUp ? "leveled-up" : ""}"><header>${a ? portrait(a) : ""}<div><h3>${esc(p.name)}</h3><span>${after ? levels ? `Lv. ${before.level} → <b>Lv. ${after.level}</b>` : `Lv. ${after.level}` : levelUp ? `Reached Lv. ${levelUp.level}` : "Meet completed"}</span></div>${levels || levelUp ? '<strong class="level-up-tag">LEVEL UP!</strong>' : ""}</header>
     ${after ? `<div class="meet-xp"><div><b>+${Number(p.xpGained.toFixed(1))} XP</b><span>${Math.floor(after.xp)} / ${G.xpNeeded(after.level)} XP to Lv. ${after.level+1}</span></div><progress value="${after.xp}" max="${G.xpNeeded(after.level)}" aria-label="${esc(p.name)} progress to level ${after.level+1}"></progress><small>${Math.ceil(G.xpNeeded(after.level)-after.xp)} XP to next level${levels ? ` · ${levels} level${levels===1?"":"s"} gained` : " · Building toward the next level"}</small></div>` : ""}
+    ${p.sources?.length ? `<ul class="xp-sources" aria-label="Where the XP came from">${p.sources.map(([label, xp]) => `<li><span>${esc(label)}</span><b>+${xp}</b></li>`).join("")}${p.factor < 1 ? `<li class="xp-note"><span>Single duel</span><b>×${p.factor}</b></li>` : ""}${p.xpGained > p.sources.reduce((n, [, xp]) => n + xp, 0) * (p.factor ?? 1) + 0.05 ? `<li class="xp-note"><span>Skills, gear and mentors</span><b>+${(p.xpGained - p.sources.reduce((n, [, xp]) => n + xp, 0) * (p.factor ?? 1)).toFixed(1)}</b></li>` : ""}</ul>` : ""}
     ${after && (after.sp>before.sp || after.potential>before.potential || after.stats.some((v,i)=>v>before.stats[i])) ? `<div class="growth-gains">${after.sp>before.sp ? `<b>+${after.sp-before.sp} skill point${after.sp-before.sp===1?"":"s"}</b>` : ""}${after.stats.map((v,i)=>v-before.stats[i]>0.001 ? `<span>${STAT_NAMES[i]} <b>+${Number((v-before.stats[i]).toFixed(1))}</b></span>` : "").join("")}${after.potential>before.potential ? `<span>Potential <b>+${after.potential-before.potential}</b></span>` : ""}</div>` : ""}
     <div class="growth-mastery">${mastery.map(d=>`<div><span>${EVENTS[d.event].name} mastery</span><b>+${d.gain.toFixed(1)}</b><small>${(d.mastery-d.gain).toFixed(1)} → ${d.mastery.toFixed(1)}</small></div>`).join("")}</div>
+    ${after && levels && Array.from({length: levels}, (_, n) => G.levelRewards(a || after, before.level + n + 1)).flat().some((r) => !r.includes("skill point")) ? `<p class="level-rewards">${Array.from({length: levels}, (_, n) => G.levelRewards(a || after, before.level + n + 1)).flat().filter((r) => !r.includes("skill point")).map(r => `<span>${esc(r)}</span>`).join("")}</p>` : ""}
+    ${a && a.sp > 0 && G.systemUnlocked(s, "skills") ? btn(a.sp + " SP to spend · skills", "leave", `data-page="squad" data-athlete="${a.id}"`, "subtle small") : ""}
     ${pbs.map(d=>`<p class="growth-pb">PB · ${EVENTS[d.event].name} <b>${mark(d.mark)}</b>${d.delta ? ` (+${d.delta.toFixed(2)} m)` : " · First mark"}</p>`).join("")}
     ${milestones.map(d=>`<p class="growth-milestone"><b>${esc(d.milestone)}</b> · ${esc(d.reward)}</p>`).join("")}
     </article>`;

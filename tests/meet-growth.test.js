@@ -15,12 +15,15 @@ test('meet progress records exact XP, levels, skill points and capped stats once
  s.entries={shot:[a.id],discus:[a.id],hammer:[s.roster[2].id],jav:[s.roster[3].id]};
  s.lineup=Object.fromEntries(Object.entries(s.entries).map(([ev,ids])=>[ev,ids[0]||null]));
  a.xp=G.xpNeeded(a.level)-2;a.meets=2;a.stats=a.stats.map(()=>G.capOf(a)-0.1);
- const before=structuredClone(a), xp=21*G.xpMultiplier(s,a);
+ const before=structuredClone(a), multiplier=G.xpMultiplier(s,a);
  assert(G.startMatch(s));assert(G.simulateMatch(s));
  const rows=s.match.rewards.athleteProgress,row=rows.find(p=>p.id===a.id);
  assert.equal(rows.length,3);assert(!rows.some(p=>p.id===bench.id));
  assert.equal(rows.filter(p=>p.id===a.id).length,1);
  assert.equal(row.before.level,before.level);assert.equal(row.after.level,a.level);
+ const xp=row.sources.reduce((n,[,v])=>n+v,0)*row.factor*multiplier;
+ assert.equal(row.factor,0.7,'duels give 70%');assert.deepEqual(row.sources[0],['Competed',G.MEET_XP.competed],'entered twice, counted once');
+ assert.equal(row.sources.filter(([l])=>l==='Competed').length,1);
  assert.equal(row.after.level,before.level+1);assert(Math.abs(row.xpGained-xp)<1e-8);
  assert.equal(row.after.sp-row.before.sp,2); // One level + third-meet milestone.
  assert.deepEqual(row.before.stats,before.stats);assert.deepEqual(row.after.stats,a.stats);

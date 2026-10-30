@@ -392,6 +392,9 @@ export function validateCampaign(input) {
   if (typeof s.worldRecords !== "object" || Array.isArray(s.worldRecords) || Object.entries(s.worldRecords).some(([ev, r]) => !EVENT_IDS.includes(ev) || !num(r?.mark, 0, 1000) || !word(r.name))) bad();
   if (!SPONSORS[s.sponsor] || !s.colors || !color(s.colors.primary) || !color(s.colors.secondary)) bad();
   ensureCustom(s);
+  // Skill library: older saves keep every rarer skill their athletes already know.
+  if (s.skillLibrary == null) s.skillLibrary = [...new Set([...s.roster, ...(s.prospects || [])].flatMap((a) => a.skills || []).filter((k) => SKILLS[k] && SKILLS[k].rarity !== "common" && SKILLS[k].cat !== "unique"))];
+  if (!Array.isArray(s.skillLibrary) || s.skillLibrary.some((k) => !SKILLS[k] || SKILLS[k].cat === "unique" || SKILLS[k].rarity === "common") || new Set(s.skillLibrary).size !== s.skillLibrary.length) bad();
   s.secretsOffered = s.secretsOffered.filter((k) => SECRETS[k]);
   s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
   if (![1,2,3].includes(s.settings.speed)) s.settings.speed=1;
