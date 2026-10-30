@@ -22,11 +22,13 @@ How an athlete throws at meets follows their **form** in that event: the average
 
 | Form | Shot put | Discus | Hammer | Javelin |
 | --- | --- | --- | --- | --- |
-| 0 | Standing put | Standing throw (pre-swings) | Two winds, two turns | Short approach |
-| 1 | Glide from the back of the circle | Half turn | Three turns | Full run-up and crossovers |
+| 0 | Standing put | Standing throw (pre-swings) | Two winds, two turns | Three-step approach, already withdrawn |
+| 1 | Glide from the back of the circle | South African half-spin, facing the sector | Three turns | Overhead-carry run, withdrawal and travelling crossovers |
 | 2 | Power glide with a reverse | One and a half turns | Four turns, keeps turning after release | Longer crossover phase and block |
 | 3 | Rotational | Fast spin, accelerating | Four fast turns | Elite approach |
 
 Form 3 leaves afterimages through the turns. Fouls carry the thrower over the front of the circle or the arc. The timelines are in `src/render/throw-motion.js` (pure and tested), and the extra technique frames are in `THROWS` in `sprites.js`. A coached session that lifts an athlete into a new form says so on the result card and in the club news. The athlete file's mastery card shows each event's current form and what unlocks the next.
+
+The discus half-spin starts at the rear facing the sector, drives the right foot into the middle, then pivots into the delivery. The full throw starts facing away and adds a rear wind and a wide left-foot entry before that drive. Javelin's three-step form starts with the arm already drawn back and covers less than half the full approach's ground. The full approach adds an overhead-carry run, withdrawal and crossover contacts that move along the runway; developed forms withdraw earlier and show a longer low impulse stride.
 
 Throws use athlete-inspired contact timing: closed catches and late strikes for shot, a trailing long arm and centre pivot for discus, alternating foot support and a planted lift for hammer, and an impulse stride into a block for javelin. Each delivery sweeps into recovery rather than freezing at release. See [athlete references and the movement study](THROW_TECHNIQUE.md) for sources and the preview page.

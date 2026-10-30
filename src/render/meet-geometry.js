@@ -1,10 +1,11 @@
 export const SCENE_HEIGHT = 360;
 export const THROW_ORIGIN = { x: 96, y: 266 };
+const JAVELIN_ORIGIN = { x: 128, y: 266 }; // room for the withdrawn run and long penultimate
 
 // An oblique view of the ground plane. Angles and distances are measured on
 // that plane first; the same projection draws sectors, arcs and landing marks.
 export function throwingSector(event, width, span) {
-  const origin = THROW_ORIGIN;
+  const origin = event === "jav" ? JAVELIN_ORIGIN : THROW_ORIGIN;
   const halfAngle = (event === "jav" ? 28.96 : 34.92) * Math.PI / 360;
   const ppm = Math.min(570, width - origin.x - 36) / span;
   const point = (metres, angle = 0) => {

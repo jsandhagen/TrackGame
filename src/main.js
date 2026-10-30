@@ -9,7 +9,7 @@ import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, 
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium } from "./render/stadium.js";
-import { beatDuration, SETUP_MS, LAND_MS, hasCutIn, throwOffset, advanceBeatClock } from "./render/meet-presentation.js";
+import { beatDuration, SETUP_MS, hasCutIn, throwOffset, throwTiming, advanceBeatClock } from "./render/meet-presentation.js";
 import { playTraining } from "./render/training.js";
 import { portrait as paintPortrait } from "./render/sprites.js";
 import { paintIcon } from "./render/icons.js";
@@ -43,7 +43,7 @@ try {
 let saveEnabled = false,
   touchedAt = 0;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
-const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, skipConfirm: false, hide: null, dayP: 0.25 };
+const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, hide: null, dayP: 0.25 };
 // At 1× a day is long enough to walk between sessions; faster speeds make people hurry instead.
 // 1× is deliberately slow enough to watch a full training day.
 // Money and fans roll to their new value in the HUD, and every change floats out beside the counter.
@@ -115,7 +115,7 @@ function hud() {
   }
   const days = state.matchDay == null ? null : state.matchDay - state.day,
     speed = view.playing ? state.settings.speed : 0,
-    canPlay = state.phase === "planning" || (state.phase === "season" && days > 0);
+    canPlay = (state.phase === "planning" && !G.firstMeet(state)) || (state.phase === "season" && days > 0);
   // Insights earned since the last frame float up from the counter. A negative delay keeps the
   // animation smooth when the HUD is redrawn mid-bump.
   const insights = state.coaching.insights;
@@ -125,7 +125,7 @@ function hud() {
     bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
-  <div class="seg time">${[["pause", 0], ["play", 1], ["fast", 2], ["fast", 3]].map(([icon, i]) => `<button class="${speed === i ? "active" : ""} ${i === 3 ? "x3" : ""}" data-act="speed" data-speed="${i}" aria-label="${i === 3 ? "3 · Skip to next meet" : i ? i + "× · " + (i === 1 ? "Watch" : "Faster") : "Pause"}" ${canPlay ? "" : "disabled"}>${i === 3 ? "3 · Skip" : i ? i+"×" : ico(icon)}</button>`).join("")}</div>
+  <div class="seg time" role="group" aria-label="Training speed">${P.speedButtons(speed, "speed", { pause: true, disabled: !canPlay })}</div>
   <div class="res fans">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></div>
   ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
   <div class="res money">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></div>
@@ -153,7 +153,7 @@ function menu() {
     state.phase === "seasonEnd"
       ? `<button class="go" data-act="page" data-page="home">${ico("trophy")}<span>Season review</span></button>`
       : state.phase === "planning"
-        ? `<button class="go" data-act="page" data-page="league">${ico("league")}<span>Book a meet</span></button>`
+        ? `<button class="go" data-act="${G.firstMeet(state) ? "first-duel" : "page"}" data-page="league">${ico("league")}<span>${G.firstMeet(state) ? "First duel" : "Book a meet"}</span></button>`
       : ready
         ? `<button class="go hot" data-act="lobby">${ico("stadium")}<span>Call room</span></button>`
         : view.playing
@@ -506,16 +506,36 @@ function applyItem(item, aid) {
 
 function help(welcome = false) {
   stopPlaying();
+  if (G.firstMeet(state)) return dialog(
+    "A club starts here",
+    P.opening(state),
+    [{ label: welcome ? "To the first meet" : "Back to it", fn: () => {
+      state.welcomed = true;
+      save();
+      if (welcome) startFirstDuel();
+    } }],
+    { helper: true, eyebrow: "Ring & Sector · Your club story" },
+  );
   dialog(
     welcome ? "Welcome home, Coach!" : "How to play",
     `<p>${welcome ? "I'm " + HELPER + ", club secretary. Four throwers, one patchy field, big dreams." : "The drill, one more time:"}</p>
-    ${G.firstMeet(state) ? `<p><b>First, book a duel from Meets.</b> Your four throwers already have a lineup and a practice routine. Press Train to reach meet day, then watch them compete.</p><p class="hint">After each meet, we will introduce one new club system. There is nothing else to set up yet.</p>` : `<ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
+    <ol class="howto"><li><b>Book a meet</b> from the flag. A duel is a good first test.</li>
     <li><b>Train</b> and watch the days roll by. Stats pop up as they grow.</li>
     <li><b>Compete</b>, win prizes, then <b>build</b> and <b>shop</b> to get stronger.</li></ol>
-    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>`}${P.leagueTutorial()}`,
+    <p class="hint">Drag to look around and tap anything. Time only runs while you train.</p>${P.leagueTutorial()}`,
     [{ label: welcome ? "Let's throw!" : "Back to it", fn: () => ((state.welcomed = true), save()) }],
     { helper: true },
   );
+}
+
+function startFirstDuel() {
+  if (!G.firstMeet(state) || state.match) return;
+  stopPlaying();
+  if (state.pendingEvent) return showEvent();
+  if (!state.competition && !G.enterCompetition(state, { kind: "duel", tier: 0 })) return;
+  state.welcomed = true;
+  openWindow(state.day >= state.matchDay ? "lobby" : "home");
+  save();
 }
 
 // ── Time ────────────────────────────────────────────────────────────────
@@ -536,6 +556,7 @@ function play(speed = state.settings.speed || 1) {
   view.playing = true;
   // Carry on from the time already on the clock.
   lastDayAt = performance.now() - DAY_MS[speed] * view.dayP;
+  save();
   render();
 }
 function doDay(now) {
@@ -576,10 +597,10 @@ function startBeat(beat) {
   const cue = (at, fn) => presenter.cues.push({ at, fn });
   if (beat.type === "throw") {
     view.hide = { side: beat.side, eventIndex: beat.eventIndex, attempt: beat.attempt };
-    const offset = throwOffset(beat);
+    const offset = throwOffset(beat), timing = throwTiming(beat);
     if (hasCutIn(beat)) cue(SETUP_MS, () => sfx("skill"));
-    cue(offset + 1000, () => sfx("whoosh"));
-    cue(offset + LAND_MS, () => {
+    cue(offset + timing.releaseAt, () => sfx("whoosh"));
+    cue(offset + timing.landAt, () => {
       view.hide = null;
       sfx(beat.mark == null ? "foul" : "land");
       if (beat.side === "home" && beat.mark != null && (beat.newPb || beat.leading || beat.scoringSwing>0)) sfx("cheer");
@@ -644,7 +665,6 @@ $("#app").addEventListener("click", async (e) => {
   const act = b.dataset.act,
     id = +b.dataset.id,
     before = snapshot();
-  if (act !== "skip") view.skipConfirm = false;
   if (!["release", "tactic"].includes(act)) sfx("tap");
   switch (act) {
     case "window":
@@ -680,17 +700,9 @@ $("#app").addEventListener("click", async (e) => {
     case "pause":
       return stopPlaying(), render();
     case "speed":
-      if (+b.dataset.speed === 3) {
-        stopPlaying();
-        const report=G.skipPreparation(state);
-        world.reset(); view.dayP=0.25;
-        save(); render();
-        if (report.decision) return showEvent();
-        if (report.meetReady) return openWindow("lobby");
-        toast(report.reason || "Skipped " + report.days + " days. Club news is in the journal.");
-        return;
-      }
       return +b.dataset.speed ? (play(+b.dataset.speed), watchClub()) : (stopPlaying(), render());
+    case "first-duel":
+      return startFirstDuel();
     case "day":
       if (state.pendingEvent) return showEvent();
       return doDay(performance.now());
@@ -729,6 +741,7 @@ $("#app").addEventListener("click", async (e) => {
       break;
     case "meet-mode":
       state.settings.meetMode = b.dataset.value;
+      if (state.settings.meetMode === "watch" && state.match?.phase === "decide") return decide(state.match.last?.recommended || "balanced");
       break;
     case "follow-athlete":
       state.settings.followAthlete=state.settings.followAthlete===id?null:id;
@@ -754,19 +767,11 @@ $("#app").addEventListener("click", async (e) => {
         off = Math.abs(meterPos(performance.now()) - 0.62);
       return decide(view.meter.tactic, off < half ? "perfect" : off < 0.2 ? "good" : "poor");
     }
-    case "skip":
-      G.simulateMatch(state);
-      presenter = null;
-      view.hide = null;
-      view.meter = null;
-      view.skipConfirm = false;
-      sfx(G.meetOutcome(state.match) > 0 ? "win" : "event");
-      break;
     case "leave":
       G.leaveMatch(state);
       presenter = null;
       world.reset();
-      view.window = state.phase === "seasonEnd" ? "home" : null;
+      view.window = state.phase === "seasonEnd" ? "home" : G.pageUnlocked(state, b.dataset.page) && P.WINDOW_TITLES[b.dataset.page] ? b.dataset.page : null;
       if (state.phase === "seasonEnd") sfx(state.champion ? "win" : "event");
       break;
     case "book-league":
@@ -775,7 +780,7 @@ $("#app").addEventListener("click", async (e) => {
       if (state.pendingEvent) return showEvent();
       const booked = G.enterCompetition(state, { kind: act === "book-duel" ? "duel" : "league", tier: +b.dataset.tier,
         stage: +(b.dataset.stage || 0), rival: +(b.dataset.rival || 0), preparation: view.preparation || 5, spacing: view.spacing || 7 });
-      if (booked) { view.window = "home"; view.rival = null; world.replan(); toast("Booked for day " + state.matchDay + ". The countdown starts now."); }
+      if (booked) { view.window = G.firstMeet(state) ? "lobby" : "home"; view.rival = null; world.replan(); toast(G.firstMeet(state) ? "Your first rival is ready. Let's throw!" : "Booked for day " + state.matchDay + ". The countdown starts now."); }
       else toast("That competition isn't available right now.", "warn");
       break;
     }

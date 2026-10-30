@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import * as P from '../src/ui/pages.js';
 import {EVENT_IDS} from '../src/game-content.js';
-import {DAY_MS,playbackSpeed} from '../src/platform/pacing.js';
-import {advanceBeatClock,beatDuration,throwOffset,LAND_MS} from '../src/render/meet-presentation.js';
+import {DAY_MS,playbackSpeed,playbackRate} from '../src/platform/pacing.js';
+import {advanceBeatClock,beatDuration,throwOffset,throwTiming} from '../src/render/meet-presentation.js';
 import {validateCampaign,exportCampaign} from '../src/domain/campaign-save.js';
 
 function prepare(s) {
@@ -17,17 +17,20 @@ function prepare(s) {
 
 test('watching has full preparation, flight and result time even with highlights enabled',()=>{
   const beat={type:'throw',athleteId:1,attempt:0};
-  const duration=beatDuration(beat),landing=throwOffset(beat)+LAND_MS;
+  const duration=beatDuration(beat),landing=throwOffset(beat)+throwTiming(beat).landAt;
   assert(duration>=7000);
   for(const highlights of [false,true]) {
     assert.equal(advanceBeatClock(beat,0,1000,1,{highlights}),1000);
     assert.equal(advanceBeatClock(beat,0,1000,2,{highlights}),2000);
+    assert.equal(advanceBeatClock(beat,0,1000,3,{highlights}),8000);
     assert(duration-landing>=3000);
   }
   assert.equal(DAY_MS[1],30000);
   assert.equal(DAY_MS[2],15000);
-  assert.equal(DAY_MS[3],undefined,'3 is an action, never a clock rate');
-  assert.equal(playbackSpeed(3),1);
+  assert.equal(DAY_MS[3],3750,'three arrows keeps a continuous, much faster clock');
+  assert.equal(playbackSpeed(3),3);
+  assert.equal(playbackRate(3),8);
+  for (const invalid of [0,4,-1,NaN,'3',null]) assert.equal(playbackSpeed(invalid),1);
 });
 
 test('Skip preparation stops at the meet or an unresolved real decision and remains resumable',()=>{
@@ -71,13 +74,20 @@ test('duels record measured qualifiers for the player and simulated series for o
   const copy=validateCampaign(exportCampaign(s));assert.deepEqual(copy.competition.qualifyingMarks,s.competition.qualifyingMarks);
 });
 
-test('1×, 2× and 3 Skip controls remain explicit and quiet notifications default on',()=>{
-  const s=G.newGame(305);assert.equal(s.settings.speed,1);assert.equal(s.settings.meetSpeed,1);assert(s.settings.quietMode);
+test('three arrow speeds are selectable and persist, with no skip action in the meet',()=>{
+  const s=G.newGame(305);assert.equal(s.settings.speed,1);assert.equal(s.settings.meetSpeed,2);assert(s.settings.quietMode);
   G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
   const html=P.meetBar(s,{});
-  assert.match(html,/>1×</);assert.match(html,/>2×</);assert.match(html,/3 · Skip/);assert.doesNotMatch(html,/>4×</);
-  const old=structuredClone(s);old.settings.speed=3;old.settings.meetSpeed=4;
-  const copy=validateCampaign(old);assert.equal(copy.settings.speed,1);assert.equal(copy.settings.meetSpeed,1);
+  for (const n of [1,2,3]) {
+    assert(html.includes(`data-act="meet-speed" data-speed="${n}"`));
+    assert(html.includes('>'+ '▸'.repeat(n) +'</span>'));
+  }
+  assert.match(html,/Very fast · 8× speed/);
+  assert.doesNotMatch(html,/Skip|data-act="skip"/);
+  s.settings.speed=3;s.settings.meetSpeed=3;
+  const copy=validateCampaign(exportCampaign(s));assert.equal(copy.settings.speed,3);assert.equal(copy.settings.meetSpeed,3);
+  copy.settings.speed=4;copy.settings.meetSpeed=4;
+  const old=validateCampaign(copy);assert.equal(old.settings.speed,1);assert.equal(old.settings.meetSpeed,1);
 });
 
 

@@ -1995,6 +1995,14 @@ tr.us {
   border-color: var(--green2);
   background: #e5f1e6;
 }
+.speed-arrows { white-space: nowrap; font-size: 15px; line-height: 1; }
+.opening-pitch { font: 700 20px var(--display); }
+.opening-squad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0; text-align: center; }
+.opening-squad > div { display: grid; justify-items: center; gap: 3px; }
+.opening-squad .portrait { width: 48px; height: 48px; }
+.opening-squad b { font-size: 13px; }
+.opening-squad small { font-size: 10px; color: var(--muted); }
+.first-meet-brief { column-span: all; }
 
 /* ── Live meet ─────────────────────────────────────────────────────── */
 .meet-head {

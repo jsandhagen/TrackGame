@@ -8,7 +8,7 @@
 // power position) · 2 release · 3 follow-through · 4 and up the event's own technique frames.
 // A right-handed thrower turns anticlockwise seen from above: back to the sector (side-on,
 // flipped), round to face the camera, side-on to the sector, facing away, and so on.
-import { runFrame, frontFootOf, gripOf } from "./sprites.js";
+import { runFrame, RUN_STRIDE, frontFootOf, implementPointOf } from "./sprites.js";
 
 const ease = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
@@ -17,12 +17,13 @@ const pick = (list, q) => list[Math.min(list.length - 1, Math.floor(q * list.len
 
 // Timed contacts, not evenly spaced poses: slow preparation, a quick catch, then leg drive.
 // Translate between contacts without restarting an ease on every animation frame.
-function track(m, p, keys) {
+function track(m, p, keys, smooth = false) {
   let i = 0;
   while (i + 1 < keys.length && p >= keys[i + 1][0]) i++;
   const [t, frame, dx, flip = false, dy = 0] = keys[i],
     next = keys[i + 1] || keys[i],
     q = next[0] === t ? 0 : (p - t) / (next[0] - t);
+  if (smooth && i + 1 < keys.length) m.blend = { frame: next[1], flip: next[3] || false, t: q };
   return Object.assign(m, { frame, flip, dx: lerp(dx, next[2], q), dy: lerp(dy, next[4] || 0, q) });
 }
 
@@ -52,13 +53,52 @@ export function throwMotion(ev, level, phase, p, { foul = false, style = 0 } = {
     const before = m.dx;
     // Legal deliveries stop with the outlined shoe behind the near edge of the arc (dx = 0).
     // Keep this guard tied to the sprite geometry as new technique/recovery poses are added.
-    if (!foul || phase !== "follow") m.dx = Math.min(m.dx, -2 - 2 * frontFootOf({ pose: m.run ? "carry" : "throw", event: ev, frame: m.frame, flip: m.flip }));
+    if (!foul || phase !== "follow") m.dx = Math.min(m.dx, -2 - 2 * frontFootOf({ pose: m.pose || (m.run ? "carry" : "throw"), event: ev, frame: m.frame, flip: m.flip, blend: m.blend }));
     m.dy += Math.round(-m.dx * 0.1) - Math.round(-before * 0.1);
     return m;
   }
   if (ev === "hammer") return hammer(m, level, phase, p, foul, style);
-  if (ev === "discus") return discus(m, level, phase, p, foul, style);
+  if (ev === "discus") {
+    discus(m, level, phase, p, foul, style);
+    return discusFacing(m, level, phase, p, style);
+  }
   return shot(m, level, phase, p, foul, style);
+}
+
+// Unwrapped counterclockwise headings, seen from above. Sector = 0; π faces the rear.
+// Torso, head, limb depth and pelvis share these angles instead of inferring a turn from
+// unrelated side/front/back drawings. The shoulder wind may reverse; the throwing turn does not.
+function discusFacing(m, level, phase, p, style) {
+  const pi = Math.PI, end = level >= 2 ? 4 * pi : level === 1 ? 2 * pi : 0;
+  let chest, hips;
+  const interpolate = keys => {
+    let i = 0;
+    while (i + 1 < keys.length && p >= keys[i + 1][0]) i++;
+    const a = keys[i], b = keys[i + 1] || a;
+    let q = a[0] === b[0] ? 0 : (p - a[0]) / (b[0] - a[0]);
+    if (level >= 2 && phase === "technique" && p < 0.4) q = ease(q);
+    return [lerp(a[1], b[1], q) * pi, lerp(a[2], b[2], q) * pi];
+  };
+  if (phase === "ready") chest = hips = level >= 2 ? pi : 0;
+  else if (phase === "technique") {
+    const flight = level === 3 ? 0.73 : 0.75;
+    [chest, hips] = interpolate(level >= 2
+      ? [[0, 1, 1], [0.16, 1.15, 1], [0.4, 0.8, 1], [0.5, 1.2, 1.3], [0.64, 1.5, 1.65],
+        [flight - 0.04, 1.8, 1.95], [flight, 2.05, 2.2], [flight + 0.04, 2.65, 2.85],
+        [0.83, 3, 3.2], [0.86, 3.15, 3.45], [0.89, 3.5, 3.7], [0.94, 3.72, 3.9], [0.975, 3.9, 4], [1, 4, 4]]
+      : level === 1 ? [[0, 0, 0], [0.28, 0.1, 0.2], [0.58, 0.35, 0.5], [0.7, 0.65, 0.85],
+        [0.76, 1, 1.2], [0.81, 1.15, 1.45], [0.86, 1.5, 1.7], [0.93, 1.72, 1.9], [0.975, 1.9, 2], [1, 2, 2]]
+      : [[0, 0, 0], [0.6, -0.35, -0.2], [0.85, -0.2, -0.05], [0.95, -0.08, 0], [1, 0, 0]]);
+  } else {
+    const reverse = style === 1 || (style === 0 && level >= 2);
+    const releaseTurn = reverse ? 0.3 * pi : 0.15 * pi;
+    chest = hips = end + (phase === "release" ? p * releaseTurn
+      : releaseTurn + p * (reverse && style === 0 ? 0.7 * pi : 0.25 * pi));
+  }
+  m.turn = chest; m.hipTurn = hips;
+  m.blend ||= { frame: m.frame, flip: m.flip, t: 0 };
+  Object.assign(m.blend, { turn: chest, hipTurn: hips, basisFlip: m.flip });
+  return m;
 }
 
 function finish(m, p, foul, at) {
@@ -105,47 +145,53 @@ function shot(m, level, phase, p, foul, style) {
     [drive + 0.06, 5, -8, true, -2], [catchAt, 9, -2, true], [catchAt + 0.08, 1, 0], [0.88, 10, 4], [1, 10, 6]]);
 }
 
-// Discus frames: 4 and 5 pre-swings back and forward (facing away), 17 the backswing wound right
-// round, 18, 6 and 19 the entry on the left foot (weight over, right leg sweeping wide, right knee
+// Discus frames: 22–24 the planted forward swing and wound backswing; 18, 6 and 19 the entry on
+// the left foot (weight over, right leg sweeping wide, right knee
 // swinging through), 7 the drive across toward the sector, 8 and 10 facing away on the right foot,
 // 9 back to the sector again, 1 and 11 the power position opening, 14 the strike. After release,
 // 3, 15 and 16 carry the turn round and stop it.
 function discus(m, level, phase, p, foul, style) {
-  if (phase === "ready") return Object.assign(m, level ? { frame: 4, flip: true, dx: BACK + 4 } : { frame: 0 });
+  if (phase === "ready") return Object.assign(m, level === 1 ? { frame: 20, dx: -18 } : level ? { frame: 22, flip: true, dx: -20 } : { frame: 0 });
   const reverses = style === 1 || (style === 0 && level >= 2);
-  if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : reverses ? 3 : 12, dx: 4 });
+  if (phase === "release") return track(m, p, [[0, 2, 4], [1, reverses ? 3 : 12, 4]], true);
   if (phase === "follow") {
     finish(m, p, foul, 4);
     // Classic: spinners reverse and let the turn run on round to the back of the circle; a standing
     // or half-turn thrower wraps the arm across and settles. Bouncy: a reverse with a hop on the
     // right foot. Composed: no reverse, the arm wrapping across over planted feet.
-    if (style === 1) return hop(Object.assign(m, { frame: p < 0.6 ? 3 : 13 }), p, 0.28, 0.52, 5);
-    if (reverses) Object.assign(m, p < 0.3 ? { frame: 3 } : p < 0.6 ? { frame: 15 } : { frame: 16, flip: true });
-    else m.frame = p < (style === 2 ? 0.4 : 0.3) ? 12 : 13;
+    const keys = style === 1 ? [[0, 3, 4], [0.7, 13, 4], [1, 13, 4]]
+      : reverses ? [[0, 3, 4], [0.42, 15, 4], [0.82, 16, 4, true], [1, 16, 4, true]]
+      : [[0, 12, 4], [style === 2 ? 0.85 : 0.6, 13, 4], [1, 13, 4]];
+    const dx = m.dx;
+    track(m, p, keys, true); m.dx = dx;
+    if (style === 1) return hop(m, p, 0.28, 0.52, 5);
     return m;
   }
   // Standing throw: swing back and forward, wind up, sling it.
   if (level === 0) {
-    if (p < 0.6) return Object.assign(m, { frame: p < 0.3 ? 0 : 1 });
-    return track(m, p, [[0.6, 1, 0], [0.84, 11, 2], [0.93, 14, 3], [1, 14, 4]]);
+    return track(m, p, [[0, 0, 0], [0.6, 1, 0], [0.85, 11, 2], [0.95, 14, 4], [1, 2, 4]], true);
   }
-  // Pre-swings with the back to the sector, then a half turn or a turn and a half into the power
-  // position.
-  const start = BACK + 4;
+  // South African / sprint-turn drill: start at the rear facing the sector, right foot behind
+  // the left support leg. Step through, drive onto the right foot in the middle, then turn and
+  // plant the left before delivery. It omits the full throw's rear-facing wind and left sweep.
   if (level === 1) {
-    if (p < 0.35) return Object.assign(m, { frame: pick([5, 4, 5, 4], p / 0.35), flip: true, dx: start });
-    return track(m, p, [[0.35, 6, start], [0.64, 10, -2], [0.76, 1, 0], [0.88, 11, 2], [0.94, 14, 3], [1, 14, 4]]);
+    return track(m, p, [[0, 20, -18], [0.28, 21, -10], [0.58, 7, -6, false, -2],
+      [0.7, 8, -2], [0.76, 10, -2], [0.81, 9, 0, true], [0.86, 1, 0], [0.93, 11, 2], [0.975, 14, 4], [1, 2, 4]], true);
   }
   // Perkovic, Alekna and Stahl reference: forward, then a long backswing wound right round, so
   // the entry starts from the discus's furthest point back. A slow, wide entry on the bent left
   // leg, then a low, quick drive with only a brief flight, a right-foot pivot in the middle, the
   // left foot down straight after and an unwinding in which the hips, then the chest, then the
   // long arm come through. Slow to fast.
-  const flight = level === 3 ? 0.52 : 0.5;
-  return track(m, p, [[0, 5, start, true], [0.1, 17, start], [0.22, 4, start, true],
-    [0.26, 18, start], [0.33, 6, start + 1], [flight - 0.07, 19, -12], [flight, 7, -9, false, -2],
-    [flight + 0.08, 8, -3], [flight + 0.13, 10, -1], [flight + 0.19, 9, 0, true],
-    [0.78, 1, 0], [0.86, 11, 2], [0.94, 14, 3], [1, 14, 4]]);
+  const start = -20, flight = level === 3 ? 0.73 : 0.75;
+  track(m, p, [[0, 22, start, true], [0.16, 23, start, true], [0.4, 24, start],
+    [0.5, 18, start], [0.64, 6, start], [flight - 0.04, 19, start], [flight, 7, -8, false, -2],
+    [flight + 0.04, 8, -2], [0.83, 10, -2], [0.86, 9, 0, true],
+    [0.89, 1, 0], [0.94, 11, 2], [0.975, 14, 4], [1, 2, 4]], true);
+  // Only the preparatory swing eases at its reversals. The travelling contacts flow straight
+  // through one another; easing every step would repeatedly brake the throw.
+  if (p < 0.4) m.blend.t = ease(m.blend.t);
+  return m;
 }
 
 // Hammer frames: 4 the low point of a wind, 5 a turn side-on (flipped when facing away from the
@@ -218,45 +264,60 @@ function orbit(th, r, steepen) {
 // 8 the arm sweeping down and 9 the reverse that catches the run-up. The run-up uses "carry".
 function javelin(m, level, phase, p, foul, style) {
   const slope = (dx) => Math.round(-dx * 0.1);
-  if (phase === "ready") return Object.assign(m, { frame: 0, dx: level ? 20 - 96 : -70, dy: slope(level ? 20 - 96 : -70) });
-  if (phase === "release") return Object.assign(m, { frame: 2, dx: -20, dy: slope(-20) });
+  const start = level ? -96 : -64;
+  if (phase === "ready") return Object.assign(m, { frame: level ? 0 : 1, dx: start, dy: slope(start) });
+  if (phase === "release") {
+    track(m, p, [[0, 2, -20], [1, 8, -20]], true); m.dy = slope(-20); return m;
+  }
   if (phase === "follow") {
     const r = finish(m, p, foul, -20);
     // Classic: fold over the block, reverse onto the right foot and stand. Bouncy: hop again on
     // the right foot after the reverse. Composed: hold the fold over the block, then rise.
-    r.frame = style === 2 ? (p < 0.4 ? 8 : 3) : p < 0.22 ? 8 : p < (style === 1 ? 0.72 : 0.55) ? 9 : 3;
+    track(r, p, style === 2 ? [[0, 8, -20], [0.65, 3, -20], [1, 3, -20]]
+      : [[0, 8, -20], [0.28, 9, -20], [style === 1 ? 0.9 : 0.72, 3, -20], [1, 3, -20]], true);
     r.dx = foul ? lerp(-20, 4, p * 1.5) : lerp(-20, style === 2 ? -18 : -16, ease(Math.min(1, p / 0.55)));
     r.dy = slope(r.dx);
     return style === 1 ? hop(r, p, 0.46, 0.7, 4) : r;
   }
   // The run, its stride locked to the ground at double size.
   const run = (from, to, q) => {
-    const dx = lerp(from, to, q);
-    return Object.assign(m, { frame: runFrame((dx - from) / 2), run: true, dx, dy: slope(dx) });
+    const dx = lerp(from, to, q), distance = dx - from, step = Math.max(0, distance - 3) / 2,
+      lastContact = 3 + Math.floor((to - from - 3 - 1e-6) / (2 * RUN_STRIDE)) * 2 * RUN_STRIDE;
+    Object.assign(m, { frame: runFrame(step), run: true, dx, dy: slope(dx),
+      blend: { pose: "carry", frame: runFrame(step + RUN_STRIDE), flip: false, t: step / RUN_STRIDE % 1 } });
+    if (distance < 3) Object.assign(m, { frame: 0, pose: "throw", blend: { pose: "carry", frame: 0, flip: false, t: distance / 3 } });
+    else if (distance >= lastContact) Object.assign(m, { frame: runFrame((lastContact - 3) / 2),
+      blend: { pose: "throw", frame: 18, flip: false, t: (distance - lastContact) / (to - from - lastContact) } });
+    return m;
   };
   if (level === 0) {
-    // A short run with the javelin over the shoulder, then draw it back, block and throw.
-    if (p < 0.75) return run(-70, -28, p / 0.75);
-    const r = track(m, p, [[0.75, 1, -28], [0.85, 6, -24], [0.93, 11, -24], [0.97, 7, -20], [1, 7, -20]]);
-    r.dy = slope(r.dx);
+    // Three-step teaching progression: already withdrawn, left-right-left into the block.
+    // It has a compact crossover, but none of the full approach's overhead-carry running.
+    const r = track(m, p, [[0, 1, start], [0.28, 12, -62], [0.62, 21, -52],
+      [0.72, 10, -38, false, -1], [0.82, 20, -28], [0.88, 6, -26],
+      [0.93, 19, -26], [0.97, 11, -24], [0.99, 7, -20], [1, 2, -20]], true);
+    r.dy += slope(r.dx);
     return r;
   }
-  // Full run-up from the end of the runway, withdrawal into crossover steps, then the block.
-  const [runEnd, crossEnd] = level === 1 ? [0.62, 0.84] : [0.52, 0.84],
-    start = 20 - 96;
-  if (p < runEnd) return run(start, -36, p / runEnd);
-  if (p < crossEnd) {
-    const q = (p - runEnd) / (crossEnd - runEnd),
-      dx = lerp(-36, -26, q),
-      steps = level === 1 ? [1, 4, 5] : [1, 4, 5, 4, 10, 5],
-      frame = pick(steps, q);
-    return Object.assign(m, { frame, dx, dy: slope(dx) });
-  }
+  // Carry overhead during a cyclic run, then withdraw on a left contact. Crossovers travel
+  // down the runway, rather than changing legs almost in place. The right foot lands before
+  // the left block; the drawn arm stays behind the advancing hips until the final delivery.
+  const runEnd = level === 1 ? 0.38 : 0.3, withdrawAt = level === 1 ? -76 : -80;
+  if (p < runEnd) return run(start, withdrawAt, Math.pow(p / runEnd, 1.25));
   // Chopra reference: the impulse stride precedes a firm left block; hips then elbow lead.
   // More advanced approaches show the long impulse stride, rather than simply more running.
   // The block to release is the quickest part of the throw.
-  const r = track(m, p, [[crossEnd, 6, -26], [0.92, 11, -24], [0.97, 7, -20], [1, 7, -20]]);
-  r.dy = slope(r.dx);
+  const keys = level === 1
+    ? [[runEnd, 18, withdrawAt], [0.43, 12, -74], [0.48, 15, -71], [0.53, 4, -68],
+      [0.56, 16, -65], [0.59, 5, -62], [0.615, 13, -59], [0.65, 17, -56],
+      [0.72, 21, -46], [0.77, 10, -36, false, -1], [0.82, 20, -28],
+      [0.87, 6, -26], [0.92, 19, -26], [0.95, 11, -24], [0.98, 7, -20], [1, 2, -20]]
+    : [[runEnd, 18, withdrawAt], [0.35, 12, -78], [0.4, 15, -75], [0.45, 4, -72],
+      [0.5, 16, -69], [0.54, 5, -66], [0.58, 13, -63], [0.62, 17, -58],
+      [0.69, 21, -48], [0.76, level === 3 ? 14 : 10, -36, false, -1],
+      [0.83, 20, -28], [0.89, 6, -26], [0.93, 19, -26], [0.96, 11, -24], [0.985, 7, -20], [1, 2, -20]];
+  const r = track(m, p, keys, true);
+  r.dy += slope(r.dx);
   return r;
 }
 
@@ -268,7 +329,7 @@ export function throwReleasePoint(ev, level) {
     return [m.dx + m.ball.dx, m.dy + m.ball.dy];
   }
   const m = throwMotion(ev, level, "release", 0),
-    [x, y] = gripOf({ pose: "throw", event: ev, frame: m.frame, flip: m.flip });
+    [x, y] = implementPointOf({ pose: "throw", event: ev, frame: m.frame, flip: m.flip, blend: m.blend });
   return [m.dx + x * 2, m.dy + y * 2];
 }
 

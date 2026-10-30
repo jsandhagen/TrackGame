@@ -3,18 +3,89 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import * as P from '../src/ui/pages.js';
 import {validateCampaign, exportCampaign} from '../src/domain/campaign-save.js';
-import {advanceBeatClock, beatDuration, throwOffset, LAND_MS, RESULT_MS, HIGHLIGHT_MS, ROUTINE_MS, hasCutIn, throwResult} from '../src/render/meet-presentation.js';
+import {advanceBeatClock, beatDuration, throwOffset, throwTiming, throwPhase, flightPoint, RESULT_MS, HIGHLIGHT_MS, hasCutIn, throwResult} from '../src/render/meet-presentation.js';
+import {playbackRate} from '../src/platform/pacing.js';
+import {EVENTS,EVENT_IDS} from '../src/game-content.js';
 
-test('1× preserves full watching time and 2× speeds up without hidden highlight acceleration', () => {
- for (const speed of [1,2]) for (const highlights of [false,true]) for (const important of [false,true]) {
-  const beat={type:'throw',athleteId:1,attempt:1,activations:['Captain'],newPb:important,previousPb:important?12:0};
-  const landing=throwOffset(beat)+LAND_MS, duration=beatDuration(beat);
+test('sector-foul flights scale with the thrower, stay unscored and survive saving',()=>{
+ for(const event of EVENT_IDS) {
+  const flights=[];
+  for(const ability of [15,95]) {
+   const s=G.newGame(31);G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
+   const m=s.match;m.eventIndex=EVENT_IDS.indexOf(event);m.entryIndex=0;m.turnSide='home';m.phase='decide';m.started[m.eventIndex]=true;
+   const a=G.homeAthlete(s);a.stats.fill(ability);a.mastery[event]=ability;a.stamina=100;a.condition=100;a.skills=[];a.equipped=[];
+   const records=structuredClone(s.worldRecords),pb=structuredClone(a.pb);
+   // The first roll is below the minimum foul probability, with the usual distance roll after it.
+   s.rng=1972;
+   const rngCheck={rng:s.rng};assert(G.random(rngCheck)<0.01);G.gauss(rngCheck);
+   const beat=G.decideThrow(s,'attack','poor');
+   assert(beat.foul);assert.equal(beat.mark,null);assert(beat.flightDistance>0);
+   assert.equal(s.rng,rngCheck.rng,'foul visuals do not consume extra randomness');
+   assert.deepEqual(m.fields[m.eventIndex].home[0].marks,[null]);
+   assert.equal(G.fieldLeaderboard(s).find(row=>row.side==='home'&&row.id===a.id).points,0);
+   assert.deepEqual(a.pb,pb);assert.deepEqual(s.worldRecords,records);
+   assert.equal(throwTiming(beat).distance,beat.flightDistance);
+   assert.equal(throwResult(beat).headline,'Foul');
+   flights.push(beat.flightDistance);
+   const copy=validateCampaign(exportCampaign(s));
+   assert.deepEqual(copy.match.last,beat);assert.deepEqual(throwTiming(copy.match.last),throwTiming(beat));
+   if(event==='shot'&&ability===95) {
+    for(const invalid of [-1,201,NaN,Infinity,'20']) {
+     const bad=structuredClone(s);bad.match.last.flightDistance=invalid;
+     assert.throws(()=>validateCampaign(bad));
+    }
+    const legacy=structuredClone(s);delete legacy.match.last.flightDistance;
+    assert(validateCampaign(legacy),'older saves can omit the visual distance');
+    assert(G.simulateMatch(s));assert(G.simulateMatch(copy));assert.deepEqual(copy.match,s.match);
+   }
+  }
+  assert(flights[1]>flights[0]*1.5,`${event}: a stronger thrower sends a sector foul farther`);
+  const short=throwTiming({event,mark:null,foul:true,flightDistance:flights[0]}),long=throwTiming({event,mark:null,foul:true,flightDistance:flights[1]});
+  assert(long.flightMs>short.flightMs);assert(long.arcHeight>short.arcHeight);
+ }
+ assert.equal(throwTiming({event:'shot',mark:9,flightDistance:20}).distance,9,'legal marks retain their measured landing');
+});
+
+test('deliveries build before release and short marks have shorter, lower flights',()=>{
+ for(const [event,content] of Object.entries(EVENTS)) {
+  const short=throwTiming({event,mark:content.min}),long=throwTiming({event,mark:content.record});
+  assert(short.releaseAt-short.readyMs>=1700,`${event}: wind-up is readable`);
+  assert.equal(short.releaseAt,long.releaseAt,'distance never accelerates the thrower');
+  assert(short.flightMs<long.flightMs);assert(short.arcHeight<long.arcHeight);
+  assert(short.flightMs<900,`${event}: a novice throw does not float`);
+  assert(long.flightMs<=1400);
+  assert.equal(throwPhase(short,short.releaseAt-1)[0],'technique');
+  assert.deepEqual(throwPhase(short,short.releaseAt),['release',0]);
+  const recovering=throwPhase(short,short.landAt);
+  assert.equal(recovering[0],'follow');assert(recovering[1]<1,'a short flight does not rush the recovery');
+  assert.deepEqual(throwPhase(short,short.releaseAt+short.releaseMs+short.recoveryMs),['follow',1]);
+  const foul=throwTiming({event,mark:null,foul:true});
+  assert(Number.isFinite(foul.landAt));assert(foul.landAt>foul.releaseAt);
+ }
+ assert(throwTiming({event:'shot',mark:9}).flightMs<500);
+ assert(throwTiming({event:'hammer'}).releaseAt>throwTiming({event:'shot'}).releaseAt,'hammer winds and turns have more time');
+});
+
+test('projectiles leave the hand, follow a falling arc and finish at the measured mark',()=>{
+ const start=[20,-40],end=[220,0],height=40;
+ assert.deepEqual(flightPoint(start,end,0,height),start);
+ assert.deepEqual(flightPoint(start,end,1,height),end);
+ const samples=Array.from({length:5},(_,i)=>flightPoint(start,end,i/4,height));
+ const steps=samples.slice(1).map((p,i)=>p[1]-samples[i][1]);
+ assert(steps.every((v,i)=>!i||v>steps[i-1]),'downward velocity increases toward impact');
+ assert.deepEqual(samples.map(p=>p[0]),[20,70,120,170,220]);
+});
+
+test('all arrow speeds preserve setup, flight and results without hidden highlight acceleration', () => {
+ for (const speed of [1,2,3]) for (const highlights of [false,true]) for (const important of [false,true]) for(const [event,content] of Object.entries(EVENTS)) for(const mark of [null,content.min,content.record]) {
+  const beat={type:'throw',event,mark,athleteId:1,attempt:1,activations:['Captain'],newPb:important,previousPb:important?12:0};
+  const landing=throwOffset(beat)+throwTiming(beat).landAt, duration=beatDuration(beat);
   let elapsed=0,time=0,landedAt=null;
   while(elapsed<duration) {
    elapsed=advanceBeatClock(beat,elapsed,10,speed,{highlights});time+=10;
    if(landedAt==null && elapsed>=landing)landedAt=time;
   }
-  const expected=(important?HIGHLIGHT_MS:RESULT_MS)/speed;
+  const expected=(important?HIGHLIGHT_MS:RESULT_MS)/playbackRate(speed);
   assert(time-landedAt>=expected-10, `${speed}x highlights=${highlights} result lasted ${time-landedAt}ms`);
  }
  assert(!hasCutIn({type:'throw',activations:['Captain'],attempt:0,scoringSwing:5}));

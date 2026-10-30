@@ -2,10 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
-import { frontFootOf, gripOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
+import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
 const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i) => throwMotion(ev, level, phase, i / n));
+const spriteOptions = (event, m) => ({ pose: m.pose || (m.run ? 'carry' : 'throw'), event, frame: m.frame, flip: m.flip, blend: m.blend });
+const worldFeet = (event, m) => feetOf(spriteOptions(event, m)).map(([x, y]) => [m.dx + 2 * (m.flip ? -3 - x : x), m.dy + 2 * y]);
 
 test('every event and form level produces valid frames and stays near the circle or on the runway', () => {
   for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) for (const phase of phases)
@@ -28,9 +30,115 @@ test('better form means a more complete technique', () => {
   assert(throwMotion('jav', 2, 'ready', 0).dx < throwMotion('jav', 0, 'ready', 0).dx);
   const crossover = (m) => !m.run && (m.frame === 4 || m.frame === 5);
   assert(sample('jav', 2, 'technique').some(crossover));
-  assert(!sample('jav', 0, 'technique').some(crossover));
+  assert(sample('jav', 0, 'technique').every(m=>!m.run), 'three-step form starts withdrawn instead of copying the full run-up');
   // The best throwers blur through their turns.
   assert(throwMotion('discus', 3, 'technique', 0.5).ghost); assert(!throwMotion('discus', 2, 'technique', 0.5).ghost);
+});
+
+test('discus South African starts facing the sector and the full throw adds the rear-facing entry',()=>{
+ const half=sample('discus',1,'technique',500),full=sample('discus',2,'technique',500);
+ const range=list=>Math.max(...list.map(m=>m.dx))-Math.min(...list.map(m=>m.dx));
+ assert(!throwMotion('discus',1,'ready',0).flip,'South African starts facing the sector');
+ assert(throwMotion('discus',2,'ready',0).flip,'full turn starts facing the rear');
+ assert(range(half)>=20 && range(full)>=24,'both techniques drive from the rear into the middle');
+ assert(!half.some(m=>[6,17,18,19].includes(m.frame)),'the rear wind and wide left-foot entry belong to the full throw');
+ assert(half.some(m=>m.frame===21)&&half.some(m=>m.frame===7&&m.dy<0),'South African steps through and drives low onto the right foot');
+ assert(half.findIndex(m=>m.frame===7)<full.findIndex(m=>m.frame===7),'the facing-sector drill omits the extra entry turn');
+ assert(full.some(m=>m.frame===7&&m.dy<0),'full throw drives low across the circle');
+ for(const list of [half,full]) {
+  const frames=list.map(m=>m.frame);
+  assert(frames.indexOf(10)<frames.indexOf(9),'right-foot pivot precedes the left-foot plant');
+  assert(frames.indexOf(9)<frames.indexOf(11)&&frames.indexOf(11)<frames.indexOf(14),'plant, hips, then the long-arm strike');
+ }
+});
+
+test('both discus shoes stay planted throughout the full wind, including the changes of facing', () => {
+ for (const level of [2, 3]) {
+  const feet = m => worldFeet('discus', m).sort((a, b) => a[0] - b[0]);
+  const initial = feet(throwMotion('discus', level, 'ready', 0));
+  assert(initial[1][0] - initial[0][0] <= 4, 'rear-facing shoulder-width stance projects narrowly along the throwing direction');
+  for (let i = 0; i <= 400; i++) {
+   const m = throwMotion('discus', level, 'technique', i / 1000);
+   const current = feet(m);
+   current.forEach((point, k) => point.forEach((v, axis) => assert(Math.abs(v - initial[k][axis]) < 1e-8, `wind moves shoe ${k} at ${i / 1000}`)));
+  }
+ }
+});
+
+test('discus torso and pelvis turn counterclockwise without reversing during the throw', () => {
+ for (const level of [1, 2, 3]) {
+  const start = level === 1 ? 0 : 0.4;
+  const motion = sample('discus', level, 'technique', 2000).filter((_, i) => i / 2000 >= start);
+  for (let i = 1; i < motion.length; i++) {
+   assert(motion[i].turn >= motion[i - 1].turn - 1e-10, 'chest heading does not reverse after the wind');
+   assert(motion[i].hipTurn >= motion[i - 1].hipTurn - 1e-10, 'pelvis keeps turning in the same direction');
+  }
+  assert.equal(throwMotion('discus', level, 'technique', 1).turn, (level === 1 ? 2 : 4) * Math.PI);
+ }
+ // Viewed from the sector's side, the right shoulder crosses from the screen-left side
+ // while facing the camera to screen-right while facing away. Both body and depth follow it.
+ const front = throwMotion('discus', 2, 'technique', 0.64), back = throwMotion('discus', 2, 'technique', 0.79);
+ const f = armJointsOf(spriteOptions('discus', front)), b = armJointsOf(spriteOptions('discus', back));
+ assert(f[0][0][0] < f[1][0][0], 'right shoulder is on the left in the front-facing entry');
+ assert(b[1][0][0] > b[0][0][0], 'right shoulder moves to the right in the away-facing catch');
+});
+
+test('javelin penultimate travels farther than the final block step in every form', () => {
+ for (let level = 0; level < 4; level++) {
+  const motion = sample('jav', level, 'technique', 4000);
+  const first = frame => motion.findIndex(m => !m.run && m.frame === frame);
+  const push = first(21), catchAt = first(20), block = first(6), impulse = first(level === 3 ? 14 : 10);
+  assert(push < impulse && impulse < catchAt && catchAt < block, 'left take-off, impulse, right catch, left block');
+  const left = worldFeet('jav', motion[push])[0][0], right = worldFeet('jav', motion[catchAt])[1][0], front = worldFeet('jav', motion[block])[0][0];
+  assert(right - left > front - right, 'penultimate is the longer stride');
+  assert(catchAt - push > 1.5 * (block - catchAt), 'right catch is followed by a quick final left block');
+  assert(motion[impulse].dy < Math.round(-motion[impulse].dx * 0.1), 'impulse has a low flight');
+  assert(worldFeet('jav', motion[impulse]).every(([, y]) => y < motion[impulse].dy - 2), 'both shoes are clear during the impulse');
+ }
+});
+
+test('discus accelerates into a short right-left delivery while retaining its centre support', () => {
+ for (const level of [1, 2, 3]) {
+  const motion = sample('discus', level, 'technique', 2000);
+  const at = frame => motion.findIndex(m => m.frame === frame) / 2000;
+  assert(at(9) - at(8) < 0.13, 'right catch to left plant is quick');
+  assert(1 - at(9) < 0.2, 'delivery accelerates after the left plant');
+  for (const m of motion.filter(m => [8, 10, 9, 1, 11, 14].includes(m.frame)))
+   assert(worldFeet('discus', m).some(([x]) => Math.abs(x) < 1e-8), 'the right foot retains its catch position while the other leg plants');
+ }
+});
+
+test('discus and javelin interpolate their limbs and join phase boundaries without a hand jump', () => {
+ for (const event of ['discus', 'jav']) for (let level = 0; level < 4; level++) {
+  const hand = m => { const [x, y] = gripOf(spriteOptions(event, m)); return [m.dx + x * 2, m.dy + y * 2]; };
+  const motion = sample(event, level, 'technique', 4000);
+  assert(motion.some(m => m.blend && m.blend.t > 0.1 && m.blend.t < 0.9), 'in-between joints accompany body travel');
+  for (let i = 1; i < motion.length; i++) {
+   const a = hand(motion[i - 1]), b = hand(motion[i]);
+   assert(Math.hypot(a[0] - b[0], a[1] - b[1]) < 1.5, `${event}/${level}: hand snaps at ${i / 4000}`);
+  }
+  for (let i = 0; i < phases.length - 1; i++) {
+   const a = hand(throwMotion(event, level, phases[i], 1)), b = hand(throwMotion(event, level, phases[i + 1], 0));
+   assert(Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-8, `${event}/${level}: hand jumps between ${phases[i]} and ${phases[i + 1]}`);
+  }
+ }
+});
+
+test('javelin three-step and full approaches have different starts, travel and footwork',()=>{
+ const short=sample('jav',0,'technique',500),full=sample('jav',1,'technique',500);
+ assert(short.every(m=>!m.run),'short approach has three withdrawn steps, without an overhead carry run');
+ assert(full.some(m=>m.run),'full approach adds a cyclic overhead-carry run');
+ const range=list=>Math.max(...list.map(m=>m.dx))-Math.min(...list.map(m=>m.dx));
+ assert(range(full)>1.5*range(short),'full approach covers visibly more runway while both forms have room for a penultimate');
+ assert(throwMotion('jav',0,'ready',0).dx-throwMotion('jav',1,'ready',0).dx>=30);
+ for(const level of [1,2,3]) {
+  const all=sample('jav',level,'technique',1000),steps=all.filter(m=>!m.run&&[12,4,5,13,10,14].includes(m.frame));
+  assert(range(steps)>=24,'crossovers move down the runway instead of shuffling in place');
+  const firstWithdrawal=all.findIndex(m=>!m.run);
+  assert(all.slice(0,firstWithdrawal).every(m=>m.run));
+  assert(all.slice(firstWithdrawal).every(m=>!m.run),'the javelin stays drawn after withdrawal');
+  assert(all.every(m=>!m.flip&&!m.released),'approach stays aimed at the sector and retains the javelin');
+ }
 });
 
 test('the hammer ball swings round and passes behind the thrower; fouls carry over the front', () => {
@@ -42,7 +150,7 @@ test('the hammer ball swings round and passes behind the thrower; fouls carry ov
 test('legal javelin shoes stay behind the arc throughout the delivery and the result reaction', () => {
   for (let level = 0; level < 4; level++) {
     for (const phase of phases) for (const m of sample('jav', level, phase, 400)) {
-      const toe = m.dx + 2 * frontFootOf({ pose: m.run ? 'carry' : 'throw', event: 'jav', frame: m.frame, flip: m.flip });
+      const toe = m.dx + 2 * frontFootOf(spriteOptions('jav', m));
       assert(toe <= -2, `level ${level}/${phase}/${m.frame}: shoe crosses arc at ${toe}`);
       assert(Math.abs(m.dy - Math.round(-m.dx * 0.1)) <= 1, 'feet stay on the runway, with a small crossover bounce');
     }
@@ -116,16 +224,65 @@ test('hammer turns alternate foot contacts and launch from the hammer head', () 
     assert(release.released && !release.ball, 'only the flight draws the released hammer');
   }
   for (const ev of ['shot', 'discus', 'jav']) for (let level = 0; level < 4; level++) {
-    const m = throwMotion(ev, level, 'release', 0), [x, y] = gripOf({ pose: 'throw', event: ev, frame: m.frame });
+    const m = throwMotion(ev, level, 'release', 0), [x, y] = implementPointOf(spriteOptions(ev, m));
     assert.deepEqual(throwReleasePoint(ev, level), [m.dx + x * 2, m.dy + y * 2]);
   }
 });
 
-test('javelin blocks before the elbow-led delivery and advanced approaches add an impulse stride', () => {
+test('every javelin form has a penultimate before the block and elbow-led delivery', () => {
   for (let level = 0; level < 4; level++) {
     const frames = sample('jav', level, 'technique', 400).filter(m => !m.run).map(m => m.frame);
-    assert(frames.indexOf(6) < frames.indexOf(11) && frames.indexOf(11) < frames.indexOf(7), 'block, hip drive, then overarm delivery');
-    assert.equal(frames.includes(10), level >= 2, 'the long impulse is reserved for developed approaches');
+    assert(frames.indexOf(6) < frames.indexOf(19) && frames.indexOf(19) < frames.indexOf(11) && frames.indexOf(11) < frames.indexOf(7), 'block, free-arm closure, hip drive, then overarm delivery');
+    assert(frames.indexOf(21) < frames.indexOf(20) && (frames.includes(10) || frames.includes(14)), 'left toe-off and an airborne penultimate precede the right catch');
+    assert.equal(frames.includes(14), level === 3, 'the elite form extends the low impulse');
+  }
+});
+
+test('javelin crossovers keep a long withdrawn throwing arm and alternate grounded contacts', () => {
+  for (let level = 0; level < 4; level++) {
+    const approach = sample('jav', level, 'technique', 1000).filter(m => !m.run);
+    for (const m of approach.filter(m => ![2, 7, 11, 18].includes(m.frame))) {
+      const [shoulder, , hand] = armJointsOf({ pose: 'throw', event: 'jav', frame: m.frame })[1];
+      assert(shoulder[0] - hand[0] >= 6 && hand[1] < shoulder[1], 'compact throwing arm stays withdrawn behind and above its shoulder through the block');
+    }
+    const contacts = approach.filter(m => [12, 15, 16, 13, 17, 20].includes(m.frame));
+    assert(contacts.some(m => feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[0][1] === -1), 'left support');
+    assert(contacts.some(m => feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[1][1] === -1), 'right support');
+    for (const m of contacts) assert(feetOf({ pose: 'throw', event: 'jav', frame: m.frame }).some(([, y]) => y === -1), 'passing steps stay low over a planted foot');
+    const frames = approach.map(m => m.frame);
+    assert(frames.indexOf(20) < frames.indexOf(6), 'right-foot contact precedes the left block');
+    const finalSupport = approach.filter(m => [20, 6, 19].includes(m.frame));
+    const rightFoot = finalSupport.map(m => m.dx + 2 * feetOf({ pose: 'throw', event: 'jav', frame: m.frame })[1][0]);
+    assert(Math.max(...rightFoot) - Math.min(...rightFoot) <= 2.01, 'rear foot stays at its catch position while the pelvis advances and the left leg blocks');
+  }
+});
+
+test('discus and javelin arms keep compact proportions through preparation, delivery and recovery', () => {
+  const length = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  for (const event of ['discus', 'jav']) for (let frame = 0; frame < THROW_FRAME_COUNTS[event]; frame++) {
+    const o = { pose: 'throw', event, frame };
+    for (const [shoulder, elbow, hand] of armJointsOf(o)) {
+      assert(length(shoulder, elbow) <= 4.5 && length(elbow, hand) <= 4.5, `${event}/${frame}: compact upper arm and forearm`);
+      assert(length(shoulder, elbow) + length(elbow, hand) <= 8, `${event}/${frame}: no stretched reach`);
+    }
+    if (event === 'jav') {
+      const hand = armJointsOf(o)[1][2];
+      assert.deepEqual(gripOf(o), hand.map(v => v + 1), 'implement follows the hand when the shoulder rotates');
+    }
+  }
+  const shoulderSpan = frame => {
+    const arms = armJointsOf({ pose: 'throw', event: 'jav', frame });
+    return arms[1][0][0] - arms[0][0][0];
+  };
+  assert(shoulderSpan(6) < 0 && shoulderSpan(2) > 0, 'throwing shoulder turns from behind the free shoulder to in front during delivery');
+});
+
+test('the discus sits below the overhand grip and its launch point mirrors with the sprite', () => {
+  for (const frame of [1, 7, 8, 10, 11, 14, 20, 21, 2]) for (const flip of [false, true]) {
+    const o = { pose: 'throw', event: 'discus', frame, flip };
+    const hand = gripOf(o), disc = implementPointOf(o);
+    assert.equal(disc[1] - hand[1], 3, 'palm is above the discus');
+    assert.equal(disc[0] - hand[0], flip ? -1 : 1, 'centre offset follows the facing direction');
   }
 });
 
@@ -179,7 +336,7 @@ test('hammer turns split between double and single support, starting from the gr
 test('javelin leans further back into the block after an impulse stride', () => {
   const lean = (frame) => gripOf({ pose: 'throw', event: 'jav', frame })[0];
   assert(lean(6) < lean(5), 'block leans further back than the crossover');
-  assert(sample('jav', 3, 'technique', 400).some(m => m.frame === 10), 'impulse stride');
+  assert(sample('jav', 3, 'technique', 400).some(m => m.frame === 14), 'long elite impulse stride');
 });
 
 test('hammer stays inside the cage, steepens through the turns and lets go on the rise', () => {
@@ -196,7 +353,7 @@ test('hammer stays inside the cage, steepens through the turns and lets go on th
 test('discus swings back before the entry and keeps turning after the reverse', () => {
   for (const level of [2, 3]) {
     const frames = sample('discus', level, 'technique', 400).map(m => m.frame);
-    assert(frames.indexOf(17) < frames.indexOf(18) && frames.indexOf(18) < frames.indexOf(6) && frames.indexOf(6) < frames.indexOf(19), 'wound backswing, weight over, sweep, knee through');
+    assert(frames.indexOf(23) >= 0 && frames.indexOf(23) < frames.indexOf(24) && frames.indexOf(24) < frames.indexOf(18) && frames.indexOf(18) < frames.indexOf(6) && frames.indexOf(6) < frames.indexOf(19), 'planted forward swing, wound backswing, weight over, sweep, knee through');
     assert(frames.indexOf(11) < frames.indexOf(14), 'the hips open before the arm strikes');
     const follow = sample('discus', level, 'follow').map(m => m.frame);
     assert(follow.indexOf(3) < follow.indexOf(15) && follow.indexOf(15) < follow.indexOf(16), 'reverse, keep turning, then stop');
@@ -212,7 +369,7 @@ test('recovery styles give athletes different finishes without breaking the thro
       assert(list.every(m => m.released && m.frame !== 2 && Number.isInteger(m.frame) && m.frame < THROW_FRAME_COUNTS[ev]), `${ev}/${level}/${style}: valid empty-handed frames`);
       assert(Math.abs(list[0].dx - throwMotion(ev, level, 'release', 1, { style }).dx) < 0.01, `${ev}/${level}/${style}: no jump on release`);
       assert(Math.abs(list.at(-1).dy - throwMotion(ev, level, 'follow', 1).dy) < 0.01, `${ev}/${level}/${style}: lands back on the ground`);
-      if (ev === 'jav') for (const m of list) assert(m.dx + 2 * frontFootOf({ pose: 'throw', event: ev, frame: m.frame }) <= -2, `jav/${level}/${style}: stays behind the arc`);
+      if (ev === 'jav') for (const m of list) assert(m.dx + 2 * frontFootOf(spriteOptions(ev, m)) <= -2 + 1e-9, `jav/${level}/${style}: stays behind the arc`);
     }
     const fouls = [0, 1, 2].map(style => key(sample(ev, level, 'follow', 40).map((_, i) => throwMotion(ev, level, 'follow', i / 40, { style, foul: true }))));
     assert.equal(new Set(fouls).size, 1, 'a foul looks the same whoever throws');

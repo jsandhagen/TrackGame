@@ -51,15 +51,14 @@ test('new clubs see only the first duel and cannot spend on later systems', () =
   assert.equal(G.chemistryOf(s,s.roster.map(a=>a.id)),null);
   assert(!G.setTrainingPlan(s,a.id,'power'));
   assert.deepEqual(s,before);
-  assert.match(P.league(s,{}),/Book your first duel/);
+  assert.match(P.league(s,{}),/Start your first duel/);
   assert.doesNotMatch(P.league(s,{}),/Schedule options|competition-grid|Challenger/);
   const athlete = P.squad(s,{athlete:a.id,tab:'skills'});
   assert.doesNotMatch(athlete,/data-tab="skills"|data-tab="gear"|Manage skills|Rank up!/);
 });
 
-test('waiting or cancelling cannot extend first-duel preparation or farm Insights', () => {
+test('the first duel starts today without preparation or farming Insights', () => {
   const s = G.newGame(23), insights = s.coaching.insights;
-  for (let i=0;i<3;i++) assert(G.advanceDay(s).ok);
   const ready = structuredClone(s);
   assert.equal(G.advanceDay(s).ok,false);
   assert.deepEqual(s,ready);
@@ -67,19 +66,48 @@ test('waiting or cancelling cannot extend first-duel preparation or farm Insight
   assert.equal(G.invitationDay(s),null);
   assert.equal(G.rollStoryEvent(s),null);
   assert(G.enterCompetition(s,{kind:'duel',tier:0,rival:0,preparation:10}));
-  assert.equal(s.matchDay,4);
+  assert.equal(s.matchDay,1);
+  const fullLineup=structuredClone(s.entries);
   assert(G.startMatch(s));
+  assert.deepEqual(s.entries,fullLineup,'the opening field does not discard later lineup entries');
+  for(const f of s.match.fields) {
+    assert.equal(f.home.length,1);assert.equal(f.away.length,1);
+  }
   for(let guard=0;s.match.phase!=='complete' && guard<600;guard++) {
     G.advanceMatch(s);
     assert.notEqual(s.match.phase,'decide','the first watch-mode meet runs without coaching interruptions');
   }
   assert.equal(s.match.phase,'complete');
+  assert(G.leaveMatch(s));
+  assert(G.enterCompetition(s,{kind:'duel',tier:0}));s.day=s.matchDay;
+  assert(G.startMatch(s));
+  assert(s.match.fields.flatMap(f=>f.home).length>4 && s.match.fields.flatMap(f=>f.away).length>4,'later meets use the full field');
   const early = G.newGame(24);
   assert(G.enterCompetition(early,{kind:'duel',tier:0,rival:0}));
-  assert(G.cancelCompetition(early));
-  G.advanceDay(early);
-  assert(G.enterCompetition(early,{kind:'duel',tier:0,rival:0,preparation:10}));
-  assert.equal(early.matchDay,4);
+  assert(!G.cancelCompetition(early),'the opening duel is already on meet day');
+  assert(!G.advanceDay(early).ok);
+  assert.equal(early.matchDay,1);
+});
+
+test('the first call room teaches just the duel and lets the player watch or coach', () => {
+  const s=G.newGame(25);
+  const opening=P.opening(s);
+  for(const a of s.roster) assert(opening.includes(a.name.split(' ')[0]));
+  assert(!opening.includes('qualifying'));
+  assert(G.enterCompetition(s,{kind:'duel',tier:0}));
+  const lobby=P.lobby(s);
+  assert.match(lobby,/Three throws each|three throws each/);
+  assert.match(lobby,/best legal mark/);assert.match(lobby,/most points wins/);assert.match(lobby,/foul/);
+  for(const mode of ['watch','coach']) assert(lobby.includes(`data-act="meet-mode" data-value="${mode}"`));
+  assert.doesNotMatch(lobby,/minimum qualifying mark|top six|data-change="entry"/);
+  s.settings.meetMode='coach';
+  assert(G.startMatch(s));
+  for(let guard=0;s.match.phase!=='decide' && guard<10;guard++) G.advanceMatch(s);
+  assert.equal(s.match.phase,'decide');
+  const before=structuredClone(s.match);
+  assert.equal(G.advanceMatch(s),null);assert.deepEqual(s.match,before);
+  assert.match(P.decide(s,{}),/Bank it is safest/);
+  assert(G.decideThrow(s,'balanced','good'));
 });
 
 test('each completed meet introduces one system, losses count and settlement cannot repeat it', () => {
