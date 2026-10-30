@@ -66,13 +66,14 @@ const placeName = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${
 export function throwResult(beat) {
   if (beat?.type !== "throw") return null;
   const headline = beat.worldRecord ? "World record!" : beat.newPb && beat.previousPb > 0 ? "Personal best!" :
-    beat.foul ? "Foul" : beat.tookLead ? "Into the lead!" : beat.place && (!beat.previousPlace || beat.place < beat.previousPlace) ? `Up to ${placeName(beat.place)}` :
+    beat.foul ? "Foul" : beat.qualified && beat.finalistLimit ? "Into the final!" : beat.madeStandard ? "Championship standard!" : beat.tookLead ? "Into the lead!" : beat.place && (!beat.previousPlace || beat.place < beat.previousPlace) ? `Up to ${placeName(beat.place)}` :
     beat.improvement > 0 ? "Series best" : beat.ownBest === beat.mark ? "Mark on the board" : "Best mark stands";
   const detail = [];
   if (beat.foul) detail.push(beat.ownBest == null ? "Still needs a legal mark" : `${beat.ownBest.toFixed(2)} m still counts`);
   if (beat.place) detail.push(`${placeName(beat.place)} place`);
   if (beat.scoringSwing > 0) detail.push(`+${beat.scoringSwing} team-point swing`);
   if (beat.qualified) detail.push(beat.finalistLimit ? "Inside the top " + beat.finalistLimit + " final cut" : "Into the top four");
+  if (beat.madeStandard) detail.push("Qualified for the championship");
   if (beat.newPb && beat.previousPb > 0) detail.push(`PB +${beat.pbDelta.toFixed(2)} m`);
   else if (beat.improvement > 0) detail.push(`Improved by ${beat.improvement.toFixed(2)} m`);
   if (!detail.length) detail.push(beat.foul ? (beat.ownBest == null ? "Still needs a legal mark" : `${beat.ownBest.toFixed(2)} m still counts`) : `${beat.ownBest.toFixed(2)} m still counts`);

@@ -2,7 +2,7 @@ import { canvas, rect, poly, ellipse, ring, line, shade, hash, px, mix } from ".
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
@@ -94,6 +94,8 @@ function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
   for (let i = 1; i < points.length; i++) if (!dashed || i % 4 < 2) line(g, ...points[i - 1], ...points[i], color);
 }
+// Colours for the marks that matter, shared with the scoreboard: PB, championship standard, final cut.
+const MARK = { pb: "#9fe0ff", q: "#8fe08a", cut: "#ffad5f" };
 const OFFICIAL = { look: { skin: "#d8a47e", hair: "#d8d8d0", style: 0 }, shirt: "#f4f4f0", collar: "#2a2a2a", shorts: "#2a2a2a" };
 
 function skyFor(venue) {
@@ -543,9 +545,13 @@ export function createStadium(cv) {
     const leader = board.find((r) => r.place === 1 && r.mark != null);
     if (leader) lines.push({ mark: leader.mark, label: "LEAD " + leader.mark.toFixed(2), color: "#f2c94c" });
     if (leader && leader.mark <= SPAN) focus.lead = atX(leader.mark);
-    if (upSide === "home" && upAthlete?.pb[ev]) lines.push({ mark: upAthlete.pb[ev], label: "PB " + upAthlete.pb[ev].toFixed(2), color: "#9fe0ff", dash: true });
+    if (upSide === "home" && upAthlete?.pb[ev]) lines.push({ mark: upAthlete.pb[ev], label: "PB " + upAthlete.pb[ev].toFixed(2), color: MARK.pb, dash: true });
     if (upSide === "home" && s.records[ev] && s.records[ev].mark !== upAthlete?.pb[ev]) lines.push({ mark: s.records[ev].mark, label: "CLUB REC", color: "#d8b0ff", dash: true });
     if (beat?.target?.mark != null) lines.push({ mark: beat.target.mark, label: "TARGET " + beat.target.mark.toFixed(2), color: "#ffe69a" });
+    // What it takes to qualify: the championship standard in a league duel, the final cut in a championship.
+    const status = m.fields ? scoreboard(s, bi, inAir) : null;
+    if (status?.standard != null) lines.push({ mark: status.standard, label: "STANDARD " + status.standard.toFixed(2), color: MARK.q, dash: true });
+    if (status?.cutMark != null) lines.push({ mark: status.cutMark, label: "FINAL CUT", color: MARK.cut });
     // The thrower's own best so far, flagged in their colours.
     const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
     if (own != null) lines.push({ mark: own, label: own === leader?.mark ? null : own.toFixed(2), color: "#fff6dc", flag: upSide === "home" ? s.colors.primary : m.color });
@@ -557,7 +563,7 @@ export function createStadium(cv) {
       if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
       else distanceArc(g, l.mark, l.color, l.dash);
       if (!l.label) continue;
-      const half = l.label.length * 2.4 + 2;
+      const half = measure(l.label) / 2 + 3;
       let row = 0;
       while (rowsEnd[row] != null && rowsEnd[row] > x - half) row++;
       rowsEnd[row] = x + half;
@@ -777,14 +783,29 @@ export function createStadium(cv) {
         label = shown == null ? "FOUL" : shown.toFixed(2) + " M",
         popped = big && !view.reduced && sinceLand >= 420 && sinceLand < 620;
       const color = beat.mark == null ? "#f06050" : beat.side === "home" ? "#fff6dc" : shade(m.color, 0.5);
-      const labelY = Math.round(aTop + 12),
-        sub = beat.worldRecord ? "WORLD RECORD!" : beat.newPb ? (beat.previousPb ? "NEW PB! +" + beat.pbDelta.toFixed(2) : "FIRST MARK!") : beat.mark == null ? (beat.ownBest == null ? "NO MARK YET" : beat.ownBest.toFixed(2) + " STILL COUNTS") : throwResult(beat).headline.toUpperCase(),
-        plate = Math.max(measure(label) * 3, measure(sub) * 2) + 20;
+      const labelY = Math.round(aTop + 12);
+      // Tags under the distance for everything this throw achieved, in the scoreboard's colours.
+      const tags = [];
+      if (beat.worldRecord) tags.push(["WORLD RECORD!", (Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc"]);
+      if (beat.newPb) tags.push([beat.previousPb ? "NEW PB +" + beat.pbDelta.toFixed(2) : "FIRST MARK", MARK.pb]);
+      if (beat.qualified && beat.finalistLimit) tags.push(["INTO THE FINAL", MARK.cut]);
+      if (beat.madeStandard) tags.push(["QUALIFIED!", MARK.q]);
+      const plain = tags.length ? null : beat.mark == null ? (beat.ownBest == null ? "NO MARK YET" : beat.ownBest.toFixed(2) + " STILL COUNTS") : throwResult(beat).headline.toUpperCase();
+      let ts = 2, row = tags.reduce((n, [t]) => n + measure(t) * ts + 10, 0) + (tags.length - 1) * 4;
+      if (row > W - 24) (ts = 1), (row = tags.reduce((n, [t]) => n + measure(t) + 10, 0) + (tags.length - 1) * 4);
+      const plate = Math.max(measure(label) * 3, plain ? measure(plain) * 2 : row) + 20;
       // A plate behind the callout keeps it legible over the crowd and the ad boards.
       rect(h, Math.round(W / 2 - plate / 2), labelY - 6, Math.round(plate), 46, "rgba(14,24,20,0.62)");
-      rect(h, Math.round(W / 2 - plate / 2), labelY + 39, Math.round(plate), 1, color);
+      rect(h, Math.round(W / 2 - plate / 2), labelY + 39, Math.round(plate), 1, tags[0]?.[1] || color);
       text(h, label, W / 2, labelY - (popped ? 4 : 0), { color, scale: popped ? 4 : 3, align: "center" });
-      text(h, sub, W / 2, labelY + 26, { color: beat.worldRecord ? ((Math.floor(tt / 180) % 2) ? "#f2c94c" : "#fff6dc") : beat.newPb ? "#f2c94c" : "#fff6dc", scale: 2, align: "center" });
+      if (plain) text(h, plain, W / 2, labelY + 26, { color: "#fff6dc", scale: 2, align: "center" });
+      let tx = Math.round(W / 2 - row / 2);
+      for (const [t, c] of tags) {
+        const w = measure(t) * ts + 10;
+        rect(h, tx, labelY + 24, w, ts === 2 ? 14 : 9, c);
+        text(h, t, tx + w / 2, labelY + 25 + (ts === 2 ? 1 : 0), { color: "#10221a", outline: null, scale: ts, align: "center" });
+        tx += w + 4;
+      }
     }
     if (hasCut && el >= SETUP_MS && el < SETUP_MS + CUTIN_MS) {
       const a = beat.side === "home" ? home : rival;

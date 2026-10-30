@@ -779,10 +779,17 @@ export function meetGuide(s) {
     <li>${swatch("#f2c94c")}<span><b>LEAD</b> · the mark to beat</span></li>
     <li>${swatch("#ffe69a")}<span><b>TARGET</b> · what your thrower needs for a better place</span></li>
     <li>${swatch("#9fe0ff", true)}<span><b>PB</b> · your thrower's personal best</span></li>
+    <li>${swatch("#8fe08a", true)}<span><b>STANDARD</b> · in league duels, the mark that qualifies for the league championship</span></li>
+    <li>${swatch("#ffad5f")}<span><b>FINAL CUT</b> · in championships, the mark to beat to stay in the top ${champs ? 6 : "places"} for the final throws</span></li>
     <li>${swatch("#d8b0ff", true)}<span><b>CLUB REC</b> · your club record</span></li>
     <li><i class="guide-peg"></i><span><b>Pegs</b> · everyone else's best, numbered by place</span></li>
     <li><i class="guide-x">X</i><span><b>Foul</b> · stepped out, or landed outside the sector lines. It scores nothing, but an earlier legal mark still counts. <b>NM</b> means no mark yet.</span></li>
   </ul></section>
+  <section><h3>The scoreboard</h3><ul class="guide-legend">
+    <li><i class="badge pb">PB</i><span>a personal best for one of your athletes today</span></li>
+    <li><i class="badge q new">Q</i><span>reached the championship standard today (outlined if it was reached in an earlier duel)</span></li>
+    <li><span class="guide-cut">FINAL CUT</span><span>everyone above the orange line is in the final; after the cut the rest are <b>OUT</b></span></li>
+  </ul><p class="hint">Under the thrower, the goals they are chasing (PB, standard, final cut) fill in with a tick once done.</p></section>
   <section><h3>Watch or Coach</h3><ul class="howto">
     <li><b>Watch</b>: your athletes pick their own tactics. ${s && !G.firstMeet(s) ? "You still get a call at clutch moments, when a last throw decides a place (switch this off in Settings)." : "From your second meet you'll also get a call at clutch moments."}</li>
     <li><b>Coach</b>: you choose a tactic before every throw.<ul>
@@ -1077,13 +1084,47 @@ function resultTable(s, event) {
     <table class="placing-table"><caption class="sr-only">${EVENTS[event.event].name} individual results</caption><colgroup><col class="col-place"><col><col class="col-mark"><col class="col-points"></colgroup><thead><tr><th scope="col">Pl.</th><th scope="col">Athlete</th><th scope="col">Best (m)</th><th scope="col">Pts</th></tr></thead><tbody>${rows.slice(0,SCOREBOARD_LIMIT).map(row => {
       const {athlete, face, club} = meetAthlete(s, row.side, row.id);
       const pb = s.match.rewards?.pbs?.some(p => p.id === row.id && p.event === event.event);
-      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(club?.name || s.match.name)}${s.match.rewards?.worldRecords?.some((w) => w.id === row.id && w.event === event.event) ? ' <em class="pb-tag">WR</em>' : pb ? ' <em class="pb-tag">PB</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
+      return `<tr class="${row.side === "home" ? "our-athlete" : ""}"><td><b class="place place-${row.place}">${row.place || "—"}</b></td><th scope="row"><span class="result-athlete">${face}<span>${esc(athlete?.name || "Unknown athlete")}<small>${row.side === "home" ? "Your club" : esc(club?.name || s.match.name)}${s.match.rewards?.worldRecords?.some((w) => w.id === row.id && w.event === event.event) ? ' <em class="pb-tag">WR</em>' : pb ? ' <em class="pb-tag pb-mark">PB</em>' : ""}${s.match.kind === "league" && G.championshipBooking(s) && G.championshipQualified(s, row.id, event.event) ? ' <em class="pb-tag q-tag" title="Championship standard reached">Q</em>' : ""}${s.match.championship && row.finalist ? ' <em class="pb-tag final-tag">FINAL</em>' : ""}</small></span></span></th><td class="result-mark">${row.mark == null ? "NM" : row.mark.toFixed(2)}</td><td>${row.points}</td></tr>`;
     }).join("")}</tbody></table>
     ${rows.length>SCOREBOARD_LIMIT ? `<p class="hint scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${rows.length}. All attempts remain in the throw series.</p>` : ""}
     <details class="throw-series"><summary>Throw series <span>${rows.length} athletes</span></summary>${rows.map(row => {
       const {athlete} = meetAthlete(s,row.side,row.id);
       return `<div class="series-row ${row.side === "home" ? "our-athlete" : ""}"><strong>${esc(athlete?.name)}</strong><span>${row.marks.map((v,i) => `<b title="Throw ${i+1}" class="${v == null ? "foul" : v === row.mark ? "best" : ""}">${v == null ? "X" : v.toFixed(2)}</b>`).join("") || "No throws"}</span></div>`;
     }).join("")}</details></article>`;
+}
+// Badges for the marks that matter beyond the place, in the colours the field uses for them.
+const BADGES = {
+  pb: (r) => `<i class="badge pb" title="${r.firstMark ? "First mark: a personal best" : "Personal best"}">PB</i>`,
+  q: (r) => `<i class="badge q${r.newlyQualified ? " new" : ""}" title="${r.newlyQualified ? "Reached the championship standard today" : "Championship standard reached"}">Q</i>`,
+  out: () => `<i class="badge out" title="Missed the final">OUT</i>`,
+};
+function standingRows(s, board, rows, side, id) {
+  const m = s.match, out = [];
+  const divider = (cls, label, value) => `<div class="standing-divider ${cls}"><span>${label}</span><b>${value == null ? "" : mark(value)}</b></div>`;
+  let standardShown = board.standard == null;
+  // The cut sits under the last place in the final, or under the last mark while places are still open.
+  const marked = rows.filter(r => r.mark != null).length, cutAfter = board.cut == null ? -1 : Math.max(0, Math.min(board.cut, marked)) - 1,
+    open = board.cut == null ? 0 : board.cut - Math.min(board.cut, marked);
+  if (board.cut != null && cutAfter < 0) out.push(divider("cut-line", `FINAL CUT · TOP ${board.cut} · ${open} OPEN`, null));
+  rows.forEach((row, n) => {
+    if (!standardShown && (row.mark == null || row.mark < board.standard)) { out.push(divider("standard-line", "CHAMPIONSHIP STANDARD", board.standard)); standardShown = true; }
+    const {athlete,club}=meetAthlete(s,row.side,row.id);
+    const badges = (row.out ? BADGES.out() : "") + (row.pb ? BADGES.pb(row) : "") + (row.qualified ? BADGES.q(row) : "");
+    out.push(`<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === id ? "throwing" : ""} ${row.inFinal ? "in-final" : ""} ${row.out ? "out" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><span class="badges">${badges}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`);
+    if (n === cutAfter) out.push(divider("cut-line", `FINAL CUT · TOP ${board.cut}${open ? ` · ${open} OPEN` : ""}`, null));
+  });
+  if (!standardShown) out.push(divider("standard-line", "CHAMPIONSHIP STANDARD", board.standard));
+  return out.join("");
+}
+// What the thrower in the circle is chasing beyond the place: their PB, the championship standard
+// in a league duel, the final cut in a championship. Each lights up once it's done.
+function throwerGoals(s, board, row, athlete, ev) {
+  const goals = [];
+  if (athlete) goals.push(athlete.pb?.[ev] ? `<span class="goal pb ${row?.pb ? "done" : ""}">PB <b>${athlete.pb[ev].toFixed(2)}</b></span>` : `<span class="goal pb ${row?.pb ? "done" : ""}">First PB</span>`);
+  if (board.standard != null) goals.push(`<span class="goal q ${row?.qualified ? "done" : ""}">Standard <b>${board.standard.toFixed(2)}</b></span>`);
+  if (board.cut != null) goals.push(`<span class="goal cut ${row?.inFinal ? "done" : ""}">${row?.inFinal ? "In the final" : "Final cut"}${board.cutMark != null && !row?.inFinal ? ` <b>${board.cutMark.toFixed(2)}</b>` : ""}</span>`);
+  if (board.finals && row && !row.out) goals.push(`<span class="goal cut done">Finalist</span>`);
+  return goals.length ? `<div class="thrower-goals">${goals.join("")}</div>` : "";
 }
 export function meetBar(s, view) {
   const m = s.match, i = m.eventIndex, ev = EVENT_IDS[i];
@@ -1092,26 +1133,25 @@ export function meetBar(s, view) {
   const {face, club: activeClub} = meetAthlete(s,side,a.id);
   let marks = (side === "home" ? m.homeMarks : m.awayMarks)[i];
   if(view.hide?.side === side && view.hide.eventIndex === i) marks = marks.slice(0,view.hide.attempt);
-  const fullRows = G.fieldLeaderboard(s,i,view.hide), rows=fullRows.slice(0,SCOREBOARD_LIMIT);
+  const board = G.scoreboard(s,i,view.hide), fullRows = board.rows, rows=fullRows.slice(0,SCOREBOARD_LIMIT);
   const leagueDuel=G.championshipBooking(s) && m.kind==="league";
   const beat = m.last;
   const throwing = beat?.type === "throw" && beat.eventIndex === i;
   const result = throwing && !view.hide ? throwResult(beat) : null;
   const attempt = throwing ? beat.attempt + 1 : Math.min(m.attempts, marks.length + 1);
+  const thrower = fullRows.find(r => r.side === side && r.id === a.id);
   const liveHome = rows.filter(r=>r.side === "home").reduce((n,r)=>n+r.points,0);
   const liveAway = rows.filter(r=>r.side === "away").reduce((n,r)=>n+r.points,0);
-  return `<header class="meet-rail-score" aria-label="Club meet score"><small>MEET SCORE · ${i + 1} / 4 EVENTS</small><div><span><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b></div><div><span><i class="dot" style="--c:${m.color}"></i>${esc(m.leadingClub || m.name)}</span><b>${m.against}</b></div><nav aria-label="Event progress">${G.eventScores(m).map((e,n)=>`<span class="${n === i ? "current" : ""}">${EVENTS[e.event].short} ${e.done ? e.h + '–' + e.a : n === i ? 'LIVE' : '·'}</span>`).join("")}</nav></header><div class="meet-moment ${result ? "landed" : ""} ${beat?.foul && result ? "foul" : ""}" role="status" aria-live="polite" aria-atomic="true">
+  return `<header class="meet-rail-score" aria-label="Club meet score"><small>MEET SCORE · ${i + 1} / 4 EVENTS<button class="meet-help rail" data-act="meet-guide" aria-label="How meets work">?</button></small><div><span><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b></div><div><span><i class="dot" style="--c:${m.color}"></i>${esc(m.leadingClub || m.name)}</span><b>${m.against}</b></div><nav aria-label="Event progress">${G.eventScores(m).map((e,n)=>`<span class="${n === i ? "current" : ""}">${EVENTS[e.event].short} ${e.done ? e.h + '–' + e.a : n === i ? 'LIVE' : '·'}</span>`).join("")}</nav></header><div class="meet-moment ${result ? "landed" : ""} ${beat?.foul && result ? "foul" : ""}" role="status" aria-live="polite" aria-atomic="true">
     ${result ? `<div><small>${esc(beat.name)} · ${EVENTS[ev].name} · Throw ${attempt}</small><strong>${esc(result.headline)}</strong><span>${esc(result.detail)}</span></div><b>${beat.mark == null ? "X" : beat.mark.toFixed(2) + '<small>m</small>'}</b>` : throwing || m.phase === "decide" ? `<div><small>${m.phase === "decide" ? "YOUR CALL" : "UP NOW"} · Throw ${attempt} / ${m.attempts}</small><strong>${esc(a.name)}</strong><span>${esc(targetText(beat.target))}</span></div>` : `<div><small>${EVENTS[ev].name}</small><strong>${beat?.type === "eventEnd" ? "Event complete · " + beat.h + "–" + beat.a + " points" : beat?.finals ? `Top ${beat.finalistLimit || 4} · three final throws` : m.leagueChampionship ? "Championship · three preliminary throws" : "Three throws. Make your best one count."}</strong><span>${beat?.finals ? "Qualifying marks carry into the final." : m.prelimFinals ? "Points score 10–8–6–5–4–3–2–1 for each club." : "Places score 5–3–1 for the club."}</span></div>`}
   </div><div class="meet-desk">
     <section class="current-thrower ${side === "home" ? "our-athlete" : ""}" aria-label="Current thrower">
       <div class="thrower-heading"><b>${EVENTS[ev].name}</b><span>Throw ${attempt} / ${m.attempts}${m.finalRound ? " · Final" : ""}</span></div>
       <div class="thrower-identity">${face}<span><small>${side === "home" ? "YOUR CLUB" : esc(activeClub?.name || m.name)}</small><strong>${esc(a.name)}</strong><small>${G.equippedSkills(a,"meet").map(k=>esc(SKILLS[k].name)).join(" · ") || "OVR " + Math.round(G.eventRating(a,ev))}</small></span><b class="thrower-best">${G.best(marks) == null ? "—" : G.best(marks).toFixed(2)}<small>BEST · m</small></b></div>
-      <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
+      <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : marks[k] === G.best(marks) ? "best" + (thrower?.pb ? " pb" : "") : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
+      ${throwerGoals(s, board, thrower, side === "home" ? a : null, ev)}
     </section>
-    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event points " + liveHome + "–" + liveAway} <small title="${m.closed[i] ? "These points are in the meet score" : "Points if the event ended now"}">${m.closed[i] ? "FINAL" : m.prelimFinals ? "LIVE" : "IF IT ENDED NOW"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${rows.map(row=>{
-      const {athlete,club}=meetAthlete(s,row.side,row.id);
-      return `<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === a.id ? "throwing" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`;
-    }).join("")}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}${leagueDuel ? `<small class="live-standard">Championship standard <b>${mark(G.qualifyingStandard(s,ev))}</b></small>` : ""}</section>`}
+    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event points " + liveHome + "–" + liveAway} <small title="${m.closed[i] ? "These points are in the meet score" : "Points if the event ended now"}">${m.closed[i] ? "FINAL" : m.prelimFinals ? "LIVE" : "IF IT ENDED NOW"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${standingRows(s, board, rows, side, a.id)}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}</section>`}
   </div><div class="meet-toolbar"><button class="button subtle small" data-act="meet-pause" aria-pressed="${!!view.meetPaused}" aria-label="${view.meetPaused ? "Resume meet" : "Pause meet"}">${view.meetPaused ? "Resume" : "Pause"}</button><div class="seg" role="group" aria-label="Meet speed">${speedButtons(view.meetSpeed || s.settings.meetSpeed || 1, "meet-speed")}</div><div class="seg">${["watch","coach"].map(mode=>`<button class="${s.settings.meetMode === mode ? "active" : ""}" data-act="meet-mode" data-value="${mode}" aria-pressed="${s.settings.meetMode === mode}">${ico(mode === "watch" ? "eye" : "clipboard")} ${mode === "watch" ? "Watch" : "Coach"}</button>`).join("")}</div><button class="button subtle small" data-act="highlights" aria-pressed="${s.settings.highlights}">${s.settings.highlights ? "Highlights" : "Every throw"}</button>${leagueDuel ? btn(view.meetStandards ? "Standings" : "Standards", "meet-standards", `aria-pressed="${!!view.meetStandards}"`, "subtle small") : ""}<button class="button subtle small meet-help" data-act="meet-guide" aria-label="How meets work">?</button></div>`;
 }
 export function meetScore(s) {

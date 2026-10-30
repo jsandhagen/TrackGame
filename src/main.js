@@ -212,7 +212,12 @@ function render(preserve = true) {
   $("#app").classList.toggle("results", m?.phase === "complete");
   $("#app").classList.toggle("has-window", !m && !!view.window);
   $("#meetbar").hidden = !m || m.phase === "complete";
-  if (m && m.phase !== "complete") $("#meetbar").innerHTML = P.meetBar(state, view);
+  if (m && m.phase !== "complete") {
+    $("#meetbar").innerHTML = P.meetBar(state, view);
+    // A long championship field scrolls; keep whoever is throwing in view.
+    const list = $("#meetbar .standings-list"), row = list?.querySelector(".throwing");
+    if (row && list.scrollHeight > list.clientHeight) list.scrollTop = row.offsetTop - list.offsetTop - list.clientHeight / 2 + row.offsetHeight / 2;
+  }
   const win = windowHTML();
   $("#window").hidden = !win;
   $("#window").classList.toggle("center", !!m);
