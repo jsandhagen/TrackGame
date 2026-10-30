@@ -648,6 +648,36 @@ function stadiumCard(s, key, open) {
   return `<div class="stadium-row ${open ? "open" : ""}"><button class="stadium-head" data-act="spot" data-key="${key}">${ico(STADIUM_ICON[key])}<span><strong>${d.name}</strong><small>${esc(d.levels[lvl])}</small></span>${pips(lvl, d.max)}</button>
   ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "stands" ? standsCrowd(s) : ""}${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
 }
+// A sales building's books, to judge whether it is worth it: profit per week after upkeep,
+// how much of its cost it has paid back, whether visitors or the counter limit today's trade,
+// and what the next level would add.
+const SALES_PERKS = { cafe: "Also lifts the squad's condition every day.", shop: "Also wins new fans every day." };
+function salesBooks(s, i) {
+  const r = G.salesReport(s, i);
+  if (!r) return "";
+  const signed = (n) => (n > 0 ? "+" : "") + cash(n),
+    // A label and its amount, kept on one line.
+    item = (label, n) => `<i class="amt">${label} ${cash(n)}</i>`,
+    pct = Math.round(r.paidBack * 100),
+    payoff = r.net >= 0 ? `<b class="pos">Paid off</b> · ${signed(r.net)} profit so far` : r.weeksToPayOff ? `Pays for itself in about <b>${r.weeksToPayOff} week${r.weeksToPayOff === 1 ? "" : "s"}</b>` : `<b class="neg">Not covering its upkeep</b> at today's trade`,
+    t = r.today,
+    trade = t.full
+      ? `The counter is <b>full</b>: ${t.buyers} of today's ${t.visitors} visitors want to buy but it serves ${t.capacity}. An upgrade sells to more of them.`
+      : `${t.buyers} of today's ${t.visitors} visitors buy; the counter could serve ${t.capacity}. <b>Visitors are the limit</b>: more fans (or a Picnic Lawn) help more than an upgrade.`,
+    next = r.next
+      ? r.next.gain > 0
+        ? `Level ${s.plots[i].level + 1}: <b>${signed(r.next.gain)}/week</b> at today's crowds for ${cash(r.next.cost)}, paying back in about ${r.next.weeks} week${r.next.weeks === 1 ? "" : "s"}.`
+        : `Level ${s.plots[i].level + 1} would add <b>nothing</b> at today's crowds: its extra upkeep outweighs the extra sales.`
+      : "";
+  return `<section class="sales-books"><h3>${ico("coin")} The books</h3>
+    <div class="books-grid">
+      <div><small>${r.days ? (r.days < 7 ? "Last " + r.days + " day" + (r.days === 1 ? "" : "s") + ", per week" : "Last 7 days") : "Expected per week"}</small><b class="${r.weekly >= 0 ? "pos" : "neg"}">${signed(r.weekly)}</b><span>${r.days ? [item("Sales", r.sales), r.staff ? item("staff", r.staff) : "", item("upkeep", -r.upkeep)].filter(Boolean).join(" · ") : `At today's ${t.visitors} visitors, less ${item("upkeep", -r.upkeep)}`}</span></div>
+      <div><small>${r.since != null ? "Since day " + r.since : "Since the books began"}</small><b class="${r.net >= 0 ? "pos" : "neg"}">${signed(r.net)}</b><span>${[item("Takings", r.earned), item("upkeep", -r.upkeepPaid), item("cost", -r.spent)].join(" · ")}</span></div>
+    </div>
+    <div class="payback"><span class="bar"><i style="width:${Math.min(100, pct)}%;--bar:${r.net >= 0 ? "#3a9a5a" : "#e2b04a"}"></i></span><small>${pct}% of its ${cash(r.spent)} cost paid back · ${payoff}</small></div>
+    <p class="hint">${trade} ${SALES_PERKS[s.plots[i].type] || ""}</p>
+    ${next ? `<p class="hint">${next}</p>` : ""}</section>`;
+}
 // What a construction or upgrade will cost and do, shown before any money is spent.
 export function constructionConfirm(s, o) {
   const after = s.money - o.cost;
@@ -685,6 +715,7 @@ export function build(s, view) {
         cost = G.upgradeCost(p.type, p.level),
         combos = G.combos(s).filter((c) => !c.stadium && (c.a === p.type || c.b === p.type) && G.neighbours(i).some((j) => [c.a, c.b].includes(s.plots[j]?.type)));
       focus = `<article class="card facility"><div class="facility-head"><canvas class="building" width="104" height="66" data-building="${p.type}:${p.level}"></canvas><div><span class="eyebrow">LEVEL ${p.level}${G.maxLevelOf(p.type) <= 3 ? " / 3" : p.level >= 5 ? " · LANDMARK +" + Math.floor(p.level / 5) : p.level >= 3 ? " · LANDMARK AT 5" : ""}${p.type !== "club" ? " · UPKEEP " + cash(G.upkeepOf(p.type, p.level)) + "/WK" : ""}</span><h2>${d.name}</h2><p>${d.desc}</p></div></div>
+        ${salesBooks(s, i)}
         ${facilityStaffPicker(s,"plot:"+i)}
         ${combos.length ? `<p class="combo-line">${combos.map((c) => ico("spark") + " " + c.name + ": " + c.desc).join("<br>")}</p>` : ""}
         <div class="inline">${btn(p.level >= G.maxLevelOf(p.type) ? "Fully upgraded" : (p.level >= 3 ? "Push to Lv " + (p.level + 1) + " · " : "Upgrade · ") + cash(cost), "upgrade", `data-index="${i}" ${p.level >= G.maxLevelOf(p.type) || s.money < cost ? "disabled" : ""}`)}${i !== CLUB_PLOT ? btn(view.moving === i ? "Cancel move" : "Move / swap", "move", `data-index="${i}"`, "subtle") : ""}${i !== CLUB_PLOT ? btn("Clear · +" + cash(d.cost / 2), "sell", `data-index="${i}"`, "subtle") : ""}</div></article>`;

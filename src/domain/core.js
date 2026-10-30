@@ -43,6 +43,17 @@ export function weighted(s, entries) {
   for (const [value, w] of entries) if ((r -= w) < 0) return value;
   return entries.at(-1)[0];
 }
+// A building's books: the last seven days of takings (counter sales and staff on duty) and
+// lifetime totals, so the coach can see whether it pays its way. Kept on the plot itself, so
+// they move with the building.
+export function recordTakings(s, p, kind, amount) {
+  if (!p || !amount) return;
+  p.days ??= [];
+  if (p.days.at(-1)?.day !== s.day) p.days.push({ day: s.day, sales: 0, staff: 0 });
+  p.days.at(-1)[kind] += amount;
+  while (p.days.length > 7) p.days.shift();
+  p.earned = (p.earned || 0) + amount;
+}
 export function note(s, text, kind = "info") {
   s.log.unshift({ day: s.day, season: s.season, text, kind });
   s.log = s.log.slice(0, 60);

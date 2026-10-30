@@ -23,6 +23,7 @@ import {
 } from "../game-content.js";
 import {
   clamp,
+  recordTakings,
   random,
   pick,
   note,
@@ -424,6 +425,7 @@ export function advanceDay(s) {
     const amount = counterTakings(s, p.type, p.level, visitors);
     if (amount) {
       s.money += amount;
+      recordTakings(s, p, "sales", amount);
       report.spend.push({ plot: i, amount });
     }
   });
@@ -450,10 +452,48 @@ export function skipPreparation(s) {
 }
 
 // The café and merch stand sell to a share of visitors, up to what their counters can serve.
+const COUNTERS = { cafe: { buys: 0.6, serves: 15 }, shop: { buys: 0.5, serves: 10 } };
+export const isSalesBuilding = (type) => !!COUNTERS[type];
 export function counterTakings(s, type, level, visitors = visitorsPerDay(s)) {
   if (type === "cafe") return Math.round(Math.min(visitors * 0.6, 15 * (level + 1)) * (1 + level));
   if (type === "shop") return Math.round(Math.min(visitors * 0.5, 10 * (level + 1)) * 1.5 * (1 + level) * (hasCombo(s, "matchday") ? 1.5 : 1));
   return 0;
+}
+// What a building has cost so far: the build price and every upgrade (for buildings put up
+// before the books were kept, worked out from the price list).
+export const spentOn = (type, level) => FACILITIES[type].cost + Array.from({ length: level - 1 }, (_, k) => upgradeCost(type, k + 1)).reduce((n, c) => n + c, 0);
+// Is a sales building worth it? Its last week of takings against upkeep, its lifetime books
+// against what it cost, today's trade (and whether the counter is the limit), and what the
+// next level would add at today's visitor numbers.
+export function salesReport(s, index) {
+  const p = s.plots[index];
+  if (!p || !isSalesBuilding(p.type)) return null;
+  const visitors = visitorsPerDay(s),
+    c = COUNTERS[p.type],
+    buyers = Math.round(visitors * c.buys),
+    capacity = c.serves * (p.level + 1),
+    recent = (p.days || []).filter((d) => d.day > s.day - 7),
+    days = recent.length,
+    sales = recent.reduce((n, d) => n + d.sales, 0),
+    staff = recent.reduce((n, d) => n + d.staff, 0),
+    upkeep = upkeepOf(p.type, p.level),
+    // Per week: the takings scaled to seven days, less a week's upkeep.
+    weekly = days ? Math.round(((sales + staff) / days) * 7) - upkeep : counterTakings(s, p.type, p.level, visitors) * 7 - upkeep,
+    spent = p.spent ?? spentOn(p.type, p.level),
+    earned = p.earned || 0,
+    upkeepPaid = p.upkeepPaid || 0,
+    net = earned - upkeepPaid - spent;
+  const canUpgrade = p.level < maxLevelOf(p.type),
+    nextCost = canUpgrade ? upgradeCost(p.type, p.level) : null,
+    nextGain = canUpgrade ? (counterTakings(s, p.type, p.level + 1, visitors) - counterTakings(s, p.type, p.level, visitors)) * 7 - (upkeepOf(p.type, p.level + 1) - upkeep) : null;
+  return {
+    days, sales, staff, upkeep, weekly,
+    today: { visitors, buyers, capacity, full: buyers >= capacity, takings: counterTakings(s, p.type, p.level, visitors) },
+    spent, earned, upkeepPaid, net, since: p.since ?? null,
+    paidBack: spent ? Math.max(0, (earned - upkeepPaid) / spent) : 1,
+    weeksToPayOff: net < 0 && weekly > 0 ? Math.ceil(-net / weekly) : null,
+    next: canUpgrade ? { cost: nextCost, gain: nextGain, weeks: nextGain > 0 ? Math.ceil(nextCost / nextGain) : null } : null,
+  };
 }
 // Running costs: 3% of what each building and stadium upgrade cost, every week.
 export const upkeepOf = (type, level) => Math.round(FACILITIES[type].cost * 0.03 * level);
@@ -476,6 +516,7 @@ function payWeek(s) {
     running = upkeep(s),
     sponsor = SPONSORS[s.sponsor];
   s.money += income - paid - running;
+  for (const p of s.plots) if (p && p.type !== "club") p.upkeepPaid = (p.upkeepPaid || 0) + upkeepOf(p.type, p.level);
   if (sponsor?.gift) addItem(s, sponsor.gift, 2);
   note(s, "Payday: +$" + income + " income, −$" + paid + " wages" + (running ? ", −$" + running + " upkeep" : "") + (sponsor?.gift ? ", plus 2 " + ITEMS[sponsor.gift].name + "s" : "") + ".", "money");
   return { income, wages: paid, upkeep: running, net: income - paid - running };
@@ -504,7 +545,7 @@ export function canBuild(s, index, type) {
 export function build(s, index, type) {
   if (!canBuild(s, index, type)) return false;
   s.money -= FACILITIES[type].cost;
-  s.plots[index] = { type, level: 1 };
+  s.plots[index] = { type, level: 1, spent: FACILITIES[type].cost, since: s.day };
   count(s, "built");
   note(s, "Built the " + FACILITIES[type].name + ".", "build");
   const discoveries = discover(s);
@@ -517,6 +558,7 @@ export function upgrade(s, index) {
   const cost = upgradeCost(p.type, p.level);
   if (s.money < cost) return false;
   s.money -= cost;
+  p.spent = (p.spent ?? spentOn(p.type, p.level)) + cost;
   p.level++;
   count(s, "upgrades");
   note(s, FACILITIES[p.type].name + " reached level " + p.level + "!", "build");

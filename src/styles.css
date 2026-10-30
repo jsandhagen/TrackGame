@@ -5419,3 +5419,20 @@ dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1
   .item-fx *, .item-fx *::after { animation: none !important; }
   .item-fx .ifx-item, .item-fx .ifx-burst { display: none; }
 }
+
+/* A sales building's books: weekly profit and lifetime payback, side by side. */
+.sales-books { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: #fff8e4; border: 1px solid var(--line); }
+.sales-books h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font: 700 14px var(--display); }
+.sales-books h3 .ico { width: 16px; height: 16px; }
+.books-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.books-grid > div { display: grid; gap: 1px; padding: 6px 8px; border-radius: 8px; background: var(--card); }
+.books-grid small { font: 700 10px var(--display); letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+.books-grid b { font: 700 20px var(--display); }
+.books-grid span { font-size: 11px; color: var(--muted); }
+.sales-books .pos { color: #2f7d4a; }
+.sales-books .neg { color: var(--red); }
+.sales-books .payback { display: grid; gap: 3px; margin-top: 8px; }
+.sales-books .payback small { font-size: 12px; }
+.sales-books .hint { margin: 6px 0 0; }
+@media (max-width: 380px) { .books-grid { grid-template-columns: 1fr; } }
+.books-grid .amt { font-style: normal; white-space: nowrap; }
