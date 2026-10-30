@@ -38,9 +38,9 @@ const ROOF = { back: BOWL.y - 2, front: BOWL.y + 24, z: 52 };
 const roofFrontY = ROOF.front - ROOF.z + 4;
 // Installation anchors (where athletes stand) and tap areas, in map coordinates.
 export const SPOTS = {
-  discus: { x: DW.x - 46, y: CENTER.y - 24, hit: [DW.x - 66, CENTER.y - 52, 44, 42] },
+  discus: { x: DW.x - 46, y: CENTER.y - 24, hit: [DW.x - 70, CENTER.y - 62, 60, 52] },
   shot: { x: DW.x - 44, y: CENTER.y + 34, hit: [DW.x - 64, CENTER.y + 20, 48, 26] },
-  hammer: { x: DE.x + 46, y: CENTER.y - 24, hit: [DE.x + 24, CENTER.y - 52, 44, 42] },
+  hammer: { x: DE.x + 46, y: CENTER.y - 24, hit: [DE.x + 10, CENTER.y - 62, 60, 52] },
   jav: { x: DE.x + 44, y: CENTER.y + 34, hit: [DE.x + 10, CENTER.y + 24, 62, 20] },
   track: { x: CENTER.x, y: TRACK.y + TRACK.h - 8, hit: [CENTER.x - 90, TRACK.y + TRACK.h - 19, 180, 19] },
   studio: { x: CENTER.x, y: roofFrontY + 8, hit: [CENTER.x - 30, roofFrontY - 2, 60, 20] },
@@ -590,23 +590,33 @@ function circle(g, x, y, lvl, o = {}) {
     for (let i = -3; i <= 3; i++) rect(g, x + 8 - Math.round(Math.abs(i) * 0.5), y + i * 0.8, 2, 1, c);
   }
 }
-// A C-shaped safety cage round the back of a circle, open towards the sector. Nets are light
-// enough to see the thrower through, and the panels nearest the viewer are almost clear.
-function cage(g, x, y, dir, lvl, extra = 0) {
-  const h = [0, 14, 22, 30][lvl] + extra,
-    n = [0, 6, 9, 11][lvl],
-    rx = lvl >= 2 ? 16 : 14,
-    ry = lvl >= 2 ? 8 : 7;
+// A C-shaped safety cage round the back of a circle, laid out like a real one at the circle's
+// scale (the 2.5 m ring is 16 px across): netting on an arc 3 m behind the centre (3.5 m for
+// the hammer), then straight side panels out to a 6 m mouth 5 m in front (4.2 m for the
+// hammer). A practice cage is a little tighter. Nets are light enough to see the thrower
+// through, and the panels nearest the viewer are almost clear.
+const CAGE_PX = 6.4;
+function cage(g, x, y, dir, lvl, ev) {
+  const hammer = ev === "hammer",
+    h = [0, 14, 22, 30][lvl] + (hammer ? 6 : 0),
+    n = [0, 7, 9, 11][lvl],
+    r = (hammer ? 3.5 : 3) * (lvl === 1 ? 0.85 : 1),
+    mouth = (hammer ? 4.2 : 5) * (lvl === 1 ? 0.8 : 1),
+    from = hammer ? 72 : 80;
   const net = ["", [230, 230, 220, 0.16], [40, 56, 50, 0.16], [22, 26, 30, 0.15]][lvl];
-  const pts = Array.from({ length: n }, (_, i) => {
-    const a = dir + Math.PI * (0.38 + (1.24 * i) / (n - 1));
-    return [Math.round(x + Math.cos(a) * rx), Math.round(y + Math.sin(a) * ry)];
-  });
+  // Plan (u forward along dir, v to the side, in metres) to the oblique map view.
+  const at = (u, v) => [Math.round(x + (u * Math.cos(dir) - v * Math.sin(dir)) * CAGE_PX), Math.round(y + (u * Math.sin(dir) + v * Math.cos(dir)) * CAGE_PX * 0.5)];
+  const pts = [at(mouth, -3)];
+  for (let i = 0; i < n; i++) {
+    const a = ((from + ((360 - 2 * from) * i) / (n - 1)) * Math.PI) / 180;
+    pts.push(at(Math.cos(a) * r, -Math.sin(a) * r));
+  }
+  pts.push(at(mouth, 3));
   // Competition cages add two hinged gate panels that narrow the mouth.
   if (lvl >= 3)
     for (const side of [-1, 1]) {
-      const base = side < 0 ? pts[0] : pts[n - 1],
-        a = dir + side * 0.55;
+      const base = side < 0 ? pts[0] : pts[pts.length - 1],
+        a = dir - side * 0.55;
       pts[side < 0 ? "unshift" : "push"]([Math.round(base[0] + Math.cos(a) * 10), Math.round(base[1] + Math.sin(a) * 5)]);
     }
   for (let i = 1; i < pts.length; i++) {
@@ -941,8 +951,8 @@ export function drawArena(g, s, season = 1) {
 // Front-most details that must overlap people: the cages' nets and the near floodlights.
 export function drawArenaFront(g, s) {
   const st = s.stadium;
-  if (st.discus) cage(g, SPOTS.discus.x, SPOTS.discus.y, 0.12, st.discus);
-  if (st.hammer) cage(g, SPOTS.hammer.x, SPOTS.hammer.y, Math.PI - 0.12, st.hammer, 4);
+  if (st.discus) cage(g, SPOTS.discus.x, SPOTS.discus.y, 0.12, st.discus, "discus");
+  if (st.hammer) cage(g, SPOTS.hammer.x, SPOTS.hammer.y, Math.PI - 0.12, st.hammer, "hammer");
   // TV cameras cover every competition-standard area.
   const sp = SPOTS;
   if (st.discus >= 3) tvCamera(g, sp.discus.x + 12, sp.discus.y + 22, 1);

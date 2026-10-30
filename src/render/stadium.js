@@ -69,26 +69,32 @@ function spanOf(s, m, i, ev) {
 const ppmOf = () => sector.ppm;
 // Half the javelin runway's width on screen, in the oblique view.
 const RUNWAY = 9;
-// The discus and hammer cage: posts on an arc round the back of the circle, opening towards the
-// sector, with netting between them. The far half is drawn behind the thrower, the near half in
-// front, so the thrower stands inside it.
-const CAGE = { rx: 38, ry: 15, h: 74, from: 0.28, to: 1.72 };
-function cage(g, half) {
-  const posts = [];
-  for (let i = 0; i <= 8; i++) {
-    const a = Math.PI * (CAGE.from + ((CAGE.to - CAGE.from) * i) / 8);
-    posts.push([Math.round(O.x + Math.cos(a) * CAGE.rx), Math.round(O.y + Math.sin(a) * CAGE.ry), Math.sin(a)]);
+// The discus and hammer cage, laid out like a real C-cage at the circle's scale (the 2.5 m ring
+// is 56 px wide): netting on an arc round the back of the circle, then straight side panels out
+// to a 6 m mouth in front of it. The discus cage's back netting is 3 m from the centre and its
+// mouth 5 m forward; the hammer cage stands 3.5 m back, its mouth 4.2 m forward, and is taller.
+// The far half is drawn behind the thrower, the near half in front, so the thrower stands inside.
+const CAGE_PX = 22.4, CAGE_DEPTH = 0.4;
+const CAGES = { discus: { r: 3, from: 80, mouth: 5, h: 96 }, hammer: { r: 3.5, from: 72, mouth: 4.2, h: 132 } };
+function cage(g, half, ev) {
+  const c = CAGES[ev],
+    plan = [[c.mouth, -3]];
+  for (let i = 0; i <= 10; i++) {
+    const a = ((c.from + ((360 - 2 * c.from) * i) / 10) * Math.PI) / 180;
+    plan.push([Math.cos(a) * c.r, -Math.sin(a) * c.r]);
   }
-  // Far posts have negative sin (they sit above the circle on screen); near posts positive.
-  const mine = ([, , z]) => (half === "back" ? z <= 0.05 : z > 0.05);
+  plan.push([c.mouth, 3]);
+  // Far posts (negative v) sit above the circle on screen; near posts below it.
+  const posts = plan.map(([u, v]) => [Math.round(O.x + u * CAGE_PX), Math.round(O.y + v * CAGE_PX * CAGE_DEPTH), v]);
+  const mine = (v) => (half === "back" ? v <= 0.05 : v > 0.05);
   for (let i = 0; i + 1 < posts.length; i++) {
-    const [x1, y1, z1] = posts[i], [x2, y2, z2] = posts[i + 1];
-    if (!mine([0, 0, (z1 + z2) / 2])) continue;
-    poly(g, [[x1, y1], [x2, y2], [x2, y2 - CAGE.h], [x1, y1 - CAGE.h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.1)");
-    for (let k = 8; k < CAGE.h; k += 8) line(g, x1, y1 - k, x2, y2 - k, "rgba(70,90,80,0.35)");
-    line(g, x1, y1 - CAGE.h, x2, y2 - CAGE.h, "#3a4a42");
+    const [x1, y1, v1] = posts[i], [x2, y2, v2] = posts[i + 1];
+    if (!mine((v1 + v2) / 2)) continue;
+    poly(g, [[x1, y1], [x2, y2], [x2, y2 - c.h], [x1, y1 - c.h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.08)");
+    for (let k = 8; k < c.h; k += 8) line(g, x1, y1 - k, x2, y2 - k, half === "back" ? "rgba(70,90,80,0.35)" : "rgba(70,90,80,0.22)");
+    line(g, x1, y1 - c.h, x2, y2 - c.h, "#3a4a42");
   }
-  for (const p of posts) if (mine(p)) rect(g, p[0], p[1] - CAGE.h, 2, CAGE.h, "#4a5a52");
+  for (const [x, y, v] of posts) if (mine(v)) rect(g, x, y - c.h, 2, c.h, "#4a5a52");
 }
 function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
@@ -341,7 +347,7 @@ function stadiumBase(s, ev, venue) {
       rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, "#f8f8f0");
     }
   } else {
-    if (ev !== "shot") cage(g, "back");
+    if (ev !== "shot") cage(g, "back", ev);
     ellipse(g, O.x, O.y + 3, 30, 11, "#5a6a5a");
     ellipse(g, O.x, O.y, 28, 10, "#e8e4d0");
     ellipse(g, O.x, O.y, 24, 8, "#a8a898");
@@ -654,8 +660,10 @@ export function createStadium(cv) {
     const foulShown = beat?.type === "throw" && beat.foul && landed;
     // People at the circle are drawn at double size, like a sports sim's close-up; the field
     // judge out in the sector stays small with the distance.
-    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 44, O.y - 20, 2);
-    if (foulShown) rect(g, O.x + 30, O.y - 72, 10, 7, "#e04a3a");
+    // In the cage events the circle judge stands outside, beside the mouth.
+    const judge = CAGES[ev] ? [O.x + Math.round(CAGES[ev].mouth * CAGE_PX) + 14, O.y - 30] : [O.x + 44, O.y - 20];
+    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, judge[0], judge[1], 2);
+    if (foulShown) rect(g, judge[0] - 14, judge[1] - 52, 10, 7, "#e04a3a");
     // Team benches along the front: your squad on the left, theirs beside them. Teammates jump
     // up when their side lands a big one.
     const benchOf = (side) => {
@@ -776,7 +784,7 @@ export function createStadium(cv) {
       if (beat?.type === "throw" && tt >= Math.max(timing.landAt + 150, recoveredAt) && sinceLand < (party ? partyEnd : 1900)) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
     // The near side of the cage passes in front of whoever is in the circle.
-    if (ev === "discus" || ev === "hammer") cage(g, "front");
+    if (ev === "discus" || ev === "hammer") cage(g, "front", ev);
     // Projectile: drawn large with a light rim so it reads against sky, crowd and grass, with a
     // short trail and its shadow running along the ground. Nothing marks the landing spot before
     // it comes down, so the distance stays a surprise. After landing, a flag in the thrower's

@@ -1280,7 +1280,6 @@ $("#app").addEventListener("change", async (e) => {
   if (["facility-staff","athlete-duty","facility-focus"].includes(kind)) world.replan();
   if (kind === "athlete-event" && G.setAthleteEvent(state, a?.id, el.value)) world.replan();
   if(kind === "training-event" && a && EVENTS[el.value] && !state.match) a.trainingEvent=el.value;
-  if(kind === "approach" && a && !G.approachProblem(a,el.dataset.event,el.value)) a.approaches[el.dataset.event]=el.value;
   if(kind === "auto-prep") {
     G.setAutoMeetPrep(state,el.checked);
     view.showGroupPlans=!state.settings.autoMeetPrep;

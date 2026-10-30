@@ -1,4 +1,4 @@
-import { masteryOf, competeMastery, disciplineModel, formOf } from "./mastery.js";
+import { masteryOf, competeMastery, EVENT_SPREAD, windEffect, formOf } from "./mastery.js";
 import { EVENTS, EVENT_IDS, TACTICS, SKILLS, BACKGROUNDS, ITEMS, GEAR_SLOTS, SPONSORS } from "../game-content.js";
 import {
   clamp,
@@ -487,21 +487,21 @@ function riskModel(s, c, side, tactic, quality, sig) {
     mult *= fx.sig;
     acts.unshift(sourceName(a, "sig"));
   }
-  const focus = a.stats[3], mastery=masteryOf(a,c.ev),discipline=disciplineModel(a,c.ev,c.m.wind);
+  const focus = a.stats[3], mastery=masteryOf(a,c.ev);
   const baseFoul={shot:0.075,discus:0.14,hammer:0.125,jav:0.12}[c.ev];
-  let foul = Math.max(0.015,baseFoul-mastery*0.00065-focus*0.0002) * discipline.foul * T.foul * fx.foul * (leading && fx.leading !== 1 ? 0.5 : 1) * (afterFoul && fx.afterFoul !== 1 ? 0.7 : 1);
+  let foul = Math.max(0.015,baseFoul-mastery*0.00065-focus*0.0002) * T.foul * fx.foul * (leading && fx.leading !== 1 ? 0.5 : 1) * (afterFoul && fx.afterFoul !== 1 ? 0.7 : 1);
   foul *= quality === "perfect" ? 0.6 : quality === "poor" ? 1.5 : 1;
   foul = clamp(foul, 0.01, 0.5);
   if (sig || (first && fx.safeFirst)) foul = 0;
-  const sd = T.sd * fx.variance * discipline.spread * (1.4 - mastery / 200) * (1.1-focus/500),
+  const sd = T.sd * fx.variance * EVENT_SPREAD[c.ev] * (1.4 - mastery / 200) * (1.1-focus/500),
     mean = T.mean + (tactic === "attack" ? fx.attackBoost : 0),
     qm = quality === "perfect" ? 1.02 + (fx.perfect ? 0.01 : 0) : quality === "poor" ? 0.95 : 1;
   const P = forecastRaw(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
   const sky = WEATHER[c.m.weather] || {};
   if (sky.foul && !sig && !(first && fx.safeFirst)) foul = clamp(foul * sky.foul, 0.01, 0.5);
-  const raw = P * mean * qm * mult * discipline.mark * (sky.mark || 1),
+  const raw = P * mean * qm * mult * windEffect(c.ev, c.m.wind) * (sky.mark || 1),
     metres = (z) => realMark(c.ev, raw * (1 + z * sd));
-  return { foul, sd, raw, metres, center: metres(0), low: metres(-1.6), high: metres(1.6), acts, fx, P: realMark(c.ev, P), discipline, target:c.target };
+  return { foul, sd, raw, metres, center: metres(0), low: metres(-1.6), high: metres(1.6), acts, fx, P: realMark(c.ev, P), target:c.target };
 }
 
 function throwFor(s, side, tactic, quality, sig) {
@@ -515,7 +515,7 @@ function throwFor(s, side, tactic, quality, sig) {
     flightDistance = +r.metres(z).toFixed(2),
     mark = foul ? null : flightDistance;
   if (sig) (side === "home" ? m.sigUsed : m.rivalSig).push(a.id);
-  a.stamina = clamp(a.stamina - (TACTICS[tactic].stamina + r.discipline.energy) * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
+  a.stamina = clamp(a.stamina - TACTICS[tactic].stamina * r.fx.stamina * (WEATHER[m.weather]?.stamina || 1), 0, 100);
   // A foul shakes confidence for the rest of the meet; a clean mark steadies it.
   a.condition = clamp(a.condition + (foul ? -8 : 2), 0, 100);
   const beforeBoard = c.m.rotation ? fieldLeaderboard(s,c.i) : [];
@@ -566,7 +566,6 @@ function throwFor(s, side, tactic, quality, sig) {
     leading: ownBest != null && ((m.rotation?c.fieldBest:oppBest) == null || ownBest > (m.rotation?c.fieldBest:oppBest)),
     risk: r.foul,
     target: c.target,
-    approach: r.discipline.approach,
     scoringSwing: c.m.rotation ? swing : 0,
     previousPlace: previousRow?.place ?? null,
     place: row?.place ?? null,

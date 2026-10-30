@@ -255,7 +255,6 @@ function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
           a.mastery[secondary] = Math.min(95,a.mastery[secondary]+8);
           if(["depth","adaptable","clutch"].includes(identity)) a.gear.implement = "carbon";
         }
-        if(league >= 2) a.approaches[event] = "developed";
       }
       a.skills = [...new Set(a.skills)];
       a.equipped = [...a.skills];

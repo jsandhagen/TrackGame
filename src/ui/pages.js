@@ -212,7 +212,7 @@ function athletePage(s, a, view) {
     ${G.systemUnlocked(s,"skills") ? `<p class="skill-line"><span>${a.equipped.length ? a.equipped.map((k) => esc(SKILLS[k].name)).join(" · ") : "No skills equipped"}${a.secret ? " · Unique: " + esc(SKILLS[SECRETS[a.secret].skill].name) : ""}</span>${btn("Manage skills", "tab", 'data-tab="skills"', "subtle small")}</p>` : ""}
     <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
     ${G.systemUnlocked(s,"duties") ? athleteDutyPicker(s,a) : ""}
-    <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, approach, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
+    <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
     ${G.systemUnlocked(s,"skills") ? `<article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>` : ""}
@@ -770,9 +770,6 @@ function formLine(a, ev) {
 function masteryCard(s,a) {
   return `<section class="card"><h3>Event mastery</h3><p>${G.PROFILES[a.profile].name}: ${G.PROFILES[a.profile].desc}</p><label>Technical training event<select data-change="training-event" data-id="${a.id}">${EVENT_IDS.map(ev=>`<option value="${ev}" ${(a.trainingEvent||a.event)===ev?"selected":""}>${EVENTS[ev].name}</option>`).join("")}</select></label><p>Physical attributes transfer. Technique practice builds mastery in the selected event; competing raises its practice ceiling, even after a loss.</p>${EVENT_IDS.map(ev=>`<div class="goal"><div><strong>${EVENTS[ev].name}</strong><small>Mastery ${Math.floor(G.masteryOf(a,ev))} · practice ceiling ${G.masteryCap(a,ev)} · ${a.eventMeets[ev]} meets</small>${bar(G.masteryOf(a,ev),100,EVENTS[ev].color)}${formLine(a,ev)}</div></div>`).join("")}</section>`;
 }
-function approachPicker(a,ev) {
-  return `<label>${EVENTS[ev].name} approach<select data-change="approach" data-id="${a.id}" data-event="${ev}">${G.APPROACHES[ev].map(d=>`<option value="${d.id}" ${a.approaches[ev]===d.id?"selected":""} ${G.approachProblem(a,ev,d.id)?"disabled":""}>${d.name}${d.needs?" · mastery "+d.needs:""}</option>`).join("")}</select></label>`;
-}
 function targetText(t) {
   if(!t)return "No scoring place to chase; bank a mark or protect the lead.";
   if(t.legal)return "Establish a legal mark to join the scoring.";
@@ -838,12 +835,11 @@ export function meetGuide(s) {
       <li><b>${TACTICS.safe.name}</b> · shortest but almost never fouls. Use it to get a first mark on the board.</li>
       <li><b>${TACTICS.balanced.name}</b> · the usual range and risk.</li>
       <li><b>${TACTICS.attack.name}</b> · a little further on average with a wider spread, but fouls far more often and costs stamina. Best once a mark is banked.</li></ul></li>
-    <li>The <b>approach</b> is the athlete's technique for that event. The bolder approach unlocks with event mastery: more distance for more risk and effort.</li>
   </ul></section>
   <section><h3>What changes a throw</h3><ul class="howto">
     <li><b>The athlete</b>: their event rating (stats and event mastery), mood and stamina. Tired or unhappy athletes throw shorter.</li>
     <li><b>Weather</b>: a wet circle raises foul risk; cold implements cost about 1.5%; heat drains stamina faster.</li>
-    <li><b>Wind</b> (the windsock): matters in the discus. A headwind helps the <i>Ride the airflow</i> approach and a crosswind hurts it.</li>
+    <li><b>Wind</b> (the windsock): matters in the discus. A headwind gives the disc a little lift; a crosswind costs a little distance.</li>
     <li><b>Skills</b> can fire during a throw. On the big moments a cut-in names the skill.</li>
   </ul></section>
   <section><h3>Pace</h3><p>One, two or three arrows play the meet at normal, fast or very fast. <b>Highlights</b> lingers on the big moments; <b>Every throw</b> gives each result the same time. Pause any time. Decisions always wait for you.</p></section>
@@ -1100,7 +1096,6 @@ export function lobby(s, view = {}) {
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
   <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ★ marks a specialist. ${btn("How meets work", "meet-guide", "", "text")}${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
-  ${view.editLineup ? s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("") : ""}
   <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
   ` : ""}<div class="card-title"><h2>How do you want to run it?</h2></div>${meetModes(s)}
@@ -1229,7 +1224,6 @@ export function decide(s, view) {
     sigReady = G.canSignature(s, "home");
   if (view.meter)
     return `<div class="meter-panel"><span class="eyebrow">RELEASE ON THE GOLD</span><div class="meter"><span class="zone good"></span><span class="zone perfect" style="--w:${G.effects(s, a).perfect ? 22 : 14}%"></span><span id="needle"></span></div>${btn("Release!", "release")}<small>Tap Release, or press Space.</small></div>`;
-  const ev = EVENT_IDS[m.eventIndex], approach = G.APPROACHES[ev].find(d=>d.id===a.approaches[ev]);
   return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
     <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>
     ${decideStandings(s, a)}
@@ -1240,7 +1234,6 @@ export function decide(s, view) {
       })
       .join("")}</div>
     <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} The range is the likely distance.</p>
-    <div class="decide-approach">${approachPicker(a,ev)}<small>${esc(approach?.desc || "")}${ev === "discus" ? " Wind: " + esc(m.wind || "calm") + "." : ""} Bolder approaches unlock with event mastery.</small></div>
     ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}</div>`;
 }
 // Under the level bar: what the next level brings and the next bigger milestone.

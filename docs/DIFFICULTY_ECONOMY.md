@@ -13,7 +13,7 @@ Each event has three anchors in `EVENTS` (`src/game-content.js`):
 | Hammer | 20 m | 79 m | 86.74 m |
 | Javelin | 22 m | 86 m | 98.48 m |
 
-Gear, skills, approaches and conditions multiply on top of `max`. `realMark` (`src/domain/core.js`) then turns that raw performance into metres. Marks are unchanged up to 92% of the record. Above that the curve flattens to a square root: each extra metre costs more ability than the last, but growth never stops. Thrown marks, throw previews, forecasts, lineup edges and scouting all use the same conversion. The stadium sector stretches to just past the longest mark the event has seen.
+Gear, skills, wind and conditions multiply on top of `max`. `realMark` (`src/domain/core.js`) then turns that raw performance into metres. Marks are unchanged up to 92% of the record. Above that the curve flattens to a square root: each extra metre costs more ability than the last, but growth never stops. Thrown marks, throw previews, forecasts, lineup edges and scouting all use the same conversion. The stadium sector stretches to just past the longest mark the event has seen.
 
 Typical rival specialists throw like this:
 

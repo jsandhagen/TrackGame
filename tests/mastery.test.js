@@ -37,12 +37,11 @@ test('Hype Engine raises teammate condition on an individual event win',()=>{
  m.started[0]=true;m.phase='live';m.fields[0].home.forEach((e,i)=>e.marks=[20-i,19-i,18-i]);m.fields[0].away.forEach((e,i)=>e.marks=[10-i,9-i,8-i]);
  const beat=G.advanceMatch(s);assert.equal(beat.type,'eventEnd');assert.equal(other.condition,58);
 });
-test('rival developed deliveries consume stamina, and each discipline offers a different tradeoff',()=>{
- const s=ready(66),r=G.rivalAthlete(s);r.mastery.shot=100;r.approaches.shot='developed';const before=r.stamina;
- G.advanceMatch(s);G.advanceMatch(s);const beat=G.advanceMatch(s);assert.equal(beat.side,'away');assert(r.stamina<before);
- const a=s.roster[0];EVENT_IDS.forEach(ev=>a.mastery[ev]=80);
- assert(G.disciplineModel(a,'discus','headwind','developed').mark>G.disciplineModel(a,'discus','crosswind','developed').mark);
- assert(G.disciplineModel(a,'hammer','calm','developed').energy>G.disciplineModel(a,'shot','calm','developed').energy);
+test('every athlete scatters by event, and only the discus feels the wind',()=>{
+ assert(G.EVENT_SPREAD.discus>G.EVENT_SPREAD.shot);
+ assert(G.windEffect('discus','headwind')>G.windEffect('discus','calm'));
+ assert(G.windEffect('discus','crosswind')<G.windEffect('discus','calm'));
+ for(const ev of ['shot','hammer','jav']) assert.equal(G.windEffect(ev,'headwind'),1);
 });
 test('revisiting a tier or entering a new stage keeps the same rival athletes, including after a save',()=>{
  const s=G.newGame(67);s.circuit.cleared=['0:0','0:1'];const names=s.clubs.map(c=>({id:c.id,names:c.athletes.map(a=>a.name)}));
@@ -50,10 +49,10 @@ test('revisiting a tier or entering a new stage keeps the same rival athletes, i
  G.cancelCompetition(s);s.league=1;G.enterCompetition(s,{kind:'duel',tier:1});G.cancelCompetition(s);
  const copy=validateCampaign(exportCampaign(s));G.enterCompetition(copy,{kind:'duel',tier:0});for(const c of names) assert.deepEqual(copy.clubs.find(r=>r.id===c.id).athletes.map(a=>a.name),c.names);
 });
-test('mastery, training focus and approaches persist, and malformed development cannot be imported',()=>{
- const s=G.newGame(68);s.roster[0].trainingEvent='discus';s.roster[0].mastery.discus=65;s.roster[0].approaches.discus='developed';
- const copy=validateCampaign(exportCampaign(s));assert.deepEqual(copy.roster[0].mastery,s.roster[0].mastery);assert.equal(copy.roster[0].trainingEvent,'discus');
- for(const mutate of [a=>a.mastery.shot=101,a=>a.eventMeets.shot=-1,a=>a.trainingEvent='run',a=>a.profile='fake',a=>a.approaches.jav='fake']){const bad=G.newGame(69);mutate(bad.roster[0]);assert.throws(()=>validateCampaign(bad));}
+test('mastery and training focus persist, retired delivery choices are dropped, and malformed development cannot be imported',()=>{
+ const s=G.newGame(68);s.roster[0].trainingEvent='discus';s.roster[0].mastery.discus=65;s.roster[0].approaches={discus:'developed'};
+ const copy=validateCampaign(exportCampaign(s));assert.deepEqual(copy.roster[0].mastery,s.roster[0].mastery);assert.equal(copy.roster[0].trainingEvent,'discus');assert.equal(copy.roster[0].approaches,undefined);
+ for(const mutate of [a=>a.mastery.shot=101,a=>a.eventMeets.shot=-1,a=>a.trainingEvent='run',a=>a.profile='fake']){const bad=G.newGame(69);mutate(bad.roster[0]);assert.throws(()=>validateCampaign(bad));}
 });
 
 test('field-aware final throws outperform fixed tactics across varied scoring targets',()=>{
