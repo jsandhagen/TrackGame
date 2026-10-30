@@ -58,8 +58,47 @@ export function throwMotion(ev, level, phase, p, { foul = false, style = 0 } = {
     return m;
   }
   if (ev === "hammer") return hammer(m, level, phase, p, foul, style);
-  if (ev === "discus") return discus(m, level, phase, p, foul, style);
+  if (ev === "discus") {
+    discus(m, level, phase, p, foul, style);
+    return discusFacing(m, level, phase, p, style);
+  }
   return shot(m, level, phase, p, foul, style);
+}
+
+// Unwrapped counterclockwise headings, seen from above. Sector = 0; π faces the rear.
+// Torso, head, limb depth and pelvis share these angles instead of inferring a turn from
+// unrelated side/front/back drawings. The shoulder wind may reverse; the throwing turn does not.
+function discusFacing(m, level, phase, p, style) {
+  const pi = Math.PI, end = level >= 2 ? 4 * pi : level === 1 ? 2 * pi : 0;
+  let chest, hips;
+  const interpolate = keys => {
+    let i = 0;
+    while (i + 1 < keys.length && p >= keys[i + 1][0]) i++;
+    const a = keys[i], b = keys[i + 1] || a;
+    let q = a[0] === b[0] ? 0 : (p - a[0]) / (b[0] - a[0]);
+    if (level >= 2 && phase === "technique" && p < 0.4) q = ease(q);
+    return [lerp(a[1], b[1], q) * pi, lerp(a[2], b[2], q) * pi];
+  };
+  if (phase === "ready") chest = hips = level >= 2 ? pi : 0;
+  else if (phase === "technique") {
+    const flight = level === 3 ? 0.73 : 0.75;
+    [chest, hips] = interpolate(level >= 2
+      ? [[0, 1, 1], [0.16, 1.15, 1], [0.4, 0.8, 1], [0.5, 1.2, 1.3], [0.64, 1.5, 1.65],
+        [flight - 0.04, 1.8, 1.95], [flight, 2.05, 2.2], [flight + 0.04, 2.65, 2.85],
+        [0.83, 3, 3.2], [0.86, 3.15, 3.45], [0.89, 3.5, 3.7], [0.94, 3.72, 3.9], [0.975, 3.9, 4], [1, 4, 4]]
+      : level === 1 ? [[0, 0, 0], [0.28, 0.1, 0.2], [0.58, 0.35, 0.5], [0.7, 0.65, 0.85],
+        [0.76, 1, 1.2], [0.81, 1.15, 1.45], [0.86, 1.5, 1.7], [0.93, 1.72, 1.9], [0.975, 1.9, 2], [1, 2, 2]]
+      : [[0, 0, 0], [0.6, -0.35, -0.2], [0.85, -0.2, -0.05], [0.95, -0.08, 0], [1, 0, 0]]);
+  } else {
+    const reverse = style === 1 || (style === 0 && level >= 2);
+    const releaseTurn = reverse ? 0.3 * pi : 0.15 * pi;
+    chest = hips = end + (phase === "release" ? p * releaseTurn
+      : releaseTurn + p * (reverse && style === 0 ? 0.7 * pi : 0.25 * pi));
+  }
+  m.turn = chest; m.hipTurn = hips;
+  m.blend ||= { frame: m.frame, flip: m.flip, t: 0 };
+  Object.assign(m.blend, { turn: chest, hipTurn: hips, basisFlip: m.flip });
+  return m;
 }
 
 function finish(m, p, foul, at) {
@@ -225,7 +264,7 @@ function orbit(th, r, steepen) {
 // 8 the arm sweeping down and 9 the reverse that catches the run-up. The run-up uses "carry".
 function javelin(m, level, phase, p, foul, style) {
   const slope = (dx) => Math.round(-dx * 0.1);
-  const start = level ? -80 : -44;
+  const start = level ? -96 : -64;
   if (phase === "ready") return Object.assign(m, { frame: level ? 0 : 1, dx: start, dy: slope(start) });
   if (phase === "release") {
     track(m, p, [[0, 2, -20], [1, 8, -20]], true); m.dy = slope(-20); return m;
@@ -254,27 +293,28 @@ function javelin(m, level, phase, p, foul, style) {
   if (level === 0) {
     // Three-step teaching progression: already withdrawn, left-right-left into the block.
     // It has a compact crossover, but none of the full approach's overhead-carry running.
-    const r = track(m, p, [[0, 1, start], [0.22, 12, -42], [0.4, 15, -40], [0.59, 4, -36],
-      [0.8, 20, -28], [0.87, 6, -26], [0.93, 19, -26], [0.97, 11, -24], [0.99, 7, -20], [1, 2, -20]], true);
-    r.dy = slope(r.dx);
+    const r = track(m, p, [[0, 1, start], [0.28, 12, -62], [0.62, 21, -52],
+      [0.72, 10, -38, false, -1], [0.82, 20, -28], [0.88, 6, -26],
+      [0.93, 19, -26], [0.97, 11, -24], [0.99, 7, -20], [1, 2, -20]], true);
+    r.dy += slope(r.dx);
     return r;
   }
   // Carry overhead during a cyclic run, then withdraw on a left contact. Crossovers travel
   // down the runway, rather than changing legs almost in place. The right foot lands before
   // the left block; the drawn arm stays behind the advancing hips until the final delivery.
-  const runEnd = level === 1 ? 0.38 : 0.3, withdrawAt = level === 1 ? -56 : -60;
+  const runEnd = level === 1 ? 0.38 : 0.3, withdrawAt = level === 1 ? -76 : -80;
   if (p < runEnd) return run(start, withdrawAt, Math.pow(p / runEnd, 1.25));
   // Chopra reference: the impulse stride precedes a firm left block; hips then elbow lead.
   // More advanced approaches show the long impulse stride, rather than simply more running.
   // The block to release is the quickest part of the throw.
   const keys = level === 1
-    ? [[runEnd, 18, withdrawAt], [0.43, 12, -54], [0.48, 15, -51], [0.53, 4, -48],
-      [0.58, 16, -45], [0.62, 5, -42], [0.66, 13, -39], [0.7, 17, -36],
-      [0.73, 15, -34], [0.76, 4, -32], [0.82, 20, -28],
+    ? [[runEnd, 18, withdrawAt], [0.43, 12, -74], [0.48, 15, -71], [0.53, 4, -68],
+      [0.56, 16, -65], [0.59, 5, -62], [0.615, 13, -59], [0.65, 17, -56],
+      [0.72, 21, -46], [0.77, 10, -36, false, -1], [0.82, 20, -28],
       [0.87, 6, -26], [0.92, 19, -26], [0.95, 11, -24], [0.98, 7, -20], [1, 2, -20]]
-    : [[runEnd, 18, withdrawAt], [0.35, 12, -57], [0.4, 15, -53], [0.45, 4, -49],
-      [0.5, 16, -45], [0.54, 5, -42], [0.58, 13, -39], [0.62, 17, -36],
-      [0.66, 15, -34], [0.71, 4, -32], [0.77, level === 3 ? 14 : 10, -32, false, -1],
+    : [[runEnd, 18, withdrawAt], [0.35, 12, -78], [0.4, 15, -75], [0.45, 4, -72],
+      [0.5, 16, -69], [0.54, 5, -66], [0.58, 13, -63], [0.62, 17, -58],
+      [0.69, 21, -48], [0.76, level === 3 ? 14 : 10, -36, false, -1],
       [0.83, 20, -28], [0.89, 6, -26], [0.93, 19, -26], [0.96, 11, -24], [0.985, 7, -20], [1, 2, -20]];
   const r = track(m, p, keys, true);
   r.dy += slope(r.dx);
@@ -289,7 +329,7 @@ export function throwReleasePoint(ev, level) {
     return [m.dx + m.ball.dx, m.dy + m.ball.dy];
   }
   const m = throwMotion(ev, level, "release", 0),
-    [x, y] = implementPointOf({ pose: "throw", event: ev, frame: m.frame, flip: m.flip });
+    [x, y] = implementPointOf({ pose: "throw", event: ev, frame: m.frame, flip: m.flip, blend: m.blend });
   return [m.dx + x * 2, m.dy + y * 2];
 }
 

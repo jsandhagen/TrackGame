@@ -41,7 +41,7 @@ function venueOf(s, m) {
     crowd: v.home ? Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) : v.special ? 0.92 : CROWDS[grand],
   };
 }
-const O = THROW_ORIGIN;
+let O = THROW_ORIGIN;
 let sector = throwingSector("shot", W, 100);
 const centreY = x => sector.centerY(x);
 const upperY = x => sector.upperY(x);
@@ -422,6 +422,7 @@ export function createStadium(cv) {
       e = EVENTS[ev];
     SPAN = spanOf(s, m, bi, ev);
     sector = throwingSector(ev, W, SPAN);
+    O = sector.origin;
     const ppm = ppmOf();
     const LH = camera.height,
       top = Math.round(camera.top);

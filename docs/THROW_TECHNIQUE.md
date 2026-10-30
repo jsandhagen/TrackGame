@@ -40,6 +40,10 @@ Discus full-turn preparation uses a dedicated planted stance for the forward swi
 
 Discus and javelin interpolate shoulders, elbows, hands, knees and shoes between contacts. Left and right limbs retain their identities when the drawing order or facing changes. The held implement follows the interpolated hand, including the javelin's changing shaft angle. Only the discus preparatory swing eases at its reversals; travel does not stop at each contact. The last technique pose joins the release, and the release joins recovery with continuous hand positions. Meet rendering, club practice, afterimages and the study page consume this same motion data.
 
+Every javelin form includes a penultimate: left-toe take-off, a long low impulse with the right knee leading, right-foot catch, then a quicker, shorter left block step. The three-step and full forms include this sequence as well as the developed forms; elite form lengthens the split. The meet's javelin origin leaves enough runway on screen for the withdrawn approach.
+
+Discus chest and pelvis headings follow one continuous counterclockwise turn after the preparatory wind. Those headings control the projected shoulders, hips, head facing and which limbs appear nearer the camera. The rear-facing stance projects narrowly along the sector direction, with shoe depth distinguishing the two feet. Entry loads the planted left foot while the right leg sweeps free; the centre catch gathers the free leg before the left plant. This avoids both a broad sideways straddle in the wind and inconsistent facing changes during the turn. Club practice preserves the whole animation when mirrored toward a west-facing sector.
+
 ## Sources
 
 - [Peter Taylor / Australian Athletics, coaching the shot put](https://coachathletics.com.au/coaching-education/coaching-aspects-of-the-shot-put-technique-for-young-athletes). The illustrated five phases separate the low glide, closed transition, leg-driven delivery and late recovery. The article includes Storl photographs.

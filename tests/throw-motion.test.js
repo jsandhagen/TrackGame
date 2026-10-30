@@ -56,11 +56,44 @@ test('both discus shoes stay planted throughout the full wind, including the cha
  for (const level of [2, 3]) {
   const feet = m => worldFeet('discus', m).sort((a, b) => a[0] - b[0]);
   const initial = feet(throwMotion('discus', level, 'ready', 0));
+  assert(initial[1][0] - initial[0][0] <= 4, 'rear-facing shoulder-width stance projects narrowly along the throwing direction');
   for (let i = 0; i <= 400; i++) {
    const m = throwMotion('discus', level, 'technique', i / 1000);
    const current = feet(m);
    current.forEach((point, k) => point.forEach((v, axis) => assert(Math.abs(v - initial[k][axis]) < 1e-8, `wind moves shoe ${k} at ${i / 1000}`)));
   }
+ }
+});
+
+test('discus torso and pelvis turn counterclockwise without reversing during the throw', () => {
+ for (const level of [1, 2, 3]) {
+  const start = level === 1 ? 0 : 0.4;
+  const motion = sample('discus', level, 'technique', 2000).filter((_, i) => i / 2000 >= start);
+  for (let i = 1; i < motion.length; i++) {
+   assert(motion[i].turn >= motion[i - 1].turn - 1e-10, 'chest heading does not reverse after the wind');
+   assert(motion[i].hipTurn >= motion[i - 1].hipTurn - 1e-10, 'pelvis keeps turning in the same direction');
+  }
+  assert.equal(throwMotion('discus', level, 'technique', 1).turn, (level === 1 ? 2 : 4) * Math.PI);
+ }
+ // Viewed from the sector's side, the right shoulder crosses from the screen-left side
+ // while facing the camera to screen-right while facing away. Both body and depth follow it.
+ const front = throwMotion('discus', 2, 'technique', 0.64), back = throwMotion('discus', 2, 'technique', 0.79);
+ const f = armJointsOf(spriteOptions('discus', front)), b = armJointsOf(spriteOptions('discus', back));
+ assert(f[0][0][0] < f[1][0][0], 'right shoulder is on the left in the front-facing entry');
+ assert(b[1][0][0] > b[0][0][0], 'right shoulder moves to the right in the away-facing catch');
+});
+
+test('javelin penultimate travels farther than the final block step in every form', () => {
+ for (let level = 0; level < 4; level++) {
+  const motion = sample('jav', level, 'technique', 4000);
+  const first = frame => motion.findIndex(m => !m.run && m.frame === frame);
+  const push = first(21), catchAt = first(20), block = first(6), impulse = first(level === 3 ? 14 : 10);
+  assert(push < impulse && impulse < catchAt && catchAt < block, 'left take-off, impulse, right catch, left block');
+  const left = worldFeet('jav', motion[push])[0][0], right = worldFeet('jav', motion[catchAt])[1][0], front = worldFeet('jav', motion[block])[0][0];
+  assert(right - left > front - right, 'penultimate is the longer stride');
+  assert(catchAt - push > 1.5 * (block - catchAt), 'right catch is followed by a quick final left block');
+  assert(motion[impulse].dy < Math.round(-motion[impulse].dx * 0.1), 'impulse has a low flight');
+  assert(worldFeet('jav', motion[impulse]).every(([, y]) => y < motion[impulse].dy - 2), 'both shoes are clear during the impulse');
  }
 });
 
@@ -96,7 +129,7 @@ test('javelin three-step and full approaches have different starts, travel and f
  assert(short.every(m=>!m.run),'short approach has three withdrawn steps, without an overhead carry run');
  assert(full.some(m=>m.run),'full approach adds a cyclic overhead-carry run');
  const range=list=>Math.max(...list.map(m=>m.dx))-Math.min(...list.map(m=>m.dx));
- assert(range(full)>2*range(short),'full approach covers visibly more runway');
+ assert(range(full)>1.5*range(short),'full approach covers visibly more runway while both forms have room for a penultimate');
  assert(throwMotion('jav',0,'ready',0).dx-throwMotion('jav',1,'ready',0).dx>=30);
  for(const level of [1,2,3]) {
   const all=sample('jav',level,'technique',1000),steps=all.filter(m=>!m.run&&[12,4,5,13,10,14].includes(m.frame));
@@ -191,16 +224,17 @@ test('hammer turns alternate foot contacts and launch from the hammer head', () 
     assert(release.released && !release.ball, 'only the flight draws the released hammer');
   }
   for (const ev of ['shot', 'discus', 'jav']) for (let level = 0; level < 4; level++) {
-    const m = throwMotion(ev, level, 'release', 0), [x, y] = implementPointOf({ pose: 'throw', event: ev, frame: m.frame });
+    const m = throwMotion(ev, level, 'release', 0), [x, y] = implementPointOf(spriteOptions(ev, m));
     assert.deepEqual(throwReleasePoint(ev, level), [m.dx + x * 2, m.dy + y * 2]);
   }
 });
 
-test('javelin blocks before the elbow-led delivery and advanced approaches add an impulse stride', () => {
+test('every javelin form has a penultimate before the block and elbow-led delivery', () => {
   for (let level = 0; level < 4; level++) {
     const frames = sample('jav', level, 'technique', 400).filter(m => !m.run).map(m => m.frame);
     assert(frames.indexOf(6) < frames.indexOf(19) && frames.indexOf(19) < frames.indexOf(11) && frames.indexOf(11) < frames.indexOf(7), 'block, free-arm closure, hip drive, then overarm delivery');
-    assert.equal(frames.includes(10)||frames.includes(14), level >= 2, 'the long impulse is reserved for developed approaches');
+    assert(frames.indexOf(21) < frames.indexOf(20) && (frames.includes(10) || frames.includes(14)), 'left toe-off and an airborne penultimate precede the right catch');
+    assert.equal(frames.includes(14), level === 3, 'the elite form extends the low impulse');
   }
 });
 
