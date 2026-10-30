@@ -89,8 +89,13 @@ function discusFacing(m, level, phase, p, style) {
   } else {
     const reverse = style === 1 || (style === 0 && level >= 2);
     const releaseTurn = reverse ? 0.3 * pi : 0.15 * pi;
-    chest = hips = end + (phase === "release" ? p * releaseTurn
-      : releaseTurn + p * (reverse && style === 0 ? 0.7 * pi : 0.25 * pi));
+    if (phase === "release") chest = end + p * releaseTurn;
+    // Classic spinners let the turn run on low over the right leg, then turn back to watch the
+    // discus fly; everyone else checks the turn and settles facing the throw.
+    else if (reverse && style === 0)
+      chest = end + (p < 0.3 ? releaseTurn + 0.35 * pi * ease(p / 0.3) : 0.65 * pi - 0.55 * pi * ease(Math.min(1, (p - 0.3) / 0.4)));
+    else chest = end + lerp(releaseTurn, 0.08 * pi, ease(p));
+    hips = chest;
   }
   m.turn = chest; m.hipTurn = hips;
   m.blend ||= { frame: m.frame, flip: m.flip, t: 0 };
@@ -184,11 +189,11 @@ function discus(m, level, phase, p, foul, style) {
   if (phase === "release") return track(m, p, [[0, 2, 4], [1, reverses ? 3 : 12, 4]], true);
   if (phase === "follow") {
     finish(m, p, foul, 4);
-    // Classic: spinners reverse and let the turn run on round to the back of the circle; a standing
-    // or half-turn thrower wraps the arm across and settles. Bouncy: a reverse with a hop on the
+    // Classic: spinners reverse, let the turn run on low over the right leg, then come back round
+    // to watch the flight; a standing or half-turn thrower wraps the arm across and settles. Bouncy: a reverse with a hop on the
     // right foot. Composed: no reverse, the arm wrapping across over planted feet.
     const keys = style === 1 ? [[0, 3, 4], [0.7, 13, 4], [1, 13, 4]]
-      : reverses ? [[0, 3, 4], [0.42, 15, 4], [0.82, 16, 4, true], [1, 16, 4, true]]
+      : reverses ? [[0, 3, 4], [0.3, 15, 4], [0.7, 16, 4], [1, 16, 4]]
       : [[0, 12, 4], [style === 2 ? 0.85 : 0.6, 13, 4], [1, 13, 4]];
     const dx = m.dx;
     track(m, p, keys, true); m.dx = dx;

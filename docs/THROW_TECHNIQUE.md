@@ -60,7 +60,7 @@ The rhythm reads "da · da · da · da · daa-da-DUM". The full approach runs th
 | Right-foot pivot in the middle | about a quarter |
 | Left plant to release | about a sixth, the quickest phase |
 
-The forward swing and backswing are eased and unhurried, and everything after them is slow to fast. The pelvis heading leads the chest from the entry to the strike.
+The forward swing and backswing are eased and unhurried, and everything after them is slow to fast. The deepest backswing stays side-on, so the head never flickers to a back view at the turnaround. The entry sits low into the bent left leg while the right leg sweeps wide and low. Every finish ends facing the sector, watching the discus: spinners after their turn runs on, everyone else after checking the turn. The pelvis heading leads the chest from the entry to the strike.
 
 Both discus arms are swung by the chest heading, rather than interpolated between drawings. The long throwing arm trails a set angle behind the right shoulder line, and the free arm leads from the left. Each hand projects to screen position and depth. An arm behind the torso is drawn behind it, so the discus is hidden behind the body as the entry faces the camera. It reappears trailing through the flight and the pivot, swings round behind on the rear side, and is slung through toward the sector at release. The hands stay below the big chin so the long arm never smears across the face. The angles are slightly shallower than real lag at the deepest points, so the discus stays readable at pixel scale.
 
@@ -92,7 +92,7 @@ Technique comes from form; the finish after release is the athlete's own, so two
 | Event | Classic | Bouncy | Composed |
 | --- | --- | --- | --- |
 | Shot | Gliders reverse; rotational throwers let the turn run on to the back of the circle | Reverse with a hop on the right foot | No reverse: the finish held tall over the left leg |
-| Discus | Spinners reverse and turn on to the back of the circle | Reverse with a hop on the right foot | No reverse: the arm wraps across over planted feet |
+| Discus | Spinners reverse, let the turn run on low over the right leg, then turn back to watch the flight | Reverse with a hop on the right foot | No reverse: the arm wraps across over planted feet |
 | Hammer | Three quarters of a turn more, then plant | A turn and a quarter, or a hop back for standing finishes | No turn: plant and sit back |
 | Javelin | Fold over the block, reverse and stand | A second hop on the right foot after the reverse | Hold the fold over the block, then rise |
 

@@ -152,7 +152,7 @@ const THROWS = {
     { y: 0, legs: [[[0, -3], [-1, -1]], [[1, -3], [2, -1]]], arms: [[[2, 1], [4, 1]], [[2, 2], [4, 2]]], hold: 0, item: "disc" },
     // The entry: round to face us on the bent left leg, the right leg sweeping wide and low, the
     // discus arm trailing far behind…
-    { sling: [0.3, 0.1, 5], view: "front", y: 1, lean: 1, hip: 2, legs: [[[-4, -3], [-5, -3]], [[0, -2], [-1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
+    { sling: [0.3, 0.1, 5], view: "front", y: 2, lean: 1, hip: 2, legs: [[[-5, -3], [-8, -2]], [[0, -2], [-1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
     // …a low drive across the circle toward the sector, right knee leading…
     { sling: [0.35, 0.2, 4], y: 0, lean: 1, hip: 2, legs: [[[-2, -3], [-5, -2]], [[4, -3], [2, -2]]], arms: [[[3, -1], [5, -3]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
     // …landing on the ball of the right foot facing away, the left leg close…
@@ -170,16 +170,16 @@ const THROWS = {
     // The strike: hips and chest open to the sector over the braced left leg, the right foot
     // turning on its toe, the throwing arm last, still long behind at shoulder height.
     { sling: [0.15, -0.2, 2.5], y: -1, lean: 1, hip: 2, shoulders: [[-3, 1], [-1, 0]], legs: [[[2, -4], [2, -1]], [[0, -3], [-2, -2]]], arms: [[[-2, 2], [0, 3]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc", face: "strain" },
-    // After the reverse the turn carries on, away from us, on the right foot…
-    { sling: [-0.8, 0, 3], view: "back", y: 0, legs: [[[-4, -3], [-5, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 1], [-5, 2]], [[3, 1], [5, 2]]] },
-    // …and stops with the back to the sector, both feet down, inside the circle.
+    // After the reverse the turn carries on, low on the right foot to soak up the speed…
+    { sling: [-0.8, 0, 3], view: "back", y: 2, legs: [[[-4, -3], [-5, -2]], [[2, -3], [2, -1]]], arms: [[[-3, 1], [-5, 2]], [[3, 1], [5, 2]]] },
+    // …then both feet down inside the circle, turned back to watch the flight.
     { sling: [-0.7, 0, 3], y: 0, legs: [[[1, -3], [0, -1]], [[-1, -3], [-3, -1]]], arms: [[[1, 2], [2, 4]], [[1, 3], [1, 5]]] },
     // The backswing wound right round, the chest turned away from us and the discus far back.
     { view: "back", y: 1, legs: [[[-4, -3], [-5, -1]], [[3, -3], [4, -1]]], arms: [[[2, 1], [3, 1]], [[4, 0], [7, 0]]], hold: 1, item: "disc" },
     // Entry: weight onto the bent left leg, the right foot still pushing from the back.
-    { sling: [0.4, 0.1, 5], view: "front", y: 1, lean: 1, hip: 2, legs: [[[-2, -3], [-2, -2]], [[0, -2], [-1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
+    { sling: [0.4, 0.1, 5], view: "front", y: 2, lean: 1, hip: 2, legs: [[[-3, -2], [-4, -1]], [[0, -2], [-1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [6, 0]]], hold: 0, item: "disc", face: "strain" },
     // The right knee swings through toward the middle as the left leg drives.
-    { sling: [0.3, 0.15, 5], view: "front", y: 0, lean: 1, hip: 2, legs: [[[2, -4], [1, -3]], [[0, -2], [-1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
+    { sling: [0.3, 0.15, 5], view: "front", y: 1, lean: 1, hip: 2, legs: [[[2, -4], [1, -3]], [[0, -2], [-1, -1]]], arms: [[[-3, 0], [-6, 0]], [[3, 0], [5, 1]]], hold: 0, item: "disc", face: "strain" },
     // South African start: facing the sector at the rear, weight over the left support leg,
     // right foot behind. The discus stays drawn back while the free arm leads into the ring.
     { sling: [0.6, 0.3, 5], y: 1, lean: 2, hip: 2, shoulders: [[0, 1], [-2, 1]], legs: [[[2, -2], [2, -1]], [[-3, -3], [-6, -2]]], arms: [[[3, 0], [6, -2]], [[-3, 0], [-6, 0]]], hold: 1, item: "disc" },
@@ -359,7 +359,8 @@ function resolvedPose(o) {
   if (o.event === "discus" && Number.isFinite(blend.turn)) {
     const turn = blend.turn, hipTurn = blend.hipTurn ?? turn, dir = (blend.basisFlip ?? o.flip) ? -1 : 1,
       towardCamera = -Math.sin(turn), right = p.hold, centre = -1 + lean;
-    p.view = Math.abs(towardCamera) > 0.55 ? towardCamera > 0 ? "front" : "back" : "side";
+    // Past about 37° from side-on, show the chest or back; the deepest backswing stays side-on.
+    p.view = Math.abs(towardCamera) > 0.6 ? towardCamera > 0 ? "front" : "back" : "side";
     p.headFlip = Math.cos(turn) * dir < 0;
     p.near = Math.cos(turn) >= 0 ? right : 1 - right;
     p.shoulders = [0, 1].map(k => {
