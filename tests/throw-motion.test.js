@@ -454,3 +454,10 @@ test('the discus orbits with the chest: trailing on the sector side, swung behin
   assert(disc('release', 0) > 5, 'slung through toward the sector at release');
  }
 });
+
+test('javelin crossovers run tall; the lean back is saved for the penultimate', () => {
+ const shoulder = frame => armJointsOf({ pose: 'throw', event: 'jav', frame })[1][0][0];
+ for (const crossover of [9, 10, 11]) assert(shoulder(crossover) - shoulder(14) >= 3, `frame ${crossover} leans back like the impulse`);
+ assert(shoulder(12) > shoulder(13) && shoulder(13) > shoulder(14), 'the lean builds from the last left contact into the impulse');
+ assert(shoulder(16) <= shoulder(14) && shoulder(17) <= shoulder(14), 'and holds through the catch and block');
+});

@@ -84,7 +84,7 @@ const JAVELIN_WITHDRAWN = {
   arms: [[[3, 0], [6, -2]], [[-3, -1], [-7, -2]]],
 };
 // Carrying the javelin on the run-up: the forearm up behind the ear, palm up under the shaft, the
-// javelin level above the shoulder at forehead height and clear of the eyes.
+// javelin level above the shoulder at forehead height, clear of the eyes and pointing well ahead.
 const JAVELIN_CARRY = [[-1, -4], [-3, -8]];
 const THROWS = {
   shot: [
@@ -252,15 +252,17 @@ const THROWS = {
     { y: -2, lean: 1, legs: [[[2, -4], [1, -3]], [[0, -3], [-1, -1]]], arms: [[[-2, 2], [-3, 4]], JAVELIN_CARRY], item: "jav" },
     // Withdrawal begins on a left contact: the hand travels back while the feet keep running.
     { y: -1, lean: 0, shoulders: [[1, 1], [-1, 0]], legs: [[[1, -3], [1, -1]], [[-1, -3], [-3, -3]]], arms: [[[3, 0], [6, -2]], [[-3, -1], [-5, -2]]], item: "javwithdraw" },
-    // Left toe-off with the arm long behind and the shoulders turned side-on.
-    { y: -2, lean: -1, hip: 1, legs: [[[0, -3], [-1, -1]], [[2, -4], [1, -3]]], ...JAVELIN_WITHDRAWN, item: "javback" },
-    // Crossover: the right foot lands ahead of the hips, the shoulders leaning back…
-    { y: -1, lean: -2, hip: 1, legs: [[[-1, -3], [-3, -2]], [[2, -3], [2, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
+    // Left toe-off with the arm long behind and the shoulders turned side-on, still running tall.
+    { y: -2, lean: 0, hip: 0, legs: [[[0, -3], [-1, -1]], [[2, -4], [1, -3]]], ...JAVELIN_WITHDRAWN, item: "javback" },
+    // Crossover: the right foot lands ahead of the hips. The trunk stays nearly upright; the big
+    // lean back is saved for the penultimate…
+    { y: -1, lean: 0, hip: 1, legs: [[[-1, -3], [-3, -2]], [[2, -3], [2, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // …and pushes off behind as the left knee comes through low.
-    { y: -1, lean: -2, hip: 1, legs: [[[2, -3], [1, -2]], [[0, -3], [-1, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
-    // The last left contact, ahead of the hips, ready to push into the penultimate.
-    { y: -1, lean: -2, hip: 1, legs: [[[1, -3], [1, -1]], [[-1, -3], [-3, -2]]], ...JAVELIN_WITHDRAWN, item: "javback" },
-    // Penultimate take-off: a long push from the left toe, the right knee driving low and forward.
+    { y: -1, lean: 0, hip: 1, legs: [[[2, -3], [1, -2]], [[0, -3], [-1, -1]]], ...JAVELIN_WITHDRAWN, item: "javback" },
+    // The last left contact, ahead of the hips; the shoulders start to drop back.
+    { y: -1, lean: -1, hip: 1, legs: [[[1, -3], [1, -1]], [[-1, -3], [-3, -2]]], ...JAVELIN_WITHDRAWN, item: "javback" },
+    // Penultimate take-off: a long push from the left toe, the right knee driving low and forward,
+    // and the lean back begins.
     { y: -1, lean: -2, hip: 1, legs: [[[-1, -3], [-2, -1]], [[3, -4], [2, -3]]], ...JAVELIN_WITHDRAWN, item: "javback" },
     // The impulse stride: low and long, the hips running ahead of the shoulders.
     { y: 0, lean: -3, hip: 1, legs: [[[-2, -3], [-4, -2]], [[3, -3], [4, -2]]], ...JAVELIN_WITHDRAWN, item: "javback" },
@@ -311,9 +313,10 @@ function poseArmJoints(p, dy = p.y || 0, lean = p.lean || 0) {
   });
 }
 
-// [tail x, tail y, tip x, tip y] from the hand. The grip is on the cord at the balance point, so
-// more of the shaft trails behind the hand than leads it. Withdrawn, the tip sits by the brow.
-const SHAFTS = { jav: [-17, 1, 11, -1], javback: [-16, 6, 15, -6], javwithdraw: [-16, 4, 13, -4], javup: [-14, 10, 9, -6] };
+// [tail x, tail y, tip x, tip y] from the hand. Carried, the hand sits back by the ear, so most of
+// the shaft reaches out in front of the face. Withdrawn, the hand is far back on the cord, more
+// shaft trails behind it and the tip sits by the brow.
+const SHAFTS = { jav: [-12, 1, 16, -1], javback: [-16, 6, 15, -6], javwithdraw: [-16, 4, 13, -4], javup: [-14, 10, 9, -6] };
 const mixNumber = (a, b, t) => a + (b - a) * t;
 const mixPoint = (a, b, t) => a.map((v, i) => mixNumber(v, b[i], t));
 function poseHips(p) {
