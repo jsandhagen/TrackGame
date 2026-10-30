@@ -12,7 +12,6 @@ export function initMastery(a,legacy=false){
  a.mastery??=Object.fromEntries(EVENT_IDS.map(ev=>[ev,ev===a.event?30:8]));
  a.eventMeets??=Object.fromEntries(EVENT_IDS.map(ev=>[ev,legacy?(a.pb?.[ev]?Math.min(12,a.meets||0):ev===a.event?Math.min(8,a.meets||0):0):0]));
  if(legacy) for(const ev of EVENT_IDS) if(a.eventMeets[ev]) a.mastery[ev]=Math.max(a.mastery[ev],Math.min(80,30+a.eventMeets[ev]*3));
- a.approaches??=Object.fromEntries(EVENT_IDS.map(ev=>[ev,'familiar']));
  return a;
 }
 export const masteryOf=(a,ev)=>a.mastery?.[ev]??(a.event===ev?30:8);
@@ -27,27 +26,10 @@ export function competeMastery(a,ev,valid){
  a.mastery[ev]=Math.min(masteryCap(a,ev),old+2+Math.min(3,valid)*0.35);
  return a.mastery[ev]-old;
 }
-export const APPROACHES={
- shot:[{id:'familiar',name:'Familiar delivery',desc:'Repeat your established delivery.'},{id:'developed',name:'Full dynamic delivery',needs:45,desc:'Use a more demanding delivery to transfer more force. Needs established shot mastery.'}],
- discus:[{id:'familiar',name:'Controlled flight',desc:'Keep the release low and repeatable.'},{id:'developed',name:'Ride the airflow',needs:35,desc:'Exploit a headwind; crosswinds make this harder to control.'}],
- hammer:[{id:'familiar',name:'Rhythmic turns',desc:'Preserve balance and a repeatable orbit.'},{id:'developed',name:'Accelerating turns',needs:40,desc:'Build more speed through the turns; mastery controls the extra risk and effort.'}],
- jav:[{id:'familiar',name:'Measured approach',desc:'Keep the approach under control and establish the block.'},{id:'developed',name:'Fast approach',needs:40,desc:'Carry more speed into the block. Technique and javelin mastery must keep up.'}],
-};
-export function approachProblem(a,ev,id){
- const d=APPROACHES[ev]?.find(x=>x.id===id);
- return !d?'Unknown approach':masteryOf(a,ev)<(d.needs||0)?'Needs '+d.needs+' '+EVENTS[ev].name+' mastery':null;
-}
-export function disciplineModel(a,ev,wind='calm',override){
- const mastery=masteryOf(a,ev),id=override||a.approaches?.[ev]||'familiar';
- const r={mark:1,foul:1,spread:{shot:0.8,discus:1.15,hammer:1,jav:1.05}[ev],energy:0,approach:APPROACHES[ev][0].name};
- if(id!=='developed'||approachProblem(a,ev,id))return r;
- r.approach=APPROACHES[ev][1].name;
- if(ev==='shot'){r.mark=1.025+mastery*0.0001;r.foul=1.35;r.energy=2;}
- if(ev==='discus'){r.mark=wind==='headwind'?1.035:wind==='crosswind'?0.985:1.012;r.foul=wind==='crosswind'?1.6:1.2;r.energy=1;}
- if(ev==='hammer'){r.mark=1.012+mastery*0.0003;r.foul=1.8-mastery*0.006;r.energy=4;}
- if(ev==='jav'){const control=(a.stats[1]+mastery)/2;r.mark=1+clamp((a.stats[2]+control-110)/1700,-0.02,0.045);r.foul=1.25+Math.max(0,a.stats[2]-control)*0.02;r.energy=3;}
- return r;
-}
+// How widely each event's marks scatter, and the discus's one wind effect: a headwind gives the
+// disc lift and a crosswind knocks it off line. Applies to every thrower alike.
+export const EVENT_SPREAD={shot:0.8,discus:1.15,hammer:1,jav:1.05};
+export const windEffect=(ev,wind='calm')=>ev!=='discus'?1:wind==='headwind'?1.015:wind==='crosswind'?0.99:1;
 // Throwing form: how complete a technique an athlete uses in an event, from their technique
 // stat and event mastery. It only changes how throws look; distance comes from the rating.
 export const FORMS={

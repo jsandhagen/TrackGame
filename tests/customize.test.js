@@ -35,6 +35,25 @@ test("kit and stadium looks unlock through progress and cost club money", () => 
   assert.equal(s.stadiumStyle.name, "The Ring Oval");
 });
 
+test("stand styles and skylines unlock with the stadium and the club's progress", () => {
+  const s = G.newGame(7);
+  assert.equal(s.stadiumStyle.standStyle, "classic");
+  assert.equal(s.stadiumStyle.backdrop, "town");
+  s.money = 10000;
+  s.fans = 0;
+  s.stadium.stands = 0;
+  assert.match(G.customLock(s, "standStyle", "terrace"), /Bleachers/);
+  s.stadium.stands = 1;
+  s.fans = 400;
+  assert(G.buyCustom(s, "standStyle", "terrace") && s.stadiumStyle.standStyle === "terrace");
+  assert.match(G.customLock(s, "standStyle", "cantilever"), /stands all round/);
+  assert.match(G.customLock(s, "backdrop", "mountains"), /National League/);
+  assert(G.buyCustom(s, "backdrop", "trees") && s.stadiumStyle.backdrop === "trees");
+  const back = validateCampaign(JSON.parse(JSON.stringify(s)));
+  assert.equal(back.stadiumStyle.standStyle, "terrace");
+  assert.equal(back.stadiumStyle.backdrop, "trees");
+});
+
 test("customisation survives saving, and older saves get the defaults", () => {
   const s = G.newGame(6);
   s.fans = 400;

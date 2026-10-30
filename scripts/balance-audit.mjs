@@ -103,7 +103,6 @@ export function fullyManaged(s) {
       a.plan=G.planProblem(s,a,"technicalblock")?"technique":"technicalblock";
     }
     if(room>0.5 && a.stamina>65 && (s.matchDay==null||s.matchDay-s.day>1)) G.coachSession(s,a.id,"delivery");
-    for(const ev of events) a.approaches[ev]=G.approachProblem(a,ev,"developed")?"familiar":"developed";
   }
 }
 function idle(s) {

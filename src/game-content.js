@@ -7,7 +7,7 @@ export const STAT_COLORS = ["#e07a4f", "#5aa4c8", "#8cc152", "#b48ad8"];
 export const showStat = (v) => Math.floor(v + 1e-6);
 
 // min: a raw beginner. max: a top-rated thrower before gear, skills and approach bonuses, which
-// carry the best World League throwers to real world-class marks. record: the senior men's world
+// carry the best Diamond League throwers to real world-class marks. record: the senior men's world
 // record, which marks approach but never pass (see realMark).
 export const EVENTS = {
   shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.56, 0.29, 0.07, 0.08], min: 7, max: 20.5, record: 23.56, hint: "Drive through the ring. Power first, technique close behind." },
@@ -205,7 +205,7 @@ export const STADIUM = {
   discus: { name: "Discus cage", event: "discus", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [240, 500, 1900], league: [0, 0, 2], start: 0, max: 3, desc: "Discus throwers' technique training +40% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
   hammer: { name: "Hammer cage", event: "hammer", levels: ["Not built", "Practice cage", "Full cage", "Competition cage"], cost: [260, 520, 2000], league: [0, 0, 2], start: 0, max: 3, desc: "Hammer throwers' technique training +40% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
   jav: { name: "Javelin runway", event: "jav", levels: ["Not built", "Grass runway", "Rubber runway", "Competition runway"], cost: [200, 450, 1800], league: [0, 0, 2], start: 1, max: 3, desc: "Javelin throwers' technique training +40% per level. Enables event-specific coached drills; level 2 supports technique blocks." },
-  stands: { name: "Grandstand", levels: ["Open field", "Bleachers", "Covered main stand", "Stands all round", "Olympic stadium"], cost: [450, 1500, 4000, 10000], league: [0, 1, 3, 4], start: 0, max: 4, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level. From an open field to metal bleachers, a covered main stand, stands all round and finally an Olympic bowl with a ring roof." },
+  stands: { name: "Grandstand", levels: ["Open field", "Bleachers", "Covered main stand", "Stands all round", "Olympic stadium"], cost: [450, 1500, 4000, 10000], league: [0, 1, 3, 4], start: 0, max: 4, desc: "+$70 weekly sponsor money, more visitors and a louder home crowd per level. From an open field to metal bleachers, a covered main stand, stands all round and finally an Olympic bowl with a ring roof." , capacity: [200, 800, 2500, 7000, 16000] },
   studio: { name: "Video room", levels: ["None", "Video room", "Analysis suite", "Press & data centre"], cost: [420, 900, 2400], league: [1, 1, 2], start: 0, max: 3, desc: "In the main stand. Focus training +40% per level. Enables video sessions and feedback plans; meet reviews generate extra Insights. +0.4 Coaching Insights a day per level." },
   lights: { name: "Floodlights", levels: ["None", "Floodlights", "Stadium lights"], cost: [1200, 3000], league: [2, 3], start: 0, max: 2, desc: "Evening meets: +20% fans from home wins per level and a brighter crowd." },
 };
@@ -279,11 +279,11 @@ export const GRADES = [
 export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1);
 
 export const LEAGUES = [
-  { name: "Community League", entry: 0, tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
-  { name: "County League", entry: 250, tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
-  { name: "Regional League", entry: 600, tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "Cedar Valley Stadium", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
-  { name: "National League", entry: 1500, tag: "Your little club has made a name.", rating: 79, prize: 2400, color: "#cf986d", venue: "National Athletics Centre", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
-  { name: "World League", entry: 3000, tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Aurora International Arena", crowd: 0.95, unlock: "Defend the world title" },
+  { name: "County League", entry: 0, tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
+  { name: "Regional League", entry: 250, tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
+  { name: "National League", entry: 600, tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "National Athletics Centre", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
+  { name: "International League", entry: 1500, tag: "Your little club has made a name abroad.", rating: 79, prize: 2400, color: "#cf986d", venue: "Aurora International Arena", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
+  { name: "Diamond League", entry: 3000, tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Diamond Bowl", crowd: 0.95, unlock: "Defend the world title" },
 ];
 
 export const CLUBS = [
@@ -349,7 +349,7 @@ export const SECRETS = {
   bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", type: "powerhouse", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
   r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", type: "technician", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
   yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", type: "speedster", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
-  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the World League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
+  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the Diamond League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
   pip: { name: "Pip", event: "discus", skill: "wonderkid", type: "allrounder", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
 };
 
@@ -419,6 +419,28 @@ export const CUSTOMISE = {
       black: { name: "Black", cost: 1200, req: { track: 3, trophies: 3 } },
     },
   },
+  standStyle: {
+    name: "Stand style",
+    note: "How your stands are built, on the campus and at home meets.",
+    options: {
+      classic: { name: "Classic seating", cost: 0 },
+      terrace: { name: "Standing terraces", cost: 600, req: { stands: 1, fans: 300 } },
+      timber: { name: "Heritage timber", cost: 1200, req: { stands: 2, fans: 800 } },
+      cantilever: { name: "Modern cantilever", cost: 1800, req: { stands: 3, trophies: 2 } },
+    },
+  },
+  backdrop: {
+    name: "Skyline",
+    note: "What home crowds see over the stands at meets, until the stands go all the way round.",
+    options: {
+      town: { name: "Rooftops", cost: 0 },
+      trees: { name: "Parkland", cost: 300, req: { fans: 200 } },
+      hills: { name: "Rolling hills", cost: 500, req: { league: 1 } },
+      sea: { name: "Seafront", cost: 900, req: { fans: 1000 } },
+      mountains: { name: "Mountains", cost: 1200, req: { league: 2 } },
+      city: { name: "City skyline", cost: 1500, req: { league: 3 } },
+    },
+  },
   facade: {
     name: "Stadium facade",
     options: {
@@ -450,7 +472,7 @@ export const CUSTOMISE = {
 export const CUSTOM_IDS = Object.keys(CUSTOMISE);
 const SURFACE_COLORS = { red: "#c0604a", blue: "#3d6cae", green: "#4a8a5a", purple: "#7a5aa8", black: "#4a4a52" };
 export const SHORTS_COLORS = { black: "#2a2a30", white: "#f0ece4", navy: "#2c3a5a" };
-export const STYLE_DEFAULT = { seats: "solid", roof: "steel", track: "auto", facade: "auto", towerStyle: "spiral", towerColors: "classic", name: "" };
+export const STYLE_DEFAULT = { seats: "solid", roof: "steel", track: "auto", standStyle: "classic", backdrop: "town", facade: "auto", towerStyle: "spiral", towerColors: "classic", name: "" };
 export const styleOf = (s) => ({ ...STYLE_DEFAULT, ...(s.stadiumStyle || {}) });
 export function trackColorOf(level, surface = "auto") {
   if (level <= 0) return "#7aa858";
@@ -469,7 +491,7 @@ export function towerColorsOf(s) {
 export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 
 // The world's elite: nods to the sport's real champions, with altered names, who compete for the
-// World League clubs (club: index into CLUBS[4]). level is their mark as a share of the event's
+// Diamond League clubs (club: index into CLUBS[4]). level is their mark as a share of the event's
 // world record in a good year.
 export const ELITES = [
   { id: "krauser", name: "Rian Krauser", nation: "USA", event: "shot", club: 1, level: 0.985, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 0, special: "beard" }, blurb: "A rotational giant. The shot looks like a marble in his hand." },

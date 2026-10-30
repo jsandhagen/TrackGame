@@ -1,6 +1,6 @@
 # Learning the club and competing in leagues
 
-New clubs meet their four throwers in a short opening card, then go straight to a Community duel available today. There is no mandatory preparation wait or training before the first meet. One thrower per club enters each of the four events, taking three attempts each. The first call room explains best legal marks, club points and fouls, then offers Watch or Coach. The starting lineup is ready and tucked into an optional detail. League qualification is introduced later, when it becomes relevant.
+New clubs meet their four throwers in a short opening card, then go straight to a County duel available today. There is no mandatory preparation wait or training before the first meet. One thrower per club enters each of the four events, taking three attempts each. The first call room explains best legal marks, club points and fouls, then offers Watch or Coach. The starting lineup is ready and tucked into an optional detail. League qualification is introduced later, when it becomes relevant.
 
 Each completed meet introduces one system, whether the club wins or loses:
 

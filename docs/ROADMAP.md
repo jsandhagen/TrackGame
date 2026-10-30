@@ -23,7 +23,7 @@ Current 0.9.0: [event mastery, shared-field meets and rival development](EVENT_M
 ## Validation still needed
 
 - [ ] Play sessions on a physical Android phone: readability of the pixel scenes at phone scale, touch targets, session length, sound levels.
-- [ ] Human balance testing for the first hour, the County/Regional middle and the World League wall.
+- [ ] Human balance testing for the first hour, the Regional/National middle and the Diamond League wall.
 - [ ] Accessibility audit: text scaling, focus order, screen-reader labels for canvas-driven moments.
 - [ ] Physical-device OTA update test from 0.4.0 to 0.5.0.
 

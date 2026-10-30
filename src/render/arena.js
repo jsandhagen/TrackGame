@@ -202,9 +202,18 @@ function stands(g, s, season) {
   };
   const wing = (x, c) => lvl <= 3 && (c.zone === "main" || c.zone === "back") && (c.sp.kind === "bleacher" ? x - SX0 < 2 || SX1 - x < 2 : lvl < 3 && (x - MX0 < 3 || MX1 - x < 3));
   const aisle = (x, y, c) => (c.zone === "end" ? (y - BOWL.y) % 30 < 2 : (x - MX0 + 6) % 36 < 2);
+  // Stand style: concrete terraces with crush barriers, heritage timber, or classic seats (a
+  // cantilever stand has classic seats; it differs in its roof).
+  const look = style.standStyle;
   function top(x, y, c) {
     const { sp } = c;
     if (wing(x, c)) return "#d8d0c0";
+    if (snow && look !== "classic" && look !== "cantilever") return c.frac < 0.5 ? "#f4f6f8" : "#d8dce0";
+    if (look === "terrace") {
+      if (c.row % 2 && c.frac < 0.18 && x % 12 < 8) return "#5a5e62";
+      return c.frac < 0.5 ? (c.row % 2 ? "#bcb8ac" : "#c8c4b8") : "#9a968c";
+    }
+    if (look === "timber") return c.frac < 0.5 ? (x % 9 === 0 ? "#8a5a34" : c.row % 2 ? "#a06c3e" : "#b47a48") : "#6a4428";
     if (sp.kind === "bleacher") return c.frac < 0.45 ? (x % 12 === 0 ? "#8a8e92" : "#d4d8dc") : "#5a5e62";
     if (aisle(x, y, c)) return snow ? "#f4f6f8" : "#c8c2b4";
     if (c.frac < 0.5) {
@@ -263,6 +272,8 @@ function stands(g, s, season) {
     }
     if (wing(x, c)) return "#a8a090";
     if (below === "field" && c.sp.kind === "seats") return k === 0 ? "#f4f0e4" : boards[Math.floor(x / 16) % boards.length];
+    if (look === "timber") return k === 0 ? "#f4f0e4" : "#5a3a22";
+    if (look === "terrace") return k === 0 ? "#d8d4c8" : "#7a766c";
     if (c.sp.kind === "bleacher") return x % 12 === 0 ? "#9aa0a4" : "#3e4246";
     return k === 0 ? "#c8c2b4" : "#8e887e";
   }
@@ -321,7 +332,9 @@ function mainRoof(g, s, season) {
     c = season === 3 ? "#f2f5f8" : roofColorOf(s);
   g.fillStyle = "rgba(20,24,30,0.28)";
   g.fillRect(x0 + 2, frontY + 3, x1 - x0 - 4, 14);
-  for (let x = x0 + 18; x < x1 - 8; x += 46) rect(g, x, frontY + 3, 1, 24, "#5a6066");
+  // Columns hold the roof up, white-painted on a timber stand; a cantilever roof needs none.
+  const look = styleOf(s).standStyle;
+  if (look !== "cantilever") for (let x = x0 + 18; x < x1 - 8; x += 46) rect(g, x, frontY + 3, 1, 24, look === "timber" ? "#f4f0e4" : "#5a6066");
   poly(g, [[x0 + 6, topY], [x1 - 6, topY], [x1, frontY], [x0, frontY]], c);
   if (season !== 3) for (let x = x0 + 8; x < x1 - 4; x += 8) rect(g, x, topY + 2, 1, frontY - topY - 2, shade(c, -0.1));
   rect(g, x0 + 6, topY, x1 - x0 - 12, 1, shade(c, 0.3));

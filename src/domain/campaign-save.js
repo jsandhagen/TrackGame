@@ -1,4 +1,4 @@
-import { initMastery, PROFILES, APPROACHES } from "./mastery.js";
+import { initMastery, PROFILES } from "./mastery.js";
 import { ensureCustom } from "./customize.js";
 import { newGame, makeClubs, seatElites, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
@@ -217,7 +217,8 @@ function checkAthlete(a, ids, rival = false) {
   a.type ??= typeFor(a.id, a.event);
   if(!ATHLETE_TYPES[a.type]) bad();
   if(!EVENT_IDS.includes(a.trainingEvent)||!PROFILES[a.profile]) bad();
-  for(const ev of EVENT_IDS) if(!num(a.mastery?.[ev],0,100)||!int(a.eventMeets?.[ev],0,1e7)||!APPROACHES[ev].some(d=>d.id===a.approaches?.[ev])) bad();
+  for(const ev of EVENT_IDS) if(!num(a.mastery?.[ev],0,100)||!int(a.eventMeets?.[ev],0,1e7)) bad();
+  delete a.approaches; // retired with the per-event delivery choice
   a.facilityFocus ??= "balanced";
   if(!["balanced","money","insights"].includes(a.facilityFocus)) bad();
   a.coachedDay ??= 0;
@@ -393,7 +394,7 @@ export function validateCampaign(input) {
   if (typeof s.worldRecords !== "object" || Array.isArray(s.worldRecords) || Object.entries(s.worldRecords).some(([ev, r]) => !EVENT_IDS.includes(ev) || !num(r?.mark, 0, 1000) || !word(r.name))) bad();
   if (!SPONSORS[s.sponsor] || !s.colors || !color(s.colors.primary) || !color(s.colors.secondary)) bad();
   ensureCustom(s);
-  // A World League already generated before the elites joined it gets them now.
+  // A Diamond League already generated before the elites joined it gets them now.
   for (const c of s.rivalClubs?.[4] || []) seatElites(c, 4);
   if (s.clubTier === 4) for (const c of s.clubs || []) seatElites(c, 4);
   // The year's tally for awards night, and a ceremony still to be shown.

@@ -85,7 +85,7 @@ test('league timing, different formats and first-title gifts survive saving and 
   assert.equal(s.lastTitleGift, 'scroll');
   assert.equal(s.circuit.cleared.length, 1);
   G.nextSeason(s);
-  assert.equal(s.league, 0, 'Open alone does not unlock County');
+  assert.equal(s.league, 0, 'Open alone does not unlock Regional');
   assert(G.enterCompetition(s, { kind: 'league', tier: 0, stage: 1 }));
   m = finishMeet(s);
   assert.equal(m.attempts, 3);
@@ -208,7 +208,7 @@ test('calendar and athlete pages render in planning, booked, completed and migra
   assert.match(P.league(s, view), /Book duel/);
   assert.match(P.squad(s, { athlete: s.roster[0].id, tab: 'skills' }), /Saved skill setups/);
   G.enterCompetition(s, { kind: 'league', tier: 0 });
-  assert.match(P.home(s, view), /Community League/);
+  assert.match(P.home(s, view), /County League/);
   winLeague(s);
   assert.match(P.home(s, view), /Choose the next chapter/);
   validateCampaign(s);

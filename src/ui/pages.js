@@ -212,7 +212,7 @@ function athletePage(s, a, view) {
     ${G.systemUnlocked(s,"skills") ? `<p class="skill-line"><span>${a.equipped.length ? a.equipped.map((k) => esc(SKILLS[k].name)).join(" · ") : "No skills equipped"}${a.secret ? " · Unique: " + esc(SKILLS[SECRETS[a.secret].skill].name) : ""}</span>${btn("Manage skills", "tab", 'data-tab="skills"', "subtle small")}</p>` : ""}
     <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
     ${G.systemUnlocked(s,"duties") ? athleteDutyPicker(s,a) : ""}
-    <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, approach, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
+    <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
     ${G.systemUnlocked(s,"skills") ? `<article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>` : ""}
@@ -603,13 +603,19 @@ export function recruit(s) {
 // ── Build: stadium and plots ────────────────────────────────────────────
 const STADIUM_ICON = { track: "track", shot: "ball", discus: "cage", hammer: "cage", jav: "runway", stands: "stands", studio: "video", lights: "lights" };
 const pips = (lvl, max) => `<span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? "on" : ""}"></i>`).join("")}</span>`;
+// Who fills the grandstand: its capacity, and how many of the club's fans come to a home meet.
+function standsCrowd(s) {
+  const { attendance, capacity } = G.stadiumCrowd(s, { meet: true, weather: "cloudy" }),
+    next = STADIUM.stands.capacity[s.stadium.stands + 1];
+  return `<p class="hint">Capacity <b>${capacity.toLocaleString()}</b> · a home meet draws about <b>${attendance.toLocaleString()}</b> of your ${s.fans.toLocaleString()} fans${attendance >= capacity ? " · <b>sold out</b>" : ""}.${next ? ` The next stand holds ${next.toLocaleString()}.` : ""}</p>`;
+}
 function stadiumCard(s, key, open) {
   const d = STADIUM[key],
     lvl = s.stadium[key],
     problem = G.stadiumProblem(s, key),
     cost = d.cost[lvl];
   return `<div class="stadium-row ${open ? "open" : ""}"><button class="stadium-head" data-act="spot" data-key="${key}">${ico(STADIUM_ICON[key])}<span><strong>${d.name}</strong><small>${esc(d.levels[lvl])}</small></span>${pips(lvl, d.max)}</button>
-  ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
+  ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "stands" ? standsCrowd(s) : ""}${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
 }
 // What a construction or upgrade will cost and do, shown before any money is spent.
 export function constructionConfirm(s, o) {
@@ -770,9 +776,6 @@ function formLine(a, ev) {
 function masteryCard(s,a) {
   return `<section class="card"><h3>Event mastery</h3><p>${G.PROFILES[a.profile].name}: ${G.PROFILES[a.profile].desc}</p><label>Technical training event<select data-change="training-event" data-id="${a.id}">${EVENT_IDS.map(ev=>`<option value="${ev}" ${(a.trainingEvent||a.event)===ev?"selected":""}>${EVENTS[ev].name}</option>`).join("")}</select></label><p>Physical attributes transfer. Technique practice builds mastery in the selected event; competing raises its practice ceiling, even after a loss.</p>${EVENT_IDS.map(ev=>`<div class="goal"><div><strong>${EVENTS[ev].name}</strong><small>Mastery ${Math.floor(G.masteryOf(a,ev))} · practice ceiling ${G.masteryCap(a,ev)} · ${a.eventMeets[ev]} meets</small>${bar(G.masteryOf(a,ev),100,EVENTS[ev].color)}${formLine(a,ev)}</div></div>`).join("")}</section>`;
 }
-function approachPicker(a,ev) {
-  return `<label>${EVENTS[ev].name} approach<select data-change="approach" data-id="${a.id}" data-event="${ev}">${G.APPROACHES[ev].map(d=>`<option value="${d.id}" ${a.approaches[ev]===d.id?"selected":""} ${G.approachProblem(a,ev,d.id)?"disabled":""}>${d.name}${d.needs?" · mastery "+d.needs:""}</option>`).join("")}</select></label>`;
-}
 function targetText(t) {
   if(!t)return "No scoring place to chase; bank a mark or protect the lead.";
   if(t.legal)return "Establish a legal mark to join the scoring.";
@@ -838,12 +841,11 @@ export function meetGuide(s) {
       <li><b>${TACTICS.safe.name}</b> · shortest but almost never fouls. Use it to get a first mark on the board.</li>
       <li><b>${TACTICS.balanced.name}</b> · the usual range and risk.</li>
       <li><b>${TACTICS.attack.name}</b> · a little further on average with a wider spread, but fouls far more often and costs stamina. Best once a mark is banked.</li></ul></li>
-    <li>The <b>approach</b> is the athlete's technique for that event. The bolder approach unlocks with event mastery: more distance for more risk and effort.</li>
   </ul></section>
   <section><h3>What changes a throw</h3><ul class="howto">
     <li><b>The athlete</b>: their event rating (stats and event mastery), mood and stamina. Tired or unhappy athletes throw shorter.</li>
     <li><b>Weather</b>: a wet circle raises foul risk; cold implements cost about 1.5%; heat drains stamina faster.</li>
-    <li><b>Wind</b> (the windsock): matters in the discus. A headwind helps the <i>Ride the airflow</i> approach and a crosswind hurts it.</li>
+    <li><b>Wind</b> (the windsock): matters in the discus. A headwind gives the disc a little lift; a crosswind costs a little distance.</li>
     <li><b>Skills</b> can fire during a throw. On the big moments a cut-in names the skill.</li>
   </ul></section>
   <section><h3>Pace</h3><p>One, two or three arrows play the meet at normal, fast or very fast. <b>Highlights</b> lingers on the big moments; <b>Every throw</b> gives each result the same time. Pause any time. Decisions always wait for you.</p></section>
@@ -878,7 +880,7 @@ function competitionBoard(s, view) {
   const planning = s.phase === "planning";
   const active = s.competition;
   // What to enter comes first; how it works and the scheduling options sit at the bottom.
-  const foot = `<div class="circuit-foot"><details class="circuit-help"><summary>How the circuit works</summary><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three duels followed by a league championship. Qualified throwers from every division club take three preliminary attempts; the top six earn three final throws, with all marks retained. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p><p>Community leagues and duels are free; higher leagues charge an entry fee. Training carries on between meets (so do wages and upkeep), and every earlier competition stays open.</p></details>
+  const foot = `<div class="circuit-foot"><details class="circuit-help"><summary>How the circuit works</summary><p>Duels are single meets. Leagues draw three opponents from six division clubs, with three duels followed by a league championship. Qualified throwers from every division club take three preliminary attempts; the top six earn three final throws, with all marks retained. Draws change across stages and seasons. Win Open, Challenger, then Championship to earn the next level's invitation.</p><p>County leagues and duels are free; higher leagues charge an entry fee. Training carries on between meets (so do wages and upkeep), and every earlier competition stays open.</p></details>
     <details class="calendar-options-wrap"><summary>Schedule options</summary><div class="calendar-options"><label>Prepare before the first meet<select data-change="booking-preparation" ${planning ? "" : "disabled"}>${[3,5,7,10].map((n) => `<option value="${n}" ${(view.preparation || 5) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label><label>Days between league meets<select data-change="booking-spacing" ${planning ? "" : "disabled"}>${[4,7,10].map((n) => `<option value="${n}" ${(view.spacing || 7) === n ? "selected" : ""}>${n} days</option>`).join("")}</select></label></div></details></div>`;
   const board = `${G.championshipBooking(s) ? championshipStandards(s) : ""}${invitationCard(s)}${active ? `<section class="card booking-card"><p class="booking-summary"><b>${esc(G.competitionName(s))}</b> · ${s.phase === "seasonEnd" ? "Complete — review your season to book again." : "Next meet: " + esc(G.shortDate(s.matchDay)) + (active.kind === "league" ? " · " + active.spacing + " days between fixtures" : "")}</p><div class="inline">${btn(s.phase === "seasonEnd" ? "Season review" : "Back to preparations", "page", 'data-page="home"', "subtle small")}${s.fixture === 0 && !s.results.length && s.day < s.matchDay ? btn("Cancel booking", "cancel-booking", "", "subtle small") : ""}</div></section>` : ""}
   ${LEAGUES.map((tier, i) => i > s.league + 1 ? "" : i === s.league + 1 ? `<p class="hint next-tier">${ico("lock")} Next: <b>${tier.name}</b>. Win the ${LEAGUES[i - 1].name} Championship for the invitation.</p>` : `<details class="card circuit-tier" ${i === s.league ? "open" : ""}><summary>${tier.name} <span>${i > s.league ? "Invitation locked" : s.circuit.cleared.filter((k) => k.startsWith(i + ":")).length + " / 3 trophies"}</span></summary>
@@ -974,6 +976,10 @@ function swatch(s, cat, key) {
   if (cat === "roof") return roofColorOf({ ...s, stadiumStyle: { ...s.stadiumStyle, roof: key } });
   if (cat === "facade")
     return { auto: "repeating-linear-gradient(45deg, #dcdcd6 0 4px, #a8aeb4 4px 5px)", brick: "repeating-linear-gradient(0deg, #a8503a 0 4px, #c8b8a0 4px 5px)", glass: "linear-gradient(135deg, #6a96bc 40%, #cfe4f2 40% 55%, #527ea4 55%)", timber: "repeating-linear-gradient(90deg, #8a5a34 0 2px, #b47a48 2px 4px, #a06c3e 4px 6px)", club: `repeating-linear-gradient(90deg, ${p} 0 8px, ${t} 8px 16px)` }[key];
+  if (cat === "standStyle")
+    return { classic: `repeating-linear-gradient(0deg, ${p} 0 4px, #3a4a4a 4px 6px)`, terrace: "repeating-linear-gradient(0deg, #c8c4b8 0 4px, #8a8e92 4px 5px)", timber: "repeating-linear-gradient(0deg, #b47a48 0 4px, #6a4428 4px 6px)", cantilever: `linear-gradient(170deg, #e8eef2 28%, ${p} 28% 34%, #6a96bc 34%)` }[key];
+  if (cat === "backdrop")
+    return { town: "linear-gradient(0deg, #6a9454 30%, #d8c8a8 30% 55%, #a8503a 55% 62%, #8ccbe8 62%)", trees: "linear-gradient(0deg, #6a9454 30%, #3e7a3a 30% 62%, #8ccbe8 62%)", hills: "linear-gradient(0deg, #6a9454 35%, #7aa060 35% 60%, #8ccbe8 60%)", sea: "linear-gradient(0deg, #6a9454 30%, #4a8ab8 30% 48%, #8ccbe8 48%)", mountains: "linear-gradient(0deg, #6a9454 30%, #8a96a8 30% 58%, #f4f6f8 58% 66%, #8ccbe8 66%)", city: "linear-gradient(0deg, #6a9454 30%, #5a6a7a 30% 70%, #8ccbe8 70%)" }[key];
   if (cat === "towerStyle") return { spiral: `repeating-linear-gradient(135deg, #2e3640 0 5px, #c8563e 5px 9px)`, lattice: "repeating-linear-gradient(45deg, #dfe4e8 0 3px, #5a6066 3px 4px)", clock: "radial-gradient(circle, #f4f0e4 0 35%, #d8d0c0 36%)" }[key];
   if (cat === "towerColors") {
     const c = towerColorsOf({ ...s, stadiumStyle: { ...s.stadiumStyle, towerColors: key } });
@@ -986,7 +992,7 @@ function lookCard(s) {
   return `<div class="card-title"><h2>${ico("star")} Kit & stadium</h2></div>
   <p class="hint">New looks unlock as the club grows. Buy one once, then switch between your looks for free.</p>
   ${face ? `<div class="look-preview">${portrait(face, "large")}<span><strong>${esc(face.name)}</strong><small>Home kit</small></span></div>` : ""}
-  ${CUSTOM_IDS.map((cat) => `<h3 class="look-title">${CUSTOMISE[cat].name}</h3><div class="look-row">${Object.entries(CUSTOMISE[cat].options).map(([key, o]) => {
+  ${CUSTOM_IDS.map((cat) => `<h3 class="look-title">${CUSTOMISE[cat].name}</h3>${CUSTOMISE[cat].note ? `<p class="hint">${esc(CUSTOMISE[cat].note)}</p>` : ""}<div class="look-row">${Object.entries(CUSTOMISE[cat].options).map(([key, o]) => {
     const owned = G.ownsCustom(s, cat, key),
       used = G.selectedCustom(s, cat) === key,
       lock = G.customLock(s, cat, key),
@@ -1080,7 +1086,7 @@ export function lobby(s, view = {}) {
   const sky = G.weatherToday(s);
   // A lineup that needs fixing opens straight into the entry pickers.
   view = { ...view, editLineup: view.editLineup || !!problem };
-  return `${championship ? championshipStandards(s) : ""}<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${G.isLeagueChampionship(s) ? "3 preliminary throws · top six earn 3 more · marks carry forward" : s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}</p>
+  return `${championship ? championshipStandards(s) : ""}<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${G.isLeagueChampionship(s) ? "3 preliminary throws · top six earn 3 more · marks carry forward" : s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}${G.meetVenue(s)?.home ? (({ attendance, capacity }) => ` · crowd ~${attendance.toLocaleString()} of ${capacity.toLocaleString()}`)(G.stadiumCrowd(s, { meet: true, weather: s.match?.weather || G.weatherOn(s, s.matchDay) })) : ""}</p>
   <p class="meet-forecast">${weatherChip(sky)} <span>${esc(G.WEATHER[sky].desc)}</span></p>
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
     // Every entry slot for the event sits in one row, beside the rival's specialist.
@@ -1100,7 +1106,6 @@ export function lobby(s, view = {}) {
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
   <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ★ marks a specialist. ${btn("How meets work", "meet-guide", "", "text")}${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
-  ${view.editLineup ? s.roster.filter(a=>EVENT_IDS.some(ev=>G.entriesOf(s,ev).includes(a.id))).map(a=>`<details class="card"><summary>${esc(a.name)} · event approaches</summary>${EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id)).map(ev=>approachPicker(a,ev)).join("")}</details>`).join("") : ""}
   <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
   ` : ""}<div class="card-title"><h2>How do you want to run it?</h2></div>${meetModes(s)}
@@ -1229,7 +1234,6 @@ export function decide(s, view) {
     sigReady = G.canSignature(s, "home");
   if (view.meter)
     return `<div class="meter-panel"><span class="eyebrow">RELEASE ON THE GOLD</span><div class="meter"><span class="zone good"></span><span class="zone perfect" style="--w:${G.effects(s, a).perfect ? 22 : 14}%"></span><span id="needle"></span></div>${btn("Release!", "release")}<small>Tap Release, or press Space.</small></div>`;
-  const ev = EVENT_IDS[m.eventIndex], approach = G.APPROACHES[ev].find(d=>d.id===a.approaches[ev]);
   return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
     <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>
     ${decideStandings(s, a)}
@@ -1240,7 +1244,6 @@ export function decide(s, view) {
       })
       .join("")}</div>
     <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} The range is the likely distance.</p>
-    <div class="decide-approach">${approachPicker(a,ev)}<small>${esc(approach?.desc || "")}${ev === "discus" ? " Wind: " + esc(m.wind || "calm") + "." : ""} Bolder approaches unlock with event mastery.</small></div>
     ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}</div>`;
 }
 // Under the level bar: what the next level brings and the next bigger milestone.

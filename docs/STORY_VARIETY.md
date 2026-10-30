@@ -29,7 +29,7 @@ The optional `recentStoryEvents` field stores up to three unique ordinary event 
 - Eighteen Chromium browser checks: all six dialogs at 390×844 portrait, 844×390 landscape and 1280×800 desktop. Both buttons remain within the viewport; choices resolve and persist; no page errors. Screenshots were inspected in the two phone layouts.
 - Paired career simulation against main at `84cf699`, using seeds 1–6, a 40-season cap and the existing engaged, fully managed and idle policies. [Raw comparison](story-variety-audit.json).
 
-| Policy | Before: median first World title | After: median first World title | Before / after finishing within 40 seasons |
+| Policy | Before: median first Diamond title | After: median first Diamond title | Before / after finishing within 40 seasons |
 | --- | --- | --- | --- |
 | Engaged | Season 21 | Season 18 | 5/6 → 6/6 |
 | Fully managed | Season 18 | Season 18 | 6/6 → 6/6 |

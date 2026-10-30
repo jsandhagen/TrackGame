@@ -27,11 +27,11 @@ Every rival club has a ground named for it, with a skyline read from its name (s
 
 | Level | Ground |
 | --- | --- |
-| Community | A park: grass banks, a small bleacher and a clubhouse hut |
-| County | Metal bleachers with a press box |
-| Regional | A covered stand under floodlight towers |
-| National | Two tiers, a roof and a live big screen |
-| World | An Olympic bowl with a ring roof |
+| County | A park: grass banks, a small bleacher and a clubhouse hut |
+| Regional | Metal bleachers with a press box |
+| National | A covered stand under floodlight towers |
+| International | Two tiers, a roof and a live big screen |
+| Diamond | An Olympic bowl with a ring roof |
 
 League finals go to the level's neutral showpiece venue, one size up. Duels and home fixtures use your own stadium. Bigger venues hold evening meets under the lights. The venue's name appears in the lobby, on the fixture card and in the opening banner.
 

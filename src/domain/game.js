@@ -178,7 +178,7 @@ export function newGame(seed = Date.now() >>> 0) {
   return ensureCustom(s);
 }
 
-// The World League's clubs field the world's elite: each takes the place of one of the club's
+// The Diamond League's clubs field the world's elite: each takes the place of one of the club's
 // throwers in their event, with their own name, nation and look. Strength still comes from the
 // difficulty curve, so the league plays as it always has.
 export function seatElites(club, league) {
@@ -255,7 +255,6 @@ function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
           a.mastery[secondary] = Math.min(95,a.mastery[secondary]+8);
           if(["depth","adaptable","clutch"].includes(identity)) a.gear.implement = "carbon";
         }
-        if(league >= 2) a.approaches[event] = "developed";
       }
       a.skills = [...new Set(a.skills)];
       a.equipped = [...a.skills];
@@ -311,6 +310,14 @@ export function plannedActivity(s, a, assignments) {
   const plan = planProblem(s,a,a.plan) ? "balanced" : a.plan;
   if (a.autoRest && (a.stamina < 25 || plan === "balanced" && balancedNeedsRest(s, a))) return "rest";
   return plan;
+}
+// How full the club's own stands are: a share of the fans turns up (more for a home meet than
+// an ordinary day, and fewer in bad weather), up to the grandstand's capacity.
+export function stadiumCrowd(s, { meet = false, weather = weatherToday(s) } = {}) {
+  const capacity = STADIUM.stands.capacity[Math.min(s.stadium.stands, STADIUM.stands.capacity.length - 1)],
+    turnout = (meet ? 0.7 : 0.3) * (WEATHER[weather]?.visitors ?? 1),
+    attendance = Math.round(Math.min(capacity, s.fans * turnout));
+  return { attendance, capacity, fill: Math.max(0.03, attendance / capacity) };
 }
 export function visitorsPerDay(s) {
   const lift = 1 + 0.15 * facilityLevel(s, "garden") + 0.15 * facilityLevel(s, "fountain") + 0.15 * facilityLevel(s, "stands") + (hasCombo(s, "picnic") ? 0.2 : 0);

@@ -1,8 +1,8 @@
 import { canvas, rect, poly, ellipse, ring, line, shade, hash, px, mix } from "./pixel.js";
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
-import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
+import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf, roofColorOf } from "../game-content.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, stadiumCrowd, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, throwingSector, meetCamera } from "./meet-geometry.js";
@@ -30,7 +30,9 @@ const TRACK_COLORS = ["#b07850", "#c46a4e", "#c46a4e", "#3a6ab0", "#3a6ab0"];
 const CROWDS = [0.3, 0.45, 0.6, 0.78, 0.95];
 // Venue look for the meet in progress: your own stadium at home, the rival's ground away
 // (sized by the level it competes at), a neutral showpiece for finals. Bigger venues hold
-// evening meets under lights; the meet-day weather sets the sky.
+// evening meets under lights; the meet-day weather sets the sky. At home the stands and track
+// match the campus: the grandstand and track levels, and the seat pattern and roof the club
+// has chosen.
 function venueOf(s, m) {
   const v = meetVenue(s) || { grand: 0, color: m.color, trim: "#f4efe2", backdrop: "town", name: "", lights: false };
   const grand = Math.max(0, Math.min(4, v.grand));
@@ -41,7 +43,15 @@ function venueOf(s, m) {
     time,
     weather: m.weather || "cloudy",
     track: v.home ? trackColorOf(s.stadium.track, styleOf(s).track) : TRACK_COLORS[grand],
-    crowd: v.home ? Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) : v.special ? 0.92 : CROWDS[grand],
+    // 0 grass loop, 1 gravel or cinder, 2 synthetic, 3 championship.
+    trackLevel: v.home ? s.stadium.track : grand === 0 ? 1 : grand >= 3 ? 3 : 2,
+    seats: v.home ? { pattern: styleOf(s).seats, a: s.colors.primary, b: s.colors.secondary } : { pattern: "solid", a: v.color },
+    roof: v.home ? roofColorOf(s) : null,
+    standStyle: v.home ? styleOf(s).standStyle : "classic",
+    // Home is where the club's story hangs: its name, its records and its titles.
+    club: v.home ? { name: s.clubName, records: Object.fromEntries(Object.entries(s.records || {}).map(([ev, r]) => [ev, r.mark])), titles: honours(s) } : null,
+    backdrop: v.home ? styleOf(s).backdrop : v.backdrop,
+    crowd: v.home ? Math.min(0.97, stadiumCrowd(s, { meet: true, weather: m.weather }).fill) : v.special ? 0.92 : CROWDS[grand],
   };
 }
 let O = THROW_ORIGIN;
@@ -69,26 +79,93 @@ function spanOf(s, m, i, ev) {
 const ppmOf = () => sector.ppm;
 // Half the javelin runway's width on screen, in the oblique view.
 const RUNWAY = 9;
-// The discus and hammer cage: posts on an arc round the back of the circle, opening towards the
-// sector, with netting between them. The far half is drawn behind the thrower, the near half in
-// front, so the thrower stands inside it.
-const CAGE = { rx: 38, ry: 15, h: 74, from: 0.28, to: 1.72 };
-function cage(g, half) {
-  const posts = [];
-  for (let i = 0; i <= 8; i++) {
-    const a = Math.PI * (CAGE.from + ((CAGE.to - CAGE.from) * i) / 8);
-    posts.push([Math.round(O.x + Math.cos(a) * CAGE.rx), Math.round(O.y + Math.sin(a) * CAGE.ry), Math.sin(a)]);
+// The discus and hammer cage, at the circle's scale (the 2.5 m ring is 56 px wide). In plan it
+// is a horseshoe: netting round the back of the circle, sides narrowing to a 6 m mouth. Cages
+// grow with the venue: a club practice cage is short and opens just past the circle, a full
+// cage reaches further, and the competition cage follows World Athletics: 3.5 m round the
+// back, the mouth 7 m in front of the centre. Steel posts every two or three metres carry
+// dark netting that sags between them and hangs to the ground; a net seen face-on is nearly
+// clear, one seen edge-on reads darker. The hammer cage stands 7 m, 10 m for the last 2.8 m
+// before the mouth, where two 2 m gates hang: the far one swung in, the near one open along
+// the sector line (heights capped at the top of the scene). The far half is drawn behind the
+// thrower, the near half in front, so the thrower stands inside it.
+const CAGE_PX = 22.4, CAGE_DEPTH = 0.4;
+const CAGES = {
+  discus: [
+    { r: 3, mouth: 3, h: 3, sides: [3, 1.5] },
+    { r: 3.2, mouth: 5, h: 4, sides: [5, 2.5] },
+    { r: 3.5, mouth: 7, h: 5, sides: [7, 4.7, 2.3] },
+  ],
+  hammer: [
+    { r: 3, mouth: 3.5, h: 4, sides: [3.5, 1.7] },
+    { r: 3.3, mouth: 5, h: 5.5, sides: [5, 2.5] },
+    { r: 3.5, mouth: 7, h: 7, front: 10, frontFrom: 4.2, sides: [7, 4.2, 2.1], gates: true },
+  ],
+};
+// How developed a venue's throwing area is, matching the campus levels (1 club, 2 upgraded,
+// 3 competition): your own at home, otherwise by the size of the ground.
+const areaLevel = (s, venue, ev) => Math.max(1, Math.min(3, venue.home ? s.stadium[ev] || 1 : venue.grand >= 3 ? 3 : venue.grand >= 2 ? 2 : 1));
+const cageOf = (s, venue, ev) => CAGES[ev]?.[areaLevel(s, venue, ev) - 1];
+function cagePlan(c) {
+  const side = (v) => c.sides.map((u) => [u, v * (3 + ((c.r - 3) * (c.mouth - u)) / c.mouth)]);
+  const arc = [];
+  for (let i = 0; i <= 5; i++) {
+    const a = Math.PI / 2 + (Math.PI * i) / 5;
+    arc.push([Math.cos(a) * c.r, -Math.sin(a) * c.r]);
   }
-  // Far posts have negative sin (they sit above the circle on screen); near posts positive.
-  const mine = ([, , z]) => (half === "back" ? z <= 0.05 : z > 0.05);
-  for (let i = 0; i + 1 < posts.length; i++) {
-    const [x1, y1, z1] = posts[i], [x2, y2, z2] = posts[i + 1];
-    if (!mine([0, 0, (z1 + z2) / 2])) continue;
-    poly(g, [[x1, y1], [x2, y2], [x2, y2 - CAGE.h], [x1, y1 - CAGE.h]], half === "back" ? "rgba(60,80,70,0.16)" : "rgba(60,80,70,0.1)");
-    for (let k = 8; k < CAGE.h; k += 8) line(g, x1, y1 - k, x2, y2 - k, "rgba(70,90,80,0.35)");
-    line(g, x1, y1 - CAGE.h, x2, y2 - CAGE.h, "#3a4a42");
+  const panels = [];
+  const run = [...side(-1), ...arc, ...side(1).reverse()];
+  for (let i = 0; i + 1 < run.length; i++) {
+    const [a, b] = [run[i], run[i + 1]];
+    panels.push({ a, b, h: c.front && Math.min(a[0], b[0]) >= c.frontFrom - 0.01 ? c.front : c.h });
   }
-  for (const p of posts) if (mine(p)) rect(g, p[0], p[1] - CAGE.h, 2, CAGE.h, "#4a5a52");
+  if (c.gates) {
+    const swing = (v, angle) => [c.mouth + 2 * Math.cos(angle), v * (3 - 2 * Math.sin(angle))];
+    panels.push({ a: [c.mouth, -3], b: swing(-1, 0.5), h: c.front, gate: true });
+    panels.push({ a: [c.mouth, 3], b: swing(1, -0.3), h: c.front, gate: true });
+  }
+  return panels;
+}
+function cage(g, half, c) {
+  const
+    at = ([u, v]) => [O.x + u * CAGE_PX, O.y + v * CAGE_PX * CAGE_DEPTH],
+    cap = (m) => Math.min(O.y - 6, Math.round(m * CAGE_PX)),
+    back = half === "back",
+    posts = new Map();
+  for (const p of cagePlan(c)) {
+    if ((p.a[1] + p.b[1]) / 2 > 0.05 === back) continue;
+    const [x1, y1] = at(p.a), [x2, y2] = at(p.b), h = cap(p.h),
+      len = Math.hypot(p.b[0] - p.a[0], p.b[1] - p.a[1]) * CAGE_PX,
+      // 1 when the panel faces the camera, 0 when it is seen edge-on.
+      face = Math.min(1, Math.abs(x2 - x1) / Math.max(1, len)),
+      alpha = (0.1 + 0.26 * (1 - face)) * (back ? 1 : 0.55),
+      sag = Math.min(7, 2 + Math.abs(x2 - x1) * 0.06),
+      n = Math.max(2, Math.ceil(Math.abs(x2 - x1) / 3)),
+      pt = (k) => {
+        const f = k / n, x = x1 + (x2 - x1) * f, y = y1 + (y2 - y1) * f;
+        return [Math.round(x), Math.round(y), Math.round(y - h + sag * Math.sin(Math.PI * f))];
+      };
+    for (let k = 0; k < n; k++) {
+      const [xa, ya, ta] = pt(k), [xb, yb, tb] = pt(k + 1);
+      poly(g, [[xa, ta], [xb, tb], [xb, yb], [xa, ya]], `rgba(18,24,22,${alpha.toFixed(3)})`);
+      // The mesh: a fine grid, faint enough to read as netting rather than bars.
+      if (xa !== xb) rect(g, xa, ta, 1, ya - ta, `rgba(18,24,22,${(alpha * 0.6).toFixed(3)})`);
+      // Netting bunched where it meets the ground.
+      line(g, xa, ya, xb, yb, `rgba(16,20,18,${Math.min(0.7, alpha * 2.4).toFixed(3)})`);
+      line(g, xa, ta, xb, tb, "#2a3230");
+    }
+    if (back) for (let k = 4; k < h - sag; k += 4) line(g, x1, y1 - k, x2, y2 - k, `rgba(18,24,22,${(alpha * 0.5).toFixed(3)})`);
+    // Each post is as tall as the tallest panel it carries.
+    for (const [x, y] of [[x1, y1], [x2, y2]]) {
+      const key = Math.round(x) + "," + Math.round(y);
+      posts.set(key, [Math.round(x), Math.round(y), Math.max(posts.get(key)?.[2] || 0, h)]);
+    }
+  }
+  for (const [x, y, h] of posts.values()) {
+    rect(g, x - 1, y - h, 2, h + 1, "#3a4044");
+    px(g, x - 1, y - h, "#7a8286");
+    rect(g, x - 1, y, 3, 1, "#2a2e30");
+  }
 }
 function distanceArc(g, metres, color, dashed = false) {
   const points = sector.arc(metres);
@@ -155,13 +232,47 @@ function backdrop(g, kind, horizon, venue) {
     }
   }
 }
+// Readable text on a board of colour c.
+const inkOn = (c) => {
+  const n = parseInt(c.slice(1), 16);
+  return 0.3 * (n >> 16) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255) > 150 ? "#2a2420" : "#fff6dc";
+};
+// The club's titles for the banners over the home stand, most prestigious first: league
+// trophies (the level's first word and the stage) and won invitationals.
+function honours(s) {
+  const league = [...(s.trophies || [])]
+    .sort((a, b) => b.league - a.league || (b.stage ?? 2) - (a.stage ?? 2) || b.season - a.season)
+    .map((t) => `${LEAGUES[t.league].name.split(" ")[0].replace("International", "Int'l")} ${["Open", "Challenger", "Champions"][t.stage ?? 2]}`.toUpperCase());
+  const cups = (s.invitations?.won || []).map((t) => t.name.toUpperCase());
+  return [...league, ...cups];
+}
+// Banners hung along the front of the home stand, one per title, in the club colours. Before
+// the first title, a single banner names the club.
+function homeBanners(g, s, venue) {
+  if (!venue.club) return;
+  const list = venue.club.titles.length ? venue.club.titles : [venue.club.name.toUpperCase()],
+    y = venue.grand <= 1 ? 80 : 76,
+    n = Math.min(list.length, Math.floor(W / 120));
+  for (let i = 0; i < n; i++) {
+    const x = Math.round(((i + 0.5) * W) / n) - 54,
+      c = i % 2 ? s.colors.secondary : s.colors.primary;
+    // On an open field the banners are tied to posts on the rail; in a stand, hung from it.
+    if (venue.grand === 0) for (const px_ of [x, x + 107]) rect(g, px_, y - 1, 1, 93 - y, "#c8c4b8");
+    rect(g, x, y - 1, 108, 1, "#3a3e42");
+    rect(g, x + 1, y, 106, 11, c);
+    rect(g, x + 1, y + 10, 106, 1, shade(c, -0.35));
+    // A scalloped hem.
+    for (let k = 0; k < 5; k++) rect(g, x + 1 + k * 21 + 9, y + 11, 4, 1, c);
+    text(g, fit(list[i], 20), x + 54, y + 2, { color: inkOn(c), outline: null, align: "center" });
+  }
+}
 // Seating rows for the crowd, as [y, x0, x1] (each row is 6px tall).
 function seatRows(venue) {
   const g = venue.grand,
     rows = [];
   if (g === 0) {
     for (let r = 4; r < 10; r++) rows.push([34 + r * 6, 0, W, 0.5]);
-    for (let r = 0; r < 4; r++) rows.push([70 + r * 6, W * 0.36, W * 0.64, 1]);
+    if (!venue.home) for (let r = 0; r < 4; r++) rows.push([70 + r * 6, W * 0.36, W * 0.64, 1]);
   } else if (g === 1) for (let r = 0; r < 5; r++) rows.push([64 + r * 6, 0, W, 1]);
   else {
     for (let r = 0; r < 10; r++) rows.push([34 + r * 6, 0, W, 1]);
@@ -172,28 +283,64 @@ function seatRows(venue) {
 function stands(g, venue) {
   const G = venue.grand,
     seat = [shade(venue.color, -0.25), shade(venue.color, -0.1)],
-    metal = venue.time === "night" ? "#3a4448" : "#8a9498";
+    metal = venue.time === "night" ? "#3a4448" : "#8a9498",
+    { pattern, a: seatA, b: seatB } = venue.seats || { pattern: "solid", a: venue.color },
+    // Stand style: classic seats; concrete terraces with crush barriers; heritage timber with
+    // white posts; or a modern cantilever with no columns in front of the crowd.
+    look = venue.standStyle || "classic",
+    terrace = look === "terrace",
+    timber = look === "timber",
+    columns = look !== "cantilever",
+    post = timber ? "#f4f0e4" : "#3a4a4a";
+  // A seat's colour by row (of n) and x, following the club's chosen pattern; solid seats
+  // alternate two shades of one colour so the rows read.
+  const seatAt = (r, n, x) => {
+    const pick = pattern === "stripes" ? r % 2 : pattern === "twotone" ? +(r >= n / 2) : pattern === "blocks" ? Math.floor(x / 72) % 2 : 0;
+    return shade(pick ? seatB : seatA, r % 2 ? -0.1 : -0.25);
+  };
   if (G === 0) {
-    // A park: grass banks, a little bleacher and a clubhouse hut.
+    // A park: grass banks, a little bleacher and a clubhouse hut. A club's own open field has
+    // no bleacher yet: the crowd stands on the bank behind the rail.
     for (let r = 2; r < 10; r++) rect(g, 0, 34 + r * 6, W, 6, r % 2 ? "#5a8a48" : "#64944e");
     rect(g, 0, 44, W, 2, "#7aa858");
-    rect(g, W * 0.36 - 2, 68, W * 0.28 + 4, 26, metal);
-    for (let r = 0; r < 4; r++) rect(g, W * 0.36, 70 + r * 6, W * 0.28, 5, seat[r % 2]);
+    if (!venue.home) {
+      rect(g, W * 0.36 - 2, 68, W * 0.28 + 4, 26, metal);
+      for (let r = 0; r < 4; r++) rect(g, W * 0.36, 70 + r * 6, W * 0.28, 5, seat[r % 2]);
+    }
     const hx = W * 0.8;
     rect(g, hx, 58, 46, 22, "#e8dcc0");
     poly(g, [[hx - 4, 58], [hx + 23, 46], [hx + 50, 58]], venue.color);
     rect(g, hx + 18, 68, 9, 12, "#7a5034");
     rect(g, hx + 5, 63, 8, 6, venue.time === "night" ? "#ffe8a0" : "#8ab0c8");
+    // Your own clubhouse carries the club's name.
+    if (venue.club) {
+      rect(g, hx + 2, 52, 42, 8, "#f4efe2");
+      text(g, fit(venue.club.name.toUpperCase(), 7), hx + 23, 53, { color: shade(venue.color, -0.3), outline: null, align: "center" });
+    }
     for (let x = 0; x < W; x += 12) rect(g, x, 92, 1, 3, "#c8c4b8");
     rect(g, 0, 92, W, 1, "#e8e4d8");
     return;
   }
-  // Stepped rows: a seat, the dark riser under it and a lit lip on the step below.
-  const rows = (y0, n, offset = 0) => {
+  // Stepped rows: a seat, the dark riser under it and a lit lip on the step below. Bleachers
+  // are bare aluminium benches, like the campus's.
+  const rows = (y0, n, offset = 0, bench = false) => {
     for (let r = 0; r < n; r++) {
-      const y = y0 + r * 6;
-      rect(g, 0, y, W, 4, seat[(r + offset) % 2]);
-      rect(g, 0, y + 4, W, 1, shade(seat[0], -0.35));
+      const y = y0 + r * 6,
+        k = (r + offset) % 2;
+      if (terrace) {
+        // Bare concrete steps, with a crush barrier every other row.
+        rect(g, 0, y, W, 4, k ? "#bcb8ac" : "#c8c4b8");
+        rect(g, 0, y + 4, W, 1, "#7a766c");
+        if (k) for (let x = (r * 13) % 24; x < W; x += 24) rect(g, x, y - 1, 16, 1, "#5a5e62"), rect(g, x, y - 1, 1, 3, "#5a5e62"), rect(g, x + 15, y - 1, 1, 3, "#5a5e62");
+      } else if (timber) {
+        rect(g, 0, y, W, 4, k ? "#a06c3e" : "#b47a48");
+        rect(g, 0, y + 4, W, 1, "#5a3a22");
+        for (let x = (r * 7) % 18; x < W; x += 18) px(g, x, y + 1, "#8a5a34");
+      } else {
+        if (bench) rect(g, 0, y, W, 4, k ? "#c4c8cc" : "#d4d8dc");
+        else for (let x = 0; x < W; x += 72) rect(g, x, y, Math.min(72, W - x), 4, seatAt(r + offset, n, x));
+        rect(g, 0, y + 4, W, 1, bench ? "#6a6e72" : shade(seat[0], -0.35));
+      }
       rect(g, 0, y + 5, W, 1, shade(metal, 0.25));
     }
   };
@@ -206,9 +353,9 @@ function stands(g, venue) {
   if (G === 1) {
     // Metal bleachers along the straight with a press box.
     rect(g, 0, 62, W, 32, metal);
-    rows(64, 5);
+    rows(64, 5, 0, true);
     aisles(62, 94, 80);
-    for (let x = 6; x < W; x += 40) rect(g, x, 62, 2, 32, shade(metal, -0.3));
+    for (let x = 6; x < W; x += 40) rect(g, x, 62, 2, 32, timber ? "#6a4428" : shade(metal, -0.3));
     rect(g, 0, 91, W, 3, shade(metal, -0.15));
     rect(g, W / 2 - 22, 46, 44, 16, "#e8e0cc");
     rect(g, W / 2 - 24, 44, 48, 3, venue.color);
@@ -219,24 +366,37 @@ function stands(g, venue) {
   rect(g, 0, 32, W, 62, shade(metal, -0.2));
   rows(34, 10);
   aisles(34, 92, 96);
-  for (let x = 10; x < W; x += 80) rect(g, x, 34, 3, 60, "#3a4a4a");
-  // The front wall, and the roof's shadow over the back rows.
-  rect(g, 0, 89, W, 5, shade(venue.color, -0.35));
-  rect(g, 0, 89, W, 1, shade(venue.color, 0.2));
+  if (columns) for (let x = 10; x < W; x += 80) rect(g, x, 34, 3, 60, post);
+  // The front wall, and the roof's shadow over the back rows. A cantilever stand has a glass
+  // screen along the front, a timber one a painted board wall.
+  rect(g, 0, 89, W, 5, timber ? "#6a4428" : shade(venue.color, -0.35));
+  rect(g, 0, 89, W, 1, timber ? "#f4f0e4" : shade(venue.color, 0.2));
+  if (!columns) rect(g, 0, 86, W, 3, "rgba(200,228,242,0.45)");
   for (let r = 0; r < 4; r++) rect(g, 0, 34 + r * 6, W, 6, `rgba(0,0,0,${(0.18 - r * 0.045).toFixed(3)})`);
   if (G === 2) {
     const x0 = W * 0.12, x1 = W * 0.88;
-    rect(g, x0, 20, x1 - x0, 6, "#2e3a3e");
+    rect(g, x0, 20, x1 - x0, 6, venue.roof || "#2e3a3e");
+    rect(g, x0, 25, x1 - x0, 1, shade(venue.roof || "#2e3a3e", -0.3));
     rect(g, x0, 26, x1 - x0, 1, venue.color);
-    for (let x = x0 + 8; x < x1; x += 60) rect(g, x, 26, 2, 8, "#3a4a4a");
+    if (columns) for (let x = x0 + 8; x < x1; x += 60) rect(g, x, 26, 2, 8, post);
+    // A timber stand's roof has a gabled front; a cantilever's is a thin blade.
+    if (timber) for (let x = x0; x < x1; x += 30) poly(g, [[x, 20], [x + 15, 15], [x + 30, 20]], shade(venue.roof || "#2e3a3e", 0.1));
+    if (!columns) rect(g, x0, 20, x1 - x0, 2, shade(venue.roof || "#2e3a3e", 0.25));
+    // The stadium's name along the roof, as on the campus.
+    if (venue.club) text(g, fit(venue.name.toUpperCase(), 26), W / 2, 20, { color: inkOn(venue.roof || "#2e3a3e"), outline: null, align: "center" });
     return;
   }
   rect(g, 0, 8, W, 26, shade(metal, -0.3));
   rows(10, 4, 1);
   aisles(10, 32, 96);
   rect(g, 0, 32, W, 2, venue.color);
-  rect(g, 0, 2, W, 6, G === 4 ? "#e8ecef" : "#2e3a3e");
-  if (G === 4) for (let x = 0; x < W; x += 8) line(g, x, 2, x + 8, 7, "#b8c0c8");
+  rect(g, 0, 2, W, 6, venue.roof || (G === 4 ? "#e8ecef" : "#2e3a3e"));
+  if (G === 4) for (let x = 0; x < W; x += 8) line(g, x, 2, x + 8, 7, shade(venue.roof || "#e8ecef", -0.2));
+  if (venue.club) for (const x of [W * 0.22, W * 0.78]) {
+    const roofC = venue.roof || "#2e3a3e";
+    rect(g, x - 62, 2, 124, 6, roofC);
+    text(g, fit(venue.name.toUpperCase(), 20), x, 2, { color: inkOn(roofC), outline: null, align: "center" });
+  }
   // The big screen.
   const sx = W / 2 - 36;
   rect(g, sx - 2, 4, 76, 30, "#1a1e24");
@@ -272,18 +432,28 @@ function stadiumBase(s, ev, venue) {
   if (venue.lights && venue.grand >= 3) for (let x = 6; x < W; x += 18) rect(g, x, 7, 6, 2, "#fff4cb");
   // Ad boards.
   rect(g, 0, 94, W, 12, "#2a3a34");
-  const ads = [venue.name.toUpperCase(), "FIZZ DRINKS", "RADIO 98.4", LEAGUES[venue.tier ?? s.league].name.toUpperCase(), "EVERY MARK MATTERS", "CHANNEL 9"];
+  // At home the boards are the club's own: a welcome, its name and the club record in this
+  // event, between the sponsors, in the club colours.
+  const record = venue.club?.records[ev],
+    ads = venue.club
+      ? ["WELCOME TO", venue.name.toUpperCase(), "FIZZ DRINKS", ...(venue.name === venue.club.name ? [] : [venue.club.name.toUpperCase()]), record ? "CLUB RECORD" : "HOME OF", record ? record.toFixed(2) + " M" : "THE THROWS", "RADIO 98.4", "COME ON " + venue.club.name.split(" ")[0].toUpperCase()]
+      : [venue.name.toUpperCase(), "FIZZ DRINKS", "RADIO 98.4", LEAGUES[venue.tier ?? s.league].name.toUpperCase(), "EVERY MARK MATTERS", "CHANNEL 9"];
   for (let i = 0; i * 80 < W; i++) {
     const a = ads[i % ads.length],
-      x = i * 80;
-    rect(g, x + 1, 95, 78, 10, i % 2 ? "#b0503a" : venue.color);
-    text(g, fit(a, 13), x + 40, 97, { color: "#fff6dc", outline: null, align: "center" });
+      x = i * 80,
+      board = venue.club ? (a === "FIZZ DRINKS" || a === "RADIO 98.4" ? "#b0503a" : i % 2 ? venue.trim : venue.color) : i % 2 ? "#b0503a" : venue.color;
+    rect(g, x + 1, 95, 78, 10, board);
+    text(g, fit(a, 13), x + 40, 97, { color: inkOn(board), outline: null, align: "center" });
   }
   // The ad boards cast a shadow onto the track that runs in front of the stands.
   const FH = H + GROUND, night = venue.time === "night", wet = venue.weather === "rain";
+  // The track: a mown grass loop or a gravel track with four chalked lanes, then synthetic
+  // with six painted lanes, as on the campus.
+  const loose = (venue.trackLevel ?? 2) <= 1;
   rect(g, 0, 106, W, 15, venue.track);
-  for (let y = 109; y < 121; y += 4) rect(g, 0, y, W, 1, "rgba(255,255,240,0.45)");
-  for (let i = 0; i < W / 3; i++) px(g, hash(i * 11) * W, 107 + hash(i * 13) * 13, shade(venue.track, hash(i) > 0.5 ? 0.12 : -0.12));
+  if (loose) for (let i = 0; i < W; i++) px(g, hash(i * 11) * W, 107 + hash(i * 13) * 13, shade(venue.track, hash(i) > 0.5 ? 0.14 : -0.14));
+  for (const y of loose ? [109, 113, 117] : [108, 110, 113, 115, 118]) rect(g, 0, y, W, 1, loose ? shade(venue.track, 0.3) : "rgba(255,255,240,0.6)");
+  if (!loose) for (let i = 0; i < W / 3; i++) px(g, hash(i * 11) * W, 107 + hash(i * 13) * 13, shade(venue.track, hash(i) > 0.5 ? 0.08 : -0.08));
   rect(g, 0, 106, W, 2, "rgba(0,0,0,0.28)");
   rect(g, 0, 121, W, 2, "#e8e4d4");
   // Field: broad mowing stripes along the throwing direction, sloped with the ground plane.
@@ -309,47 +479,79 @@ function stadiumBase(s, ev, venue) {
   // of equal radius, rather than straight strips across a widening wedge.
   // The javelin's sector lines run out from the two ends of the throwing arc; the circles' lines
   // start at the centre of the ring, which covers them.
-  const boundary = sector.arc(SPAN),
+  // The area follows the venue's level, like the campus: chalk on grass and wooden stakes at a
+  // club ground, crisp painted lines and small flags once upgraded, and a competition sector
+  // with red flags, distance boards and, for the shot, a raked clay landing area.
+  const L = areaLevel(s, venue, ev),
+    boundary = sector.arc(SPAN),
     [upper, lower] = ev === "jav" ? [[O.x + 3, O.y - RUNWAY - 2], [O.x + 3, O.y + RUNWAY + 2]] : [[O.x, O.y], [O.x, O.y]];
-  poly(g, [upper, ...boundary, lower], "rgba(255,255,220,0.07)");
-  line(g, ...upper, ...boundary[0], "#f4f4e8");
-  line(g, ...lower, ...boundary.at(-1), "#f4f4e8");
-  // Sector flags where the boundary lines end.
+  if (ev === "shot" && L >= 2) {
+    // A clay landing sector, raked into arcs at competition level.
+    const clay = venue.weather === "snow" ? "#d8ccc4" : L >= 3 ? "#c4703e" : "#b87a50";
+    poly(g, [upper, ...boundary, lower], clay);
+    if (L >= 3) for (let d = 2; d < SPAN; d += 1.5) distanceArc(g, d, shade(clay, -0.1), true);
+  } else poly(g, [upper, ...boundary, lower], "rgba(255,255,220,0.07)");
+  const edge = L === 1 ? "rgba(250,250,240,0.6)" : "#f4f4e8";
+  for (const [a, b] of [[upper, boundary[0]], [lower, boundary.at(-1)]]) {
+    const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4);
+    // Chalk at a club ground is a broken line; paint is solid.
+    for (let i = 0; i < n; i++) if (L > 1 || i % 3 < 2) line(g, a[0] + ((b[0] - a[0]) * i) / n, a[1] + ((b[1] - a[1]) * i) / n, a[0] + ((b[0] - a[0]) * (i + 1)) / n, a[1] + ((b[1] - a[1]) * (i + 1)) / n, edge);
+  }
+  // Where the boundary lines end: a stake, a small flag, or the competition's red flags.
   for (const [fx, fy] of [boundary[0], boundary.at(-1)]) {
+    if (L === 1) {
+      rect(g, fx, fy - 5, 1, 6, "#a8743e");
+      continue;
+    }
     rect(g, fx, fy - 12, 1, 12, "#f4f4e8");
-    rect(g, fx + 1, fy - 12, 6, 4, "#e04a3a");
-    rect(g, fx + 1, fy - 10, 3, 2, "#fff6dc");
+    rect(g, fx + 1, fy - 12, L >= 3 ? 6 : 4, L >= 3 ? 4 : 3, L >= 3 ? "#e04a3a" : "#f2c94c");
+    if (L >= 3) rect(g, fx + 1, fy - 10, 3, 2, "#fff6dc");
   }
   const e = EVENTS[ev],
     step = [1, 2, 4, 5, 10, 20, 25].find((n) => SPAN / n <= 9) || 50;
   for (let d = Math.ceil(e.min / step) * step; d < SPAN; d += step) {
     const [x,y] = sector.point(d, -sector.halfAngle);
-    distanceArc(g, d, "rgba(244,244,232,0.5)");
-    rect(g, x - 7, y - 11, 15, 8, "#f4efe2");
-    text(g, String(d), x, y - 10, { color: "#3a5a3a", outline: null, align: "center" });
+    distanceArc(g, d, L === 1 ? "rgba(244,244,232,0.35)" : "rgba(244,244,232,0.5)", L === 1);
+    // Distance markers: painted wooden boards at a club ground, white boards on posts above.
+    if (L >= 2) rect(g, x, y - 3, 1, 3, "#8a8e90");
+    rect(g, x - 7, y - 11, 15, 8, L === 1 ? "#d8b88a" : "#f4efe2");
+    text(g, String(d), x, y - 10, { color: L === 1 ? "#5a3e22" : "#3a5a3a", outline: null, align: "center" });
   }
   // Circle, cage or runway, drawn at the same double scale as the people who use them: a ring
   // about as wide as the thrower is tall, and a cage that stands well above their head.
   if (ev === "jav") {
-    // A straight runway along the sector's centre line, ending at the curved throwing arc.
-    const cy = (x) => O.y + (O.x - x) * GROUND_SLOPE;
-    poly(g, [[0, cy(0) - RUNWAY], [O.x, O.y - RUNWAY], [O.x, O.y + RUNWAY], [0, cy(0) + RUNWAY]], venue.track);
-    line(g, 0, cy(0) - RUNWAY, O.x, O.y - RUNWAY, "#f4e8d0");
-    line(g, 0, cy(0) + RUNWAY, O.x, O.y + RUNWAY, "#f4e8d0");
+    // A straight runway along the sector's centre line, ending at the curved throwing arc: a mown
+    // grass strip with a wooden board at a club ground, a synthetic runway with check marks
+    // above that, and foul-line extensions either side at competition level.
+    const cy = (x) => O.y + (O.x - x) * GROUND_SLOPE,
+      lineC = L === 1 ? "rgba(250,250,240,0.6)" : "#f4e8d0";
+    poly(g, [[0, cy(0) - RUNWAY], [O.x, O.y - RUNWAY], [O.x, O.y + RUNWAY], [0, cy(0) + RUNWAY]], L === 1 ? "#8cc068" : venue.track);
+    if (L === 1) for (let x = O.x - 6; x > 0; x -= 12) rect(g, x - 6, cy(x) - RUNWAY, 6, RUNWAY * 2 + 1, "#96c872");
+    else for (let x = O.x - 24; x > 0; x -= 24) rect(g, x, cy(x) - RUNWAY + 2, 1, 2, "#f4e8d0");
+    line(g, 0, cy(0) - RUNWAY, O.x, O.y - RUNWAY, lineC);
+    line(g, 0, cy(0) + RUNWAY, O.x, O.y + RUNWAY, lineC);
     for (let k = -RUNWAY - 2; k <= RUNWAY + 2; k++) {
       const t = k / (RUNWAY + 2);
-      rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, "#f8f8f0");
+      rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, L === 1 ? "#a8743e" : "#f8f8f0");
     }
+    if (L >= 3) for (const k of [-RUNWAY - 6, RUNWAY + 3]) rect(g, O.x + 1, O.y + k, 2, 3, "#f8f8f0");
   } else {
-    if (ev !== "shot") cage(g, "back");
-    ellipse(g, O.x, O.y + 3, 30, 11, "#5a6a5a");
-    ellipse(g, O.x, O.y, 28, 10, "#e8e4d0");
-    ellipse(g, O.x, O.y, 24, 8, "#a8a898");
-    for (let i = 0; i < 18; i++) px(g, O.x - 20 + hash(i) * 40, O.y - 5 + hash(i + 9) * 10, "#9a9a8a");
+    if (ev !== "shot") cage(g, "back", cageOf(s, venue, ev));
+    // The circle: bare concrete at a club ground, set in a paved apron once upgraded, and on a
+    // synthetic pad with a white rim at competition level.
+    if (L >= 3) {
+      ellipse(g, O.x, O.y + 3, 40, 15, shade(venue.track, -0.25));
+      ellipse(g, O.x, O.y, 39, 14, venue.track);
+    } else if (L === 2) ellipse(g, O.x, O.y + 1, 36, 13, "#cfc8b8");
+    ellipse(g, O.x, O.y + 3, 30, 11, "rgba(40,50,40,0.45)");
+    ellipse(g, O.x, O.y, 28, 10, L >= 3 ? "#eef0f0" : L === 2 ? "#e0dccc" : "#c8c0b0");
+    ellipse(g, O.x, O.y, 24, 8, L >= 2 ? "#6a6e74" : "#a8a898");
+    if (L === 1) for (let i = 0; i < 18; i++) px(g, O.x - 20 + hash(i) * 40, O.y - 5 + hash(i + 9) * 10, "#8a887e");
+    else ellipse(g, O.x - 6, O.y - 3, 9, 2, "#7a7e84");
     if (ev === "shot") {
-      // The stop board on the front of the circle.
-      rect(g, O.x + 24, O.y - 6, 5, 12, "#f4efe2");
-      rect(g, O.x + 24, O.y + 6, 5, 1, "#c8c0a8");
+      // The stop board on the front of the circle: wooden at first, then painted white.
+      rect(g, O.x + 24, O.y - 6, 5, 12, L === 1 ? "#a8743e" : "#f4efe2");
+      rect(g, O.x + 24, O.y + 6, 5, 1, L === 1 ? "#7a5430" : "#c8c0a8");
     }
   }
   return c;
@@ -369,9 +571,26 @@ function drawCrowd(g, s, m, now, cheer, venue) {
       // Leave the stairways clear.
       const aisle = venue.grand === 1 ? 80 : 96;
       if (venue.grand >= 1 && (((x - aisle / 2) % aisle) + aisle) % aisle < 5) continue;
-      const shirt = hash(col + r * 31) < 0.6 ? (home ? (hash(col * r) < 0.5 ? s.colors.primary : s.colors.secondary) : m.color) : ["#f4efe2", "#e07a5a", "#5a8ad0", "#f0c060"][Math.floor(hash(col + r) * 4)];
+      // At your own ground most of the home end wears the club's colours.
+      const share = home && venue.club ? 0.82 : 0.6;
+      const shirt = hash(col + r * 31) < share ? (home ? (hash(col * r) < 0.5 ? s.colors.primary : s.colors.secondary) : m.color) : ["#f4efe2", "#e07a5a", "#5a8ad0", "#f0c060"][Math.floor(hash(col + r) * 4)];
       rect(g, x, y - 3 + 2 - jump, 3, 3, shirt);
       rect(g, x, y - 3 - jump, 3, 2, skins[Math.floor(hash(col * 7 + r) * skins.length)]);
+      if (home && venue.club) {
+        const fan = hash(col * 5 + r * 3);
+        // A few home fans wave flags all meet; when the club scores, scarves go up.
+        if (fan > 0.965) {
+          const wave = Math.round(Math.sin(now / 180 + col) * 1.5);
+          rect(g, x + 2, y - 11 - jump, 1, 8, "#e8e4d8");
+          rect(g, x + 3, y - 11 - jump + (wave > 0 ? 1 : 0), 5, 2, s.colors.primary);
+          rect(g, x + 3, y - 9 - jump + (wave > 0 ? 1 : 0), 5 + (wave < 0 ? -1 : 0), 2, s.colors.secondary);
+          continue;
+        }
+        if (jump && fan > 0.55) {
+          rect(g, x - 1, y - 6 - jump, 5, 1, s.colors.secondary);
+          continue;
+        }
+      }
       if (jump && hash(col * 3 + r) > 0.7) rect(g, x - 1, y - 5 - jump, 1, 2, skins[1]);
       // Camera flashes in the big venues at night.
       if (venue.grand >= 3 && venue.time === "night" && hash(col * 17 + r + Math.floor(now / 90)) > 0.997) rect(g, x, y - 4, 2, 2, "#ffffff");
@@ -570,7 +789,7 @@ export function createStadium(cv) {
       sinceLand = tt - timing.landAt,
       jolt = big && !view.reduced && sinceLand >= 0 && sinceLand < 280 ? (1 - sinceLand / 280) * (beat.worldRecord ? 4 : 2) : 0;
     const shake = [Math.round(Math.sin(sinceLand * 0.9) * jolt), Math.round(Math.cos(sinceLand * 1.3) * jolt)];
-    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN;
+    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN + areaLevel(s, venue, ev);
     if (k !== key) {
       base = stadiumBase(s, ev, venue);
       key = k;
@@ -580,6 +799,7 @@ export function createStadium(cv) {
     const reacting = beat?.type === "throw" && landed && el < beatDuration(beat) && beat.mark != null && beat.side === "home" && (beat.newPb || beat.scoringSwing > 0);
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     drawCrowd(g, s, m, now, cheer, venue);
+    homeBanners(g, s, venue);
     // Flashbulbs pop in the stands after a big throw.
     if (big && !view.reduced && sinceLand >= 0 && sinceLand < (celebrates(beat) ? LANDING_HOLD_MS + CELEBRATION_MS : 1600))
       for (let n = 0; n < 9; n++) {
@@ -654,8 +874,10 @@ export function createStadium(cv) {
     const foulShown = beat?.type === "throw" && beat.foul && landed;
     // People at the circle are drawn at double size, like a sports sim's close-up; the field
     // judge out in the sector stays small with the distance.
-    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, O.x + 44, O.y - 20, 2);
-    if (foulShown) rect(g, O.x + 30, O.y - 72, 10, 7, "#e04a3a");
+    // In the cage events the circle judge stands clear of the netting, on the near side of the sector.
+    const cageHere = cageOf(s, venue, ev), judge = cageHere ? [O.x + Math.round((cageHere.mouth + 3) * CAGE_PX), O.y + 54] : [O.x + 44, O.y - 20];
+    figure(g, { ...OFFICIAL, pose: foulShown ? "wave" : "idle", frame: 0, flip: true }, judge[0], judge[1], 2);
+    if (foulShown) rect(g, judge[0] - 14, judge[1] - 52, 10, 7, "#e04a3a");
     // Team benches along the front: your squad on the left, theirs beside them. Teammates jump
     // up when their side lands a big one.
     const benchOf = (side) => {
@@ -776,7 +998,7 @@ export function createStadium(cv) {
       if (beat?.type === "throw" && tt >= Math.max(timing.landAt + 150, recoveredAt) && sinceLand < (party ? partyEnd : 1900)) speech(g, voiceLine(active, throwSituation(beat), beat.attempt + (beat.athleteId || 0)), x, y - 76);
     }
     // The near side of the cage passes in front of whoever is in the circle.
-    if (ev === "discus" || ev === "hammer") cage(g, "front");
+    if (ev === "discus" || ev === "hammer") cage(g, "front", cageOf(s, venue, ev));
     // Projectile: drawn large with a light rim so it reads against sky, crowd and grass, with a
     // short trail and its shadow running along the ground. Nothing marks the landing spot before
     // it comes down, so the distance stays a surprise. After landing, a flag in the thrower's
