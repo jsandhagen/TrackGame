@@ -92,10 +92,10 @@ const CAGES = {
     { r: 3.5, mouth: 7, h: 7, front: 10, frontFrom: 4.2, sides: [7, 4.2, 2.1], gates: true },
   ],
 };
-// Which cage a venue has (1 practice, 2 full, 3 competition): your own at home, otherwise by
-// the size of the ground.
-const cageLevel = (s, venue, ev) => Math.max(1, Math.min(3, venue.home ? s.stadium[ev] || 1 : venue.grand >= 3 ? 3 : venue.grand >= 2 ? 2 : 1));
-const cageOf = (s, venue, ev) => CAGES[ev]?.[cageLevel(s, venue, ev) - 1];
+// How developed a venue's throwing area is, matching the campus levels (1 club, 2 upgraded,
+// 3 competition): your own at home, otherwise by the size of the ground.
+const areaLevel = (s, venue, ev) => Math.max(1, Math.min(3, venue.home ? s.stadium[ev] || 1 : venue.grand >= 3 ? 3 : venue.grand >= 2 ? 2 : 1));
+const cageOf = (s, venue, ev) => CAGES[ev]?.[areaLevel(s, venue, ev) - 1];
 function cagePlan(c) {
   const side = (v) => c.sides.map((u) => [u, v * (3 + ((c.r - 3) * (c.mouth - u)) / c.mouth)]);
   const arc = [];
@@ -376,47 +376,79 @@ function stadiumBase(s, ev, venue) {
   // of equal radius, rather than straight strips across a widening wedge.
   // The javelin's sector lines run out from the two ends of the throwing arc; the circles' lines
   // start at the centre of the ring, which covers them.
-  const boundary = sector.arc(SPAN),
+  // The area follows the venue's level, like the campus: chalk on grass and wooden stakes at a
+  // club ground, crisp painted lines and small flags once upgraded, and a competition sector
+  // with red flags, distance boards and, for the shot, a raked clay landing area.
+  const L = areaLevel(s, venue, ev),
+    boundary = sector.arc(SPAN),
     [upper, lower] = ev === "jav" ? [[O.x + 3, O.y - RUNWAY - 2], [O.x + 3, O.y + RUNWAY + 2]] : [[O.x, O.y], [O.x, O.y]];
-  poly(g, [upper, ...boundary, lower], "rgba(255,255,220,0.07)");
-  line(g, ...upper, ...boundary[0], "#f4f4e8");
-  line(g, ...lower, ...boundary.at(-1), "#f4f4e8");
-  // Sector flags where the boundary lines end.
+  if (ev === "shot" && L >= 2) {
+    // A clay landing sector, raked into arcs at competition level.
+    const clay = venue.weather === "snow" ? "#d8ccc4" : L >= 3 ? "#c4703e" : "#b87a50";
+    poly(g, [upper, ...boundary, lower], clay);
+    if (L >= 3) for (let d = 2; d < SPAN; d += 1.5) distanceArc(g, d, shade(clay, -0.1), true);
+  } else poly(g, [upper, ...boundary, lower], "rgba(255,255,220,0.07)");
+  const edge = L === 1 ? "rgba(250,250,240,0.6)" : "#f4f4e8";
+  for (const [a, b] of [[upper, boundary[0]], [lower, boundary.at(-1)]]) {
+    const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4);
+    // Chalk at a club ground is a broken line; paint is solid.
+    for (let i = 0; i < n; i++) if (L > 1 || i % 3 < 2) line(g, a[0] + ((b[0] - a[0]) * i) / n, a[1] + ((b[1] - a[1]) * i) / n, a[0] + ((b[0] - a[0]) * (i + 1)) / n, a[1] + ((b[1] - a[1]) * (i + 1)) / n, edge);
+  }
+  // Where the boundary lines end: a stake, a small flag, or the competition's red flags.
   for (const [fx, fy] of [boundary[0], boundary.at(-1)]) {
+    if (L === 1) {
+      rect(g, fx, fy - 5, 1, 6, "#a8743e");
+      continue;
+    }
     rect(g, fx, fy - 12, 1, 12, "#f4f4e8");
-    rect(g, fx + 1, fy - 12, 6, 4, "#e04a3a");
-    rect(g, fx + 1, fy - 10, 3, 2, "#fff6dc");
+    rect(g, fx + 1, fy - 12, L >= 3 ? 6 : 4, L >= 3 ? 4 : 3, L >= 3 ? "#e04a3a" : "#f2c94c");
+    if (L >= 3) rect(g, fx + 1, fy - 10, 3, 2, "#fff6dc");
   }
   const e = EVENTS[ev],
     step = [1, 2, 4, 5, 10, 20, 25].find((n) => SPAN / n <= 9) || 50;
   for (let d = Math.ceil(e.min / step) * step; d < SPAN; d += step) {
     const [x,y] = sector.point(d, -sector.halfAngle);
-    distanceArc(g, d, "rgba(244,244,232,0.5)");
-    rect(g, x - 7, y - 11, 15, 8, "#f4efe2");
-    text(g, String(d), x, y - 10, { color: "#3a5a3a", outline: null, align: "center" });
+    distanceArc(g, d, L === 1 ? "rgba(244,244,232,0.35)" : "rgba(244,244,232,0.5)", L === 1);
+    // Distance markers: painted wooden boards at a club ground, white boards on posts above.
+    if (L >= 2) rect(g, x, y - 3, 1, 3, "#8a8e90");
+    rect(g, x - 7, y - 11, 15, 8, L === 1 ? "#d8b88a" : "#f4efe2");
+    text(g, String(d), x, y - 10, { color: L === 1 ? "#5a3e22" : "#3a5a3a", outline: null, align: "center" });
   }
   // Circle, cage or runway, drawn at the same double scale as the people who use them: a ring
   // about as wide as the thrower is tall, and a cage that stands well above their head.
   if (ev === "jav") {
-    // A straight runway along the sector's centre line, ending at the curved throwing arc.
-    const cy = (x) => O.y + (O.x - x) * GROUND_SLOPE;
-    poly(g, [[0, cy(0) - RUNWAY], [O.x, O.y - RUNWAY], [O.x, O.y + RUNWAY], [0, cy(0) + RUNWAY]], venue.track);
-    line(g, 0, cy(0) - RUNWAY, O.x, O.y - RUNWAY, "#f4e8d0");
-    line(g, 0, cy(0) + RUNWAY, O.x, O.y + RUNWAY, "#f4e8d0");
+    // A straight runway along the sector's centre line, ending at the curved throwing arc: a mown
+    // grass strip with a wooden board at a club ground, a synthetic runway with check marks
+    // above that, and foul-line extensions either side at competition level.
+    const cy = (x) => O.y + (O.x - x) * GROUND_SLOPE,
+      lineC = L === 1 ? "rgba(250,250,240,0.6)" : "#f4e8d0";
+    poly(g, [[0, cy(0) - RUNWAY], [O.x, O.y - RUNWAY], [O.x, O.y + RUNWAY], [0, cy(0) + RUNWAY]], L === 1 ? "#8cc068" : venue.track);
+    if (L === 1) for (let x = O.x - 6; x > 0; x -= 12) rect(g, x - 6, cy(x) - RUNWAY, 6, RUNWAY * 2 + 1, "#96c872");
+    else for (let x = O.x - 24; x > 0; x -= 24) rect(g, x, cy(x) - RUNWAY + 2, 1, 2, "#f4e8d0");
+    line(g, 0, cy(0) - RUNWAY, O.x, O.y - RUNWAY, lineC);
+    line(g, 0, cy(0) + RUNWAY, O.x, O.y + RUNWAY, lineC);
     for (let k = -RUNWAY - 2; k <= RUNWAY + 2; k++) {
       const t = k / (RUNWAY + 2);
-      rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, "#f8f8f0");
+      rect(g, O.x + Math.round((1 - t * t) * 4), O.y + k, 2, 1, L === 1 ? "#a8743e" : "#f8f8f0");
     }
+    if (L >= 3) for (const k of [-RUNWAY - 6, RUNWAY + 3]) rect(g, O.x + 1, O.y + k, 2, 3, "#f8f8f0");
   } else {
     if (ev !== "shot") cage(g, "back", cageOf(s, venue, ev));
-    ellipse(g, O.x, O.y + 3, 30, 11, "#5a6a5a");
-    ellipse(g, O.x, O.y, 28, 10, "#e8e4d0");
-    ellipse(g, O.x, O.y, 24, 8, "#a8a898");
-    for (let i = 0; i < 18; i++) px(g, O.x - 20 + hash(i) * 40, O.y - 5 + hash(i + 9) * 10, "#9a9a8a");
+    // The circle: bare concrete at a club ground, set in a paved apron once upgraded, and on a
+    // synthetic pad with a white rim at competition level.
+    if (L >= 3) {
+      ellipse(g, O.x, O.y + 3, 40, 15, shade(venue.track, -0.25));
+      ellipse(g, O.x, O.y, 39, 14, venue.track);
+    } else if (L === 2) ellipse(g, O.x, O.y + 1, 36, 13, "#cfc8b8");
+    ellipse(g, O.x, O.y + 3, 30, 11, "rgba(40,50,40,0.45)");
+    ellipse(g, O.x, O.y, 28, 10, L >= 3 ? "#eef0f0" : L === 2 ? "#e0dccc" : "#c8c0b0");
+    ellipse(g, O.x, O.y, 24, 8, L >= 2 ? "#6a6e74" : "#a8a898");
+    if (L === 1) for (let i = 0; i < 18; i++) px(g, O.x - 20 + hash(i) * 40, O.y - 5 + hash(i + 9) * 10, "#8a887e");
+    else ellipse(g, O.x - 6, O.y - 3, 9, 2, "#7a7e84");
     if (ev === "shot") {
-      // The stop board on the front of the circle.
-      rect(g, O.x + 24, O.y - 6, 5, 12, "#f4efe2");
-      rect(g, O.x + 24, O.y + 6, 5, 1, "#c8c0a8");
+      // The stop board on the front of the circle: wooden at first, then painted white.
+      rect(g, O.x + 24, O.y - 6, 5, 12, L === 1 ? "#a8743e" : "#f4efe2");
+      rect(g, O.x + 24, O.y + 6, 5, 1, L === 1 ? "#7a5430" : "#c8c0a8");
     }
   }
   return c;
@@ -637,7 +669,7 @@ export function createStadium(cv) {
       sinceLand = tt - timing.landAt,
       jolt = big && !view.reduced && sinceLand >= 0 && sinceLand < 280 ? (1 - sinceLand / 280) * (beat.worldRecord ? 4 : 2) : 0;
     const shake = [Math.round(Math.sin(sinceLand * 0.9) * jolt), Math.round(Math.cos(sinceLand * 1.3) * jolt)];
-    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN + (CAGES[ev] ? cageLevel(s, venue, ev) : "");
+    const k = ev + s.league + s.colors.primary + JSON.stringify(venue) + W + SPAN + areaLevel(s, venue, ev);
     if (k !== key) {
       base = stadiumBase(s, ev, venue);
       key = k;
