@@ -48,6 +48,8 @@ function venueOf(s, m) {
     seats: v.home ? { pattern: styleOf(s).seats, a: s.colors.primary, b: s.colors.secondary } : { pattern: "solid", a: v.color },
     roof: v.home ? roofColorOf(s) : null,
     standStyle: v.home ? styleOf(s).standStyle : "classic",
+    // Home is where the club's story hangs: its name, its records and its titles.
+    club: v.home ? { name: s.clubName, records: Object.fromEntries(Object.entries(s.records || {}).map(([ev, r]) => [ev, r.mark])), titles: honours(s) } : null,
     backdrop: v.home ? styleOf(s).backdrop : v.backdrop,
     crowd: v.home ? Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) : v.special ? 0.92 : CROWDS[grand],
   };
@@ -230,6 +232,40 @@ function backdrop(g, kind, horizon, venue) {
     }
   }
 }
+// Readable text on a board of colour c.
+const inkOn = (c) => {
+  const n = parseInt(c.slice(1), 16);
+  return 0.3 * (n >> 16) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255) > 150 ? "#2a2420" : "#fff6dc";
+};
+// The club's titles for the banners over the home stand, most prestigious first: league
+// trophies (the level's first word and the stage) and won invitationals.
+function honours(s) {
+  const league = [...(s.trophies || [])]
+    .sort((a, b) => b.league - a.league || (b.stage ?? 2) - (a.stage ?? 2) || b.season - a.season)
+    .map((t) => `${LEAGUES[t.league].name.split(" ")[0].replace("International", "Int'l")} ${["Open", "Challenger", "Champions"][t.stage ?? 2]}`.toUpperCase());
+  const cups = (s.invitations?.won || []).map((t) => t.name.toUpperCase());
+  return [...league, ...cups];
+}
+// Banners hung along the front of the home stand, one per title, in the club colours. Before
+// the first title, a single banner names the club.
+function homeBanners(g, s, venue) {
+  if (!venue.club) return;
+  const list = venue.club.titles.length ? venue.club.titles : [venue.club.name.toUpperCase()],
+    y = venue.grand <= 1 ? 80 : 76,
+    n = Math.min(list.length, Math.floor(W / 120));
+  for (let i = 0; i < n; i++) {
+    const x = Math.round(((i + 0.5) * W) / n) - 54,
+      c = i % 2 ? s.colors.secondary : s.colors.primary;
+    // On an open field the banners are tied to posts on the rail; in a stand, hung from it.
+    if (venue.grand === 0) for (const px_ of [x, x + 107]) rect(g, px_, y - 1, 1, 93 - y, "#c8c4b8");
+    rect(g, x, y - 1, 108, 1, "#3a3e42");
+    rect(g, x + 1, y, 106, 11, c);
+    rect(g, x + 1, y + 10, 106, 1, shade(c, -0.35));
+    // A scalloped hem.
+    for (let k = 0; k < 5; k++) rect(g, x + 1 + k * 21 + 9, y + 11, 4, 1, c);
+    text(g, fit(list[i], 20), x + 54, y + 2, { color: inkOn(c), outline: null, align: "center" });
+  }
+}
 // Seating rows for the crowd, as [y, x0, x1] (each row is 6px tall).
 function seatRows(venue) {
   const g = venue.grand,
@@ -276,6 +312,11 @@ function stands(g, venue) {
     poly(g, [[hx - 4, 58], [hx + 23, 46], [hx + 50, 58]], venue.color);
     rect(g, hx + 18, 68, 9, 12, "#7a5034");
     rect(g, hx + 5, 63, 8, 6, venue.time === "night" ? "#ffe8a0" : "#8ab0c8");
+    // Your own clubhouse carries the club's name.
+    if (venue.club) {
+      rect(g, hx + 2, 52, 42, 8, "#f4efe2");
+      text(g, fit(venue.club.name.toUpperCase(), 7), hx + 23, 53, { color: shade(venue.color, -0.3), outline: null, align: "center" });
+    }
     for (let x = 0; x < W; x += 12) rect(g, x, 92, 1, 3, "#c8c4b8");
     rect(g, 0, 92, W, 1, "#e8e4d8");
     return;
@@ -341,6 +382,8 @@ function stands(g, venue) {
     // A timber stand's roof has a gabled front; a cantilever's is a thin blade.
     if (timber) for (let x = x0; x < x1; x += 30) poly(g, [[x, 20], [x + 15, 15], [x + 30, 20]], shade(venue.roof || "#2e3a3e", 0.1));
     if (!columns) rect(g, x0, 20, x1 - x0, 2, shade(venue.roof || "#2e3a3e", 0.25));
+    // The stadium's name along the roof, as on the campus.
+    if (venue.club) text(g, fit(venue.name.toUpperCase(), 26), W / 2, 20, { color: inkOn(venue.roof || "#2e3a3e"), outline: null, align: "center" });
     return;
   }
   rect(g, 0, 8, W, 26, shade(metal, -0.3));
@@ -349,6 +392,11 @@ function stands(g, venue) {
   rect(g, 0, 32, W, 2, venue.color);
   rect(g, 0, 2, W, 6, venue.roof || (G === 4 ? "#e8ecef" : "#2e3a3e"));
   if (G === 4) for (let x = 0; x < W; x += 8) line(g, x, 2, x + 8, 7, shade(venue.roof || "#e8ecef", -0.2));
+  if (venue.club) for (const x of [W * 0.22, W * 0.78]) {
+    const roofC = venue.roof || "#2e3a3e";
+    rect(g, x - 62, 2, 124, 6, roofC);
+    text(g, fit(venue.name.toUpperCase(), 20), x, 2, { color: inkOn(roofC), outline: null, align: "center" });
+  }
   // The big screen.
   const sx = W / 2 - 36;
   rect(g, sx - 2, 4, 76, 30, "#1a1e24");
@@ -384,12 +432,18 @@ function stadiumBase(s, ev, venue) {
   if (venue.lights && venue.grand >= 3) for (let x = 6; x < W; x += 18) rect(g, x, 7, 6, 2, "#fff4cb");
   // Ad boards.
   rect(g, 0, 94, W, 12, "#2a3a34");
-  const ads = [venue.name.toUpperCase(), "FIZZ DRINKS", "RADIO 98.4", LEAGUES[venue.tier ?? s.league].name.toUpperCase(), "EVERY MARK MATTERS", "CHANNEL 9"];
+  // At home the boards are the club's own: a welcome, its name and the club record in this
+  // event, between the sponsors, in the club colours.
+  const record = venue.club?.records[ev],
+    ads = venue.club
+      ? ["WELCOME TO", venue.name.toUpperCase(), "FIZZ DRINKS", ...(venue.name === venue.club.name ? [] : [venue.club.name.toUpperCase()]), record ? "CLUB RECORD" : "HOME OF", record ? record.toFixed(2) + " M" : "THE THROWS", "RADIO 98.4", "COME ON " + venue.club.name.split(" ")[0].toUpperCase()]
+      : [venue.name.toUpperCase(), "FIZZ DRINKS", "RADIO 98.4", LEAGUES[venue.tier ?? s.league].name.toUpperCase(), "EVERY MARK MATTERS", "CHANNEL 9"];
   for (let i = 0; i * 80 < W; i++) {
     const a = ads[i % ads.length],
-      x = i * 80;
-    rect(g, x + 1, 95, 78, 10, i % 2 ? "#b0503a" : venue.color);
-    text(g, fit(a, 13), x + 40, 97, { color: "#fff6dc", outline: null, align: "center" });
+      x = i * 80,
+      board = venue.club ? (a === "FIZZ DRINKS" || a === "RADIO 98.4" ? "#b0503a" : i % 2 ? venue.trim : venue.color) : i % 2 ? "#b0503a" : venue.color;
+    rect(g, x + 1, 95, 78, 10, board);
+    text(g, fit(a, 13), x + 40, 97, { color: inkOn(board), outline: null, align: "center" });
   }
   // The ad boards cast a shadow onto the track that runs in front of the stands.
   const FH = H + GROUND, night = venue.time === "night", wet = venue.weather === "rain";
@@ -517,9 +571,26 @@ function drawCrowd(g, s, m, now, cheer, venue) {
       // Leave the stairways clear.
       const aisle = venue.grand === 1 ? 80 : 96;
       if (venue.grand >= 1 && (((x - aisle / 2) % aisle) + aisle) % aisle < 5) continue;
-      const shirt = hash(col + r * 31) < 0.6 ? (home ? (hash(col * r) < 0.5 ? s.colors.primary : s.colors.secondary) : m.color) : ["#f4efe2", "#e07a5a", "#5a8ad0", "#f0c060"][Math.floor(hash(col + r) * 4)];
+      // At your own ground most of the home end wears the club's colours.
+      const share = home && venue.club ? 0.82 : 0.6;
+      const shirt = hash(col + r * 31) < share ? (home ? (hash(col * r) < 0.5 ? s.colors.primary : s.colors.secondary) : m.color) : ["#f4efe2", "#e07a5a", "#5a8ad0", "#f0c060"][Math.floor(hash(col + r) * 4)];
       rect(g, x, y - 3 + 2 - jump, 3, 3, shirt);
       rect(g, x, y - 3 - jump, 3, 2, skins[Math.floor(hash(col * 7 + r) * skins.length)]);
+      if (home && venue.club) {
+        const fan = hash(col * 5 + r * 3);
+        // A few home fans wave flags all meet; when the club scores, scarves go up.
+        if (fan > 0.965) {
+          const wave = Math.round(Math.sin(now / 180 + col) * 1.5);
+          rect(g, x + 2, y - 11 - jump, 1, 8, "#e8e4d8");
+          rect(g, x + 3, y - 11 - jump + (wave > 0 ? 1 : 0), 5, 2, s.colors.primary);
+          rect(g, x + 3, y - 9 - jump + (wave > 0 ? 1 : 0), 5 + (wave < 0 ? -1 : 0), 2, s.colors.secondary);
+          continue;
+        }
+        if (jump && fan > 0.55) {
+          rect(g, x - 1, y - 6 - jump, 5, 1, s.colors.secondary);
+          continue;
+        }
+      }
       if (jump && hash(col * 3 + r) > 0.7) rect(g, x - 1, y - 5 - jump, 1, 2, skins[1]);
       // Camera flashes in the big venues at night.
       if (venue.grand >= 3 && venue.time === "night" && hash(col * 17 + r + Math.floor(now / 90)) > 0.997) rect(g, x, y - 4, 2, 2, "#ffffff");
@@ -728,6 +799,7 @@ export function createStadium(cv) {
     const reacting = beat?.type === "throw" && landed && el < beatDuration(beat) && beat.mark != null && beat.side === "home" && (beat.newPb || beat.scoringSwing > 0);
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     drawCrowd(g, s, m, now, cheer, venue);
+    homeBanners(g, s, venue);
     // Flashbulbs pop in the stands after a big throw.
     if (big && !view.reduced && sinceLand >= 0 && sinceLand < (celebrates(beat) ? LANDING_HOLD_MS + CELEBRATION_MS : 1600))
       for (let n = 0; n < 9; n++) {
