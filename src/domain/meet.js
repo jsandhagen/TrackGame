@@ -21,7 +21,7 @@ import {
   facilityLevel,
   hasCombo,
 } from "./core.js";
-import { checkGoals } from "./story.js";
+import { checkGoals, yearStat } from "./story.js";
 import { competitionTier } from "./competition.js";
 import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
@@ -301,6 +301,9 @@ export function fieldLeaderboard(s,i=s.match?.eventIndex,hide) {
 // athlete's best from before this meet (only your own club's bests are known). In a league duel
 // the championship standard counts this meet's marks and those from earlier duels; in a
 // championship the top places go through to the final, and after the cut the rest are out.
+// Meet XP, before the duel discount and XP bonuses. A typical entry earns about what the old
+// flat 30 did; a clean series, a win or a PB earns more, a scratchy day less.
+export const MEET_XP = { competed: 12, legal: 1, place: [7, 4, 2], pb: 5, firstMark: 3, win: 3, draw: 1 };
 export function scoreboard(s,i=s.match?.eventIndex,hide) {
   const m=s.match,ev=EVENT_IDS[i],rows=fieldLeaderboard(s,i,hide);
   const standard=m?.kind==="league"&&championshipBooking(s)?qualifyingStandard(s,ev):null;
@@ -696,6 +699,7 @@ function closeEvent(s, i) {
       for (const row of e.placings || []) if (row.side === "home") {
         const athlete = s.roster.find((x) => x.id === row.id);
         athlete.seasonPoints += row.points;
+        yearStat(s, athlete).points += row.points;
         if (row.place === 1) count(s, "eventWins");
       }
       for(const side of ["home","away"]) {
@@ -771,23 +775,30 @@ export function settleMatch(s) {
   }
   let mvpScore = -1;
   const participants = new Set();
+  // Meet XP follows the performance: turning up, clean throws, places and PBs, plus the team result.
+  const xpSources = new Map(), earn = (id, label, xp) => { if (xp > 0) (xpSources.get(id) || xpSources.set(id, []).get(id)).push([label, xp]); };
   for (const [i, ev] of EVENT_IDS.entries()) {
     const field = m.fields?.[i]?.home || [{ id:m.lineup[ev], marks:m.homeMarks[i] }];
     for (const entry of field) {
       const a = s.roster.find((x) => x.id === entry.id);
       if (!a) continue;
+      if (!participants.has(a.id)) earn(a.id, "Competed", MEET_XP.competed);
       participants.add(a.id);
+      const legal = entry.marks.filter(v=>v!=null).length;
+      earn(a.id, legal + " clean throw" + (legal === 1 ? "" : "s") + " · " + EVENTS[ev].short, legal * MEET_XP.legal);
       const masteryGain=competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
       rewards.mastery.push({id:a.id,name:a.name,event:ev,gain:masteryGain,mastery:masteryOf(a,ev)});
       const mark = best(entry.marks), old = a.pb[ev] || 0;
       if (mark != null && mark > old) {
-        a.pb[ev] = mark; a.seasonPbs++; a.development.pbs++; count(s,"pbs"); fans += 2;
+        a.pb[ev] = mark; a.seasonPbs++; a.development.pbs++; count(s,"pbs"); fans += 2; yearStat(s, a).pbs++;
+        earn(a.id, old ? EVENTS[ev].short + " PB" : "First " + EVENTS[ev].short + " mark", old ? MEET_XP.pb : MEET_XP.firstMark);
         rewards.pbs.push({ id:a.id, name:a.name, event:ev, mark, delta:old ? mark-old : 0 });
         a.career.unshift({ season:s.season, label:EVENTS[ev].name + " PB", mark });
         a.career = a.career.slice(0,40);
         if (!s.records[ev] || mark > s.records[ev].mark) s.records[ev] = { mark, name:a.name, season:s.season };
       }
       const placing = eventScores(m)[i].placings.find((e) => e.side === "home" && e.id === a.id);
+      if (placing?.place && MEET_XP.place[placing.place - 1]) earn(a.id, ["1st", "2nd", "3rd"][placing.place - 1] + " · " + EVENTS[ev].short, MEET_XP.place[placing.place - 1]);
       if (placing?.place === 1) a.development.wins++;
       a.development.clean += entry.marks.filter((v) => v != null).length;
       if (placing && placing.points > mvpScore) { mvpScore = placing.points; rewards.mvp = { id:a.id, name:a.name, event:ev }; }
@@ -796,14 +807,16 @@ export function settleMatch(s) {
   for (const id of participants) {
     const a = s.roster.find((x) => x.id === id);
     const before = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
-    a.meets++; a.stamina = clamp(a.stamina-15,0,100); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
-    grantXp(s,a,30*(m.kind === "duel" ? 0.7:1),rewards.levelUps);
+    a.meets++; yearStat(s, a).meets++; a.stamina = clamp(a.stamina-15,0,100); a.condition = clamp(a.condition+(win?8:draw?2:-6),0,100); a.buff=null;
+    earn(a.id, win ? "Team win" : "Team draw", win ? MEET_XP.win : draw ? MEET_XP.draw : 0);
+    const sources = xpSources.get(a.id) || [], factor = m.kind === "duel" ? 0.7 : 1;
+    grantXp(s,a,sources.reduce((n,[,xp])=>n+xp,0)*factor,rewards.levelUps);
     rewards.development.push(...checkDevelopment(s,a));
     const after = { level: a.level, xp: a.xp, sp: a.sp, stats: [...a.stats], potential: a.potential };
     // Include the XP spent crossing level thresholds, and reward each entrant once.
     let xpGained = after.xp - before.xp;
     for (let level = before.level; level < after.level; level++) xpGained += xpNeeded(level);
-    rewards.athleteProgress.push({ id: a.id, name: a.name, before, after, xpGained });
+    rewards.athleteProgress.push({ id: a.id, name: a.name, before, after, xpGained, sources, factor });
   }
   if(m.fields) for(const [i,ev] of EVENT_IDS.entries()) for(const entry of m.fields[i].away) {
     const a=matchClub(s).athletes.find(a=>a.id===entry.id);

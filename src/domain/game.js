@@ -7,6 +7,7 @@ import {
   RARITY,
   SKILLS,
   ITEMS,
+  ELITES,
   FACILITIES,
   STADIUM,
   PLOT_COUNT,
@@ -52,7 +53,7 @@ import {
   rankName,
   STAR_CAP,
 } from "./core.js";
-import { checkGoals, rollStoryEvent, computeAwards } from "./story.js";
+import { checkGoals, rollStoryEvent, closeYear, yearStat } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 
 import { competitionTier, competitionName, circuitKey, TITLE_GIFTS, rivalBase, rivalMastery } from "./competition.js";
@@ -70,6 +71,7 @@ export * from "./customize.js";
 export * from "./calendar.js";
 export * from "./venues.js";
 export * from "./invitational.js";
+export * from "./world.js";
 import { invitationDay, closeInvitation, ensureInvitations } from "./invitational.js";
 import { ensureCustom } from "./customize.js";
 import { WEATHER, weatherToday, weatherTrainFactor, weatherSeedFrom } from "./calendar.js";
@@ -95,6 +97,8 @@ export function newGame(seed = Date.now() >>> 0) {
   const s = {
     v: 8,
     onboarding: { meets: 0 },
+    yearStats: { year: 1, athletes: {} },
+    ceremony: null,
     balance: 2,
     rivalClubs: {},
     facilityDuties: {},
@@ -174,7 +178,22 @@ export function newGame(seed = Date.now() >>> 0) {
   return ensureCustom(s);
 }
 
+// The World League's clubs field the world's elite: each takes the place of one of the club's
+// throwers in their event, with their own name, nation and look. Strength still comes from the
+// difficulty curve, so the league plays as it always has.
+export function seatElites(club, league) {
+  if (league !== 4) return club;
+  for (const e of ELITES.filter((x) => x.club === club.id)) {
+    if (club.athletes.some((a) => a.elite === e.id)) continue;
+    const a = club.athletes.find((x) => x.event === e.event && !x.elite);
+    if (a) Object.assign(a, { name: e.name, look: { ...e.look }, elite: e.id, nation: e.nation });
+  }
+  return club;
+}
 export function makeClubs(s, league, stage = 0, indices = [0, 1, 2]) {
+  return buildClubs(s, league, stage, indices).map((c) => seatElites(c, league));
+}
+function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
   const meetSkills = Object.keys(SKILLS).filter((k) => SKILLS[k].cat === "meet" && SKILLS[k].rank <= Math.min(2, league));
   return indices.map((index) => {
     const club = CLUBS[league][index], identity = club.identity;
@@ -335,9 +354,11 @@ export function advanceDay(s) {
   if (firstMeet(s) && !s.competition) return { ok: false, reason: "The squad is ready. Start your first duel from Meets." };
   s.day++;
   count(s, "days");
+  // A new calendar year opens with awards night for the last one.
+  const ceremony = closeYear(s);
   const weather = weatherToday(s),
     sky = WEATHER[weather];
-  const report = { weather, duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null };
+  const report = { weather, duties: [], ok: true, day: s.day, athletes: [], levelUps: [], injuries: [], spend: [], visitors: 0, fans: 0, week: null, discoveries: [], goals: [], event: null, ceremony };
   const dailyVisitors = visitorsPerDay(s);
   const autoDuties = automaticDuties(s,dailyVisitors);
   const clubCond = clubCondition(s),
@@ -543,7 +564,39 @@ export const itemPrice = (s, id) => Math.round(ITEMS[id].price * (s.saleDay === 
 export function shopStock(s) {
   if (!systemUnlocked(s, "kit")) return [];
   const tier = shopTier(s, SHOP_TIERS);
-  return Object.keys(ITEMS).filter((k) => ITEMS[k].price != null && ITEMS[k].tier <= tier);
+  return Object.keys(ITEMS).filter((k) => ITEMS[k].price != null && ITEMS[k].kind !== "book" && ITEMS[k].tier <= tier);
+}
+// The skill-book shelf: three books a week, one copy of each, drawn from the save's own seed.
+// Rare books from the start; epic from 400 fans; legend from 3,000.
+export const BOOK_WEEK = 7;
+const shelfWeek = (s) => Math.floor(s.day / BOOK_WEEK);
+// A fixed number in [0, 1) for each input, so the shelf never draws on the game's random stream.
+const unit = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+export const shelfRestock = (s) => BOOK_WEEK - (s.day % BOOK_WEEK);
+export function bookShelf(s) {
+  if (!systemUnlocked(s, "kit")) return [];
+  const week = shelfWeek(s), tier = shopTier(s, SHOP_TIERS);
+  const weight = { rare: 6, epic: tier >= 2 ? 3 : 0, legend: tier >= 4 ? 1 : 0 };
+  let pool = Object.keys(ITEMS).filter((k) => ITEMS[k].kind === "book" && weight[ITEMS[k].rarity] > 0);
+  const out = [];
+  for (let n = 0; n < 3 && pool.length; n++) {
+    const total = pool.reduce((t, k) => t + weight[ITEMS[k].rarity], 0);
+    let roll = unit((s.weatherSeed || 1) % 100003 + week * 7.31 + n * 1.7) * total;
+    const k = pool.find((k) => (roll -= weight[ITEMS[k].rarity]) < 0) || pool.at(-1);
+    out.push(k);
+    pool = pool.filter((x) => x !== k);
+  }
+  return out;
+}
+const soldThisWeek = (s) => (s.bookShelf?.week === shelfWeek(s) ? s.bookShelf.sold : []);
+export const bookSold = (s, id) => soldThisWeek(s).includes(id);
+export function buyBook(s, id) {
+  if (!bookShelf(s).includes(id) || bookSold(s, id) || s.match || s.money < itemPrice(s, id)) return false;
+  s.money -= itemPrice(s, id);
+  addItem(s, id);
+  s.bookShelf = { week: shelfWeek(s), sold: [...soldThisWeek(s), id] };
+  count(s, "bought");
+  return true;
 }
 export function buyItem(s, id) {
   if (!shopStock(s).includes(id) || s.money < itemPrice(s, id)) return false;
@@ -656,11 +709,46 @@ export function skillAvailable(a, id) {
   if (k.event && masteryOf(a,k.event)<60) return false;
   return true;
 }
+// Common skills are learned with skill points alone; rarer ones need their book.
+export const skillUnlocked = (s, id) => SKILLS[id]?.rarity === "common";
+// Why an athlete can't learn a skill right now, in the order a player fixes things.
+export function learnProblem(s, a, id) {
+  const k = SKILLS[id];
+  if (!skillUnlocked(s, id)) return "Needs its skill book";
+  if (k.rank > a.rank) return "Needs " + RANKS[k.rank].name;
+  if (k.sp > a.sp) return k.sp + " SP";
+  return null;
+}
+// Reading a skill book: the athlete must be able to use the skill and have the points for it.
+export function bookProblem(s, a, itemId) {
+  const d = ITEMS[itemId], k = SKILLS[d?.skill];
+  if (!systemUnlocked(s, "skills")) return systemProblem(s, "skills");
+  if (!k || d.kind !== "book") return "Not a skill book";
+  if (!s.bag[itemId]) return "None in the kit bag";
+  if (s.match) return "Not during a meet";
+  if (a.skills.includes(d.skill)) return "Already knows it";
+  if (k.event && masteryOf(a, k.event) < 60) return EVENTS[k.event].name + " mastery 60";
+  if (k.rank > a.rank) return "Needs " + RANKS[k.rank].name;
+  if (k.sp > a.sp) return k.sp + " SP";
+  return null;
+}
+export function readBook(s, athleteId, itemId) {
+  const a = s.roster.find((x) => x.id === athleteId);
+  if (!a || bookProblem(s, a, itemId)) return false;
+  const k = SKILLS[ITEMS[itemId].skill];
+  takeItem(s, itemId);
+  a.sp -= k.sp;
+  learnFree(a, ITEMS[itemId].skill);
+  count(s, "skillsLearned");
+  note(s, a.name + " read the " + ITEMS[itemId].name + " and learned " + k.name + ".", "story");
+  checkGoals(s);
+  return true;
+}
 export function learnSkill(s, athleteId, id) {
   if (!systemUnlocked(s, "skills")) return false;
   const a = s.roster.find((x) => x.id === athleteId),
     k = SKILLS[id];
-  if (!a || !skillAvailable(a, id) || a.sp < k.sp || a.rank < k.rank || s.match) return false;
+  if (!a || !skillAvailable(a, id) || !skillUnlocked(s, id) || a.sp < k.sp || a.rank < k.rank || s.match) return false;
   a.sp -= k.sp;
   learnFree(a, id);
   count(s, "skillsLearned");
@@ -675,6 +763,23 @@ export function toggleSkill(s, athleteId, id) {
   else if (a.equipped.length < slotsOf(a)) a.equipped.push(id);
   else return false;
   return true;
+}
+// What reaching a level brings, so levels read as rewards rather than a number: skill points
+// (two on every fifth level) and the rank a level opens up.
+export function levelRewards(a, level) {
+  const out = [level % 5 === 0 ? "+2 skill points" : "+1 skill point"];
+  const rank = RANKS.findIndex((r, i) => i > (a.rank || 0) && r.level === level);
+  if (rank > 0) out.push(RANKS[rank].name + " rank available");
+  else if ((a.rank || 0) >= 4 && level === starLevel(a)) out.push("★" + ((a.stars || 0) + 1) + " available");
+  return out;
+}
+// The next level that brings more than a single skill point.
+export function nextMilestone(a) {
+  for (let level = a.level + 1; level <= a.level + 12; level++) {
+    const rewards = levelRewards(a, level);
+    if (rewards.length > 1 || level % 5 === 0) return { level, rewards };
+  }
+  return null;
 }
 // After Legend, stars: each one costs more and asks for more levels, with no last one.
 export const starLevel = (a) => RANKS[4].level + 3 * ((a.stars || 0) + 1);
@@ -832,7 +937,6 @@ export function leaveMatch(s) {
       }
     }
   }
-  if (s.phase === "seasonEnd") computeAwards(s);
   s.match = null;
   checkGoals(s);
   return true;

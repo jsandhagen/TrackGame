@@ -1,6 +1,6 @@
 import { initMastery, PROFILES, APPROACHES } from "./mastery.js";
 import { ensureCustom } from "./customize.js";
-import { newGame, makeClubs, DEFAULT_SETTINGS } from "./game.js";
+import { newGame, makeClubs, seatElites, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
 import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE, ATHLETE_TYPES } from "../game-content.js";
 import { syncMarks, rescore, matchClub, championshipClubs, isLeagueChampionship } from "./meet.js";
@@ -200,6 +200,7 @@ function checkAthlete(a, ids, rival = false) {
   if (!a.gear || GEAR_SLOTS.some((slot) => a.gear[slot] != null && ITEMS[a.gear[slot]]?.slot !== slot)) bad();
   if (!a.pb || typeof a.pb !== "object" || Object.entries(a.pb).some(([ev, m]) => !EVENT_IDS.includes(ev) || !num(m, 0, 1e4))) bad();
   if (!Array.isArray(a.career) || !int(a.injury, 0, 100) || !a.look || !color(a.look.skin) || !color(a.look.hair)) bad();
+  if (a.look.gear != null && (!["shades", "band", "cap"].includes(a.look.gear) || !color(a.look.gearColor))) bad();
   if (a.secret != null && !SECRETS[a.secret]) bad();
   if (a.buff != null && !num(a.buff, 1, 1.2)) bad();
   if (!rival && !num(a.sessions, 0, 1e9)) bad();
@@ -392,6 +393,16 @@ export function validateCampaign(input) {
   if (typeof s.worldRecords !== "object" || Array.isArray(s.worldRecords) || Object.entries(s.worldRecords).some(([ev, r]) => !EVENT_IDS.includes(ev) || !num(r?.mark, 0, 1000) || !word(r.name))) bad();
   if (!SPONSORS[s.sponsor] || !s.colors || !color(s.colors.primary) || !color(s.colors.secondary)) bad();
   ensureCustom(s);
+  // A World League already generated before the elites joined it gets them now.
+  for (const c of s.rivalClubs?.[4] || []) seatElites(c, 4);
+  if (s.clubTier === 4) for (const c of s.clubs || []) seatElites(c, 4);
+  // The year's tally for awards night, and a ceremony still to be shown.
+  s.yearStats ??= { year: Math.floor(Math.max(0, s.day - 1) / 168) + 1, athletes: {} };
+  if (!int(s.yearStats.year, 1, 1e4) || !s.yearStats.athletes || typeof s.yearStats.athletes !== "object" || Object.values(s.yearStats.athletes).some((x) => !x || ["points", "pbs", "meets", "start"].some((k) => !num(x[k], 0, 1e6)))) bad();
+  s.ceremony ??= null;
+  if (s.ceremony != null && (!int(s.ceremony.year, 1, 1e4) || !Array.isArray(s.ceremony.list) || !Array.isArray(s.ceremony.world))) bad();
+  // The week's skill-book shelf remembers which books have sold.
+  if (s.bookShelf != null && (!int(s.bookShelf.week, 0, 1e6) || !Array.isArray(s.bookShelf.sold) || s.bookShelf.sold.length > 3 || s.bookShelf.sold.some((k) => ITEMS[k]?.kind !== "book"))) bad();
   s.secretsOffered = s.secretsOffered.filter((k) => SECRETS[k]);
   s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
   if (![1,2,3].includes(s.settings.speed)) s.settings.speed=1;

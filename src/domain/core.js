@@ -85,13 +85,18 @@ export function typeFor(id, event) {
 }
 export const growthOf = (a) => (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).growth.map((g) => GROWTH[g]);
 
+// Some athletes wear something: shades, a sweatband or a cap. Read from the generator's state
+// without drawing from it, so adding accessories changes no other roll in the game.
+const GEAR = ["shades", "band", "cap"], GEAR_COLORS = ["#e04a3a", "#3a7ad0", "#f2c94c", "#2f9a6a", "#f4f4f0", "#2a2a32"];
 export function makeLook(s, extra = {}) {
-  return {
+  const look = {
     skin: pick(s, SKINS),
     hair: pick(s, HAIRS),
     style: Math.floor(random(s) * HAIR_STYLES),
-    ...extra,
   };
+  const r = s.rng >>> 0;
+  if (r % 100 < 22) Object.assign(look, { gear: GEAR[(r >>> 8) % GEAR.length], gearColor: GEAR_COLORS[(r >>> 12) % GEAR_COLORS.length] });
+  return { ...look, ...extra };
 }
 
 export function createAthlete(s, event, o = {}) {
@@ -309,7 +314,8 @@ export function rollRarity(s, luck = 0) {
   );
 }
 export function randomItem(s, rarity, filter = () => true) {
-  const pool = Object.keys(ITEMS).filter((k) => ITEMS[k].rarity === rarity && filter(ITEMS[k]));
+  // Skill books only come from the shop's shelf.
+  const pool = Object.keys(ITEMS).filter((k) => ITEMS[k].rarity === rarity && ITEMS[k].kind !== "book" && filter(ITEMS[k]));
   return pool.length ? pick(s, pool) : "drink";
 }
 export const lineupAthletes = (s, lineup = s.lineup) => EVENT_IDS.map((ev) => s.roster.find((a) => a.id === lineup[ev]));

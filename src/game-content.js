@@ -93,35 +93,37 @@ export const PLANS = {
 //  train:[stat,mult] gain xp stamina condFloor cond mentor  (training)
 //  first last foul afterFoul trailing leading variance crowd final attackBoost perfect streak (meet)
 //  captain hype teamTrailing (team) · sig (signature, once per meet, never fouls) · mark (always)
+// Common skills can be learned by any athlete with skill points. Rare and above come from skill
+// books: consumables the shop stocks a few at a time (see BOOK_PRICES and the weekly shelf).
 export const SKILLS = {
-  gymrat: { name: "Gym Rat", cat: "train", sp: 1, rank: 0, desc: "Power training +25%.", train: [0, 1.25] },
-  formfreak: { name: "Form Freak", cat: "train", sp: 1, rank: 0, desc: "Technique training +25%.", train: [1, 1.25] },
-  fasttwitch: { name: "Fast Twitch", cat: "train", sp: 1, rank: 0, desc: "Speed training +25%.", train: [2, 1.25] },
-  filmjunkie: { name: "Film Junkie", cat: "train", sp: 1, rank: 0, desc: "Focus training +25%.", train: [3, 1.25] },
-  quickstudy: { name: "Quick Study", cat: "train", sp: 2, rank: 0, desc: "XP +25%.", xp: 1.25 },
-  sunny: { name: "Sunny Side", cat: "train", sp: 1, rank: 0, desc: "Condition +2 a day and never drops below Low.", cond: 2, condFloor: 30 },
-  ironlungs: { name: "Iron Lungs", cat: "train", sp: 2, rank: 1, desc: "Training uses 30% less stamina.", stamina: 0.7 },
-  workhorse: { name: "Workhorse", cat: "train", sp: 3, rank: 2, desc: "All training +15%.", gain: 1.15 },
-  mentor: { name: "Mentor", cat: "team", sp: 2, rank: 2, desc: "Lower-level teammates earn +15% XP.", mentor: 1.15 },
-  opener: { name: "Opening Salvo", cat: "meet", sp: 1, rank: 0, desc: "First attempt +3%.", first: 1.03 },
-  frontrunner: { name: "Front Runner", cat: "meet", sp: 1, rank: 0, desc: "When ahead: +1.5% and half the foul risk.", leading: 1.015 },
-  metronome: { name: "Metronome", cat: "meet", sp: 1, rank: 0, desc: "Halves the spread of every throw.", variance: 0.5 },
-  perfectionist: { name: "Perfectionist", cat: "meet", sp: 1, rank: 0, desc: "Wider perfect-release window; assisted throws are sometimes perfect.", perfect: true },
-  clutch: { name: "Clutch Gene", cat: "meet", sp: 2, rank: 0, desc: "Final attempt +4%.", last: 1.04 },
-  icevein: { name: "Ice Veins", cat: "meet", sp: 2, rank: 0, desc: "Foul risk −40%.", foul: 0.6 },
-  secondwind: { name: "Second Wind", cat: "meet", sp: 2, rank: 1, desc: "After a foul: +5% and safer.", afterFoul: 1.05 },
-  hunter: { name: "Rival Hunter", cat: "meet", sp: 2, rank: 1, desc: "While trailing the rival: +3%.", trailing: 1.03 },
-  momentum: { name: "Momentum", cat: "meet", sp: 2, rank: 1, desc: "Each valid mark adds +1.5% to the next attempt.", streak: 0.015 },
-  hype: { name: "Hype Engine", cat: "team", sp: 2, rank: 1, desc: "Winning an event lifts every teammate's condition.", hype: true },
-  showtime: { name: "Showtime", cat: "meet", sp: 2, rank: 2, desc: "Home crowd boost up to +4% (more fans, more boost).", crowd: 0.04 },
-  bigstage: { name: "Big Stage", cat: "meet", sp: 2, rank: 2, desc: "+3% in finals.", final: 1.03 },
-  highroller: { name: "High Roller", cat: "meet", sp: 2, rank: 2, desc: "All out reaches 2.5% further.", attackBoost: 0.025 },
-  anchor: { name: "Anchor", cat: "team", sp: 2, rank: 2, desc: "+2.5% when the club is behind in the meet.", teamTrailing: 1.025 },
-  captain: { name: "Captain", cat: "team", sp: 3, rank: 3, desc: "The whole team throws 1.5% further. One captain counts.", captain: 1.015 },
-  meteor: { name: "Meteor Put", cat: "signature", sp: 4, rank: 3, event: "shot", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
-  cyclone: { name: "Cyclone Disc", cat: "signature", sp: 4, rank: 3, event: "discus", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
-  tempest: { name: "Hammer Tempest", cat: "signature", sp: 4, rank: 3, event: "hammer", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
-  skyspear: { name: "Sky Spear", cat: "signature", sp: 4, rank: 3, event: "jav", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
+  gymrat: { name: "Gym Rat", cat: "train", rarity: "common", sp: 1, rank: 0, desc: "Power training +25%.", train: [0, 1.25] },
+  formfreak: { name: "Form Freak", cat: "train", rarity: "common", sp: 1, rank: 0, desc: "Technique training +25%.", train: [1, 1.25] },
+  fasttwitch: { name: "Fast Twitch", cat: "train", rarity: "common", sp: 1, rank: 0, desc: "Speed training +25%.", train: [2, 1.25] },
+  filmjunkie: { name: "Film Junkie", cat: "train", rarity: "common", sp: 1, rank: 0, desc: "Focus training +25%.", train: [3, 1.25] },
+  quickstudy: { name: "Quick Study", cat: "train", rarity: "rare", sp: 2, rank: 0, desc: "XP +25%.", xp: 1.25 },
+  sunny: { name: "Sunny Side", cat: "train", rarity: "common", sp: 1, rank: 0, desc: "Condition +2 a day and never drops below Low.", cond: 2, condFloor: 30 },
+  ironlungs: { name: "Iron Lungs", cat: "train", rarity: "rare", sp: 2, rank: 1, desc: "Training uses 30% less stamina.", stamina: 0.7 },
+  workhorse: { name: "Workhorse", cat: "train", rarity: "epic", sp: 3, rank: 2, desc: "All training +15%.", gain: 1.15 },
+  mentor: { name: "Mentor", cat: "team", rarity: "epic", sp: 2, rank: 2, desc: "Lower-level teammates earn +15% XP.", mentor: 1.15 },
+  opener: { name: "Opening Salvo", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "First attempt +3%.", first: 1.03 },
+  frontrunner: { name: "Front Runner", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "When ahead: +1.5% and half the foul risk.", leading: 1.015 },
+  metronome: { name: "Metronome", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "Halves the spread of every throw.", variance: 0.5 },
+  perfectionist: { name: "Perfectionist", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "Wider perfect-release window; assisted throws are sometimes perfect.", perfect: true },
+  clutch: { name: "Clutch Gene", cat: "meet", rarity: "rare", sp: 2, rank: 0, desc: "Final attempt +4%.", last: 1.04 },
+  icevein: { name: "Ice Veins", cat: "meet", rarity: "rare", sp: 2, rank: 0, desc: "Foul risk −40%.", foul: 0.6 },
+  secondwind: { name: "Second Wind", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "After a foul: +5% and safer.", afterFoul: 1.05 },
+  hunter: { name: "Rival Hunter", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "While trailing the rival: +3%.", trailing: 1.03 },
+  momentum: { name: "Momentum", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "Each valid mark adds +1.5% to the next attempt.", streak: 0.015 },
+  hype: { name: "Hype Engine", cat: "team", rarity: "rare", sp: 2, rank: 1, desc: "Winning an event lifts every teammate's condition.", hype: true },
+  showtime: { name: "Showtime", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "Home crowd boost up to +4% (more fans, more boost).", crowd: 0.04 },
+  bigstage: { name: "Big Stage", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "+3% in finals.", final: 1.03 },
+  highroller: { name: "High Roller", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "All out reaches 2.5% further.", attackBoost: 0.025 },
+  anchor: { name: "Anchor", cat: "team", rarity: "epic", sp: 2, rank: 2, desc: "+2.5% when the club is behind in the meet.", teamTrailing: 1.025 },
+  captain: { name: "Captain", cat: "team", rarity: "legend", sp: 3, rank: 3, desc: "The whole team throws 1.5% further. One captain counts.", captain: 1.015 },
+  meteor: { name: "Meteor Put", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "shot", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
+  cyclone: { name: "Cyclone Disc", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "discus", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
+  tempest: { name: "Hammer Tempest", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "hammer", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
+  skyspear: { name: "Sky Spear", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "jav", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
   // Unique skills belong to secret characters.
   oldschool: { name: "Old School", cat: "unique", sp: 0, rank: 0, desc: "Condition never below Good. Every throw +2%.", condFloor: 60, mark: 1.02 },
   timber: { name: "TIMBER!", cat: "unique", sp: 0, rank: 0, desc: "Double power training. First attempt +4%.", train: [0, 2], first: 1.04 },
@@ -185,6 +187,13 @@ export const ITEMS = {
   letter: { name: "Promotion Letter", kind: "use", rarity: "epic", price: null, icon: "letter", color: "#f0f0e0", desc: "The next rank-up costs nothing.", promote: true },
   elixir: { name: "Talent Elixir", kind: "use", rarity: "legend", price: null, icon: "elixir", color: "#d070f0", desc: "Potential +4.", potential: 4 },
 };
+// One skill book for every rare, epic and legend skill. Reading it teaches that skill to one
+// athlete (who still spends the skill points), and the book is gone.
+export const BOOK_PRICES = { rare: 350, epic: 1000, legend: 2600 };
+for (const [id, k] of Object.entries(SKILLS)) {
+  if (k.cat === "unique" || k.rarity === "common") continue;
+  ITEMS["book_" + id] = { name: k.name + " Book", kind: "book", skill: id, rarity: k.rarity, price: BOOK_PRICES[k.rarity], icon: "book", color: { rare: "#5a8ad0", epic: "#9a5ad0", legend: "#e0a83a" }[k.rarity], desc: "Teaches " + k.name + ": " + k.desc };
+}
 export const GEAR_SLOTS = ["implement", "shoes", "charm"];
 export const SLOT_NAMES = { implement: "Implement", shoes: "Shoes", charm: "Charm" };
 
@@ -459,4 +468,29 @@ export function towerColorsOf(s) {
 }
 export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 
+// The world's elite: nods to the sport's real champions, with altered names, who compete for the
+// World League clubs (club: index into CLUBS[4]). level is their mark as a share of the event's
+// world record in a good year.
+export const ELITES = [
+  { id: "krauser", name: "Rian Krauser", nation: "USA", event: "shot", club: 1, level: 0.985, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 0, special: "beard" }, blurb: "A rotational giant. The shot looks like a marble in his hand." },
+  { id: "walshe", name: "Tom Walshe", nation: "NZL", event: "shot", club: 2, level: 0.965, look: { skin: "#e2b08a", hair: "#3a2a20", style: 1, special: "beard" }, blurb: "Kiwi grit. Has thrown through every kind of weather the Pacific can invent." },
+  { id: "fabri", name: "Leo Fabri", nation: "ITA", event: "shot", club: 4, level: 0.958, look: { skin: "#e2b08a", hair: "#2a2420", style: 4, gear: "band", gearColor: "#2a6ad0" }, blurb: "Plays to the crowd before, during and after every put." },
+  { id: "jaxon", name: "Chase Jaxon", nation: "USA", event: "shot", club: 0, level: 0.94, look: { skin: "#7a4e36", hair: "#1a1a1a", style: 5 }, blurb: "Fast and fierce through the ring, and saves her best for the last round." },
+  { id: "aleknas", name: "Mykolas Aleknas", nation: "LTU", event: "discus", club: 5, level: 0.975, look: { skin: "#f0c6a0", hair: "#a06a3a", style: 1 }, blurb: "Born into a discus dynasty, and writing his own chapter." },
+  { id: "che", name: "Kristjan Che", nation: "SLO", event: "discus", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#3a2a20", style: 0 }, blurb: "A towering Slovenian with a release like a whip crack." },
+  { id: "stol", name: "Daniel Stol", nation: "SWE", event: "discus", club: 1, level: 0.955, look: { skin: "#f0c6a0", hair: "#d8b060", style: 2, special: "beard" }, blurb: "So big he makes the cage look like a phone box." },
+  { id: "allmon", name: "Valerie Allmon", nation: "USA", event: "discus", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#e8d090", style: 5 }, blurb: "A former dancer. Her spin is pure choreography." },
+  { id: "katzberger", name: "Ethan Katzberger", nation: "CAN", event: "hammer", club: 0, level: 0.975, look: { skin: "#f0c6a0", hair: "#7a4a2a", style: 2 }, blurb: "Spins faster than anyone alive, mullet flying." },
+  { id: "nowicky", name: "Wojtek Nowicky", nation: "POL", event: "hammer", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#3a2a20", style: 1 }, blurb: "Calm as a pond, consistent as a clock, deadly in a final." },
+  { id: "wlodarek", name: "Anita Wlodarek", nation: "POL", event: "hammer", club: 4, level: 0.95, look: { skin: "#f0c6a0", hair: "#7a4a2a", style: 5, gear: "band", gearColor: "#d03040" }, blurb: "A legend of the ring with more titles than she can carry." },
+  { id: "rodgers", name: "Camryn Rodgers", nation: "CAN", event: "hammer", club: 2, level: 0.94, look: { skin: "#7a4e36", hair: "#2a1a10", style: 5 }, blurb: "Smooth, fast and fearless when the medals are on the line." },
+  { id: "chopra", name: "Neerav Chopra", nation: "IND", event: "jav", club: 5, level: 0.97, look: { skin: "#c98f66", hair: "#1a1a1a", style: 0 }, blurb: "Calm and precise. Often wins it with his very first throw." },
+  { id: "nadim", name: "Arshad Nadim", nation: "PAK", event: "jav", club: 1, level: 0.965, look: { skin: "#a06a48", hair: "#1a1a1a", style: 1, special: "beard" }, blurb: "Learned on a dirt runway. Now he owns the biggest stages." },
+  { id: "vadlech", name: "Jakub Vadlech", nation: "CZE", event: "jav", club: 3, level: 0.952, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 4 }, blurb: "A rangy Czech with an approach as long as a summer evening." },
+  { id: "webber", name: "Julian Webber", nation: "GER", event: "jav", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#2a2420", style: 3, gear: "cap", gearColor: "#2a2a2a" }, blurb: "German precision with a crowd-pleaser's grin." },
+];
+// Kit colours the elites wear for their nations.
+export const NATION_COLORS = { USA: "#2a4a9a", NZL: "#2a2a2a", ITA: "#2a6ad0", LTU: "#e0b030", SLO: "#2a5ab0", SWE: "#2a6ab0", CAN: "#d03040", POL: "#d03040", IND: "#e08a2a", PAK: "#2a7a4a", CZE: "#2a4a9a", GER: "#2a2a2a" };
 export const HELPER = "Juno";
+// The club's kit-shop keeper, who also calls out each delivery and sale.
+export const SHOPKEEPER = { name: "Rudi", role: "kit shop", look: { skin: "#c98f66", hair: "#3a2a24", style: 1, special: "beard" }, colors: { primary: "#d0743a", secondary: "#f4efe2" } };

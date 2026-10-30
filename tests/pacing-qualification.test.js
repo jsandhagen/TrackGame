@@ -75,7 +75,7 @@ test('duels record measured qualifiers for the player and simulated series for o
   const copy=validateCampaign(exportCampaign(s));assert.deepEqual(copy.competition.qualifyingMarks,s.competition.qualifyingMarks);
 });
 
-test('three arrow speeds are selectable and persist, with no skip action in the meet',()=>{
+test('three arrow speeds are selectable and persist, alongside skips to your next throw and the end of the event',()=>{
   const s=G.newGame(305);assert.equal(s.settings.speed,1);assert.equal(s.settings.meetSpeed,2);assert(s.settings.quietMode);
   G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
   const html=P.meetBar(s,{});
@@ -84,7 +84,7 @@ test('three arrow speeds are selectable and persist, with no skip action in the 
     assert(html.includes('>'+ '▸'.repeat(n) +'</span>'));
   }
   assert.match(html,/Very fast · 8× speed/);
-  assert.doesNotMatch(html,/Skip|data-act="skip"/);
+  assert.match(html,/data-act="meet-skip" data-to="mine"/);assert.match(html,/data-act="meet-skip" data-to="event"/);
   s.settings.speed=3;s.settings.meetSpeed=3;
   const copy=validateCampaign(exportCampaign(s));assert.equal(copy.settings.speed,3);assert.equal(copy.settings.meetSpeed,3);
   copy.settings.speed=4;copy.settings.meetSpeed=4;

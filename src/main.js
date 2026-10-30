@@ -5,7 +5,7 @@ import "@fontsource/oswald/latin-500.css";
 import "@fontsource/oswald/latin-700.css";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER } from "./game-content.js";
+import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER, SHOPKEEPER, ELITES, NATION_COLORS } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium } from "./render/stadium.js";
@@ -137,7 +137,7 @@ function menu() {
     return;
   }
   $("#menu").hidden = false;
-  const squadBadge = G.systemUnlocked(state, "skills") && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && SKILLS[k].sp <= a.sp && SKILLS[k].rank <= a.rank)));
+  const squadBadge = G.systemUnlocked(state, "skills") && state.roster.some((a) => !G.promoteProblem(state, a) || (a.sp > 0 && (Object.keys(SKILLS).some((k) => G.skillAvailable(a, k) && !G.learnProblem(state, a, k)) || Object.keys(state.bag).some((k) => ITEMS[k].kind === "book" && !G.bookProblem(state, a, k)))));
   const trainBadge = state.roster.some((a) => Object.keys(G.DRILLS).some((d) => !G.drillProblem(state, a, d)));
   const items = [
     ["home", "home", "Club"],
@@ -159,7 +159,11 @@ function menu() {
         : view.playing
           ? `<button class="go" data-act="pause">${ico("pause")}<span>Pause</span></button>`
           : `<button class="go" data-act="play">${ico("play")}<span>Train</span></button>`;
-  $("#menu").innerHTML = `<div class="menu-items">${items.filter(([id]) => G.pageUnlocked(state, id)).map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && state.saleDay === state.day ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
+  // The next meet, always in sight above the main button: who, and how many days to go.
+  const opp = state.phase === "season" && state.matchDay != null && !G.firstMeet(state) ? G.opponent(state) : null,
+    left = opp ? state.matchDay - state.day : null;
+  const countdown = opp ? `<button class="meet-countdown ${left <= 0 ? "today" : ""}" data-act="window" data-page="home" style="--rival:${opp.color || "#888"}" aria-label="${left <= 0 ? "Meet day" : left + " days to the meet"} against ${esc(opp.name)}"><small>${left <= 0 ? "MEET DAY" : "NEXT MEET"}</small><b>${left <= 0 ? "Today" : left === 1 ? "Tomorrow" : left + " days"}</b><span>vs ${esc(opp.name)}</span></button>` : "";
+  $("#menu").innerHTML = `${countdown}<div class="menu-items">${items.filter(([id]) => G.pageUnlocked(state, id)).map(([id, icon, name]) => `<button class="menu-item ${view.window === id || (view.window === "recruit" && id === "squad") ? "active" : ""}" data-act="window" data-page="${id}">${ico(icon)}<span>${name}</span>${(id === "squad" && squadBadge) || (id === "train" && trainBadge) ? "<i class='dot-badge'></i>" : ""}${id === "shop" && (state.saleDay === state.day || (G.shelfRestock(state) === G.BOOK_WEEK && G.bookShelf(state).some((k) => !G.bookSold(state, k)))) ? "<i class='dot-badge'></i>" : ""}</button>`).join("")}</div>${action}`;
 }
 function tools() {
   $("#tools").innerHTML = state.match ? "" : `<button data-act="zoom" data-step="0.5" aria-label="Zoom in">${ico("plus")}</button><button data-act="zoom" data-step="-0.5" aria-label="Zoom out">${ico("minus")}</button><button data-act="recenter" aria-label="Centre on the stadium">${ico("stadium")}</button>`;
@@ -308,6 +312,60 @@ function paint(root) {
   });
   root.querySelectorAll("canvas[data-secret]").forEach((c) => paintPortrait(c, { look: SECRETS[c.dataset.secret].look, rank: 4 }, state.colors, { face: "happy" }));
   root.querySelectorAll("canvas[data-helper]").forEach((c) => paintPortrait(c, { look: { skin: "#f0c6a0", hair: "#5a3a6a", style: 2 }, rank: 2 }, state.colors, { face: "happy" }));
+  root.querySelectorAll("canvas[data-elite]").forEach((c) => {
+    const e = ELITES.find((x) => x.id === c.dataset.elite);
+    if (e) paintPortrait(c, { look: e.look, rank: 0 }, { primary: NATION_COLORS[e.nation] || "#888", secondary: "#f4efe2" }, { face: "happy" });
+  });
+  root.querySelectorAll("canvas[data-shopkeeper]").forEach((c) => paintPortrait(c, { look: SHOPKEEPER.look, rank: 0 }, SHOPKEEPER.colors, { face: "happy" }));
+}
+// A character pops up in the corner to say something worth knowing: the shopkeeper calling out
+// a delivery, the secretary announcing meet day. Tapping them goes where they point.
+const SPEAKERS = { shop: { name: SHOPKEEPER.name + " · " + SHOPKEEPER.role, canvas: "data-shopkeeper" }, helper: { name: HELPER + " · club secretary", canvas: "data-helper" } };
+let speakerTimer = 0, speaking = null;
+const speakQueue = [];
+// A dialog opening puts whoever was talking back at the front of the queue until it closes.
+function holdSpeaker() {
+  const el = $("#speaker");
+  if (speaking && !el.hidden) speakQueue.unshift(speaking);
+  clearTimeout(speakerTimer);
+  el.hidden = true;
+  speaking = null;
+  $("#dialog").addEventListener("close", () => speakQueue.length && speak(...speakQueue.shift()), { once: true });
+}
+function speak(who, text, act = "") {
+  const el = $("#speaker");
+  // One at a time: whoever speaks second waits for the first to finish, and nobody talks over
+  // a pop-up the player is reading.
+  if ($("#dialog").open || (!el.hidden && !el.classList.contains("out"))) return speakQueue.push([who, text, act]);
+  speaking = [who, text, act];
+  const sp = SPEAKERS[who];
+  el.innerHTML = `<button class="speaker-card" ${act}><span class="medallion"><canvas width="56" height="56" ${sp.canvas} class="portrait"></canvas></span><span class="speech"><b>${esc(sp.name)}</b>${esc(text)}</span></button>`;
+  el.hidden = false;
+  el.classList.remove("out");
+  el.onclick = () => setTimeout(() => { el.hidden = true; clearTimeout(speakerTimer); if (speakQueue.length) speak(...speakQueue.shift()); });
+  paint(el);
+  clearTimeout(speakerTimer);
+  speakerTimer = setTimeout(() => {
+    el.classList.add("out");
+    speakerTimer = setTimeout(() => { el.hidden = true; speaking = null; if (speakQueue.length && !$("#dialog").open) speak(...speakQueue.shift()); }, 400);
+  }, 6500);
+}
+// Payday, in the secretary's words: what came in, what went out and how the crowd grew.
+let fansAtPayday = null;
+function paydayNews(week) {
+  const fans = fansAtPayday == null ? 0 : state.fans - fansAtPayday;
+  fansAtPayday = state.fans;
+  const net = week.net >= 0 ? "+$" + week.net.toLocaleString() : "−$" + Math.abs(week.net).toLocaleString();
+  speak("helper", `Payday! ${net} this week after wages${week.upkeep ? " and upkeep" : ""}${fans > 0 ? ", and " + fans + " new fans" : ""}. ${week.net < 0 ? "We're spending more than we bring in." : "Nicely done, Coach."}`, `data-act="window" data-page="home"`);
+}
+// What changed at the kit shop overnight, in the shopkeeper's words.
+function shopNews(before) {
+  if (!G.systemUnlocked(state, "kit")) return;
+  const stock = G.shopStock(state).length, shelf = G.bookShelf(state).join();
+  const open = `data-act="window" data-page="shop"`;
+  if (before.stock && stock > before.stock) return speak("shop", "New stock just in for a bigger club. Come and have a look!", open);
+  if (state.saleDay === state.day) return speak("shop", "Clearance day! Thirty percent off everything, today only.", open);
+  if (before.shelf && shelf !== before.shelf) return speak("shop", "Fresh delivery! New skill books: " + G.bookShelf(state).map((k) => SKILLS[ITEMS[k].skill].name).join(", ") + ".", open);
 }
 
 // ── Windows and dialogs ─────────────────────────────────────────────────
@@ -381,6 +439,7 @@ function dialog(title, body, choices, o = {}) {
       }),
   );
   dlg.dataset.locked = o.locked ? "1" : "";
+  if (!dlg.open) holdSpeaker();
   dlg.showModal();
   dlg.querySelector(".dialog-body").scrollTop = 0;
 }
@@ -564,7 +623,7 @@ function play(speed = state.settings.speed || 1) {
 }
 function doDay(now) {
   if (state.pendingEvent) return showEvent();
-  const before = snapshot();
+  const before = snapshot(), shopBefore = G.systemUnlocked(state, "kit") ? { stock: G.shopStock(state).length, shelf: G.bookShelf(state).join() } : {};
   const r = G.advanceDay(state);
   if (!r.ok) { if (r.reason) toast(r.reason); return stopPlaying(); }
   lastDayAt = now;
@@ -572,6 +631,12 @@ function doDay(now) {
   world.onDay(state, r, now, view.playing ? DAY_MS[state.settings.speed] : 1600);
   if (r.spend.length) setTimeout(() => sfx("coin"), 600);
   // One toast for everyone who levelled up today; the world shows each of them celebrating.
+  // Quiet mode keeps routine level-ups in the journal, but a level that opens a rank is news.
+  const opened = r.levelUps.filter((l) => state.roster.find((a) => a.id === l.id) && G.levelRewards(state.roster.find((a) => a.id === l.id), l.level).length > 1);
+  if (opened.length && state.settings.quietMode !== false && G.systemUnlocked(state, "skills")) {
+    toast(opened.map((l) => l.name.split(" ")[0] + " reached Lv. " + l.level + ": " + G.levelRewards(state.roster.find((a) => a.id === l.id), l.level).slice(1).join(", ")).join(" · ") + ".", "level", "levelup");
+    sfx("level");
+  }
   if (r.levelUps.length && state.settings.quietMode === false) {
     const names = r.levelUps.map((l) => l.name.split(" ")[0]);
     toast((names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names.at(-1) + " levelled up!" : r.levelUps[0].name + " hits level " + r.levelUps[0].level + "!") + (G.systemUnlocked(state, "skills") ? " Skill points to spend." : ""), "level", "levelup");
@@ -588,10 +653,14 @@ function doDay(now) {
   if (state.matchDay != null && state.day >= state.matchDay) {
     view.playing = false;
     world.banner("MEET DAY!", "VS " + G.opponent(state)?.name.toUpperCase(), "#f2c94c", now);
+    speak("helper", "Meet day! " + G.opponent(state)?.name + " are here. The squad's in the call room when you're ready.", `data-act="lobby"`);
     sfx("event");
   }
+  if (r.week) paydayNews(r.week);
+  if (!(state.matchDay != null && state.day >= state.matchDay)) shopNews(shopBefore);
   refresh();
-  if (r.event) setTimeout(showEvent, 500);
+  if (r.ceremony) stopPlaying(), setTimeout(() => showCeremony(), 600);
+  else if (r.event) setTimeout(showEvent, 500);
 }
 
 // ── Meet presentation ───────────────────────────────────────────────────
@@ -659,6 +728,28 @@ function startBeat(beat) {
     sfx(beat.win ? "win" : beat.draw ? "event" : "lose");
     for (const id of state.settings.quietMode === false ? state.match.rewards?.goals || [] : []) toast("Goal complete: " + G.GOALS.find((g) => g.id === id)?.name, "goal", "target");
   }
+  render();
+}
+// Skip ahead: "mine" runs on to the start of your next throw, "event" to the end of this event.
+// Anything that needs you (a coaching call, the meet's end) still stops the skip.
+function skipMeet(to) {
+  const m = state.match;
+  if (!m || m.phase === "complete" || m.phase === "decide" || $("#dialog").open) return;
+  if (presenter?.beat?.type === "throw") view.lastMark = presenter.beat;
+  presenter = null;
+  view.hide = null;
+  view.meetPaused = false;
+  const event = m.eventIndex;
+  for (let guard = 0; guard < 4000; guard++) {
+    const beat = G.advanceMatch(state);
+    if (!beat) break;
+    const stop = beat.type === "decide" || beat.type === "complete" || m.phase === "complete" ||
+      (to === "mine" && beat.type === "throw" && beat.side === "home") || (to === "event" && beat.type === "eventEnd" && beat.eventIndex === event);
+    if (stop) return save(), startBeat(beat);
+    if (beat.type === "throw") view.lastMark = beat;
+    if (beat.type === "eventStart") view.lastMark = null;
+  }
+  save();
   render();
 }
 function pumpMeet(dt) {
@@ -779,6 +870,8 @@ $("#app").addEventListener("click", async (e) => {
       view.meter = null;
       view.meetPaused = false;
       break;
+    case "meet-skip":
+      return skipMeet(b.dataset.to);
     case "meet-pause":
       view.meetPaused = !view.meetPaused;
       break;
@@ -823,6 +916,8 @@ $("#app").addEventListener("click", async (e) => {
       world.reset();
       // Land on the club desk, which says what comes next, unless a page was asked for.
       view.window = state.phase !== "seasonEnd" && G.pageUnlocked(state, b.dataset.page) && P.WINDOW_TITLES[b.dataset.page] ? b.dataset.page : "home";
+      // Straight to an athlete's skills, from their growth card.
+      if (view.window === "squad" && b.dataset.athlete) (view.athlete = +b.dataset.athlete), (view.tab = "skills");
       if (state.phase === "seasonEnd") sfx(state.champion ? "win" : "event");
       break;
     case "book-league":
@@ -928,6 +1023,15 @@ $("#app").addEventListener("click", async (e) => {
       const a = state.roster.find((x) => x.id === id);
       if (a) G.setTrainingPlan(state,a.id,b.dataset.value);
       world.replan();
+      break;
+    }
+    case "buy-book":
+      if (G.buyBook(state, b.dataset.item)) { toast(ITEMS[b.dataset.item].name + " is in the kit bag. Read it from an athlete's Skills tab.", "level", "spark"); sfx("coin"); save(); }
+      else toast("That book isn't on the shelf any more.", "warn");
+      break;
+    case "read-book": {
+      const k = b.dataset.item, skill = ITEMS[k]?.skill;
+      if (G.readBook(state, id, k)) { toast("Learned " + SKILLS[skill].name + "!", "level", "spark"); sfx("level"); save(); }
       break;
     }
     case "learn":
@@ -1316,6 +1420,22 @@ async function chooseSlot(n) {
     }
   }
   closeMainMenu();
+  // A ceremony the club hasn't seen yet still takes place.
+  if (state.ceremony) setTimeout(() => showCeremony(), 400);
+}
+// Awards night: Juno's welcome, each award in turn, then a look at the world's best.
+function showCeremony(step = 0) {
+  const steps = P.ceremonySteps(state);
+  if (!steps.length) return;
+  const st = steps[step], last = step === steps.length - 1;
+  dialog(st.title, st.body, [{ label: last ? "Back to the club" : step === 0 ? "On with the show" : "Next", fn: () => {
+    if (!last) return showCeremony(step + 1);
+    state.ceremony = null;
+    save();
+    render();
+    if (state.pendingEvent) setTimeout(showEvent, 400);
+  } }], { eyebrow: st.eyebrow, tone: "gold", cls: "ceremony-dialog " + (st.cls || ""), helper: step === 0, locked: true });
+  sfx(st.cls === "ceremony-mvp" ? "win" : step === 0 ? "cheer" : last ? "goal" : "level");
 }
 async function newClub(n) {
   const slots = await listSlots(summarise);
