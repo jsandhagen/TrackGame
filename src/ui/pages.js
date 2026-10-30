@@ -970,6 +970,10 @@ function swatch(s, cat, key) {
   if (cat === "roof") return roofColorOf({ ...s, stadiumStyle: { ...s.stadiumStyle, roof: key } });
   if (cat === "facade")
     return { auto: "repeating-linear-gradient(45deg, #dcdcd6 0 4px, #a8aeb4 4px 5px)", brick: "repeating-linear-gradient(0deg, #a8503a 0 4px, #c8b8a0 4px 5px)", glass: "linear-gradient(135deg, #6a96bc 40%, #cfe4f2 40% 55%, #527ea4 55%)", timber: "repeating-linear-gradient(90deg, #8a5a34 0 2px, #b47a48 2px 4px, #a06c3e 4px 6px)", club: `repeating-linear-gradient(90deg, ${p} 0 8px, ${t} 8px 16px)` }[key];
+  if (cat === "standStyle")
+    return { classic: `repeating-linear-gradient(0deg, ${p} 0 4px, #3a4a4a 4px 6px)`, terrace: "repeating-linear-gradient(0deg, #c8c4b8 0 4px, #8a8e92 4px 5px)", timber: "repeating-linear-gradient(0deg, #b47a48 0 4px, #6a4428 4px 6px)", cantilever: `linear-gradient(170deg, #e8eef2 28%, ${p} 28% 34%, #6a96bc 34%)` }[key];
+  if (cat === "backdrop")
+    return { town: "linear-gradient(0deg, #6a9454 30%, #d8c8a8 30% 55%, #a8503a 55% 62%, #8ccbe8 62%)", trees: "linear-gradient(0deg, #6a9454 30%, #3e7a3a 30% 62%, #8ccbe8 62%)", hills: "linear-gradient(0deg, #6a9454 35%, #7aa060 35% 60%, #8ccbe8 60%)", sea: "linear-gradient(0deg, #6a9454 30%, #4a8ab8 30% 48%, #8ccbe8 48%)", mountains: "linear-gradient(0deg, #6a9454 30%, #8a96a8 30% 58%, #f4f6f8 58% 66%, #8ccbe8 66%)", city: "linear-gradient(0deg, #6a9454 30%, #5a6a7a 30% 70%, #8ccbe8 70%)" }[key];
   if (cat === "towerStyle") return { spiral: `repeating-linear-gradient(135deg, #2e3640 0 5px, #c8563e 5px 9px)`, lattice: "repeating-linear-gradient(45deg, #dfe4e8 0 3px, #5a6066 3px 4px)", clock: "radial-gradient(circle, #f4f0e4 0 35%, #d8d0c0 36%)" }[key];
   if (cat === "towerColors") {
     const c = towerColorsOf({ ...s, stadiumStyle: { ...s.stadiumStyle, towerColors: key } });
@@ -982,7 +986,7 @@ function lookCard(s) {
   return `<div class="card-title"><h2>${ico("star")} Kit & stadium</h2></div>
   <p class="hint">New looks unlock as the club grows. Buy one once, then switch between your looks for free.</p>
   ${face ? `<div class="look-preview">${portrait(face, "large")}<span><strong>${esc(face.name)}</strong><small>Home kit</small></span></div>` : ""}
-  ${CUSTOM_IDS.map((cat) => `<h3 class="look-title">${CUSTOMISE[cat].name}</h3><div class="look-row">${Object.entries(CUSTOMISE[cat].options).map(([key, o]) => {
+  ${CUSTOM_IDS.map((cat) => `<h3 class="look-title">${CUSTOMISE[cat].name}</h3>${CUSTOMISE[cat].note ? `<p class="hint">${esc(CUSTOMISE[cat].note)}</p>` : ""}<div class="look-row">${Object.entries(CUSTOMISE[cat].options).map(([key, o]) => {
     const owned = G.ownsCustom(s, cat, key),
       used = G.selectedCustom(s, cat) === key,
       lock = G.customLock(s, cat, key),

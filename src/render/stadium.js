@@ -47,6 +47,8 @@ function venueOf(s, m) {
     trackLevel: v.home ? s.stadium.track : grand === 0 ? 1 : grand >= 3 ? 3 : 2,
     seats: v.home ? { pattern: styleOf(s).seats, a: s.colors.primary, b: s.colors.secondary } : { pattern: "solid", a: v.color },
     roof: v.home ? roofColorOf(s) : null,
+    standStyle: v.home ? styleOf(s).standStyle : "classic",
+    backdrop: v.home ? styleOf(s).backdrop : v.backdrop,
     crowd: v.home ? Math.min(0.95, 0.12 + s.stadium.stands * 0.18 + Math.min(0.3, s.fans / 5000)) : v.special ? 0.92 : CROWDS[grand],
   };
 }
@@ -246,7 +248,14 @@ function stands(g, venue) {
   const G = venue.grand,
     seat = [shade(venue.color, -0.25), shade(venue.color, -0.1)],
     metal = venue.time === "night" ? "#3a4448" : "#8a9498",
-    { pattern, a: seatA, b: seatB } = venue.seats || { pattern: "solid", a: venue.color };
+    { pattern, a: seatA, b: seatB } = venue.seats || { pattern: "solid", a: venue.color },
+    // Stand style: classic seats; concrete terraces with crush barriers; heritage timber with
+    // white posts; or a modern cantilever with no columns in front of the crowd.
+    look = venue.standStyle || "classic",
+    terrace = look === "terrace",
+    timber = look === "timber",
+    columns = look !== "cantilever",
+    post = timber ? "#f4f0e4" : "#3a4a4a";
   // A seat's colour by row (of n) and x, following the club's chosen pattern; solid seats
   // alternate two shades of one colour so the rows read.
   const seatAt = (r, n, x) => {
@@ -275,10 +284,22 @@ function stands(g, venue) {
   // are bare aluminium benches, like the campus's.
   const rows = (y0, n, offset = 0, bench = false) => {
     for (let r = 0; r < n; r++) {
-      const y = y0 + r * 6;
-      if (bench) rect(g, 0, y, W, 4, (r + offset) % 2 ? "#c4c8cc" : "#d4d8dc");
-      else for (let x = 0; x < W; x += 72) rect(g, x, y, Math.min(72, W - x), 4, seatAt(r + offset, n, x));
-      rect(g, 0, y + 4, W, 1, bench ? "#6a6e72" : shade(seat[0], -0.35));
+      const y = y0 + r * 6,
+        k = (r + offset) % 2;
+      if (terrace) {
+        // Bare concrete steps, with a crush barrier every other row.
+        rect(g, 0, y, W, 4, k ? "#bcb8ac" : "#c8c4b8");
+        rect(g, 0, y + 4, W, 1, "#7a766c");
+        if (k) for (let x = (r * 13) % 24; x < W; x += 24) rect(g, x, y - 1, 16, 1, "#5a5e62"), rect(g, x, y - 1, 1, 3, "#5a5e62"), rect(g, x + 15, y - 1, 1, 3, "#5a5e62");
+      } else if (timber) {
+        rect(g, 0, y, W, 4, k ? "#a06c3e" : "#b47a48");
+        rect(g, 0, y + 4, W, 1, "#5a3a22");
+        for (let x = (r * 7) % 18; x < W; x += 18) px(g, x, y + 1, "#8a5a34");
+      } else {
+        if (bench) rect(g, 0, y, W, 4, k ? "#c4c8cc" : "#d4d8dc");
+        else for (let x = 0; x < W; x += 72) rect(g, x, y, Math.min(72, W - x), 4, seatAt(r + offset, n, x));
+        rect(g, 0, y + 4, W, 1, bench ? "#6a6e72" : shade(seat[0], -0.35));
+      }
       rect(g, 0, y + 5, W, 1, shade(metal, 0.25));
     }
   };
@@ -293,7 +314,7 @@ function stands(g, venue) {
     rect(g, 0, 62, W, 32, metal);
     rows(64, 5, 0, true);
     aisles(62, 94, 80);
-    for (let x = 6; x < W; x += 40) rect(g, x, 62, 2, 32, shade(metal, -0.3));
+    for (let x = 6; x < W; x += 40) rect(g, x, 62, 2, 32, timber ? "#6a4428" : shade(metal, -0.3));
     rect(g, 0, 91, W, 3, shade(metal, -0.15));
     rect(g, W / 2 - 22, 46, 44, 16, "#e8e0cc");
     rect(g, W / 2 - 24, 44, 48, 3, venue.color);
@@ -304,17 +325,22 @@ function stands(g, venue) {
   rect(g, 0, 32, W, 62, shade(metal, -0.2));
   rows(34, 10);
   aisles(34, 92, 96);
-  for (let x = 10; x < W; x += 80) rect(g, x, 34, 3, 60, "#3a4a4a");
-  // The front wall, and the roof's shadow over the back rows.
-  rect(g, 0, 89, W, 5, shade(venue.color, -0.35));
-  rect(g, 0, 89, W, 1, shade(venue.color, 0.2));
+  if (columns) for (let x = 10; x < W; x += 80) rect(g, x, 34, 3, 60, post);
+  // The front wall, and the roof's shadow over the back rows. A cantilever stand has a glass
+  // screen along the front, a timber one a painted board wall.
+  rect(g, 0, 89, W, 5, timber ? "#6a4428" : shade(venue.color, -0.35));
+  rect(g, 0, 89, W, 1, timber ? "#f4f0e4" : shade(venue.color, 0.2));
+  if (!columns) rect(g, 0, 86, W, 3, "rgba(200,228,242,0.45)");
   for (let r = 0; r < 4; r++) rect(g, 0, 34 + r * 6, W, 6, `rgba(0,0,0,${(0.18 - r * 0.045).toFixed(3)})`);
   if (G === 2) {
     const x0 = W * 0.12, x1 = W * 0.88;
     rect(g, x0, 20, x1 - x0, 6, venue.roof || "#2e3a3e");
     rect(g, x0, 25, x1 - x0, 1, shade(venue.roof || "#2e3a3e", -0.3));
     rect(g, x0, 26, x1 - x0, 1, venue.color);
-    for (let x = x0 + 8; x < x1; x += 60) rect(g, x, 26, 2, 8, "#3a4a4a");
+    if (columns) for (let x = x0 + 8; x < x1; x += 60) rect(g, x, 26, 2, 8, post);
+    // A timber stand's roof has a gabled front; a cantilever's is a thin blade.
+    if (timber) for (let x = x0; x < x1; x += 30) poly(g, [[x, 20], [x + 15, 15], [x + 30, 20]], shade(venue.roof || "#2e3a3e", 0.1));
+    if (!columns) rect(g, x0, 20, x1 - x0, 2, shade(venue.roof || "#2e3a3e", 0.25));
     return;
   }
   rect(g, 0, 8, W, 26, shade(metal, -0.3));

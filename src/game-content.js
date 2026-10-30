@@ -419,6 +419,28 @@ export const CUSTOMISE = {
       black: { name: "Black", cost: 1200, req: { track: 3, trophies: 3 } },
     },
   },
+  standStyle: {
+    name: "Stand style",
+    note: "How your stands are built, on the campus and at home meets.",
+    options: {
+      classic: { name: "Classic seating", cost: 0 },
+      terrace: { name: "Standing terraces", cost: 600, req: { stands: 1, fans: 300 } },
+      timber: { name: "Heritage timber", cost: 1200, req: { stands: 2, fans: 800 } },
+      cantilever: { name: "Modern cantilever", cost: 1800, req: { stands: 3, trophies: 2 } },
+    },
+  },
+  backdrop: {
+    name: "Skyline",
+    note: "What home crowds see over the stands at meets, until the stands go all the way round.",
+    options: {
+      town: { name: "Rooftops", cost: 0 },
+      trees: { name: "Parkland", cost: 300, req: { fans: 200 } },
+      hills: { name: "Rolling hills", cost: 500, req: { league: 1 } },
+      sea: { name: "Seafront", cost: 900, req: { fans: 1000 } },
+      mountains: { name: "Mountains", cost: 1200, req: { league: 2 } },
+      city: { name: "City skyline", cost: 1500, req: { league: 3 } },
+    },
+  },
   facade: {
     name: "Stadium facade",
     options: {
@@ -450,7 +472,7 @@ export const CUSTOMISE = {
 export const CUSTOM_IDS = Object.keys(CUSTOMISE);
 const SURFACE_COLORS = { red: "#c0604a", blue: "#3d6cae", green: "#4a8a5a", purple: "#7a5aa8", black: "#4a4a52" };
 export const SHORTS_COLORS = { black: "#2a2a30", white: "#f0ece4", navy: "#2c3a5a" };
-export const STYLE_DEFAULT = { seats: "solid", roof: "steel", track: "auto", facade: "auto", towerStyle: "spiral", towerColors: "classic", name: "" };
+export const STYLE_DEFAULT = { seats: "solid", roof: "steel", track: "auto", standStyle: "classic", backdrop: "town", facade: "auto", towerStyle: "spiral", towerColors: "classic", name: "" };
 export const styleOf = (s) => ({ ...STYLE_DEFAULT, ...(s.stadiumStyle || {}) });
 export function trackColorOf(level, surface = "auto") {
   if (level <= 0) return "#7aa858";
