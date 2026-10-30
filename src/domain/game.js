@@ -23,6 +23,9 @@ import {
 } from "../game-content.js";
 import {
   clamp,
+  recordTakings,
+  ledgerAdd,
+  reconcileLedger,
   random,
   pick,
   note,
@@ -269,6 +272,7 @@ export function discover(s) {
   for (const c of fresh) {
     s.discovered.push(c.key);
     s.fans += 5;
+    ledgerAdd(s, "fans", "Combos discovered", 5);
     note(s, "Combo discovered: " + c.name + "! " + c.desc, "combo");
   }
   return fresh;
@@ -359,6 +363,8 @@ export function restAmount(s, a, fx = effects(s, a)) {
 export function advanceDay(s) {
   if (s.match || !["planning", "season"].includes(s.phase) || (s.matchDay != null && s.day >= s.matchDay) || s.pendingEvent) return { ok: false };
   if (firstMeet(s) && !s.competition) return { ok: false, reason: "The squad is ready. Start your first duel from Meets." };
+  // Anything that moved the balances since the last booking goes on yesterday's page.
+  reconcileLedger(s);
   s.day++;
   count(s, "days");
   // A new calendar year opens with awards night for the last one.
@@ -424,17 +430,22 @@ export function advanceDay(s) {
     const amount = counterTakings(s, p.type, p.level, visitors);
     if (amount) {
       s.money += amount;
+      ledgerAdd(s, "money", FACILITIES[p.type].name + " sales", amount);
+      recordTakings(s, p, "sales", amount);
       report.spend.push({ plot: i, amount });
     }
   });
   const fans = facilityLevel(s, "shop") + 2 * facilityLevel(s, "statue");
   s.fans += fans;
+  ledgerAdd(s, "fans", "Merch Stand", facilityLevel(s, "shop"));
+  ledgerAdd(s, "fans", "Statue", 2 * facilityLevel(s, "statue"));
   report.fans = fans;
   if (s.day % 7 === 0) report.week = payWeek(s);
   if (s.day === s.matchDay) note(s, "Meet day! Lineups to the call room.", "meet");
   report.goals = checkGoals(s);
   report.invitation = invitationDay(s);
   report.event = rollStoryEvent(s);
+  reconcileLedger(s);
   return report;
 }
 // Skip advances a bounded preparation window and stops for an actual decision.
@@ -450,10 +461,48 @@ export function skipPreparation(s) {
 }
 
 // The café and merch stand sell to a share of visitors, up to what their counters can serve.
+const COUNTERS = { cafe: { buys: 0.6, serves: 15 }, shop: { buys: 0.5, serves: 10 } };
+export const isSalesBuilding = (type) => !!COUNTERS[type];
 export function counterTakings(s, type, level, visitors = visitorsPerDay(s)) {
   if (type === "cafe") return Math.round(Math.min(visitors * 0.6, 15 * (level + 1)) * (1 + level));
   if (type === "shop") return Math.round(Math.min(visitors * 0.5, 10 * (level + 1)) * 1.5 * (1 + level) * (hasCombo(s, "matchday") ? 1.5 : 1));
   return 0;
+}
+// What a building has cost so far: the build price and every upgrade (for buildings put up
+// before the books were kept, worked out from the price list).
+export const spentOn = (type, level) => FACILITIES[type].cost + Array.from({ length: level - 1 }, (_, k) => upgradeCost(type, k + 1)).reduce((n, c) => n + c, 0);
+// Is a sales building worth it? Its last week of takings against upkeep, its lifetime books
+// against what it cost, today's trade (and whether the counter is the limit), and what the
+// next level would add at today's visitor numbers.
+export function salesReport(s, index) {
+  const p = s.plots[index];
+  if (!p || !isSalesBuilding(p.type)) return null;
+  const visitors = visitorsPerDay(s),
+    c = COUNTERS[p.type],
+    buyers = Math.round(visitors * c.buys),
+    capacity = c.serves * (p.level + 1),
+    recent = (p.days || []).filter((d) => d.day > s.day - 7),
+    days = recent.length,
+    sales = recent.reduce((n, d) => n + d.sales, 0),
+    staff = recent.reduce((n, d) => n + d.staff, 0),
+    upkeep = upkeepOf(p.type, p.level),
+    // Per week: the takings scaled to seven days, less a week's upkeep.
+    weekly = days ? Math.round(((sales + staff) / days) * 7) - upkeep : counterTakings(s, p.type, p.level, visitors) * 7 - upkeep,
+    spent = p.spent ?? spentOn(p.type, p.level),
+    earned = p.earned || 0,
+    upkeepPaid = p.upkeepPaid || 0,
+    net = earned - upkeepPaid - spent;
+  const canUpgrade = p.level < maxLevelOf(p.type),
+    nextCost = canUpgrade ? upgradeCost(p.type, p.level) : null,
+    nextGain = canUpgrade ? (counterTakings(s, p.type, p.level + 1, visitors) - counterTakings(s, p.type, p.level, visitors)) * 7 - (upkeepOf(p.type, p.level + 1) - upkeep) : null;
+  return {
+    days, sales, staff, upkeep, weekly,
+    today: { visitors, buyers, capacity, full: buyers >= capacity, takings: counterTakings(s, p.type, p.level, visitors) },
+    spent, earned, upkeepPaid, net, since: p.since ?? null,
+    paidBack: spent ? Math.max(0, (earned - upkeepPaid) / spent) : 1,
+    weeksToPayOff: net < 0 && weekly > 0 ? Math.ceil(-net / weekly) : null,
+    next: canUpgrade ? { cost: nextCost, gain: nextGain, weeks: nextGain > 0 ? Math.ceil(nextCost / nextGain) : null } : null,
+  };
 }
 // Running costs: 3% of what each building and stadium upgrade cost, every week.
 export const upkeepOf = (type, level) => Math.round(FACILITIES[type].cost * 0.03 * level);
@@ -476,6 +525,12 @@ function payWeek(s) {
     running = upkeep(s),
     sponsor = SPONSORS[s.sponsor];
   s.money += income - paid - running;
+  { const sp = Math.round(((SPONSORS[s.sponsor] || SPONSORS.bakery).weekly) * (hasCombo(s, "nightfever") ? 1.15 : 1));
+    ledgerAdd(s, "money", "Sponsor", Math.min(income, sp));
+    ledgerAdd(s, "money", "Clubhouse & grandstand", income - Math.min(income, sp));
+    ledgerAdd(s, "money", "Wages", -paid);
+    ledgerAdd(s, "money", "Upkeep", -running); }
+  for (const p of s.plots) if (p && p.type !== "club") p.upkeepPaid = (p.upkeepPaid || 0) + upkeepOf(p.type, p.level);
   if (sponsor?.gift) addItem(s, sponsor.gift, 2);
   note(s, "Payday: +$" + income + " income, −$" + paid + " wages" + (running ? ", −$" + running + " upkeep" : "") + (sponsor?.gift ? ", plus 2 " + ITEMS[sponsor.gift].name + "s" : "") + ".", "money");
   return { income, wages: paid, upkeep: running, net: income - paid - running };
@@ -504,7 +559,8 @@ export function canBuild(s, index, type) {
 export function build(s, index, type) {
   if (!canBuild(s, index, type)) return false;
   s.money -= FACILITIES[type].cost;
-  s.plots[index] = { type, level: 1 };
+  ledgerAdd(s, "money", "Construction", -FACILITIES[type].cost);
+  s.plots[index] = { type, level: 1, spent: FACILITIES[type].cost, since: s.day };
   count(s, "built");
   note(s, "Built the " + FACILITIES[type].name + ".", "build");
   const discoveries = discover(s);
@@ -517,6 +573,8 @@ export function upgrade(s, index) {
   const cost = upgradeCost(p.type, p.level);
   if (s.money < cost) return false;
   s.money -= cost;
+  ledgerAdd(s, "money", "Construction", -cost);
+  p.spent = (p.spent ?? spentOn(p.type, p.level)) + cost;
   p.level++;
   count(s, "upgrades");
   note(s, FACILITIES[p.type].name + " reached level " + p.level + "!", "build");
@@ -541,6 +599,7 @@ export function upgradeStadium(s, key) {
   const d = STADIUM[key],
     lvl = s.stadium[key];
   s.money -= d.cost[lvl];
+  ledgerAdd(s, "money", "Construction", -d.cost[lvl]);
   s.stadium[key] = lvl + 1;
   count(s, "upgrades");
   count(s, "stadium");
@@ -560,6 +619,7 @@ export function sellFacility(s, index) {
   if (!systemUnlocked(s, "build") || !p || p.type === "club" || s.match) return false;
   const refund = Math.round(FACILITIES[p.type].cost * 0.5);
   s.money += refund;
+  ledgerAdd(s, "money", "Buildings sold", refund);
   s.plots[index] = null;
   if(s.facilityDuties) delete s.facilityDuties["plot:"+index];
   note(s, "Cleared the " + FACILITIES[p.type].name + " plot. +$" + refund + ".", "build");
@@ -600,6 +660,7 @@ export const bookSold = (s, id) => soldThisWeek(s).includes(id);
 export function buyBook(s, id) {
   if (!bookShelf(s).includes(id) || bookSold(s, id) || s.match || s.money < itemPrice(s, id)) return false;
   s.money -= itemPrice(s, id);
+  ledgerAdd(s, "money", "Shop", -itemPrice(s, id));
   addItem(s, id);
   s.bookShelf = { week: shelfWeek(s), sold: [...soldThisWeek(s), id] };
   count(s, "bought");
@@ -608,6 +669,7 @@ export function buyBook(s, id) {
 export function buyItem(s, id) {
   if (!shopStock(s).includes(id) || s.money < itemPrice(s, id)) return false;
   s.money -= itemPrice(s, id);
+  ledgerAdd(s, "money", "Shop", -itemPrice(s, id));
   addItem(s, id);
   count(s, "bought");
   return true;
@@ -703,6 +765,7 @@ export function forgeItem(s, id) {
   const lvl = s.forge[id] || 0;
   if (!facilityLevel(s, "workshop") || ITEMS[id]?.kind !== "gear" || !ownedCount(s, id) || s.money < forgeCost(s, id)) return false;
   s.money -= forgeCost(s, id);
+  ledgerAdd(s, "money", "Forge", -forgeCost(s, id));
   s.forge[id] = lvl + 1;
   count(s, "forged");
   return true;
@@ -811,6 +874,7 @@ export function promote(s, athleteId) {
   const a = s.roster.find((x) => x.id === athleteId);
   if (!a || s.match || promoteProblem(s, a)) return false;
   s.money -= promoteCost(a);
+  ledgerAdd(s, "money", "Promotions", -promoteCost(a));
   a.promoteFree = false;
   const star = a.rank >= 4;
   if (star) a.stars = (a.stars || 0) + 1;
@@ -831,6 +895,7 @@ export function scout(s, free = false) {
   if (!systemUnlocked(s, "recruit")) return false;
   if (!free && s.money < scoutCost(s)) return false;
   if (!free) s.money -= scoutCost(s);
+  if (!free) ledgerAdd(s, "money", "Scouting", -scoutCost(s));
   const luck = 0.25 * facilityLevel(s, "scout") + (hasCombo(s, "network") ? 0.3 : 0) + 0.05 * s.league;
   s.prospects = Array.from({ length: 3 }, () =>
     createAthlete(s, pick(s, EVENT_IDS), { base: Math.max(22, LEAGUES[s.league].rating - 4 + random(s) * 4), rarity: rollRarity(s, luck) }),
@@ -844,6 +909,7 @@ export function recruit(s, id) {
   const a = s.prospects.find((x) => x.id === id);
   if (!a || s.roster.length >= rosterCap(s) || s.money < signCost(s, a) || s.match) return false;
   s.money -= signCost(s, a);
+  ledgerAdd(s, "money", "Signings", -signCost(s, a));
   a.seasonStart = statTotal(a);
   s.roster.push(a);
   s.prospects = s.prospects.filter((x) => x.id !== id);
@@ -917,7 +983,9 @@ export function leaveMatch(s) {
       const prize = Math.round(LEAGUES[tier].prize * (0.5 + stage * 0.25) * (first ? 1 : 0.5));
       if (first) s.circuit.cleared.push(key);
       s.money += prize;
+      ledgerAdd(s, "money", "Title prizes", prize);
       s.fans += (first ? 100 : 30) * (tier + 1);
+      ledgerAdd(s, "fans", "Titles", (first ? 100 : 30) * (tier + 1));
       s.trophies.push({ league: tier, stage, season: s.season });
       s.lastTitlePrize = prize;
       s.lastTitleGift = first ? TITLE_GIFTS[stage] : null;
@@ -963,6 +1031,7 @@ export function nextSeason(s) {
   s.sponsorLocked = false;
   s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });
   s.money += 150;
+  ledgerAdd(s, "money", "Season grant", 150);
   s.rebuildStreak = wasChampion ? 0 : (s.rebuildStreak || 0) + 1;
   const boost = 1 + 0.5 * Math.min(3, s.rebuildStreak);
   for (const a of s.roster) {

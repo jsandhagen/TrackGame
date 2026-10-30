@@ -1,4 +1,5 @@
 import { CUSTOMISE, CUSTOM_IDS, STYLE_DEFAULT, LEAGUES } from "../game-content.js";
+import { ledgerAdd } from "./core.js";
 
 // Kit and stadium customisation. Options unlock through progress and are then bought once;
 // owned options can be switched freely. Kit choices live with the club colours (they travel
@@ -50,6 +51,7 @@ export function customProblem(s, cat, key) {
 export function buyCustom(s, cat, key) {
   if (ownsCustom(s, cat, key) || customProblem(s, cat, key)) return false;
   s.money -= CUSTOMISE[cat].options[key].cost;
+  ledgerAdd(s, "money", "Kit & stadium looks", -CUSTOMISE[cat].options[key].cost);
   s.wardrobe[cat].push(key);
   return useCustom(s, cat, key);
 }

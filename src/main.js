@@ -126,9 +126,9 @@ function hud() {
   $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time" role="group" aria-label="Training speed">${P.speedButtons(speed, "speed", { pause: true, disabled: !canPlay })}</div>
-  <div class="res fans">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></div>
-  ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="window" data-page="train" aria-label="${insights} Coaching Insights. Open training">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
-  <div class="res money">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></div>
+  <button class="res fans" data-act="ledger" data-cur="fans" aria-label="${state.fans} fans. Open the ledger">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></button>
+  ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="ledger" data-cur="insights" aria-label="${insights} Coaching Insights. Open the ledger">${ico("idea")}<b>${insights}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
+  <button class="res money" data-act="ledger" data-cur="money" aria-label="${cash(state.money)}. Open the ledger">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></button>
   <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
 }
 function menu() {
@@ -502,6 +502,14 @@ function showGrowth(a, before, eyebrow, extra = []) {
   if (state.settings.quietMode !== false) { toast(a.name + ": " + title, "level"); return; }
   dialog(title, P.growth(a, before, extra), [{ label: "Back to the infield" }], { eyebrow, tone: "gold" });
 }
+// The ledger behind the top-bar counters: tabs switch currency and period in place.
+function openLedger(cur = "money", days = 7) {
+  G.reconcileLedger(state);
+  dialog("The ledger", P.ledger(state, cur, days), [{ label: "Close" }], { eyebrow: "Club accounts", tone: "news", cls: "ledger-dialog" });
+  const body = $("#dialog .dialog-body");
+  body.querySelectorAll("[data-ledger-cur]").forEach((b) => (b.onclick = () => (sfx("tap"), openLedger(b.dataset.ledgerCur, days))));
+  body.querySelectorAll("[data-ledger-days]").forEach((b) => (b.onclick = () => (sfx("tap"), openLedger(cur, +b.dataset.ledgerDays))));
+}
 // The item animation (P.itemFx): a small window over everything, which plays its sounds and
 // counts each number up as its row arrives, then closes itself. A tap closes it early. It
 // always plays, quiet mode or not: it is the answer to the coach's own tap.
@@ -837,6 +845,8 @@ $("#app").addEventListener("click", async (e) => {
     before = snapshot();
   if (!["release", "tactic"].includes(act)) sfx("tap");
   switch (act) {
+    case "ledger":
+      return openLedger(b.dataset.cur);
     case "window":
     case "page":
       return view.window === b.dataset.page && act === "window" ? closeWindow() : openWindow(b.dataset.page);

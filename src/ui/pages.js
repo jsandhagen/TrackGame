@@ -290,9 +290,6 @@ const DRILL_ICONS = { sandbag: "dumbbell", ladder: "shoe", shadow: "eye", visual
 const plus = (n) => "+" + (Math.round(n * 10) / 10).toString();
 const vital = (c) => (c.stat != null ? showStat(c.from) + " → " + showStat(c.to) : Math.round(c.from) + " → " + Math.round(c.to));
 export const previewText = (changes) => changes.map((c) => (c.from != null ? c.label + " " + vital(c) : c.label)).join(" · ");
-export function insightBanner(s) {
-  return `<div class="insight-banner">${ico("idea")}<div><b>${s.coaching.insights}</b> Coaching Insights<small>Your buildings add <b>${(Math.round(G.insightRate(s) * 10) / 10).toLocaleString()}</b> a day. +${G.PRACTICE_INSIGHTS} for every day of training, +4 to +9 from each meet review.</small></div></div>`;
-}
 function planForecast(s, a) {
   if(G.autoPrepActivity(s,a)) return "Standard auto prep is active: "+PLANS[G.autoPrepActivity(s,a)].name+" now. Your saved "+PLANS[a.plan].name+" plan resumes when auto prep is turned off.";
   if (a.plan === "facilities") return "Automatic duties replace stat training. Rewards and stamina costs depend on the selected facility; athletes recover when no suitable site is available.";
@@ -446,7 +443,7 @@ export function train(s, view) {
   const available = TRAIN_TABS.filter(([id]) => G.systemUnlocked(s, {sessions:"sessions",chemistry:"chemistry",plans:"plans",bag:"kit"}[id]));
   const tab = available.some(([id]) => id === view.trainTab) ? view.trainTab : available[0][0];
   const items = Object.keys(s.bag).filter((k) => ITEMS[k].kind === "use");
-  const tabs = `<nav class="tabs train-tabs">${available.map(([id, label]) => `<button data-act="train-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${label}${id === "bag" && items.length ? " · " + items.reduce((n, k) => n + s.bag[k], 0) : ""}${id === "chemistry" ? " · " + (s.coaching.chemistry?.length || 0) : ""}</button>`).join("")}${G.systemUnlocked(s,"sessions") ? `<span class="tab-insights">${ico("idea")}<b>${s.coaching.insights}</b><small>+${G.PRACTICE_INSIGHTS + Math.round(G.insightRate(s) * 10) / 10}/day</small></span>` : ""}</nav>`;
+  const tabs = `<nav class="tabs train-tabs">${available.map(([id, label]) => `<button data-act="train-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${label}${id === "bag" && items.length ? " · " + items.reduce((n, k) => n + s.bag[k], 0) : ""}${id === "chemistry" ? " · " + (s.coaching.chemistry?.length || 0) : ""}</button>`).join("")}</nav>`;
   if (tab === "plans") return tabs + dailyPlans(s, view);
   if (tab === "chemistry") return tabs + chemistryBook(s);
   if (tab === "bag") return tabs + (items.length ? `<div class="use-grid">${items.map((k) => `<button class="use-item rarity-${ITEMS[k].rarity}" data-act="use" data-item="${k}">${icon(k, 32)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${esc(ITEMS[k].desc)}</small></span></button>`).join("")}</div>` : `<p class="hint">Kit bag's empty. Drinks and shakes are in the ${btn("Kit shop", "page", 'data-page="shop"', "text")}.</p>`);
@@ -648,6 +645,65 @@ function stadiumCard(s, key, open) {
   return `<div class="stadium-row ${open ? "open" : ""}"><button class="stadium-head" data-act="spot" data-key="${key}">${ico(STADIUM_ICON[key])}<span><strong>${d.name}</strong><small>${esc(d.levels[lvl])}</small></span>${pips(lvl, d.max)}</button>
   ${open ? `<div class="stadium-detail"><p>${d.desc}</p>${key === "stands" ? standsCrowd(s) : ""}${key === "studio" && lvl ? facilityStaffPicker(s,"studio") : ""}${lvl < d.max ? `<p class="next">Next: <b>${esc(d.levels[lvl + 1])}</b> · +${cash(Math.round(cost * 0.03))}/wk upkeep</p>` : ""}${btn(problem === "Fully upgraded" ? "Fully upgraded" : problem ? esc(problem) : (lvl ? "Upgrade" : "Build") + " · " + cash(cost), "upgrade-spot", `data-key="${key}" ${problem ? "disabled" : ""}`)}</div>` : ""}</div>`;
 }
+// A sales building's books, to judge whether it is worth it: profit per week after upkeep,
+// how much of its cost it has paid back, whether visitors or the counter limit today's trade,
+// and what the next level would add.
+const SALES_PERKS = { cafe: "Also lifts the squad's condition every day.", shop: "Also wins new fans every day." };
+function salesBooks(s, i) {
+  const r = G.salesReport(s, i);
+  if (!r) return "";
+  const signed = (n) => (n > 0 ? "+" : "") + cash(n),
+    // A label and its amount, kept on one line.
+    item = (label, n) => `<i class="amt">${label} ${cash(n)}</i>`,
+    pct = Math.round(r.paidBack * 100),
+    payoff = r.net >= 0 ? `<b class="pos">Paid off</b> · ${signed(r.net)} profit so far` : r.weeksToPayOff ? `Pays for itself in about <b>${r.weeksToPayOff} week${r.weeksToPayOff === 1 ? "" : "s"}</b>` : `<b class="neg">Not covering its upkeep</b> at today's trade`,
+    t = r.today,
+    trade = t.full
+      ? `The counter is <b>full</b>: ${t.buyers} of today's ${t.visitors} visitors want to buy but it serves ${t.capacity}. An upgrade sells to more of them.`
+      : `${t.buyers} of today's ${t.visitors} visitors buy; the counter could serve ${t.capacity}. <b>Visitors are the limit</b>: more fans (or a Picnic Lawn) help more than an upgrade.`,
+    next = r.next
+      ? r.next.gain > 0
+        ? `Level ${s.plots[i].level + 1}: <b>${signed(r.next.gain)}/week</b> at today's crowds for ${cash(r.next.cost)}, paying back in about ${r.next.weeks} week${r.next.weeks === 1 ? "" : "s"}.`
+        : `Level ${s.plots[i].level + 1} would add <b>nothing</b> at today's crowds: its extra upkeep outweighs the extra sales.`
+      : "";
+  return `<section class="sales-books"><h3>${ico("coin")} The books</h3>
+    <div class="books-grid">
+      <div><small>${r.days ? (r.days < 7 ? "Last " + r.days + " day" + (r.days === 1 ? "" : "s") + ", per week" : "Last 7 days") : "Expected per week"}</small><b class="${r.weekly >= 0 ? "pos" : "neg"}">${signed(r.weekly)}</b><span>${r.days ? [item("Sales", r.sales), r.staff ? item("staff", r.staff) : "", item("upkeep", -r.upkeep)].filter(Boolean).join(" · ") : `At today's ${t.visitors} visitors, less ${item("upkeep", -r.upkeep)}`}</span></div>
+      <div><small>${r.since != null ? "Since day " + r.since : "Since the books began"}</small><b class="${r.net >= 0 ? "pos" : "neg"}">${signed(r.net)}</b><span>${[item("Takings", r.earned), item("upkeep", -r.upkeepPaid), item("cost", -r.spent)].join(" · ")}</span></div>
+    </div>
+    <div class="payback"><span class="bar"><i style="width:${Math.min(100, pct)}%;--bar:${r.net >= 0 ? "#3a9a5a" : "#e2b04a"}"></i></span><small>${pct}% of its ${cash(r.spent)} cost paid back · ${payoff}</small></div>
+    <p class="hint">${trade} ${SALES_PERKS[s.plots[i].type] || ""}</p>
+    ${next ? `<p class="hint">${next}</p>` : ""}</section>`;
+}
+// The club ledger behind the top-bar counters: what came in and went out for each currency
+// over the last week or four weeks, biggest first, with what's coming next.
+export const LEDGER_CURRENCIES = { money: { name: "Money", icon: "coin", color: "#e2b04a", fmt: (n) => cash(n) }, fans: { name: "Fans", icon: "heart", color: "#f6a0a8", fmt: (n) => Math.round(n).toLocaleString() }, insights: { name: "Coaching Insights", icon: "idea", color: "#9fd0f0", fmt: (n) => Math.round(n).toLocaleString() } };
+export function ledger(s, cur = "money", days = 7) {
+  const C = LEDGER_CURRENCIES[cur],
+    balance = cur === "insights" ? s.coaching.insights : s[cur],
+    from = s.day - days,
+    totals = {};
+  for (const d of s.ledger?.days || []) if (d.day > from) for (const [k, v] of Object.entries(d[cur] || {})) totals[k] = (totals[k] || 0) + v;
+  const rows = Object.entries(totals).filter(([, v]) => Math.round(v) !== 0),
+    ins = rows.filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
+    outs = rows.filter(([, v]) => v < 0).sort((a, b) => a[1] - b[1]),
+    total = (list) => list.reduce((n, [, v]) => n + v, 0),
+    inSum = total(ins), outSum = total(outs), net = inSum + outSum,
+    biggest = Math.max(1, ...rows.map(([, v]) => Math.abs(v))),
+    signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + C.fmt(Math.abs(n)).replace(/^[−-]/, "");
+  const list = (title, entries, sign) => `<section class="ledger-list ${sign}"><h3>${title}<b>${entries.length ? signed(total(entries)) : "—"}</b></h3>${entries.length ? entries.map(([k, v]) => `<div class="ledger-row"><span>${esc(k)}</span><i class="ledger-bar"><em style="width:${Math.max(3, (Math.abs(v) / biggest) * 100)}%"></em></i><b>${signed(v)}</b></div>`).join("") : `<p class="hint">Nothing in the last ${days} days.</p>`}</section>`;
+  // What happens next, so the coach can plan around it.
+  const upcoming =
+    cur === "money" ? (() => { const inc = G.weeklyIncome(s), out = G.wages(s) + G.upkeep(s), next = 7 - (s.day % 7 || 7) + s.day; return `Next payday, ${esc(G.shortDate(next))}: ${cash(inc)} income − ${cash(G.wages(s))} wages − ${cash(G.upkeep(s))} upkeep = <b>${signed(inc - out)}</b>.`; })()
+    : cur === "insights" ? `Your buildings add about <b>${(Math.round(G.insightRate(s) * 10) / 10).toLocaleString()}</b> a day, +${G.PRACTICE_INSIGHTS} for each day of training and +4 to +9 from each meet review.`
+    : `Fans fill your stands, bring visitors to the café and merch stand, and grow from meets, the merch stand, the statue and club stories.`;
+  return `<div class="ledger">
+    <nav class="tabs ledger-tabs">${Object.entries(LEDGER_CURRENCIES).filter(([k]) => k !== "insights" || G.systemUnlocked(s, "sessions")).map(([k, c]) => `<button data-ledger-cur="${k}" class="${k === cur ? "active" : ""}" aria-pressed="${k === cur}">${ico(c.icon)} ${c.name}</button>`).join("")}</nav>
+    <div class="ledger-head"><div><small>Balance</small><b style="--c:${C.color}">${C.fmt(balance)}</b></div><div><small>Last ${days} days</small><b class="${net >= 0 ? "pos" : "neg"}">${signed(net)}</b></div>
+      <span class="seg ledger-days">${[7, 28].map((n) => `<button data-ledger-days="${n}" class="${n === days ? "active" : ""}" aria-pressed="${n === days}">${n === 7 ? "Week" : "4 weeks"}</button>`).join("")}</span></div>
+    ${list("In", ins, "in")}${list("Out", outs, "out")}
+    <p class="hint ledger-next">${upcoming}</p></div>`;
+}
 // What a construction or upgrade will cost and do, shown before any money is spent.
 export function constructionConfirm(s, o) {
   const after = s.money - o.cost;
@@ -685,6 +741,7 @@ export function build(s, view) {
         cost = G.upgradeCost(p.type, p.level),
         combos = G.combos(s).filter((c) => !c.stadium && (c.a === p.type || c.b === p.type) && G.neighbours(i).some((j) => [c.a, c.b].includes(s.plots[j]?.type)));
       focus = `<article class="card facility"><div class="facility-head"><canvas class="building" width="104" height="66" data-building="${p.type}:${p.level}"></canvas><div><span class="eyebrow">LEVEL ${p.level}${G.maxLevelOf(p.type) <= 3 ? " / 3" : p.level >= 5 ? " · LANDMARK +" + Math.floor(p.level / 5) : p.level >= 3 ? " · LANDMARK AT 5" : ""}${p.type !== "club" ? " · UPKEEP " + cash(G.upkeepOf(p.type, p.level)) + "/WK" : ""}</span><h2>${d.name}</h2><p>${d.desc}</p></div></div>
+        ${salesBooks(s, i)}
         ${facilityStaffPicker(s,"plot:"+i)}
         ${combos.length ? `<p class="combo-line">${combos.map((c) => ico("spark") + " " + c.name + ": " + c.desc).join("<br>")}</p>` : ""}
         <div class="inline">${btn(p.level >= G.maxLevelOf(p.type) ? "Fully upgraded" : (p.level >= 3 ? "Push to Lv " + (p.level + 1) + " · " : "Upgrade · ") + cash(cost), "upgrade", `data-index="${i}" ${p.level >= G.maxLevelOf(p.type) || s.money < cost ? "disabled" : ""}`)}${i !== CLUB_PLOT ? btn(view.moving === i ? "Cancel move" : "Move / swap", "move", `data-index="${i}"`, "subtle") : ""}${i !== CLUB_PLOT ? btn("Clear · +" + cash(d.cost / 2), "sell", `data-index="${i}"`, "subtle") : ""}</div></article>`;
@@ -775,7 +832,7 @@ export function shop(s, view) {
   }
   const count = (f) => stock.filter((k) => f(ITEMS[k])).length;
   const labels = { fuel: "Fuel · " + count((d) => d.kind === "use"), implements: "Implements · " + count((d) => d.slot === "implement"), wear: "Shoes & charms · " + count((d) => d.slot === "shoes" || d.slot === "charm"), books: "Books · " + G.bookShelf(s).filter((k) => !G.bookSold(s, k)).length, bag: "Kit bag · " + Object.values(s.bag).reduce((n, v) => n + v, 0) };
-  return `${shopkeeperBanner(s)}<nav class="tabs shop-tabs">${SHOP_TABS.map(([id]) => `<button data-act="shop-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${labels[id]}</button>`).join("")}<span class="tab-insights">${ico("coin")}<b>${cash(s.money)}</b></span></nav>${body}`;
+  return `${shopkeeperBanner(s)}<nav class="tabs shop-tabs">${SHOP_TABS.map(([id]) => `<button data-act="shop-tab" data-tab="${id}" class="${tab === id ? "active" : ""}" aria-pressed="${tab === id}">${labels[id]}</button>`).join("")}</nav>${body}`;
 }
 // One-line effect label: stat items get a coloured stat pill so they read at a glance.
 function effectLine(d) {

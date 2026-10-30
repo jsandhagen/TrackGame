@@ -1,6 +1,6 @@
 import { LEAGUES, CLUBS } from "../game-content.js";
 import { makeClubs } from "./game.js";
-import { note } from "./core.js";
+import { note, ledgerAdd } from "./core.js";
 import { firstMeet } from "./progression.js";
 
 export const CIRCUIT_STAGES = ["Open", "Challenger", "Championship"];
@@ -77,6 +77,7 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
   s.clubs.forEach((c) => { c.points = 0; c.diff = 0; c.played = 0; });
   const fee = entryFee(kind, tier);
   s.money -= fee;
+  ledgerAdd(s, "money", "Entry fees", -fee);
   // The opening challenge starts today; daily preparation is learned after it.
   const startDay = firstMeet(s) ? s.day : s.day + preparation;
   s.competition = { kind, tier, stage: strength, rival, spacing, startDay, fee, ...(kind === "league" ? { format: "championship", qualifyingMarks: {} } : {}) };
@@ -94,6 +95,7 @@ export function enterCompetition(s, { kind, tier, stage = 0, rival = 0, preparat
 export function cancelCompetition(s) {
   if (!s.competition || s.match || s.fixture !== 0 || s.results.length || s.day >= s.matchDay) return false;
   s.money += s.competition.fee || 0;
+  ledgerAdd(s, "money", "Entry fees", s.competition.fee || 0);
   note(s, "Booking cancelled" + (s.competition.fee ? " and the $" + s.competition.fee.toLocaleString() + " entry refunded" : "") + ". Your training and club progress stay.", "info");
   s.competition = null;
   s.matchDay = null;
