@@ -453,10 +453,8 @@ function runTraining(ids, drill) {
   save();
   render();
   world.replan();
-  if (state.settings.quietMode !== false) {
-    view.trainingReport={name:session.name,results:session.results.map(r=>({name:state.roster.find(a=>a.id===r.id).name,gains:r.gains})),chemistry:session.chemistry};
-    view.window="train"; view.trainTab="sessions"; render(); return;
-  }
+  // A session the coach just ran always plays out on its stage; quiet notifications only hold
+  // back routine rewards, levels and goals.
   dialog(session.name, P.trainingStage(state, session, befores), [{ label: "Hit the showers" }], { eyebrow: "Training ground · step " + G.tierOf(session.level - (session.tierUp ? 1 : 0)) + " of 5", tone: "gold", cls: "training" });
   const dlg = $("#dialog"),
     results = dlg.querySelector(".stage-results"),
@@ -1231,7 +1229,7 @@ async function useClub(n, incoming = null) {
   newsSeen = state.log[0];
   shownInsights = null;
   presenter = null;
-  Object.assign(view, { trainingReport: null, window: null, athlete: null, selected: null, moving: null, meetSpeed: state.settings.meetSpeed || 1 });
+  Object.assign(view, { window: null, athlete: null, selected: null, moving: null, meetSpeed: state.settings.meetSpeed || 1 });
   setSound(state.settings.sound);
   world.reset();
   render(false);
