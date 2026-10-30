@@ -22,6 +22,7 @@
   <label>Speed <select id="speed"><option value="0.25">¼×</option><option value="0.5" selected>½×</option><option value="1">1×</option><option value="2">2×</option></select></label>
   <label>Recovery <select id="style"><option value="0">Classic</option><option value="1">Bouncy</option><option value="2">Composed</option></select></label>
   <label><input id="foul" type="checkbox"> Foul</label>
+  <label><input id="flop" type="checkbox"> Flop (elite javelin, Natural Athlete)</label>
   <input id="time" type="range" min="0" max="4000" value="0" aria-label="Throw time">
   <output id="phase"></output>
 </div>
@@ -36,7 +37,7 @@
 
   const cv = document.querySelector('#study'), g = cv.getContext('2d'),
     slider = document.querySelector('#time'), play = document.querySelector('#play'),
-    speed = document.querySelector('#speed'), foul = document.querySelector('#foul'), style = document.querySelector('#style'),
+    speed = document.querySelector('#speed'), foul = document.querySelector('#foul'), flop = document.querySelector('#flop'), style = document.querySelector('#style'),
     focus = document.querySelector('#focus'),
     status = document.querySelector('#phase'),
     events = ['shot', 'discus', 'hammer', 'jav'],
@@ -50,7 +51,7 @@
   g.imageSmoothingEnabled = false;
   play.onclick = () => { paused = !paused; play.textContent = paused ? 'Play' : 'Pause'; };
   slider.oninput = () => { elapsed = Number(slider.value); paused = true; play.textContent = 'Play'; draw(elapsed); };
-  foul.onchange = style.onchange = focus.onchange = () => draw(elapsed);
+  foul.onchange = flop.onchange = style.onchange = focus.onchange = () => draw(elapsed);
 
   function phaseAt(ev, t) {
     return throwPhase(timingOf(ev), t);
@@ -66,7 +67,7 @@
         const width = comparing ? 540 : 270, height = comparing ? 400 : 160;
         const left = col * width, top = row * height, scale = comparing ? 4 : 2, factor = scale / 2;
         const ox = left + (comparing ? 360 : 164), oy = top + (comparing ? 282 : 124),
-          [phase, p] = phaseAt(ev, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked, style: Number(style.value) }),
+          [phase, p] = phaseAt(ev, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked, style: Number(style.value), flop: flop.checked && ev === 'jav' && level === 3 }),
           pose = m.pose || (m.run ? 'carry' : 'throw'), x = ox + m.dx * factor, y = oy + m.dy * factor;
         g.fillStyle = col % 2 ? '#293e32' : '#304635';
         g.fillRect(left + 2, top + 2, width - 4, height - 4);

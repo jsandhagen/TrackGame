@@ -32,15 +32,44 @@ The following videos were inspected as sequences of actual frames, including the
 | Javelin crossovers | Low passing steps alternate left and right support; final impulse briefly airborne | Withdrawn behind the shoulder, shaft close to level | Leads along the runway, visibly separated from the large head |
 | Javelin block / delivery | Right foot catches, left leg braces; pelvis advances before chest | Stays long through the block, then elbow leads the overarm strike | Closes beside the ribs before the throwing arm comes through |
 
-Explicit pelvis offsets in the delivery poses let the hips lead a still-closed chest, rather than moving the head, trunk and hips backward together. The javelin has separate passing and contact poses and a free-arm closing pose between the block and hip drive. The discus catches over a bent right leg, then rises onto the braced left side. The implement launch point accounts for the disc sitting below the palm.
+Explicit pelvis offsets in the delivery poses let the hips lead a still-closed chest, rather than moving the head, trunk and hips backward together. Every javelin stride has a contact pose and a toe-off pose, and the delivery adds a free-arm closing pose between the block and hip drive. The discus catches over a bent right leg, then rises onto the braced left side. The implement launch point accounts for the disc sitting below the palm.
 
-Arm proportions match the small torso and legs: the drawn javelin arm reaches about seven sprite pixels from its shoulder, and the extended discus arm about six. Both upper arm and forearm stay compact through the release and recovery. Separate shoulder anchors show the javelin's closed chest during crossovers, then the throwing shoulder coming forward and rising as the hips drive. Discus shoulders open into the strike while the free arm folds in. The javelin's shaft retains its length and drawn-back position with the grip nearer its balance point. Rendering and implement attachment positions use the same shoulder, elbow and hand geometry.
+Arm proportions match the small torso and legs: the drawn javelin arm reaches about seven sprite pixels from its shoulder, and the extended discus arm about six. Both upper arm and forearm stay compact through the release and recovery. Separate shoulder anchors show the javelin's closed chest during crossovers, then the throwing shoulder coming forward and rising as the hips drive. Discus shoulders open into the strike while the free arm folds in. On the run-up the javelin is carried level above the shoulder at forehead height, with the palm under it and the forearm up behind the ear, clear of the face, and most of the shaft reaching out in front; this raised carry is the one pose whose reach goes slightly past the compact arm. Withdrawn, the arm stays long behind with the tip by the brow, the shaft angled a little up along the arm. The sprite canvas is wide enough for the full shaft. Rendering and implement attachment positions use the same shoulder, elbow and hand geometry.
 
-Discus full-turn preparation uses a dedicated planted stance for the forward swing and backswing: both shoes keep the same positions as the chest winds around them. The wide right-leg sweep starts during the subsequent left-foot entry. Preparation takes the slower part of the animation; the low drive, right-foot catch, left plant and delivery follow in increasingly short intervals. The right foot retains its centre catch position through the plant and hip drive. The South African drill uses the same quick finish after its step-through.
+Discus full-turn preparation uses a dedicated planted stance for the forward swing and backswing: both shoes keep the same positions as the chest winds around them. The wide right-leg sweep starts during the subsequent left-foot entry. The right foot retains its centre catch position through the plant and hip drive. The South African drill uses the same quick finish after its step-through.
+
+## Rhythm and timing
+
+Every phase runs in real time at the meet's 1× speed, with durations taken from elite biomechanics. Ranges are approximate; reference values vary by athlete and study. Meet durations are unchanged. Club-map practice uses the same technique and release times as the meet for each event, so a throw there is never hurried.
+
+| Javelin | Game: three-step · full · crossover · elite | Real (approx.) |
+| --- | --- | --- |
+| Carry and crossover strides | — · 255→240 · 245→225 · 230→215 ms, quickening | 0.22–0.27 s |
+| Penultimate: last left contact to the right catch, airborne and low | 300 · 285 · 280 · 290 ms, the longest stride in time and distance | 0.25–0.30 s |
+| Final step: right catch to left block | 170 · 160 · 160 · 150 ms | 0.15–0.25 s |
+| Block to release: free arm, hips, elbow | 150 · 150 · 130 · 120 ms | 0.10–0.15 s |
+| Release to the right leg landing in the reverse | about 280 ms | 0.2–0.3 s |
+
+The rhythm reads "da · da · da · da · daa-da-DUM". The full approach runs three carry strides with the javelin over the shoulder, withdraws on a left contact, crosses over and takes off from the left for the penultimate. The three-step form starts withdrawn, settles, then goes left, right, left. Each stride lands where `throw-motion.js` plants it: the body is placed from the supporting shoe's position in the pose, so a support foot never slides. Before release the body travels at about the same speed through the crossovers and the impulse. It only brakes once the left leg blocks.
+
+| Discus, from the deepest backswing | Half turn · 1½ turns · fast spin | Real (approx.) |
+| --- | --- | --- |
+| Double support: weight onto the left, the right foot still pushing | — · 280 · 230 ms | 0.20–0.35 s |
+| Left-foot single support: sweep and right knee through | 220 · 360 · 300 ms | 0.30–0.40 s |
+| Flight | 85 · 100 · 70 ms | 0.05–0.10 s |
+| Right-foot pivot in the middle | 300 · 280 · 230 ms | 0.20–0.30 s |
+| Left plant to release | 240 · 200 · 170 ms, the quickest phase | 0.15–0.25 s |
+| The whole turn | 0.84 · 1.22 · 1.00 s | 1.0–1.4 s |
+
+The wind before the turn takes 0.9 s for one and a half turns and 1.1 s for the fast spin, whose patient wind sets up a visibly quicker turn. The standing throw settles, winds back over about 0.8 s and delivers in under 0.4 s.
+
+The forward swing and backswing are eased and unhurried, and everything after them is slow to fast. The deepest backswing stays side-on, so the head never flickers to a back view at the turnaround. The entry sits low into the bent left leg while the right leg sweeps wide and low. Every finish ends facing the sector, watching the discus: spinners after their turn runs on, everyone else after checking the turn. The pelvis heading leads the chest from the entry to the strike.
+
+Both discus arms are swung by the chest heading, rather than interpolated between drawings. The long throwing arm trails a set angle behind the right shoulder line, and the free arm leads from the left. Each hand projects to screen position and depth. An arm behind the torso is drawn behind it, so the discus is hidden behind the body as the entry faces the camera. It reappears trailing through the flight and the pivot, swings round behind on the rear side, and is slung through toward the sector at release. The hands stay below the big chin so the long arm never smears across the face. The angles are slightly shallower than real lag at the deepest points, so the discus stays readable at pixel scale.
 
 Discus and javelin interpolate shoulders, elbows, hands, knees and shoes between contacts. Left and right limbs retain their identities when the drawing order or facing changes. The held implement follows the interpolated hand, including the javelin's changing shaft angle. Only the discus preparatory swing eases at its reversals; travel does not stop at each contact. The last technique pose joins the release, and the release joins recovery with continuous hand positions. Meet rendering, club practice, afterimages and the study page consume this same motion data.
 
-Every javelin form includes a penultimate: left-toe take-off, a long low impulse with the right knee leading, right-foot catch, then a quicker, shorter left block step. The three-step and full forms include this sequence as well as the developed forms; elite form lengthens the split. The meet's javelin origin leaves enough runway on screen for the withdrawn approach.
+The trunk stays nearly upright through the withdrawal and crossovers, with only the arm drawn back. The lean back starts at the last left contact, builds through the take-off and peaks in the impulse, the catch and the block, so only the penultimate reads as the big stride. Every javelin form includes a penultimate: a last left contact and toe take-off, a long low impulse with the right knee leading, a right-foot catch ahead of the leaning-back body, then a quicker, shorter left block step. The three-step and full forms include this sequence as well as the developed forms; elite form lengthens the split. The meet's javelin origin leaves enough runway on screen for the withdrawn approach.
 
 Discus chest and pelvis headings follow one continuous counterclockwise turn after the preparatory wind. Those headings control the projected shoulders, hips, head facing and which limbs appear nearer the camera. The rear-facing stance projects narrowly along the sector direction, with shoe depth distinguishing the two feet. Entry loads the planted left foot while the right leg sweeps free; the centre catch gathers the free leg before the left plant. This avoids both a broad sideways straddle in the wind and inconsistent facing changes during the turn. Club practice preserves the whole animation when mirrored toward a west-facing sector.
 
@@ -66,9 +95,11 @@ Technique comes from form; the finish after release is the athlete's own, so two
 | Event | Classic | Bouncy | Composed |
 | --- | --- | --- | --- |
 | Shot | Gliders reverse; rotational throwers let the turn run on to the back of the circle | Reverse with a hop on the right foot | No reverse: the finish held tall over the left leg |
-| Discus | Spinners reverse and turn on to the back of the circle | Reverse with a hop on the right foot | No reverse: the arm wraps across over planted feet |
+| Discus | Spinners reverse, let the turn run on low over the right leg, then turn back to watch the flight | Reverse with a hop on the right foot | No reverse: the arm wraps across over planted feet |
 | Hammer | Three quarters of a turn more, then plant | A turn and a quarter, or a hop back for standing finishes | No turn: plant and sit back |
 | Javelin | Fold over the block, reverse and stand | A second hop on the right foot after the reverse | Hold the fold over the block, then rise |
+
+One finish is earned rather than chosen. After a big javelin throw (a personal best, a world record, taking the lead, or a best throw that holds it), a Natural Athlete with the elite approach does a Johannes Vetter-style flop. They carry over the blocked left leg instead of stepping through, dive with both legs off the runway, land flat on their hands behind the arc, then come up onto one knee pulling a fist down before standing for the reaction. Hands and shoes stay behind the arc, so the throw stays legal. `flopsForward` in `src/render/throw-motion.js` decides it, and the study page has a Flop toggle.
 
 Fouls use the same finish for everyone, carrying over the front. The style only changes the recovery: it does not alter distance, timing, saves or form. The study page has a Recovery selector.
 
@@ -80,4 +111,4 @@ Javelin movement reserves space for the complete outlined shoe at the game's dou
 
 Run `npm run dev` and open `/scripts/throw-study.html` for all four events at every form level, with pause, speed, time scrubbing and foul controls. The Compare selector enlarges discus half/full, javelin three-step/full or crossover/elite side by side, with the same appearance on both athletes to isolate the movement. Direct links are `/scripts/throw-study.html?focus=discus` and `/scripts/throw-study.html?focus=jav`. It uses production sprites, motion and event timings. Review at half speed, then 1×; inspect the catch, delivery and follow-through as well as the run/turn. The meet keeps its existing duration, speed controls, afterimage reduction and result holds. The animation changes do not alter distance, stats, saves or form unlock thresholds.
 
-`tests/throw-motion.test.js` checks frame validity, approach and phase continuity, ordered contact/drive poses, planted hammer turns, implement launch positions, follow-throughs and legal/foul javelin foot clearance.
+`tests/throw-motion.test.js` checks frame validity, approach and phase continuity, ordered contact/drive poses, support feet that never slide, javelin stride rhythm, the discus orbit, planted hammer turns, implement launch positions, follow-throughs and legal/foul javelin foot clearance.

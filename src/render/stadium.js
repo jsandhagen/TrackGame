@@ -3,7 +3,7 @@ import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, fieldLeaderboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
-import { throwMotion, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
+import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, throwingSector, meetCamera } from "./meet-geometry.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
@@ -567,7 +567,8 @@ export function createStadium(cv) {
         recoveredAt = timing.releaseAt + timing.releaseMs + timing.recoveryMs,
         // Technique comes from form; the finish after release is the athlete's own.
         style = recoveryStyle(active),
-        motionAt = (t) => throwMotion(ev, level, ...throwPhase(timing, t), { foul: !!beat?.foul, style });
+        flop = beat?.type === "throw" && flopsForward(active, ev, level, beat),
+        motionAt = (t) => throwMotion(ev, level, ...throwPhase(timing, t), { foul: !!beat?.foul, style, flop });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
         flip = false,
@@ -584,7 +585,7 @@ export function createStadium(cv) {
         const good = beat.mark != null && (beat.newPb || beat.leading);
         pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
         frame = Math.floor(now / 220) % 2;
-        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style });
+        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style, flop });
         x = O.x + end.dx;
         y = O.y + end.dy;
       } else {
