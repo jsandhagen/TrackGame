@@ -1,4 +1,4 @@
-import { DAY_MS, playbackSpeed, playbackRate } from "./platform/pacing.js";
+import { DAY_MS, playbackSpeed, playbackRate, WATCH_SPEED } from "./platform/pacing.js";
 import { mayRestart } from "./platform/update-policy.js";
 import { GAME_VERSION, updateStatus, hasPendingUpdate, checkForUpdates, applyPendingUpdate, markGameHealthy, updateInfo, onUpdateChange } from "./platform/updates.js";
 import "@fontsource/oswald/latin-500.css";
@@ -777,6 +777,9 @@ function startBeat(beat) {
 }
 // Skip ahead: "mine" runs on to the start of your next throw, "event" to the end of this event.
 // Anything that needs you (a coaching call, the meet's end) still stops the skip.
+// The speed the current throw plays at: the chosen meet speed, unless this one throw was given
+// its own (your throw after "My next throw", or the speed picked in the tactic panel).
+const meetSpeedNow = () => (presenter && view.beatSpeed?.beat === presenter.beat ? view.beatSpeed.speed : view.meetSpeed);
 function skipMeet(to) {
   const m = state.match;
   if (!m || m.phase === "complete" || m.phase === "decide" || $("#dialog").open) return;
@@ -790,7 +793,13 @@ function skipMeet(to) {
     if (!beat) break;
     const stop = beat.type === "decide" || beat.type === "complete" || m.phase === "complete" ||
       (to === "mine" && beat.type === "throw" && beat.side === "home") || (to === "event" && beat.type === "eventEnd" && beat.eventIndex === event);
-    if (stop) return save(), startBeat(beat);
+    if (stop) {
+      // Skipping to your throw shows it at watch speed, whatever speed the meet is running at;
+      // in Coach mode the tactic panel opens with watch speed picked for it.
+      if (to === "mine" && beat.type === "throw") view.beatSpeed = { beat, speed: WATCH_SPEED };
+      if (to === "mine" && beat.type === "decide") view.throwSpeed = WATCH_SPEED;
+      return save(), startBeat(beat);
+    }
     if (beat.type === "throw") view.lastMark = beat;
     if (beat.type === "eventStart") view.lastMark = null;
   }
@@ -802,7 +811,7 @@ function pumpMeet(dt) {
   if (!m) return;
   if (view.meetPaused) return;
   if (presenter) {
-    presenter.el = advanceBeatClock(presenter.beat, presenter.el, dt, view.meetSpeed, state.settings);
+    presenter.el = advanceBeatClock(presenter.beat, presenter.el, dt, meetSpeedNow(), state.settings);
     for (const c of presenter.cues) if (!c.done && presenter.el >= c.at) (c.done = true), c.fn();
     if (presenter.el < presenter.base) return;
   }
@@ -812,7 +821,10 @@ function pumpMeet(dt) {
   if (beat) startBeat(beat);
 }
 function decide(tactic, quality = "good") {
-  const beat = G.decideThrow(state, tactic, quality, view.sig);
+  const beat = G.decideThrow(state, tactic, quality, view.sig),
+    speed = view.throwSpeed;
+  view.throwSpeed = null;
+  if (beat && speed && speed !== view.meetSpeed) view.beatSpeed = { beat, speed };
   view.sig = false;
   view.meter = null;
   view.meetPaused = false;
@@ -940,6 +952,10 @@ $("#app").addEventListener("click", async (e) => {
       break;
     case "meet-speed":
       view.meetSpeed = state.settings.meetSpeed = playbackSpeed(+b.dataset.speed);
+      view.beatSpeed = null;
+      break;
+    case "throw-speed":
+      view.throwSpeed = playbackSpeed(+b.dataset.speed);
       break;
     case "tactic":
       if (state.match?.phase !== "decide") return;
@@ -1753,7 +1769,7 @@ function frame(now) {
       // which includes the safe-area gap above the bar on phones with a notch or status bar.
       const barSpace = (bar.hidden || sidePanel ? 0 : bar.offsetHeight) + "px";
       if (view.barSpace !== barSpace) $("#app").style.setProperty("--meetbar", (view.barSpace = barSpace));
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(view.meetSpeed || state.settings.meetSpeed), insetTop: sidePanel ? 0 : Math.max(0, $("#hud").getBoundingClientRect().bottom - arena.top + 8), insetBottom: bar.hidden || sidePanel ? 0 : Math.max(0, arena.bottom - bar.getBoundingClientRect().top + 8) });
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(meetSpeedNow() || state.settings.meetSpeed), insetTop: sidePanel ? 0 : Math.max(0, $("#hud").getBoundingClientRect().bottom - arena.top + 8), insetBottom: bar.hidden || sidePanel ? 0 : Math.max(0, arena.bottom - bar.getBoundingClientRect().top + 8) });
       if (view.meter) {
         const n = $("#needle");
         if (n) n.style.left = meterPos(now) * 100 + "%";

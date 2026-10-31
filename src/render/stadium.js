@@ -1152,7 +1152,9 @@ export function createStadium(cv) {
     }
     // The camera: which shot this moment deserves, eased towards (or cut to, with reduced motion).
     let shot = { rect: null, rate: 3 };
-    const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 8;
+    // Fast and very fast hold one steady frame per event (the whole sector from the circle); the
+    // close-ups, the chase and the celebrations are for watch speed.
+    const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 2;
     if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.origin, sector.point(SPAN)[0], upperY);
     else if (thrown && focus.thrower && tt < timing.releaseAt + timing.releaseMs)
       shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y], expect: focus.expect }) : throwShot("thrower", focus);

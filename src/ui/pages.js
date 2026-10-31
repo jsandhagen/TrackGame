@@ -1341,6 +1341,7 @@ export function decide(s, view) {
       })
       .join("")}</div>
     <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} The range is the likely distance.</p>
+    <div class="decide-speed"><span>Watch this throw at</span><span class="seg" role="group" aria-label="Speed for this throw">${speedButtons(view.throwSpeed || view.meetSpeed || s.settings.meetSpeed || 1, "throw-speed")}</span></div>
     ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}</div>`;
 }
 // Under the level bar: what the next level brings and the next bigger milestone.
