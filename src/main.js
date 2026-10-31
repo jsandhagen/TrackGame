@@ -1072,10 +1072,13 @@ $("#app").addEventListener("click", async (e) => {
       world.replan();
       break;
     }
-    case "buy-book":
-      if (G.buyBook(state, b.dataset.item)) { toast(ITEMS[b.dataset.item].name + " is in the kit bag. Read it from an athlete's Skills tab.", "level", "spark"); sfx("coin"); save(); }
-      else toast("That book isn't on the shelf any more.", "warn");
-      break;
+    case "buy-book": {
+      const item = b.dataset.item;
+      return confirmPurchase(item, () => {
+        if (G.buyBook(state, item)) { toast(ITEMS[item].name + " is in the kit bag. Read it from an athlete's Skills tab.", "level", "spark"); sfx("coin"); }
+        else toast("That book isn't on the shelf any more.", "warn");
+      }, "One copy a week: read it from an athlete's Skills tab.");
+    }
     case "read-book": {
       const k = b.dataset.item, skill = ITEMS[k]?.skill;
       if (G.readBook(state, id, k)) { toast("Learned " + SKILLS[skill].name + "!", "level", "spark"); sfx("level"); save(); }
@@ -1117,11 +1120,12 @@ $("#app").addEventListener("click", async (e) => {
     case "buy-use": {
       const item = b.dataset.item,
         d = ITEMS[item];
-      const buyThenUse = (aid) => {
+      // Pick who it's for first, so the confirmation can say so.
+      const buyThenUse = (aid) => confirmPurchase(item, () => {
         if (!G.buyItem(state, item)) return toast("Not enough money.", "warn");
         sfx("coin");
         applyItem(item, aid);
-      };
+      }, d.team ? "Used on the whole squad straight away." : "Used on " + state.roster.find((x) => x.id === aid)?.name + " straight away.", "Buy & use");
       if (!d.team) return chooseAthlete("Who gets the " + d.name + "?", item, buyThenUse);
       const problem = G.itemProblem(state, item);
       if (problem) toast(problem + ".", "warn");
@@ -1130,15 +1134,17 @@ $("#app").addEventListener("click", async (e) => {
     }
     case "buy-gear": {
       const item = b.dataset.item;
-      if (!G.buyItem(state, item)) break;
+      return confirmPurchase(item, () => {
+      if (!G.buyItem(state, item)) return;
       sfx("coin");
       save();
       render();
-      return chooseAthlete("Equip the " + ITEMS[item].name + " now?", item, (aid) => {
+      chooseAthlete("Equip the " + ITEMS[item].name + " now?", item, (aid) => {
         if (G.equipItem(state, aid, item)) toast(ITEMS[item].name + " equipped on " + state.roster.find((x) => x.id === aid)?.name + ".", "level", "shop");
         save();
         render();
       }, "Keep in the bag");
+      }, "Equip it on an athlete next, or keep it in the bag.");
     }
     case "equip": {
       const item = b.dataset.item;
@@ -1148,12 +1154,15 @@ $("#app").addEventListener("click", async (e) => {
         render();
       });
     }
-    case "buy":
-      if (G.buyItem(state, b.dataset.item)) {
-        toast(ITEMS[b.dataset.item].name + " packed in the kit bag.", "info", "shop");
-        sfx("coin");
-      }
-      break;
+    case "buy": {
+      const item = b.dataset.item;
+      return confirmPurchase(item, () => {
+        if (G.buyItem(state, item)) {
+          toast(ITEMS[item].name + " packed in the kit bag.", "info", "shop");
+          sfx("coin");
+        }
+      }, "It goes in the kit bag until you use it.");
+    }
     case "forge":
       if (G.forgeItem(state, b.dataset.item)) {
         toast(ITEMS[b.dataset.item].name + " forged to +" + state.forge[b.dataset.item] + ".", "level", "build");
@@ -1233,10 +1242,19 @@ $("#app").addEventListener("click", async (e) => {
       if (G.chooseSponsor(state, b.dataset.value)) toast("Signed with " + b.querySelector("strong").textContent + ".");
       break;
     case "buy-look": {
-      const name = CUSTOMISE[b.dataset.cat]?.options[b.dataset.key]?.name;
-      if (G.buyCustom(state, b.dataset.cat, b.dataset.key)) toast(name + " bought and in use.", "info", "star");
-      else toast(G.customProblem(state, b.dataset.cat, b.dataset.key) || "Not available.", "warn");
-      break;
+      const cat = b.dataset.cat, key = b.dataset.key, o = CUSTOMISE[cat]?.options[key];
+      if (!o) break;
+      const problem = G.customProblem(state, cat, key);
+      if (problem) return toast(problem, "warn");
+      return dialog("Buy " + o.name + "?", P.lookConfirmBody(state, cat, key), [
+        { label: "Buy · " + cash(o.cost), fn: () => {
+          if (G.buyCustom(state, cat, key)) { toast(o.name + " bought and in use.", "info", "star"); sfx("coin"); }
+          else toast(G.customProblem(state, cat, key) || "Not available.", "warn");
+          save();
+          render();
+        }, disabled: state.money < o.cost },
+        { label: "Not now", secondary: true },
+      ], { eyebrow: "Kit & stadium", tone: "shop" });
     }
     case "use-look":
       G.useCustom(state, b.dataset.cat, b.dataset.key);
@@ -1265,6 +1283,14 @@ function glide() {
   else world.focusOn(view.selected, cover);
 }
 // Confirmed construction: build, then show it off on the map.
+// Every shop purchase asks first: what it is, the price, and the money left after.
+function confirmPurchase(item, buy, note = "", verb = "Buy") {
+  const price = G.itemPrice(state, item);
+  dialog(verb + " " + ITEMS[item].name + "?", P.itemConfirmBody(state, item, note), [
+    { label: verb + " · " + cash(price), fn: () => (buy(), save(), render()), disabled: state.money < price },
+    { label: "Not now", secondary: true },
+  ], { eyebrow: "Kit shop", tone: "shop" });
+}
 function confirmBuild(i, type) {
   const before = snapshot();
   if (!G.build(state, i, type)) return toast("That can't be built here right now.", "warn");

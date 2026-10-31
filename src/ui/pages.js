@@ -711,6 +711,15 @@ export function constructionConfirm(s, o) {
     <div class="confirm-facts"><span>Cost <b>${cash(o.cost)}</b></span>${o.upkeep != null ? `<span>Upkeep <b>${o.upkeepFrom ? cash(o.upkeepFrom) + " → " : ""}${cash(o.upkeep)}/wk</b></span>` : ""}<span>Funds after <b class="${after < 300 ? "neg" : ""}">${cash(after)}</b></span></div>
     ${o.note ? `<p class="hint">${o.note}</p>` : ""}</div></div>`;
 }
+// Shop purchases ask first, like building does: what it is, the price, and the money left after.
+export function itemConfirmBody(s, id, note = "") {
+  const d = ITEMS[id];
+  return constructionConfirm(s, { cost: G.itemPrice(s, id), desc: `<b>${esc(d.name)}</b> · ${esc(d.desc)}`, picture: `<span class="confirm-picture">${icon(id, 56)}</span>`, note });
+}
+export function lookConfirmBody(s, cat, key) {
+  const o = CUSTOMISE[cat].options[key];
+  return constructionConfirm(s, { cost: o.cost, desc: `<b>${esc(o.name)}</b> · ${esc(CUSTOMISE[cat].name)}. It goes on straight away.`, picture: `<span class="confirm-picture"><i class="sw big" style="background:${swatch(s, cat, key)}"></i></span>`, note: "Bought once: switch between your looks any time for free." });
+}
 export function buildConfirmBody(s, i, type) {
   const d = FACILITIES[type],
     // Combos this spot would complete, named only if the club has already found them.
