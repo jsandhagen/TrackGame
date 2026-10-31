@@ -778,7 +778,8 @@ export function createStadium(cv) {
     g.setTransform(1, 0, 0, 1, 0, 0);
     h.setTransform(1, 0, 0, 1, 0, 0);
     h.clearRect(0, 0, W, LH);
-    const focus = { origin: [O.x, O.y], upperAt: upperY };
+    // Long events chase the implement in flight; the shot put's short flight stays in one frame.
+    const focus = { origin: [O.x, O.y], upperAt: upperY, chase: ev !== "shot" };
     const el = view.elapsed ?? 99999;
     const hasCut = hasCutIn(beat);
     const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
@@ -1166,7 +1167,7 @@ export function createStadium(cv) {
     const dt = Math.min(100, Math.max(0, now - camAt)), cut = view.reduced || !cam || size !== camSize;
     camAt = now;
     // Faster playback hurries the camera a little, never into a whip.
-    cam = cut ? target : followCamera(cam, target, dt, shot.rate * Math.min(1.5, view.pace || 1), view2);
+    cam = cut ? target : followCamera(cam, target, dt, shot.rate * Math.min(1.5, view.pace || 1), view2, shot.pan);
     camSize = size;
     // The space between the overlays sets the frame's centre; ease it when they resize.
     const middle = (insetTop + ch - insetBottom) / 2;

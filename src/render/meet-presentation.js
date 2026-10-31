@@ -39,7 +39,9 @@ export function throwTiming(beat = {}) {
   const measured = Number.isFinite(beat?.mark) && beat.mark > 0 ? beat.mark : beat?.flightDistance;
   const distance = Number.isFinite(measured) && measured > 0 ? measured : EVENTS[event].min;
   const releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event] - techniqueTrim(event, beat?.form);
-  const flightMs = Math.round(Math.max(400, Math.min(1400, Math.sqrt(distance) * 140)));
+  // Past 50 m the implement hangs a little longer for every extra metre, so a big throw has
+  // time to feel far: about 1.5 s at 80 m, 1.8 s at a record javelin.
+  const flightMs = Math.round(Math.max(400, Math.min(1400, Math.sqrt(distance) * 140)) + Math.max(0, distance - 50) * 8);
   return {
     readyMs: 300, releaseAt, releaseMs: event === "hammer" || event === "jav" ? 120 : 180,
     recoveryMs: 900, flightMs, landAt: releaseAt + flightMs, distance,

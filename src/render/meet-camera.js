@@ -29,13 +29,14 @@ export const MAX_ZOOM_RATE = 1.9;
 export const MAX_PAN_RATE = 0.9;
 // Ease towards the target, within those limits. Zoom moves in log space so pulling out feels as
 // even as pushing in. rate is per second; dt in milliseconds.
-export function followCamera(cam, target, dt, rate, view) {
+// pan overrides the pan limit for one shot: a chase keeps up with the implement in flight.
+export function followCamera(cam, target, dt, rate, view, pan = MAX_PAN_RATE) {
   if (!cam) return { ...target };
   const t = Math.max(0, dt) / 1000, k = 1 - Math.exp(-t * rate);
   const dz = Math.max(-1, Math.min(1, (Math.log(target.z) - Math.log(cam.z)) * k / (Math.log(MAX_ZOOM_RATE) * t || 1))) * Math.log(MAX_ZOOM_RATE) * t;
   const z = Math.exp(Math.log(cam.z) + (t ? dz : 0));
   let dx = (target.x - cam.x) * k, dy = (target.y - cam.y) * k;
-  const limit = (MAX_PAN_RATE * view.width / z) * t, d = Math.hypot(dx, dy);
+  const limit = (pan * view.width / z) * t, d = Math.hypot(dx, dy);
   if (d > limit) (dx *= limit / d), (dy *= limit / d);
   return clampCamera({ x: cam.x + dx, y: cam.y + dy, z }, view);
 }
@@ -57,6 +58,12 @@ export function followCamera(cam, target, dt, rate, view) {
 const SPACE = { back: 80, ahead: 96, above: 104, below: 24, lead: 86, expect: 40 };
 const ahead = (x, expect) => Math.max(x + SPACE.ahead, expect != null ? expect + SPACE.expect : -Infinity);
 const reach = (origin, x, y, upperAt, ground = origin[1], expect) => [origin[0] - SPACE.back, Math.min(origin[1] - SPACE.above, y - 30, upperAt ? upperAt(x) - 24 : Infinity), Math.max(ahead(origin[0], expect), x + SPACE.lead), Math.max(origin[1] + SPACE.below, ground + SPACE.below)];
+// f.chase (discus, hammer, javelin): once the flight outgrows CHASE_WIDTH the camera stops pulling
+// back to keep the circle and runs with the implement instead, so a long throw carries the eye
+// down the sector, past the distance lines, and lands well away from the circle. The landing
+// holds that frame on the mark; the result then pulls back to show how far it went.
+export const CHASE_WIDTH = 240;
+const chase = (rect, f) => (f.chase && rect[2] - rect[0] > CHASE_WIDTH ? [rect[2] - CHASE_WIDTH, rect[1], rect[2], rect[3]] : rect);
 export function throwShot(phase, f) {
   if (phase === "thrower") {
     const [x, y] = f.thrower;
@@ -64,9 +71,9 @@ export function throwShot(phase, f) {
   }
   if (phase === "flight") {
     const [ix, iy] = f.implement, [gx, gy] = f.ground;
-    return { rect: reach(f.origin, Math.max(ix, gx), iy, f.upperAt, gy, f.expect), rate: 6 };
+    return { rect: chase(reach(f.origin, Math.max(ix, gx), iy, f.upperAt, gy, f.expect), f), rate: 6, pan: f.chase ? 2 : undefined };
   }
-  if (phase === "landing") return { rect: reach(f.origin, f.landing[0], f.landing[1], f.upperAt, f.landing[1], f.expect), rate: 4 };
+  if (phase === "landing") return { rect: chase(reach(f.origin, f.landing[0], f.landing[1], f.upperAt, f.landing[1], f.expect), f), rate: 4 };
   if (phase === "result") {
     const far = Math.max(f.landing?.[0] ?? f.origin[0], f.lead ?? f.origin[0]);
     return { rect: reach(f.origin, far, f.landing?.[1] ?? f.origin[1], f.upperAt, f.landing?.[1], f.expect), rate: 2.5 };
