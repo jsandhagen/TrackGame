@@ -850,9 +850,9 @@ export function createStadium(cv) {
     // The thrower's own best so far, flagged in their colours.
     const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
     if (own != null) lines.push({ mark: own, label: own === leader?.mark ? null : own.toFixed(2), color: "#fff6dc", flag: upSide === "home" ? s.colors.primary : m.color });
-    // Stack labels in rows so close marks don't overprint each other, and keep each one inside
-    // what the camera shows (last frame's view): near the edge a label slides in from its line
-    // rather than being cut off.
+    // Stack labels in rows so close marks don't overprint each other. Only lines in the camera's
+    // view (last frame's) are labelled, and a label near the edge slides in from its line rather
+    // than being cut off.
     const rowsEnd = [],
       seenL = cam ? Math.max(0, cam.x - view2.width / (2 * cam.z)) : 0,
       seenR = cam ? Math.min(W, cam.x + view2.width / (2 * cam.z)) : W;
@@ -861,7 +861,8 @@ export function createStadium(cv) {
       const x = atX(l.mark);
       if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
       else distanceArc(g, l.mark, l.color, l.dash);
-      if (!l.label) continue;
+      // A line the camera can't see keeps its label to itself.
+      if (!l.label || x < seenL || x > seenR) continue;
       const half = measure(l.label) / 2 + 3,
         lx = Math.round(Math.max(seenL + half + 4, Math.min(seenR - half - 4, x)));
       let row = 0;
