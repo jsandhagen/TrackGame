@@ -75,3 +75,36 @@ test('the result shot frames the circle and the mark, and the camera eases betwe
   assert(Math.abs(end.z-cam.z)<1e-6&&Math.abs(end.x-cam.x)<1e-6,'and settles on the shot');
  }
 });
+
+test('a shot put opens on the athlete and the landing area together, then pulls out without a jump',()=>{
+ for(const view of views) {
+  const sector=throwingSector('shot',view.width,15),origin=[sector.origin.x,sector.origin.y],[ex]=sector.point(9);
+  const close=frameShot(throwShot('thrower',{thrower:origin}).rect,view),shot=throwShot('thrower',{thrower:origin,expect:ex}),cam=frameShot(shot.rect,view);
+  assert(cam.z<close.z*0.75,'noticeably wider than the close-up');
+  const [x0,,x1]=visible(cam,view);
+  assert(x0<=origin[0]&&x1>=ex,'the circle and the expected landing are both in frame');
+  const release=throwShot('flight',{origin,implement:[origin[0]+10,origin[1]-60],ground:[origin[0]+10,origin[1]],upperAt:sector.upperY,expect:ex}).rect;
+  assert.deepEqual(release.map(Math.round),shot.rect.map(Math.round),'no jump at release');
+ }
+});
+
+test('a long throw is chased down the sector: the implement stays in frame, the circle drops out, the result pulls back',()=>{
+ for(const view of views) {
+  const sector=throwingSector('jav',view.width,90),origin=[sector.origin.x,sector.origin.y],[ex,ey]=sector.point(80);
+  let circleLost=false;
+  for(let f=0;f<=1;f+=0.05) {
+   const gx=origin[0]+(ex-origin[0])*f,gy=origin[1]+(ey-origin[1])*f,air=[gx,gy-80*4*f*(1-f)];
+   const shot=throwShot('flight',{origin,implement:air,ground:[gx,gy],upperAt:sector.upperY,chase:true}),[x0,y0,x1,y1]=visible(frameShot(shot.rect,view,shot.cap),view);
+   for(const [x,y] of [air,[gx,gy]]) assert(x>=x0-1e-6&&x<=x1+1e-6&&y>=y0-1e-6&&y<=y1+1e-6,`f=${f.toFixed(2)}: implement and shadow in frame`);
+   if(origin[0]<x0) circleLost=true;
+   assert(shot.pan>1,'the chase may pan faster than the usual limit');
+  }
+  assert(circleLost,'by the end of a long flight the circle is behind the camera');
+  const land=throwShot('landing',{origin,landing:[ex,ey],upperAt:sector.upperY,chase:true}).rect,result=throwShot('result',{origin,landing:[ex,ey],upperAt:sector.upperY,chase:true}).rect;
+  assert(land[0]>origin[0],'the landing holds on the mark, away from the circle');
+  assert(result[0]<=origin[0]&&result[2]>=ex,'the result pulls back to show the circle and the mark');
+  // A short throw never needs the chase: it stays one pull-out from the circle.
+  const [sx,sy]=sector.point(12),short=throwShot('flight',{origin,implement:[sx,sy-10],ground:[sx,sy],upperAt:sector.upperY,chase:true}).rect;
+  assert(short[0]<=origin[0],'a short throw keeps the circle in frame');
+ }
+});

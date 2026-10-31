@@ -778,7 +778,8 @@ export function createStadium(cv) {
     g.setTransform(1, 0, 0, 1, 0, 0);
     h.setTransform(1, 0, 0, 1, 0, 0);
     h.clearRect(0, 0, W, LH);
-    const focus = { origin: [O.x, O.y], upperAt: upperY };
+    // Long events chase the implement in flight; the shot put's short flight stays in one frame.
+    const focus = { origin: [O.x, O.y], upperAt: upperY, chase: ev !== "shot" };
     const el = view.elapsed ?? 99999;
     const hasCut = hasCutIn(beat);
     const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
@@ -850,9 +851,9 @@ export function createStadium(cv) {
     // The thrower's own best so far, flagged in their colours.
     const own = board.find((r) => r.side === upSide && r.id === upAthlete?.id)?.mark ?? best((upSide === "home" ? m.homeMarks : m.awayMarks)[bi].slice(0, inAir?.side === upSide ? inAir.attempt : undefined));
     if (own != null) lines.push({ mark: own, label: own === leader?.mark ? null : own.toFixed(2), color: "#fff6dc", flag: upSide === "home" ? s.colors.primary : m.color });
-    // Stack labels in rows so close marks don't overprint each other, and keep each one inside
-    // what the camera shows (last frame's view): near the edge a label slides in from its line
-    // rather than being cut off.
+    // Stack labels in rows so close marks don't overprint each other. Only lines in the camera's
+    // view (last frame's) are labelled, and a label near the edge slides in from its line rather
+    // than being cut off.
     const rowsEnd = [],
       seenL = cam ? Math.max(0, cam.x - view2.width / (2 * cam.z)) : 0,
       seenR = cam ? Math.min(W, cam.x + view2.width / (2 * cam.z)) : W;
@@ -861,7 +862,8 @@ export function createStadium(cv) {
       const x = atX(l.mark);
       if (l.flag) flag(g, x, centreY(x) - 3, l.flag);
       else distanceArc(g, l.mark, l.color, l.dash);
-      if (!l.label) continue;
+      // A line the camera can't see keeps its label to itself.
+      if (!l.label || x < seenL || x > seenR) continue;
       const half = measure(l.label) / 2 + 3,
         lx = Math.round(Math.max(seenL + half + 4, Math.min(seenR - half - 4, x)));
       let row = 0;
@@ -964,6 +966,8 @@ export function createStadium(cv) {
         mo = { ...mo, ball: ev === "hammer" ? mo.ball : null };
       }
       focus.thrower = [x, y];
+      // A shot put lands just past the circle: frame the athlete with where it should land.
+      if (ev === "shot") focus.expect = Math.min(W - 6, O.x + rawMark(active, ev) * ppm);
       const look = athleteLook(active, activeColors);
       // The best throwers leave a blur of afterimages through the turns.
       if (mo?.ghost && !view.reduced)
@@ -1148,10 +1152,12 @@ export function createStadium(cv) {
     }
     // The camera: which shot this moment deserves, eased towards (or cut to, with reduced motion).
     let shot = { rect: null, rate: 3 };
-    const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 8;
+    // Fast and very fast hold one steady frame per event (the whole sector from the circle); the
+    // close-ups, the chase and the celebrations are for watch speed.
+    const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 2;
     if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.origin, sector.point(SPAN)[0], upperY);
     else if (thrown && focus.thrower && tt < timing.releaseAt + timing.releaseMs)
-      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y] }) : throwShot("thrower", focus);
+      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y], expect: focus.expect }) : throwShot("thrower", focus);
     else if (thrown && !landed && focus.implement) shot = view.reduced ? { rect: null, rate: 3 } : throwShot("flight", focus);
     else if (thrown && focus.landing && sinceLand < LANDING_HOLD_MS) shot = throwShot("landing", focus);
     else if (thrown && party && focus.thrower && sinceLand < partyEnd) shot = { ...throwShot("thrower", focus), rate: 3 };
@@ -1163,7 +1169,7 @@ export function createStadium(cv) {
     const dt = Math.min(100, Math.max(0, now - camAt)), cut = view.reduced || !cam || size !== camSize;
     camAt = now;
     // Faster playback hurries the camera a little, never into a whip.
-    cam = cut ? target : followCamera(cam, target, dt, shot.rate * Math.min(1.5, view.pace || 1), view2);
+    cam = cut ? target : followCamera(cam, target, dt, shot.rate * Math.min(1.5, view.pace || 1), view2, shot.pan);
     camSize = size;
     // The space between the overlays sets the frame's centre; ease it when they resize.
     const middle = (insetTop + ch - insetBottom) / 2;

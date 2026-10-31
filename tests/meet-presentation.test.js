@@ -53,7 +53,7 @@ test('deliveries build before release and short marks have shorter, lower flight
   assert.equal(short.releaseAt,long.releaseAt,'distance never accelerates the thrower');
   assert(short.flightMs<long.flightMs);assert(short.arcHeight<long.arcHeight);
   assert(short.flightMs<900,`${event}: a novice throw does not float`);
-  assert(long.flightMs<=1400);
+  assert(long.flightMs<=1800,`${event}: even a record lands within two seconds`);
   assert.equal(throwPhase(short,short.releaseAt-1)[0],'technique');
   assert.deepEqual(throwPhase(short,short.releaseAt),['release',0]);
   const recovering=throwPhase(short,short.landAt);
@@ -63,6 +63,7 @@ test('deliveries build before release and short marks have shorter, lower flight
   assert(Number.isFinite(foul.landAt));assert(foul.landAt>foul.releaseAt);
  }
  assert(throwTiming({event:'shot',mark:9}).flightMs<500);
+ assert(throwTiming({event:'jav',mark:85}).flightMs-throwTiming({event:'jav',mark:60}).flightMs>250,'a big throw hangs noticeably longer');
  assert(throwTiming({event:'hammer'}).releaseAt>throwTiming({event:'shot'}).releaseAt,'hammer winds and turns have more time');
 });
 

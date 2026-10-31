@@ -5476,3 +5476,11 @@ dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1
   #hud .hud-wallet .res { padding: 5px 6px; }
   #hud .seg.time button { min-width: 30px; padding: 4px 5px; }
 }
+/* The picture in a shop purchase confirmation: the item's icon or the look's swatch. */
+.confirm-picture { flex: none; display: grid; place-items: center; width: 84px; height: 84px; border-radius: 12px; background: var(--paper2); border: 1px solid var(--line); }
+.confirm-picture canvas { width: 56px; height: 56px; image-rendering: pixelated; }
+.confirm-picture .sw.big { display: block; width: 60px; height: 60px; border-radius: 10px; border: 2px solid #0b1d16; }
+@media (max-width: 480px) { .confirm-build:has(.confirm-picture) { flex-direction: row; } }
+/* The tactic panel's own speed choice, for the throw about to be taken. */
+.decide-speed { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.decide-speed .seg { background: var(--green); }
