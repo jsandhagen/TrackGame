@@ -4,7 +4,7 @@ import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
 import { throwTiming } from '../src/render/meet-presentation.js';
 import { groundRise } from '../src/render/meet-geometry.js';
-import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS } from '../src/render/sprites.js';
+import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS, SHOT_ROTATION_START } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
 const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i) => throwMotion(ev, level, phase, i / n));
@@ -112,8 +112,8 @@ test('discus accelerates into a short right-left delivery while retaining its ce
  }
 });
 
-test('discus and javelin interpolate their limbs and join phase boundaries without a hand jump', () => {
- for (const event of ['discus', 'jav']) for (let level = 0; level < 4; level++) {
+test('rotational shot, discus and javelin interpolate limbs and join phases without a hand jump', () => {
+ for (const event of ['shot', 'discus', 'jav']) for (let level = event === 'shot' ? 3 : 0; level < 4; level++) {
   const hand = m => { const [x, y] = gripOf(spriteOptions(event, m)); return [m.dx + x * 2, m.dy + y * 2]; };
   const motion = sample(event, level, 'technique', 4000);
   assert(motion.some(m => m.blend && m.blend.t > 0.1 && m.blend.t < 0.9), 'in-between joints accompany body travel');
@@ -205,14 +205,15 @@ test('contact timing joins preparation, delivery and recovery without body jumps
 test('the shot and discus drive through planted positions before release, then sweep and settle', () => {
   for (const ev of ['shot', 'discus']) for (let level = 0; level < 4; level++) {
     const technique = sample(ev, level, 'technique', 200), follow = sample(ev, level, 'follow');
-    assert(technique.some(m => m.frame === (ev === 'shot' ? 10 : 11)), 'leg drive precedes the strike');
+    const drive = ev === 'shot' ? level === 3 ? SHOT_ROTATION_START + 11 : 10 : 11;
+    assert(technique.some(m => m.frame === drive), 'leg drive precedes the strike');
     assert(technique.every(m => !m.released), 'the implement stays held until release');
     assert(follow.every(m => m.released && m.frame !== 2), 'empty arm continues moving after release');
     assert(new Set(follow.map(m => m.frame)).size >= 2, 'sweep and balanced recovery are distinct');
   }
   for (const level of [1, 2, 3]) {
-    const frames = sample('shot', level, 'technique', 200).map(m => m.frame);
-    assert(frames.indexOf(9) < frames.indexOf(10), 'closed centre catch precedes leg extension');
+    const frames = sample('shot', level, 'technique', 200).map(m => level === 3 ? m.frame - SHOT_ROTATION_START : m.frame);
+    assert(frames.indexOf(9) < frames.indexOf(level === 3 ? 11 : 10), 'closed centre catch precedes leg extension');
   }
 });
 
@@ -316,10 +317,32 @@ test('elite shot technique: the glide starts tall and folds, the rotation winds 
     const frames = sample('shot', level, 'technique', 200).map(m => m.frame);
     assert(frames[0] === 13 && frames.indexOf(13) < frames.indexOf(4) && frames.indexOf(4) < frames.indexOf(5), 'tall start, fold, then drive');
   }
-  const spin = sample('shot', 3, 'technique', 400), frames = spin.map(m => m.frame);
-  assert(frames.indexOf(15) >= 0 && frames.indexOf(15) < frames.indexOf(6), 'the wind comes before the entry');
-  assert(spin.some(m => m.frame === 8 && m.dy < -1), 'a short flight across the circle');
-  assert(spin.filter(m => m.frame === 15 || m.frame === 14).length > spin.filter(m => m.frame === 9 || m.frame === 1).length, 'slow preparation, quick finish');
+  const spin = sample('shot', 3, 'technique', 400).map(m => ({...m, frame: m.frame - SHOT_ROTATION_START})), frames = spin.map(m => m.frame);
+  assert(frames.indexOf(24) >= 0 && frames.indexOf(24) < frames.indexOf(6), 'the wind comes before the entry');
+  assert(spin.some(m => m.frame === 7 && m.dy < -1), 'a short flight across the circle');
+  assert(spin.filter(m => [22,23,24].includes(m.frame)).length > spin.filter(m => m.frame === 9 || m.frame === 1).length, 'slow preparation, quick finish');
+});
+
+test('rotational shot turns continuously with leading hips and keeps the shot at the neck until the strike', () => {
+  const motion = sample('shot', 3, 'technique', 2000);
+  const turning = motion.slice(840);
+  for (let i = 1; i < turning.length; i++) {
+    assert(turning[i].turn >= turning[i - 1].turn, 'chest keeps turning after the wind');
+    assert(turning[i].hipTurn >= turning[i - 1].hipTurn, 'hips keep turning after the wind');
+  }
+  assert(turning.some(m => m.hipTurn - m.turn > 0.4), 'hips lead the closed chest');
+  assert.equal(turning.at(-1).turn, 4 * Math.PI, 'one and a half turns from the rear-facing stance');
+  for (const m of motion.slice(0, 1962)) {
+    const arms = armJointsOf(spriteOptions('shot', m));
+    // Locate the loaded arm independently of the drawing order: the other arm reaches out.
+    const loaded = arms.find(([s, , h]) => Math.abs(h[1] - s[1] + 3) < 1e-8);
+    assert(loaded, 'putting hand remains beside the neck through entry and catch');
+    assert(Math.abs(loaded[2][0] - loaded[0][0]) <= 1.5 + 1e-8, 'shot is tucked, not swung on a long discus arm');
+  }
+  const release = throwMotion('shot', 3, 'release', 0);
+  const hand = gripOf(spriteOptions('shot', release));
+  assert(hand[0] > 5 && hand[1] < -15, 'the put extends forward and upward');
+  for (const level of [0,1,2]) assert(sample('shot', level, 'technique').every(m => !m.blend?.turn && m.frame < SHOT_ROTATION_START), 'standing and glide keep their own technique');
 });
 
 test('elite discus drives low with a brief flight after a slower entry', () => {
@@ -406,8 +429,8 @@ test('the club map loops the meet throw: same frames, a release, then a rest bef
  }
 });
 
-test('discus and javelin support feet never slide while they carry the body', () => {
- for (const ev of ['discus', 'jav']) for (let level = 0; level < 4; level++) {
+test('rotational shot, discus and javelin support feet never slide while carrying the body', () => {
+ for (const ev of ['shot', 'discus', 'jav']) for (let level = ev === 'shot' ? 3 : 0; level < 4; level++) {
   const ground = m => ev === 'jav' ? groundRise(m.dx) : 0;
   const planted = m => worldFeet(ev, m).map(([x, y]) => Math.abs(y - (ground(m) - 2)) < 1e-6 ? x : null);
   let before = planted(throwMotion(ev, level, 'technique', 0));

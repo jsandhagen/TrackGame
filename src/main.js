@@ -1293,8 +1293,17 @@ $("#app").addEventListener("click", async (e) => {
     case "release-contract": {
       const a = state.roster.find((x) => x.id === id);
       if (!a) return;
-      return dialog("A new chapter?", `<p>Release ${esc(a.name)}? Their gear returns to the bag and their marks stay in club history.</p>`, [
-        { label: "Release contract", fn: () => (G.releaseAthlete(state, a.id), (view.athlete = null), save(), render()) },
+      const problem = G.releaseProblem(state, id);
+      if (problem) return toast(problem, "warn");
+      return dialog("A new chapter?", `<p>Release ${esc(a.name)}? Their gear returns to the bag and their marks stay in club history. Their meet entries and facility duties are cleared.</p>`, [
+        { label: "Release athlete", fn: () => {
+          if (!G.releaseAthlete(state, a.id)) return toast(G.releaseProblem(state, a.id), "warn");
+          view.athlete = null;
+          view.selected = null;
+          toast(a.name + " has left the squad.");
+          save();
+          render();
+        } },
         { label: "Keep them", secondary: true },
       ], { tone: "warn", eyebrow: "Contract" });
     }

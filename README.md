@@ -38,6 +38,8 @@ A cosy, offline club-management game about a tiny throwing club that grows into 
 
 **Three save slots and a main menu.** The game opens on a title screen: continue your club, play or start another in one of three slots, import a backup, or delete a slot. **Main menu** in the game menu returns there; the club is saved on the way.
 
+**Managing the squad.** Open an athlete's profile and choose **Release athlete** on any tab. Confirm to free their squad place and stop their wages; equipped gear returns to the bag, while their marks and career stay in club history. Releases unlock with scouting, require at least four athletes to remain, and wait until the current meet has finished. Other athletes' event selections stay in place.
+
 No decision times out. Time only moves while you press play and stops for meet day and story events. Progress saves after every day and every throw.
 
 ## Run on your computer
