@@ -492,6 +492,49 @@ function chooseAthlete(title, item, fn, cancel = "Cancel") {
       }),
   );
 }
+// Choosing who fills a meet entry: a picker with every athlete's portrait, stats and forecast.
+function pickEntry(ev, k) {
+  if (!EVENTS[ev] || state.match) return;
+  dialog(EVENTS[ev].name + " · entry " + (k + 1), P.entryPicker(state, ev, k), [{ label: "Cancel", secondary: true }], { eyebrow: "Choose an athlete", tone: "news", cls: "entry-dialog" });
+  $("#dialog").querySelectorAll("[data-pick]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        sfx("tap");
+        $("#dialog").close();
+        if (!G.assignEntry(state, ev, k, +b.dataset.pick)) toast("Choose different athletes; each athlete can enter two events.", "warn");
+        save();
+        render();
+      }),
+  );
+}
+function renameAthlete(id) {
+  const a = state.roster.find((x) => x.id === id);
+  if (!a) return;
+  dialog("Rename " + a.name.split(" ")[0] + "?", P.renameBody(a), [{ label: "Cancel", secondary: true }, { label: "Save name" }], { eyebrow: "Squad", tone: "news", cls: "rename-dialog" });
+  const dlg = $("#dialog"),
+    input = dlg.querySelector("#athleteName"),
+    saveBtn = dlg.querySelector('[data-choice="1"]'),
+    problem = dlg.querySelector("#renameProblem");
+  // The save button only closes the window for a name that works; otherwise it says why.
+  saveBtn.onclick = () => {
+    const why = G.renameProblem(state, a.id, input.value);
+    if (why) {
+      problem.textContent = why;
+      problem.hidden = false;
+      return input.focus();
+    }
+    sfx("tap");
+    dlg.close();
+    const old = a.name;
+    G.renameAthlete(state, a.id, input.value);
+    save();
+    render();
+    if (a.name !== old) toast(old + " is now " + a.name + ".");
+  };
+  input.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), saveBtn.click()));
+  input.focus();
+  input.select();
+}
 const growthBefore = (a) => ({ stats: [...a.stats], stamina: a.stamina, condition: a.condition, level: a.level, sp: a.sp, injury: a.injury, xp: a.xp, potential: a.potential });
 // The payoff moment: a card with the athlete and their bars filling up.
 function showGrowth(a, before, eyebrow, extra = []) {
@@ -906,6 +949,10 @@ $("#app").addEventListener("click", async (e) => {
     case "edit-lineup":
       view.editLineup = !view.editLineup;
       break;
+    case "pick-entry":
+      return pickEntry(b.dataset.event, +b.dataset.slot);
+    case "rename-athlete":
+      return renameAthlete(+b.dataset.id);
     case "autolineup":
       G.autoLineup(state);
       toast("Strongest lineup entered.");
@@ -1389,7 +1436,6 @@ $("#app").addEventListener("change", async (e) => {
   if (kind === "loadouts" && a) G.enableLoadouts(state, a.id, el.checked);
   if (kind === "autorest" && a) a.autoRest = el.checked;
   if (kind === "autotaper" && a) a.autoTaper = el.checked;
-  if (kind === "entry" && !G.assignEntry(state, el.dataset.event, +el.dataset.slot, +el.value)) toast("Choose different athletes; each athlete can enter two events.", "warn");
   if (kind === "lineup" && !G.assign(state, el.dataset.event, +el.value)) toast("An athlete can cover at most two events and must be healthy.", "warn");
   if (kind === "orientation" && ["auto","portrait","landscape"].includes(el.value)) {
     const previous = state.settings.orientation || "auto";

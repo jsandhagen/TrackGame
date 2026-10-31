@@ -194,6 +194,9 @@ export function statRows(a, compact = false) {
     )
     .join("")}${compact ? "</div>" : `<div class="scale"><span>1</span><span>50</span><span>100</span></div><p class="hint">The notch is their current ceiling (${Math.floor(cap)}); rank-ups lift it. The bars show how fast each stat grows for a ${esc(typeName(a))}. What wins the ${EVENTS[a.event].name.toLowerCase()}: ${EVENTS[a.event].weights.map((w, i) => STAT_SHORT[i] + " " + Math.round(w * 100) + "%").join(", ")}.</p></div>`}`;
 }
+export function renameBody(a) {
+  return `<div class="rename-body">${portrait(a, "large")}<label>New name<input id="athleteName" maxlength="${G.NAME_MAX}" value="${esc(a.name)}" autocomplete="off" spellcheck="false"></label></div><p class="hint">Up to ${G.NAME_MAX} characters. Club records follow them to the new name.</p><p class="warning" id="renameProblem" hidden></p>`;
+}
 function athletePage(s, a, view) {
   const tabs = [
     ["stats", "Stats"],
@@ -282,7 +285,7 @@ function athletePage(s, a, view) {
     <details class="danger"><summary>Release contract</summary><p class="hint">${esc(a.name)} leaves the squad; their gear returns to the bag and their marks stay in club history.</p>${btn("Release " + esc(a.name.split(" ")[0]), "release-contract", `data-id="${a.id}" ${s.roster.length <= 4 ? "disabled" : ""}`, "subtle")}</details>`;
   }
   return `<div class="athlete-page"><aside class="athlete-side">${btn("‹ Squad", "back-squad", "", "text")}
-  <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)}</h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} · ${esc(typeName(a))} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
+  <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)} <button class="rename" data-act="rename-athlete" data-id="${a.id}" title="Rename ${esc(a.name)}" aria-label="Rename ${esc(a.name)}">Rename</button></h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} · ${esc(typeName(a))} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
   <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav></aside><div class="athlete-body">${body}</div></div>`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
@@ -1194,11 +1197,15 @@ export function lobby(s, view = {}) {
       mine = ids.reduce((n, id) => Math.max(n, fc(s.roster.find((x) => x.id === id))), 0),
       theirs = r ? G.rawMark(r, ev) * G.MOOD_MARK[2] : 0;
     const edge = mine / theirs - 1;
-    const slot = (k) => `<select data-change="entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}"><option value="0" ${ids[k] == null ? "selected" : ""}>No entry</option>${s.roster.map((x) => `<option value="${x.id}" ${ids[k] === x.id ? "selected" : ""} ${x.injury || championship && !G.championshipQualified(s,x.id,ev) ? "disabled" : ""}>${esc(shortName(x.name))} · ${mark(fc(x))}${x.event === ev ? " ★" : ""}${x.injury ? " (injured)" : championship && !G.championshipQualified(s,x.id,ev) ? " (standard not met)" : ""}</option>`).join("")}</select>`;
+    // Each entry slot opens the athlete picker, with portraits, stats and forecasts side by side.
+    const slot = (k) => {
+      const x = s.roster.find((y) => y.id === ids[k]);
+      return `<button class="entry-slot ${x ? "" : "empty"}" data-act="pick-entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}: ${x ? esc(x.name) + ". Change" : "add an athlete"}">${x ? `${portrait(x)}<span><b>${esc(shortName(x.name))}${x.event === ev ? " ★" : ""}</b><small>${mark(fc(x))} · OVR ${Math.round(G.eventRating(x, ev))}</small></span><em>Change</em>` : `<span class="add">${ico("plus")}</span><span><b>${k ? "Add entry " + (k + 1) : "Choose an athlete"}</b></span>`}</button>`;
+    };
     // Entries read as names until the coach asks to change them.
     const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> ${mark(fc(x))}${x.event === ev ? " ★" : ""}`).join("<br>");
     return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Your best entry against their specialist">${edge > 0.01 ? "Ahead" : edge < -0.01 ? "Behind" : "Level"}</span></div>
-      <div class="lineup-us">${a ? portrait(a) : ""}<span class="entry-slots">${view.editLineup ? [0, 1, 2].filter((k) => k <= ids.length).map(slot).join("") : `<span class="entry-names">${names || "No entry yet"}</span>`}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : ""}</small></span></div>
+      <div class="lineup-us">${a && !view.editLineup ? portrait(a) : ""}<span class="entry-slots">${view.editLineup ? [0, 1, 2].filter((k) => k <= ids.length).map(slot).join("") : `<span class="entry-names">${names || "No entry yet"}</span>`}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : ""}</small></span></div>
       <div class="lineup-them">${championship ? `<span>${field[ev].map(({athlete,club}) => `<span class="championship-entry"><strong>${esc(athlete.name)}</strong><small>${esc(club.name)} · ~${mark(G.rawMark(athlete,ev))}</small></span>`).join("")}</span>` : `${rivalPortrait(m.id, i)}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · ~${mark(theirs)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span>`}</div></div>`;
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
@@ -1207,6 +1214,35 @@ export function lobby(s, view = {}) {
   ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
   ` : ""}<div class="card-title"><h2>How do you want to run it?</h2></div>${meetModes(s)}
   ${btn(ico("stadium") + " Start the meet", "enter", problem ? "disabled" : "")}`;
+}
+
+// Who goes in an entry slot: every athlete with their portrait, stats for this event, forecast,
+// stamina and condition, and why they can't be picked when they can't.
+export function entryPicker(s, ev, k) {
+  const ids = G.entriesOf(s, ev), championship = G.isLeagueChampionship(s), w = EVENTS[ev].weights,
+    current = ids[k];
+  const why = (a) => {
+    if (a.injury) return "Injured";
+    if (championship && !G.championshipQualified(s, a.id, ev)) return "Standard not met";
+    if (a.id !== current && ids.includes(a.id)) return "Already in this event";
+    const elsewhere = EVENT_IDS.filter((e) => e !== ev && G.entriesOf(s, e).includes(a.id));
+    if (elsewhere.length >= 2) return "Already in two events";
+    return null;
+  };
+  const elsewhere = (a) => EVENT_IDS.filter((e) => e !== ev && G.entriesOf(s, e).includes(a.id)).map((e) => EVENTS[e].short);
+  const projected = new Map(s.roster.map((a) => [a.id, G.forecast(s, a, ev, { doubleDuty: elsewhere(a).length > 0 })]));
+  const order = [...s.roster].sort((x, y) => !!why(x) - !!why(y) || projected.get(y.id) - projected.get(x.id));
+  const row = (a) => {
+    const problem = why(a), cap = G.capOf(a), also = elsewhere(a);
+    return `<button class="pick-row entry-pick ${a.id === current ? "on" : ""}" data-pick="${a.id}" aria-pressed="${a.id === current}" ${problem ? "disabled" : ""}>
+      <span class="pick-who">${portrait(a)}<span><b>${esc(a.name)}</b> ${eventChip(a.event)}<small>${a.event === ev ? "★ Specialist · " : ""}Lv ${a.level} · ${esc(typeName(a))}${also.length ? " · also in " + also.join(", ") : ""}</small>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span></span>
+      <span class="sheet-stats">${a.stats.map((v, i) => `<span class="sheet-stat ${w[i] >= 0.25 ? "key" : ""}" style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}: ${Math.round(w[i] * 100)}% of ${esc(EVENTS[ev].name)}"><small>${STAT_SHORT[i]}</small><b>${showStat(v)}</b><i style="width:${Math.min(100, (v / cap) * 100)}%"></i></span>`).join("")}</span>
+      <span class="entry-forecast">${problem ? `<small class="why">${esc(problem)}</small>` : `<b>${mark(projected.get(a.id))}</b><small>OVR ${Math.round(G.eventRating(a, ev))} · ${mood(a)} ${Math.round(a.stamina)}</small>`}</span>
+    </button>`;
+  };
+  return `<p class="hint">Forecasts include condition, stamina and doubling up. Outlined stats matter most in the ${esc(EVENTS[ev].name.toLowerCase())}.</p>
+  <div class="pick-list">${order.map(row).join("")}</div>
+  ${current != null ? `<button class="pick-row entry-pick entry-clear" data-pick="0"><span class="pick-who"><span class="add">${ico("minus")}</span><span><b>No entry</b><small>Leave this slot empty</small></span></span></button>` : ""}`;
 }
 
 // ── Live meet ───────────────────────────────────────────────────────────

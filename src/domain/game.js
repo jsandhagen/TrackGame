@@ -55,6 +55,8 @@ import {
   planFacility,
   rankName,
   STAR_CAP,
+  cleanAthleteName,
+  claimName,
 } from "./core.js";
 import { checkGoals, rollStoryEvent, closeYear, yearStat } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
@@ -917,6 +919,25 @@ export function recruit(s, id) {
   if (a.rarity !== "common") count(s, "rareSigned");
   note(s, a.name + " signed for the club!", "sign");
   checkGoals(s);
+  return true;
+}
+// The coach can rename anyone on the squad. Club records set under the old name follow them.
+export function renameProblem(s, id, name) {
+  const a = s.roster.find((x) => x.id === id), clean = cleanAthleteName(name);
+  if (!a) return "That athlete is not on the squad.";
+  if (!/\p{L}/u.test(clean)) return "A name needs at least one letter.";
+  if (s.roster.some((x) => x.id !== id && x.name.toLowerCase() === clean.toLowerCase())) return "Someone on the squad already has that name.";
+  return null;
+}
+export function renameAthlete(s, id, name) {
+  if (renameProblem(s, id, name)) return false;
+  const a = s.roster.find((x) => x.id === id), old = a.name, clean = cleanAthleteName(name);
+  if (clean === old) return true;
+  for (const ev of EVENT_IDS) {
+    const r = s.records?.[ev];
+    if (r && r.name === old && a.pb[ev] === r.mark) r.name = clean;
+  }
+  a.name = claimName(s, clean);
   return true;
 }
 export function releaseAthlete(s, id) {

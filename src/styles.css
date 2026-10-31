@@ -4470,7 +4470,69 @@ ol.howto li::marker {
 }
 /* Call room: all of an event's entries in one row. */
 .entry-slots { display: grid; gap: 3px; }
-.entry-slots select { width: 100%; min-height: 30px; font-size: 12px; }
+.entry-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  padding: 3px 6px 3px 3px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-bottom-width: 3px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.entry-slot:active { transform: translateY(2px); border-bottom-width: 2px; }
+.entry-slot.empty { border-style: dashed; background: transparent; color: var(--muted); }
+.entry-slot .portrait { width: 32px; height: 32px; flex: none; }
+.entry-slot > span:not(.add) { flex: 1; min-width: 0; }
+.entry-slot b { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entry-slot small { margin-top: 0; }
+.entry-slot em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+.entry-slot .add, .entry-clear .add { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 8px; background: #f3ecd8; }
+/* The entry picker: one row per athlete, best forecast first. */
+.entry-dialog .dialog-body { max-height: min(70vh, 640px); overflow-y: auto; }
+.entry-pick { grid-template-columns: minmax(150px, 1fr) minmax(200px, 1.4fr) minmax(90px, 0.6fr); }
+.entry-forecast { display: grid; justify-items: end; gap: 1px; text-align: right; }
+.entry-forecast b { font: 700 15px var(--display); }
+.entry-forecast small { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+.entry-forecast .why { color: var(--red); }
+.entry-clear { display: flex; margin-top: 5px; width: 100%; }
+@container (max-width: 620px) {
+  .entry-pick { grid-template-columns: minmax(0, 1fr) minmax(80px, auto); }
+}
+/* Renaming an athlete from their profile. */
+.profile h1 .rename {
+  margin-left: 4px;
+  padding: 2px 7px;
+  vertical-align: middle;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.rename-body { display: flex; align-items: center; gap: 12px; }
+.rename-body label { flex: 1; font-size: 11px; color: var(--muted); }
+.rename-body input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 15px;
+  background: var(--card);
+  color: inherit;
+}
 @media (max-height: 520px) and (min-aspect-ratio: 1/1) {
   .lobby-sub, .meet-forecast { font-size: 11px; margin: 0 0 4px; }
   .lineup-row { padding: 6px 8px; }
