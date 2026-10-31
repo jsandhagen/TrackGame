@@ -965,6 +965,8 @@ export function createStadium(cv) {
         mo = { ...mo, ball: ev === "hammer" ? mo.ball : null };
       }
       focus.thrower = [x, y];
+      // A shot put lands just past the circle: frame the athlete with where it should land.
+      if (ev === "shot") focus.expect = Math.min(W - 6, O.x + rawMark(active, ev) * ppm);
       const look = athleteLook(active, activeColors);
       // The best throwers leave a blur of afterimages through the turns.
       if (mo?.ghost && !view.reduced)
@@ -1152,7 +1154,7 @@ export function createStadium(cv) {
     const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 8;
     if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.origin, sector.point(SPAN)[0], upperY);
     else if (thrown && focus.thrower && tt < timing.releaseAt + timing.releaseMs)
-      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y] }) : throwShot("thrower", focus);
+      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y], expect: focus.expect }) : throwShot("thrower", focus);
     else if (thrown && !landed && focus.implement) shot = view.reduced ? { rect: null, rate: 3 } : throwShot("flight", focus);
     else if (thrown && focus.landing && sinceLand < LANDING_HOLD_MS) shot = throwShot("landing", focus);
     else if (thrown && party && focus.thrower && sinceLand < partyEnd) shot = { ...throwShot("thrower", focus), rate: 3 };

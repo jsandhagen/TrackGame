@@ -50,21 +50,26 @@ export function followCamera(cam, target, dt, rate, view) {
 // The flight shot starts as the thrower shot and only ever widens: it keeps the circle at its
 // left edge and reaches out past the implement, so a throw is one continuous pull-out that ends
 // framing the circle and the mark. The landing holds that frame; the result adds the lead line.
-const SPACE = { back: 80, ahead: 96, above: 104, below: 24, lead: 86 };
-const reach = (origin, x, y, upperAt, ground = origin[1]) => [origin[0] - SPACE.back, Math.min(origin[1] - SPACE.above, y - 30, upperAt ? upperAt(x) - 24 : Infinity), Math.max(origin[0] + SPACE.ahead, x + SPACE.lead), Math.max(origin[1] + SPACE.below, ground + SPACE.below)];
+//
+// f.expect, when set, is where the throw should land (the shot put's short flight): every shot
+// of that throw reaches out to it, so the athlete and the landing area share the frame from the
+// start rather than the camera opening tight on the thrower.
+const SPACE = { back: 80, ahead: 96, above: 104, below: 24, lead: 86, expect: 40 };
+const ahead = (x, expect) => Math.max(x + SPACE.ahead, expect != null ? expect + SPACE.expect : -Infinity);
+const reach = (origin, x, y, upperAt, ground = origin[1], expect) => [origin[0] - SPACE.back, Math.min(origin[1] - SPACE.above, y - 30, upperAt ? upperAt(x) - 24 : Infinity), Math.max(ahead(origin[0], expect), x + SPACE.lead), Math.max(origin[1] + SPACE.below, ground + SPACE.below)];
 export function throwShot(phase, f) {
   if (phase === "thrower") {
     const [x, y] = f.thrower;
-    return { rect: [x - SPACE.back, y - SPACE.above, x + SPACE.ahead, y + SPACE.below], rate: 4 };
+    return { rect: [x - SPACE.back, y - SPACE.above, ahead(x, f.expect), y + SPACE.below], rate: 4 };
   }
   if (phase === "flight") {
     const [ix, iy] = f.implement, [gx, gy] = f.ground;
-    return { rect: reach(f.origin, Math.max(ix, gx), iy, f.upperAt, gy), rate: 6 };
+    return { rect: reach(f.origin, Math.max(ix, gx), iy, f.upperAt, gy, f.expect), rate: 6 };
   }
-  if (phase === "landing") return { rect: reach(f.origin, f.landing[0], f.landing[1], f.upperAt, f.landing[1]), rate: 4 };
+  if (phase === "landing") return { rect: reach(f.origin, f.landing[0], f.landing[1], f.upperAt, f.landing[1], f.expect), rate: 4 };
   if (phase === "result") {
     const far = Math.max(f.landing?.[0] ?? f.origin[0], f.lead ?? f.origin[0]);
-    return { rect: reach(f.origin, far, f.landing?.[1] ?? f.origin[1], f.upperAt, f.landing?.[1]), rate: 2.5 };
+    return { rect: reach(f.origin, far, f.landing?.[1] ?? f.origin[1], f.upperAt, f.landing?.[1], f.expect), rate: 2.5 };
   }
   return { rect: null, rate: 3 };
 }

@@ -75,3 +75,15 @@ test('the result shot frames the circle and the mark, and the camera eases betwe
   assert(Math.abs(end.z-cam.z)<1e-6&&Math.abs(end.x-cam.x)<1e-6,'and settles on the shot');
  }
 });
+
+test('a shot put opens on the athlete and the landing area together, then pulls out without a jump',()=>{
+ for(const view of views) {
+  const sector=throwingSector('shot',view.width,15),origin=[sector.origin.x,sector.origin.y],[ex]=sector.point(9);
+  const close=frameShot(throwShot('thrower',{thrower:origin}).rect,view),shot=throwShot('thrower',{thrower:origin,expect:ex}),cam=frameShot(shot.rect,view);
+  assert(cam.z<close.z*0.75,'noticeably wider than the close-up');
+  const [x0,,x1]=visible(cam,view);
+  assert(x0<=origin[0]&&x1>=ex,'the circle and the expected landing are both in frame');
+  const release=throwShot('flight',{origin,implement:[origin[0]+10,origin[1]-60],ground:[origin[0]+10,origin[1]],upperAt:sector.upperY,expect:ex}).rect;
+  assert.deepEqual(release.map(Math.round),shot.rect.map(Math.round),'no jump at release');
+ }
+});
