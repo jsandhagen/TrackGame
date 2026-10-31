@@ -99,7 +99,7 @@ test('the first call room teaches just the duel and lets the player watch or coa
   assert.match(lobby,/Three throws each|three throws each/);
   assert.match(lobby,/best legal mark/);assert.match(lobby,/most points wins/);assert.match(lobby,/foul/);
   for(const mode of ['watch','coach']) assert(lobby.includes(`data-act="meet-mode" data-value="${mode}"`));
-  assert.doesNotMatch(lobby,/minimum qualifying mark|top six|data-change="entry"/);
+  assert.doesNotMatch(lobby,/minimum qualifying mark|top six|data-act="pick-entry"/);
   s.settings.meetMode='coach';
   assert(G.startMatch(s));
   for(let guard=0;s.match.phase!=='decide' && guard<10;guard++) G.advanceMatch(s);

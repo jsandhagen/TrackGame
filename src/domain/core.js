@@ -138,6 +138,47 @@ export function makeLook(s, extra = {}) {
   return { ...look, ...extra };
 }
 
+// Every name in the game is distinct. The names already in use are gathered once per career (the
+// squad, prospects and every rival club) and each new name joins them as it is handed out, so a
+// whole club built in one go never repeats itself either.
+const namesInUse = new WeakMap();
+function takenNames(s) {
+  let set = namesInUse.get(s);
+  if (!set) {
+    set = new Set();
+    const add = (a) => a?.name && set.add(a.name),
+      clubs = (list) => (Array.isArray(list) ? list : []).forEach((c) => c?.athletes?.forEach(add));
+    s.roster?.forEach(add);
+    s.prospects?.forEach(add);
+    clubs(s.clubs);
+    Object.values(s.rivalClubs || {}).forEach(clubs);
+    namesInUse.set(s, set);
+  }
+  return set;
+}
+export const claimName = (s, name) => (takenNames(s).add(name), name);
+// One given name and one family name. A few athletes carry both parents' family names; that is read
+// from the generator's state without drawing from it, so no other roll in the game changes.
+export function athleteName(s) {
+  const f = Math.floor(random(s) * FIRST.length),
+    l = Math.floor(random(s) * LAST.length),
+    r = s.rng >>> 0,
+    taken = takenNames(s),
+    double = r % 100 < 6;
+  for (let k = 0; k < 60; k++) {
+    let family = LAST[(l + k * 7) % LAST.length];
+    const second = LAST[((r >>> 8) + k * 3) % LAST.length];
+    if (double && second !== family) family += "-" + second;
+    const name = FIRST[(f + k * 11) % FIRST.length] + " " + family;
+    if (!taken.has(name)) return claimName(s, name);
+  }
+  return claimName(s, FIRST[f] + " " + LAST[l]);
+}
+export const NAME_MAX = 24;
+// A coach-chosen name: single spaces, no control characters, at most NAME_MAX characters.
+export const cleanAthleteName = (name) =>
+  String(name ?? "").replace(/\s+/g, " ").replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, NAME_MAX).trim();
+
 export function createAthlete(s, event, o = {}) {
   const rarity = o.rarity || "common",
     R = RARITY[rarity],
@@ -148,7 +189,7 @@ export function createAthlete(s, event, o = {}) {
   const backgrounds = Object.keys(BACKGROUNDS).filter((b) => rarity !== "common" || !BACKGROUNDS[b].rare);
   const a = {
     id: s.nextId++,
-    name: o.name || pick(s, FIRST) + " " + pick(s, LAST),
+    name: o.name ? claimName(s, o.name) : athleteName(s),
     event,
     stats: stats.map((v) => clamp(v, 1, Math.min(100,potential+RANKS[o.rank||0].cap))),
     stamina: 100,

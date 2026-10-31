@@ -353,8 +353,38 @@ export const SECRETS = {
   pip: { name: "Pip", event: "discus", skill: "wonderkid", type: "allrounder", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
 };
 
-export const FIRST = ["Mara", "Tomas", "Noor", "Kofi", "Liv", "Hana", "Ezra", "Ines", "Dario", "Priya", "Ama", "Nico", "Zofia", "Kai", "Greta", "Owen", "Elif", "Lars", "Rui", "Tao", "Sade", "Mateo", "Ilse", "Bo", "Femi", "Anouk", "Ravi", "Odile", "Pax", "Wren", "Iker", "Saoirse", "Tariq", "Mina", "Otto", "Ayla", "Sven", "Lupe", "Hugo", "Nia", "Felix", "Rosa", "Arjun", "Ida", "Cyrus", "Maeve"];
-export const LAST = ["Kowal", "Reyes", "Haddad", "Mensah", "Okafor", "Lindqvist", "Tanaka", "Brennan", "Moreau", "Novak", "Sato", "Duarte", "Walsh", "Holm", "Castro", "Ilunga", "Vance", "Petrov", "Achebe", "Nakamura", "Oduya", "Larsen", "Quinn", "Ferreira", "Kim", "Bauer", "Adeyemi", "Rossi", "Stone", "Vega", "Park", "Okoro", "Silva", "Dubois", "Kaur", "Berg", "Mwangi", "Hale", "Ortiz", "Fox"];
+// Given names and family names from all over the athletics world. The generator pairs them freely
+// and keeps every name in the game distinct.
+export const FIRST = [
+  "Mara", "Tomas", "Noor", "Kofi", "Liv", "Hana", "Ezra", "Ines", "Dario", "Priya", "Ama", "Nico", "Zofia", "Kai",
+  "Greta", "Owen", "Elif", "Lars", "Rui", "Tao", "Sade", "Mateo", "Ilse", "Bo", "Femi", "Anouk", "Ravi", "Odile",
+  "Pax", "Wren", "Iker", "Saoirse", "Tariq", "Mina", "Otto", "Ayla", "Sven", "Lupe", "Hugo", "Nia", "Felix", "Rosa",
+  "Arjun", "Ida", "Cyrus", "Maeve", "Aiko", "Bram", "Caius", "Dagny", "Esme", "Faisal", "Gideon", "Hollis", "Isolde", "Jonah",
+  "Keziah", "Leif", "Marisol", "Nadia", "Orla", "Pavel", "Quentin", "Rhea", "Soren", "Thea", "Ulla", "Vikram", "Wanjiru", "Xavi",
+  "Yara", "Zeke", "Adaeze", "Bjorn", "Calla", "Dmitri", "Eamon", "Fleur", "Galen", "Hedda", "Ishaan", "Jada", "Kenji", "Lucia",
+  "Magnus", "Nell", "Obi", "Petra", "Rafferty", "Selin", "Tobias", "Una", "Valentin", "Willa", "Yusuf", "Zara", "Amara", "Benedikt",
+  "Cleo", "Desmond", "Emeka", "Freya", "Gus", "Halima", "Idris", "Juno", "Kasimir", "Lena", "Malik", "Noemi", "Oskar", "Paloma",
+  "Ronan", "Sakura", "Teodor", "Uriel", "Vesna", "Wilhelmina", "Yannick", "Zainab", "Agnes", "Bastian", "Camille", "Dev", "Elodie", "Fintan",
+  "Gaia", "Hamid", "Ivo", "Jun", "Kalani", "Linnea", "Marek", "Nayeli", "Olu", "Pilar", "Rasmus", "Siddharth", "Tamsin", "Ugo",
+  "Vera", "Wolfe", "Ximena", "Yosef", "Zuri", "Anika", "Basil", "Chidi", "Delphine", "Enzo", "Fern", "Gwen", "Hiro", "Ilaria",
+  "Jasper", "Kirra", "Laszlo", "Mirela", "Nils", "Ottilie", "Percy", "Quinlan", "Rocio", "Stellan", "Tilde", "Uma", "Viggo", "Wade",
+  "Yuki", "Zelda", "Abebe", "Birgit", "Corin", "Dalia", "Emil", "Farah", "Gunnar", "Hester", "Imani", "Jarrah", "Kwame", "Lorcan",
+  "Mei", "Nikolai", "Oona", "Pia", "Reza", "Signe", "Tadeo", "Veda", "Wim", "Ysolde", "Zev",
+];
+export const LAST = [
+  "Kowal", "Reyes", "Haddad", "Mensah", "Okafor", "Lindqvist", "Tanaka", "Brennan", "Moreau", "Novak", "Sato", "Duarte", "Walsh", "Holm",
+  "Castro", "Ilunga", "Vance", "Petrov", "Achebe", "Nakamura", "Oduya", "Larsen", "Quinn", "Ferreira", "Kim", "Bauer", "Adeyemi", "Rossi",
+  "Stone", "Vega", "Park", "Okoro", "Silva", "Dubois", "Kaur", "Berg", "Mwangi", "Hale", "Ortiz", "Fox", "Abara", "Bjornsson",
+  "Calloway", "Delacroix", "Eriksen", "Fontaine", "Gallagher", "Horvath", "Iwasaki", "Jankowski", "Kaminski", "Lacroix", "Marchetti", "Nyberg", "Oyelaran", "Pellegrini",
+  "Quiroga", "Ramanathan", "Szabo", "Thorne", "Underwood", "Valdivia", "Whitlock", "Yilmaz", "Zielinski", "Adebayo", "Bellamy", "Chaudhry", "Dragomir", "Espinoza",
+  "Falk", "Grieve", "Hakimi", "Ivanova", "Juarez", "Kariuki", "Lund", "Mbeki", "Nowak", "Oyama", "Pruitt", "Rahimi", "Sorensen", "Takahashi",
+  "Uchenna", "Varga", "Weller", "Yamada", "Zubiri", "Ashworth", "Bianchi", "Cardenas", "Demir", "Ekwueme", "Fitzgerald", "Gutierrez", "Hollander", "Ibarra",
+  "Jovanovic", "Kovacs", "Lindgren", "Mahlangu", "Nasser", "Okonkwo", "Prieto", "Rinaldi", "Strand", "Tembo", "Ueda", "Vasquez", "Wojcik", "Yoon",
+  "Zapata", "Amari", "Brandt", "Costa", "Dahl", "Engel", "Farouk", "Gomes", "Hartmann", "Inoue", "Jensen", "Kessler", "Lowe", "Mutua",
+  "Nkosi", "Olsen", "Pacheco", "Rao", "Salo", "Tavares", "Ulloa", "Vogel", "Wiley", "Yeboah", "Zeller", "Achterberg", "Birch", "Cruz",
+  "Dunmore", "Ellison", "Frost", "Garza", "Haugen", "Ishikawa", "Keane", "Lambert", "Mori", "Nwosu", "Orr", "Pike", "Ramos", "Sinclair",
+  "Toivonen", "Vu", "Wainaina", "Asante", "Bose", "Cole", "Drummond",
+];
 export const SKINS = ["#f0c6a0", "#e2b08a", "#c98f66", "#a06a48", "#7a4e36", "#5e3a2a"];
 export const HAIRS = ["#3a2a20", "#1e1e24", "#b8843e", "#8e4c33", "#d8c8a0", "#c8562e", "#4a3a5a"];
 export const HAIR_STYLES = 6;
