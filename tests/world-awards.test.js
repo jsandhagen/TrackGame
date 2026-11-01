@@ -89,3 +89,28 @@ test('the elites compete for the Diamond League clubs, and older Diamond League 
   const copy = validateCampaign(exportCampaign(plain));
   assert.equal(copy.rivalClubs[4].flatMap((c) => c.athletes.filter((a) => a.elite)).length, ELITES.length);
 });
+
+test('an elite already seated in a save takes the roster\'s current name and look on load', () => {
+  const s = G.newGame(23);
+  s.rivalClubs[4] = G.makeClubs(s, 4, 0, [0, 1, 2, 3, 4, 5]);
+  const a = s.rivalClubs[4].flatMap((c) => c.athletes).find((x) => x.elite === 'krauser');
+  Object.assign(a, { name: 'Rian Krauser', look: { skin: '#f0c6a0', hair: '#5a3a2a', style: 0, special: 'beard' } });
+  const copy = validateCampaign(exportCampaign(s)), e = ELITES.find((x) => x.id === 'krauser');
+  const b = copy.rivalClubs[4].flatMap((c) => c.athletes).find((x) => x.elite === 'krauser');
+  assert.equal(b.name, e.name);
+  assert.deepEqual(b.look, e.look);
+});
+
+test('new athletes vary in hair, facial hair and glasses without drawing from the random stream', () => {
+  const s = G.newGame(56), copy = structuredClone(s);
+  G.makeLook(s);
+  for (let i = 0; i < 3; i++) G.random(copy);
+  assert.equal(s.rng, copy.rng);
+  const looks = Array.from({ length: 400 }, () => G.makeLook(s));
+  assert(new Set(looks.map((l) => l.style)).size >= 10, 'a wide spread of hair styles');
+  assert(!looks.some((l) => l.style === 6 || l.style === 12), 'the bun and the bald crown belong to particular characters');
+  const bearded = looks.filter((l) => l.facial).length, glasses = looks.filter((l) => l.glasses).length;
+  assert(bearded > 20 && bearded < 110, bearded + ' of 400 have facial hair');
+  assert(glasses > 5 && glasses < 60, glasses + ' of 400 wear glasses');
+  assert(!looks.some((l) => l.glasses && l.gear === 'shades'));
+});

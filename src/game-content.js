@@ -345,12 +345,12 @@ export const SPONSORS = {
 
 // Secret characters arrive as story events once their condition is met.
 export const SECRETS = {
-  olga: { name: "Grandma Olga", event: "shot", skill: "oldschool", type: "thrower", background: "poker", fee: 600, look: { skin: "#f0c6a0", hair: "#d8d8d0", style: 6, special: "granny" }, stats: 4, potential: 78, hint: "Reach 250 fans", story: "A champion from the old days wants one more season. She brought her own knitting." },
-  bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", type: "powerhouse", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
-  r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", type: "technician", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
-  yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", type: "speedster", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
-  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti" }, stats: 9, potential: 88, hint: "Reach the Diamond League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
-  pip: { name: "Pip", event: "discus", skill: "wonderkid", type: "allrounder", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
+  olga: { name: "Grandma Olga", event: "shot", skill: "oldschool", type: "thrower", background: "poker", fee: 600, look: { skin: "#f0c6a0", hair: "#d8d8d0", style: 6, special: "granny", expression: "calm" }, stats: 4, potential: 78, hint: "Reach 250 fans", story: "A champion from the old days wants one more season. She brought her own knitting." },
+  bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", type: "powerhouse", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard", expression: "grin" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
+  r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", type: "technician", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot", expression: "smile" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
+  yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", type: "speedster", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf", expression: "calm" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
+  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti", expression: "grin" }, stats: 9, potential: 88, hint: "Reach the Diamond League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
+  pip: { name: "Pip", event: "discus", skill: "wonderkid", type: "allrounder", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid", expression: "cheeky" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
 };
 
 // Given names and family names from all over the athletics world. The generator pairs them freely
@@ -387,7 +387,9 @@ export const LAST = [
 ];
 export const SKINS = ["#f0c6a0", "#e2b08a", "#c98f66", "#a06a48", "#7a4e36", "#5e3a2a"];
 export const HAIRS = ["#3a2a20", "#1e1e24", "#b8843e", "#8e4c33", "#d8c8a0", "#c8562e", "#4a3a5a"];
-export const HAIR_STYLES = 6;
+// Hair styles a new athlete can have (6 is Grandma Olga's bun and 12 Rudi's bald crown).
+export const HAIR_STYLES = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11];
+export const FACIAL_HAIR = ["stubble", "moustache", "full", "goatee", "walrus"];
 export const CLUB_PALETTES = [
   { name: "Forest & gold", primary: "#2f6b52", secondary: "#e2b04a" },
   { name: "Brick & cream", primary: "#b0503a", secondary: "#f2e2b8" },
@@ -522,27 +524,35 @@ export const stadiumNameOf = (s) => styleOf(s).name.trim() || s.clubName;
 
 // The world's elite: nods to the sport's real champions, with altered names, who compete for the
 // Diamond League clubs (club: index into CLUBS[4]). level is their mark as a share of the event's
-// world record in a good year.
+// world record in a good year. Their looks follow the real athletes' own: a mullet, a beard, braids.
 export const ELITES = [
-  { id: "krauser", name: "Rian Krauser", nation: "USA", event: "shot", club: 1, level: 0.985, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 0, special: "beard" }, blurb: "A rotational giant. The shot looks like a marble in his hand." },
-  { id: "walshe", name: "Tom Walshe", nation: "NZL", event: "shot", club: 2, level: 0.965, look: { skin: "#e2b08a", hair: "#3a2a20", style: 1, special: "beard" }, blurb: "Kiwi grit. Has thrown through every kind of weather the Pacific can invent." },
-  { id: "fabri", name: "Leo Fabri", nation: "ITA", event: "shot", club: 4, level: 0.958, look: { skin: "#e2b08a", hair: "#2a2420", style: 4, gear: "band", gearColor: "#2a6ad0" }, blurb: "Plays to the crowd before, during and after every put." },
-  { id: "jaxon", name: "Chase Jaxon", nation: "USA", event: "shot", club: 0, level: 0.94, look: { skin: "#7a4e36", hair: "#1a1a1a", style: 5 }, blurb: "Fast and fierce through the ring, and saves her best for the last round." },
-  { id: "aleknas", name: "Mykolas Aleknas", nation: "LTU", event: "discus", club: 5, level: 0.975, look: { skin: "#f0c6a0", hair: "#a06a3a", style: 1 }, blurb: "Born into a discus dynasty, and writing his own chapter." },
-  { id: "che", name: "Kristjan Che", nation: "SLO", event: "discus", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#3a2a20", style: 0 }, blurb: "A towering Slovenian with a release like a whip crack." },
-  { id: "stol", name: "Daniel Stol", nation: "SWE", event: "discus", club: 1, level: 0.955, look: { skin: "#f0c6a0", hair: "#d8b060", style: 2, special: "beard" }, blurb: "So big he makes the cage look like a phone box." },
-  { id: "allmon", name: "Valerie Allmon", nation: "USA", event: "discus", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#e8d090", style: 5 }, blurb: "A former dancer. Her spin is pure choreography." },
-  { id: "katzberger", name: "Ethan Katzberger", nation: "CAN", event: "hammer", club: 0, level: 0.975, look: { skin: "#f0c6a0", hair: "#7a4a2a", style: 2 }, blurb: "Spins faster than anyone alive, mullet flying." },
-  { id: "nowicky", name: "Wojtek Nowicky", nation: "POL", event: "hammer", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#3a2a20", style: 1 }, blurb: "Calm as a pond, consistent as a clock, deadly in a final." },
-  { id: "wlodarek", name: "Anita Wlodarek", nation: "POL", event: "hammer", club: 4, level: 0.95, look: { skin: "#f0c6a0", hair: "#7a4a2a", style: 5, gear: "band", gearColor: "#d03040" }, blurb: "A legend of the ring with more titles than she can carry." },
-  { id: "rodgers", name: "Camryn Rodgers", nation: "CAN", event: "hammer", club: 2, level: 0.94, look: { skin: "#7a4e36", hair: "#2a1a10", style: 5 }, blurb: "Smooth, fast and fearless when the medals are on the line." },
-  { id: "chopra", name: "Neerav Chopra", nation: "IND", event: "jav", club: 5, level: 0.97, look: { skin: "#c98f66", hair: "#1a1a1a", style: 0 }, blurb: "Calm and precise. Often wins it with his very first throw." },
-  { id: "nadim", name: "Arshad Nadim", nation: "PAK", event: "jav", club: 1, level: 0.965, look: { skin: "#a06a48", hair: "#1a1a1a", style: 1, special: "beard" }, blurb: "Learned on a dirt runway. Now he owns the biggest stages." },
-  { id: "vadlech", name: "Jakub Vadlech", nation: "CZE", event: "jav", club: 3, level: 0.952, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 4 }, blurb: "A rangy Czech with an approach as long as a summer evening." },
-  { id: "webber", name: "Julian Webber", nation: "GER", event: "jav", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#2a2420", style: 3, gear: "cap", gearColor: "#2a2a2a" }, blurb: "German precision with a crowd-pleaser's grin." },
+  { id: "krauser", name: "Rian Krauser", nation: "USA", event: "shot", club: 1, level: 0.985, look: { skin: "#f0c6a0", hair: "#6a4630", style: 6, gear: "band", gearColor: "#2a6ad0", facial: "full", build: "broad", expression: "determined" }, blurb: "A rotational giant. The shot looks like a marble in his hand." },
+  { id: "walshe", name: "Tom Walshe", nation: "NZL", event: "shot", club: 2, level: 0.965, look: { skin: "#e8b890", hair: "#4a3424", style: 0, facial: "full", build: "broad", expression: "grin" }, blurb: "Kiwi grit. Has thrown through every kind of weather the Pacific can invent." },
+  { id: "fabri", name: "Leo Fabri", nation: "ITA", event: "shot", club: 4, level: 0.958, look: { skin: "#e2b08a", hair: "#2a2420", style: 4, facial: "full", gear: "band", gearColor: "#2a6ad0", build: "broad", expression: "cheeky" }, blurb: "Plays to the crowd before, during and after every put." },
+  { id: "jaxon", name: "Chase Jaxon", nation: "USA", event: "shot", club: 0, level: 0.94, look: { skin: "#7a4e36", hair: "#1a1a1a", style: 5, lashes: true, shadow: "#b050c0", build: "broad", expression: "fierce" }, blurb: "Fast and fierce through the ring, and saves her best for the last round." },
+  { id: "aleknas", name: "Mykolas Aleknas", nation: "LTU", event: "discus", club: 5, level: 0.975, look: { skin: "#f0c6a0", hair: "#9a6a40", style: 1, expression: "smile" }, blurb: "Born into a discus dynasty, and writing his own chapter." },
+  { id: "che", name: "Kristjan Che", nation: "SLO", event: "discus", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#2a2420", style: 0, facial: "stubble", expression: "determined" }, blurb: "A towering Slovenian with a release like a whip crack." },
+  { id: "stol", name: "Daniel Stol", nation: "SWE", event: "discus", club: 1, level: 0.955, look: { skin: "#f0c6a0", hair: "#d8b060", style: 6, facial: "full", build: "broad", expression: "grin" }, blurb: "So big he makes the cage look like a phone box." },
+  { id: "allmon", name: "Valerie Allmon", nation: "USA", event: "discus", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#e8d090", style: 9, lashes: true, expression: "calm" }, blurb: "A former dancer. Her spin is pure choreography." },
+  { id: "katzberger", name: "Ethan Katzberger", nation: "CAN", event: "hammer", club: 0, level: 0.975, look: { skin: "#f0c6a0", hair: "#9a6a3a", style: 7, facial: "moustache", expression: "grin" }, blurb: "Spins faster than anyone alive, mullet flying." },
+  { id: "nowicky", name: "Wojtek Nowicky", nation: "POL", event: "hammer", club: 3, level: 0.962, look: { skin: "#f0c6a0", hair: "#8a6a4a", style: 8, build: "broad", expression: "calm" }, blurb: "Calm as a pond, consistent as a clock, deadly in a final." },
+  { id: "wlodarek", name: "Anita Wlodarek", nation: "POL", event: "hammer", club: 4, level: 0.95, look: { skin: "#f0c6a0", hair: "#9a6a40", style: 9, lashes: true, gear: "band", gearColor: "#d03040", expression: "smile" }, blurb: "A legend of the ring with more titles than she can carry." },
+  { id: "rodgers", name: "Camryn Rodgers", nation: "CAN", event: "hammer", club: 2, level: 0.94, look: { skin: "#7a4e36", hair: "#2a1a10", style: 10, lashes: true, expression: "smile" }, blurb: "Smooth, fast and fearless when the medals are on the line." },
+  { id: "chopra", name: "Neerav Chopra", nation: "IND", event: "jav", club: 5, level: 0.97, look: { skin: "#c98f66", hair: "#1a1a1a", style: 0, facial: "stubble", expression: "calm" }, blurb: "Calm and precise. Often wins it with his very first throw." },
+  { id: "nadim", name: "Arshad Nadim", nation: "PAK", event: "jav", club: 1, level: 0.965, look: { skin: "#a06a48", hair: "#1a1a1a", style: 0, facial: "full", expression: "smile" }, blurb: "Learned on a dirt runway. Now he owns the biggest stages." },
+  { id: "vadlech", name: "Jakub Vadlech", nation: "CZE", event: "jav", club: 3, level: 0.952, look: { skin: "#f0c6a0", hair: "#5a3a2a", style: 8, facial: "stubble", expression: "smirk" }, blurb: "A rangy Czech with an approach as long as a summer evening." },
+  { id: "webber", name: "Julian Webber", nation: "GER", event: "jav", club: 5, level: 0.94, look: { skin: "#f0c6a0", hair: "#7a5a3a", style: 0, expression: "grin" }, blurb: "German precision with a crowd-pleaser's grin." },
 ];
-// Kit colours the elites wear for their nations.
-export const NATION_COLORS = { USA: "#2a4a9a", NZL: "#2a2a2a", ITA: "#2a6ad0", LTU: "#e0b030", SLO: "#2a5ab0", SWE: "#2a6ab0", CAN: "#d03040", POL: "#d03040", IND: "#e08a2a", PAK: "#2a7a4a", CZE: "#2a4a9a", GER: "#2a2a2a" };
+// Kits the elites wear for their nations: vest and trim.
+export const NATION_KITS = {
+  USA: ["#2a4a9a", "#d03040"], NZL: ["#1e1e24", "#f4efe2"], ITA: ["#2a6ad0", "#f4efe2"], LTU: ["#e0b030", "#2a8a4a"],
+  SLO: ["#f4efe2", "#2a5ab0"], SWE: ["#2a6ab0", "#f2c94c"], CAN: ["#d03040", "#f4efe2"], POL: ["#f4efe2", "#d03040"],
+  IND: ["#2a5ab0", "#e08a2a"], PAK: ["#2a7a4a", "#f4efe2"], CZE: ["#2a4a9a", "#d03040"], GER: ["#2a2a2a", "#d03040"],
+};
 export const HELPER = "Juno";
+// Juno keeps the club's diary in a cardigan in the club's colours.
+export const HELPER_LOOK = { skin: "#f0c6a0", hair: "#5a3a6a", style: 2, lashes: true, expression: "happy" };
 // The club's kit-shop keeper, who also calls out each delivery and sale.
-export const SHOPKEEPER = { name: "Rudi", role: "kit shop", look: { skin: "#c98f66", hair: "#3a2a24", style: 1, special: "beard" }, colors: { primary: "#d0743a", secondary: "#f4efe2" } };
+// Rudi has run the shop for thirty years: bald on top, a walrus moustache, reading glasses, a
+// pencil behind the ear and a canvas apron over a checked shirt.
+export const SHOPKEEPER = { name: "Rudi", role: "kit shop", look: { skin: "#d8a47a", hair: "#9a9088", brow: "#6a625c", style: 12, facial: "walrus", glasses: true, glassesColor: "#4a3428", expression: "happy" }, colors: { primary: "#4a6a8a", secondary: "#f4efe2", kit: "check" }, apron: "#2f6b52" };
