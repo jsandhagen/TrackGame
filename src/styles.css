@@ -5623,3 +5623,20 @@ dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1
 /* The tactic panel's own speed choice, for the throw about to be taken. */
 .decide-speed { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .decide-speed .seg { background: var(--green); }
+
+/* One division ladder, with event-specific distances visible before booking. */
+.division-ladder { display: grid; gap: 8px; column-span: all; }
+.division-card { margin: 0; break-inside: avoid; }
+.division-card > summary { display: grid; grid-template-columns: 30px minmax(0,1fr) 16px; gap: 2px 10px; align-items: center; cursor: pointer; }
+.division-card > summary::after { content: '▸'; grid-column: 3; grid-row: 1 / span 2; justify-self: end; }
+.division-card[open] > summary::after { content: '▾'; }
+.division-card > summary strong { grid-column: 2; font-size: 15px; }
+.division-card > summary small { grid-column: 2; font-size: 10px; color: var(--muted); }
+.division-number { grid-row: 1 / span 2; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #173d30; color: #fff6dc; font-weight: 700; }
+.division-card.recommended { border-color: var(--gold); }
+.division-card.completed .division-number { background: #5a7e48; }
+.division-distances { margin: 10px 0; }
+.division-distances caption { text-align: left; font-size: 11px; color: var(--muted); padding: 5px 0; }
+.division-distances th, .division-distances td { font-size: 12px; padding: 6px; white-space: nowrap; }
+.division-duels { margin-top: 12px; }
+.division-duels > summary { cursor: pointer; font-size: 12px; font-weight: 700; }

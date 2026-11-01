@@ -111,7 +111,9 @@ function idle(s) {
 
 // Enter the next league, or a free duel at the current level while the entry fee is out of reach.
 export function book(s) {
-  return G.enterCompetition(s, G.nextCircuitEntry(s)) || G.enterCompetition(s, { kind: "duel", tier: s.league, rival: s.season % 3 });
+  if(G.firstMeet(s))return G.enterCompetition(s,{kind:"duel",tier:0,rival:0});
+  const next=G.nextCircuitEntry(s);
+  return G.enterCompetition(s,next) || G.enterCompetition(s,{...next,kind:"duel",rival:s.season%3});
 }
 export function career(seed, policy) {
   const s = G.newGame(seed);

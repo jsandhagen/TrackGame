@@ -183,7 +183,7 @@ test("the stadium's throwing areas train each event's technique and upgrade in p
   const before = G.trainingGains(s, discus, "technique")[1];
   assert(G.trainingGains(s, shot, "technique")[1] > before, "shot circle exists, discus cage does not");
   s.money = 10000;
-  assert.equal(G.stadiumProblem(s, "studio"), "Unlocks in the Regional League");
+  assert.equal(G.stadiumProblem(s, "studio"), "Unlocks in the County Division");
   assert(G.upgradeStadium(s, "discus"));
   assert(G.trainingGains(s, discus, "technique")[1] > before);
   for (const k of ["shot", "discus", "hammer", "jav"]) while (s.stadium[k] < 2) assert(G.upgradeStadium(s, k), k);
