@@ -52,19 +52,29 @@ test('deliveries build before release and short marks have shorter, lower flight
   assert(short.releaseAt-short.readyMs>=1700,`${event}: wind-up is readable`);
   assert.equal(short.releaseAt,long.releaseAt,'distance never accelerates the thrower');
   assert(short.flightMs<long.flightMs);assert(short.arcHeight<long.arcHeight);
-  assert(short.flightMs<900,`${event}: a novice throw does not float`);
-  assert(long.flightMs<=1800,`${event}: even a record lands within two seconds`);
+  assert(short.flightMs<2400,`${event}: a novice flight is still brief`);
+  assert(long.flightMs<=4500,`${event}: realistic airtime stays bounded at world-record distances`);
   assert.equal(throwPhase(short,short.releaseAt-1)[0],'technique');
   assert.deepEqual(throwPhase(short,short.releaseAt),['release',0]);
   const recovering=throwPhase(short,short.landAt);
-  assert.equal(recovering[0],'follow');assert(recovering[1]<1,'a short flight does not rush the recovery');
+  assert.equal(recovering[0],'follow');assert(recovering[1]<=1,'flight does not accelerate the recovery');
   assert.deepEqual(throwPhase(short,short.releaseAt+short.releaseMs+short.recoveryMs),['follow',1]);
   const foul=throwTiming({event,mark:null,foul:true});
   assert(Number.isFinite(foul.landAt));assert(foul.landAt>foul.releaseAt);
  }
- assert(throwTiming({event:'shot',mark:9}).flightMs<500);
+ assert(throwTiming({event:'shot',mark:9}).flightMs>=1200 && throwTiming({event:'shot',mark:9}).flightMs<=1500);
  assert(throwTiming({event:'jav',mark:85}).flightMs-throwTiming({event:'jav',mark:60}).flightMs>250,'a big throw hangs noticeably longer');
  assert(throwTiming({event:'hammer'}).releaseAt>throwTiming({event:'shot'}).releaseAt,'hammer winds and turns have more time');
+});
+
+test('a 70 m throw has sustained airtime and a high arc instead of a short lob',()=>{
+ for (const event of ['discus','hammer','jav']) {
+  const short=throwTiming({event,mark:35}),long=throwTiming({event,mark:70});
+  assert(long.flightMs>=3100 && long.flightMs<=3800);
+  assert(long.flightMs-short.flightMs>=800,'doubling the distance gives the camera time to travel');
+  assert(long.arcHeight>230,'the flight rises well above the thrower');
+  assert(long.arcHeight>short.arcHeight*1.8 && long.arcHeight<short.arcHeight*2,'long throws rise proportionally higher');
+ }
 });
 
 test('projectiles leave the hand, follow a falling arc and finish at the measured mark',()=>{
