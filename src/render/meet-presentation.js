@@ -1,5 +1,6 @@
 import { playbackRate } from "../platform/pacing.js";
 import { EVENTS, EVENT_IDS } from "../game-content.js";
+import { METRE_PX } from "./meet-geometry.js";
 
 // Animation speed and reading time are separate: highlights may shorten the
 // delivery, but never flash a result past the coach.
@@ -39,13 +40,16 @@ export function throwTiming(beat = {}) {
   const measured = Number.isFinite(beat?.mark) && beat.mark > 0 ? beat.mark : beat?.flightDistance;
   const distance = Number.isFinite(measured) && measured > 0 ? measured : EVENTS[event].min;
   const releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event] - techniqueTrim(event, beat?.form);
-  // Past 50 m the implement hangs a little longer for every extra metre, so a big throw has
-  // time to feel far: about 1.5 s at 80 m, 1.8 s at a record javelin.
-  const flightMs = Math.round(Math.max(400, Math.min(1400, Math.sqrt(distance) * 140)) + Math.max(0, distance - 50) * 8);
+  // A ballistic flight from about shoulder height, at a typical release angle for each event.
+  // This is presentation only: the measured mark still comes from the meet simulation.
+  // About 1.3 s for a 9 m put, 3.2 s for a 70 m javelin, 3.7 s for a 70 m hammer.
+  const angle = { shot: 37, discus: 35, hammer: 42, jav: 34 }[event] * Math.PI / 180,
+    flightSeconds = Math.sqrt(2 * (2 + distance * Math.tan(angle)) / 9.81),
+    flightMs = Math.round(flightSeconds * 1000);
   return {
     readyMs: 300, releaseAt, releaseMs: event === "hammer" || event === "jav" ? 120 : 180,
     recoveryMs: 900, flightMs, landAt: releaseAt + flightMs, distance,
-    arcHeight: Math.max(8, { shot: 34, discus: 60, hammer: 72, jav: 80 }[event] * Math.min(1.25, distance / EVENTS[event].max)),
+    arcHeight: 9.81 * flightSeconds * flightSeconds / 8 * METRE_PX,
   };
 }
 
@@ -64,7 +68,12 @@ export function flightPoint(start, end, progress, height) {
 
 export function beatDuration(beat) {
   if (!beat) return 0;
-  if (beat.type === "throw") return throwOffset(beat) + throwTiming(beat).landAt + (isHighlight(beat) ? HIGHLIGHT_MS : RESULT_MS) + (celebrates(beat) ? CELEBRATION_MS : 0);
+  if (beat.type === "throw") {
+    const timing = throwTiming(beat),
+      // After a long chase, leave enough time to pull back and read the full measured span.
+      overviewMs = Math.min(3600, Math.max(0, timing.distance - 25) * 50);
+    return throwOffset(beat) + timing.landAt + (isHighlight(beat) ? HIGHLIGHT_MS : RESULT_MS) + overviewMs + (celebrates(beat) ? CELEBRATION_MS : 0);
+  }
   return { meetStart: 3200, eventStart: 2800, eventEnd: 4000, complete: 0, decide: 0 }[beat.type] ?? 1000;
 }
 

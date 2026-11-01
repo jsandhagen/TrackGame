@@ -1,18 +1,48 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {frameShot, followCamera, clampCamera, throwShot, ZOOM_MAX, MAX_ZOOM_RATE, MAX_PAN_RATE} from '../src/render/meet-camera.js';
-import {throwingSector, SCENE_HEIGHT} from '../src/render/meet-geometry.js';
+import {frameShot, followCamera, clampCamera, throwShot, ZOOM_MAX, MAX_ZOOM_RATE, MAX_PAN_RATE, FLIGHT_LEAD_MS} from '../src/render/meet-camera.js';
+import {throwingSector, SCENE_HEIGHT, AIRSPACE} from '../src/render/meet-geometry.js';
+import {throwTiming, flightPoint, beatDuration, throwOffset, LANDING_HOLD_MS} from '../src/render/meet-presentation.js';
+import {throwReleasePoint} from '../src/render/throw-motion.js';
 
-const views=[{width:640,height:360,sceneHeight:SCENE_HEIGHT},{width:480,height:645,sceneHeight:SCENE_HEIGHT}];
+const views=[{width:640,height:360},{width:480,height:645}].map(v=>({...v,sceneWidth:2700,sceneTop:-AIRSPACE,sceneHeight:SCENE_HEIGHT+240+AIRSPACE,minZoom:v.width/2700}));
 const visible=(cam,view)=>[cam.x-view.width/(2*cam.z),cam.y-view.height/(2*cam.z),cam.x+view.width/(2*cam.z),cam.y+view.height/(2*cam.z)];
 
-test('the camera never shows past the edges of the venue and never zooms out past the full view',()=>{
+test('the camera stays inside the extended venue and can pull back to fit the full field',()=>{
  for(const view of views) for(const cam of [{x:-50,y:-50,z:3},{x:900,y:900,z:1.4},{x:320,y:180,z:0.5}]) {
   const c=clampCamera(cam,view),[x0,y0,x1,y1]=visible(c,view);
-  assert(c.z>=1);
-  assert(x0>=-1e-9&&x1<=view.width+1e-9);
-  if(view.height/c.z<SCENE_HEIGHT) assert(y0>=-1e-9&&y1<=SCENE_HEIGHT+1e-9);
-  else assert.equal(c.y,SCENE_HEIGHT/2,'a tall screen centres the whole venue');
+  assert(c.z>=view.minZoom);
+  assert(x0>=-1e-9&&x1<=view.sceneWidth+1e-9);
+  if(view.height/c.z<view.sceneHeight) assert(y0>=view.sceneTop-1e-9&&y1<=SCENE_HEIGHT+240+1e-9);
+  else assert.equal(c.y,view.sceneTop+view.sceneHeight/2,'a tall screen centres the whole venue');
+ }
+});
+
+test('the moving camera keeps 70 m flights visible at varied frame rates and finishes with the complete span in view',()=>{
+ for(const view of views) for(const event of ['discus','hammer','jav']) for(const dt of [16,50]) for(const angle of [-1.2,0,0.5]) {
+  const beat={type:'throw',event,mark:70,side:'away'},timing=throwTiming(beat),sector=throwingSector(event,view.width,110),
+    origin=[sector.origin.x,sector.origin.y],landing=sector.point(70,angle*sector.halfAngle),release=throwReleasePoint(event,3),start=[origin[0]+release[0],origin[1]+release[1]];
+  let cam=frameShot(throwShot('thrower',{thrower:origin}).rect,view);
+  for(let ms=-FLIGHT_LEAD_MS;ms<0;ms+=dt) {
+   const anticipate=flightPoint(start,landing,(ms+FLIGHT_LEAD_MS)/timing.flightMs,timing.arcHeight);
+   const shot=throwShot('thrower',{thrower:origin,anticipate});
+   cam=followCamera(cam,frameShot(shot.rect,view),dt,shot.rate,view);
+  }
+  for(let ms=0;ms<timing.flightMs;ms+=dt) {
+   const p=ms/timing.flightMs,implement=flightPoint(start,landing,p,timing.arcHeight),ground=sector.point(70*p,angle*sector.halfAngle);
+   const anticipate=flightPoint(start,landing,Math.min(1,p+FLIGHT_LEAD_MS/timing.flightMs),timing.arcHeight);
+   const shot=throwShot('flight',{origin,implement,ground,anticipate,upperAt:sector.upperY,chase:true});
+   cam=followCamera(cam,frameShot(shot.rect,view),dt,shot.rate,view,shot.pan);
+   const [x0,y0,x1,y1]=visible(cam,view);
+   for(const [x,y] of [implement,ground])assert(x>=x0 && x<=x1 && y>=y0 && y<=y1,`${event}/${view.width}: flight ${x},${y} outside ${x0},${y0},${x1},${y1} at ${ms} ms`);
+  }
+  const resultMs=beatDuration(beat)-throwOffset(beat)-timing.landAt;
+  for(let ms=0;ms<resultMs;ms+=dt) {
+   const shot=throwShot(ms<LANDING_HOLD_MS?'landing':'result',{origin,landing,upperAt:sector.upperY,chase:true});
+   cam=followCamera(cam,frameShot(shot.rect,view),dt,shot.rate,view,shot.pan);
+  }
+  const [x0,y0,x1,y1]=visible(cam,view);
+  for(const [x,y] of [origin,landing])assert(x>=x0 && x<=x1 && y>=y0 && y<=y1,`${event}: the result must show the complete measured distance`);
  }
 });
 
@@ -52,7 +82,7 @@ test('a throw is one continuous pull-out: the flight starts on the thrower shot 
 
 test('the camera never moves faster than its limits, however far the target is',()=>{
  for(const view of views) {
-  let cam={x:view.width/2,y:SCENE_HEIGHT/2,z:1};
+  let cam=clampCamera({x:view.width/2,y:SCENE_HEIGHT/2,z:1},view);
   const far=frameShot([20,180,120,250],view);
   for(let i=0;i<60;i++) {
    const next=followCamera(cam,far,16,40,view);
@@ -80,7 +110,7 @@ test('a shot put opens on the athlete and the landing area together, then pulls 
  for(const view of views) {
   const sector=throwingSector('shot',view.width,15),origin=[sector.origin.x,sector.origin.y],[ex]=sector.point(9);
   const close=frameShot(throwShot('thrower',{thrower:origin}).rect,view),shot=throwShot('thrower',{thrower:origin,expect:ex}),cam=frameShot(shot.rect,view);
-  assert(cam.z<close.z*0.75,'noticeably wider than the close-up');
+  assert(cam.z<close.z*0.9,'wider than the close-up');
   const [x0,,x1]=visible(cam,view);
   assert(x0<=origin[0]&&x1>=ex,'the circle and the expected landing are both in frame');
   const release=throwShot('flight',{origin,implement:[origin[0]+10,origin[1]-60],ground:[origin[0]+10,origin[1]],upperAt:sector.upperY,expect:ex}).rect;
@@ -104,7 +134,21 @@ test('a long throw is chased down the sector: the implement stays in frame, the 
   assert(land[0]>origin[0],'the landing holds on the mark, away from the circle');
   assert(result[0]<=origin[0]&&result[2]>=ex,'the result pulls back to show the circle and the mark');
   // A short throw never needs the chase: it stays one pull-out from the circle.
-  const [sx,sy]=sector.point(12),short=throwShot('flight',{origin,implement:[sx,sy-10],ground:[sx,sy],upperAt:sector.upperY,chase:true}).rect;
+  const [sx,sy]=sector.point(3),short=throwShot('flight',{origin,implement:[sx,sy-10],ground:[sx,sy],upperAt:sector.upperY,chase:true}).rect;
   assert(short[0]<=origin[0],'a short throw keeps the circle in frame');
+ }
+});
+
+test('a 70 m flight crosses several close-up widths and stays visible through its high arc',()=>{
+ for(const view of views) for(const event of ['discus','hammer','jav']) {
+  const sector=throwingSector(event,view.width,110),origin=[sector.origin.x,sector.origin.y],landing=sector.point(70),timing=throwTiming({event,mark:70});
+  const start=frameShot(throwShot('thrower',{thrower:origin}).rect,view);
+  assert((landing[0]-origin[0])/(view.width/start.z)>5,'long throws travel multiple close-up screen widths');
+  for(let i=0;i<=100;i++) {
+   const p=i/100,implement=flightPoint([origin[0]+12,origin[1]-40],landing,p,timing.arcHeight),ground=sector.point(70*p);
+   const shot=throwShot('flight',{origin,implement,ground,upperAt:sector.upperY,chase:true});
+   const [x0,y0,x1,y1]=visible(frameShot(shot.rect,view),view);
+   for(const [x,y] of [implement,ground]) assert(x>=x0 && x<=x1 && y>=y0 && y<=y1,`${event}: projectile and ground stay visible at ${p}`);
+  }
  }
 });

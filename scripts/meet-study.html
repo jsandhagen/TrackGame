@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meet distance study · Ring & Sector</title>
+<style>
+  :root { color-scheme: dark; font: 15px system-ui; background: #172a27; color: #f4ecda; }
+  body { margin: 16px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { color: #bfccbd; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+  button, select, input { font: inherit; }
+  input[type=number] { width: 65px; }
+  input[type=range] { flex: 1; min-width: 160px; }
+  canvas { display: block; width: 100%; height: 72vh; image-rendering: pixelated; background: #68ac48; }
+</style>
+<h1>Meet distance study</h1>
+<p>Production meet rendering: fixed metre scale, flight, chase, landing and result pullback.</p>
+<div class="controls">
+  <button id="play">Pause</button>
+  <label>Event <select id="event"><option value="shot">Shot put</option><option value="discus">Discus</option><option value="hammer">Hammer</option><option value="jav" selected>Javelin</option></select></label>
+  <label>Mark <input id="mark" type="number" min="1" max="110" step="1" value="70"> m</label>
+  <label>Speed <select id="pace"><option value="1">1×</option><option value="2">2×</option><option value="3">8×</option></select></label>
+  <label><input id="reduced" type="checkbox"> Reduce motion</label>
+  <label><input id="foul" type="checkbox"> Foul</label>
+  <input id="time" type="range" min="0" max="10000" value="0" aria-label="Throw time">
+  <output id="status"></output>
+</div>
+<canvas id="meet" aria-label="Animated meet distance and camera study"></canvas>
+<script type="module">
+  import * as G from '../src/domain/game.js';
+  import { EVENT_IDS } from '../src/game-content.js';
+  import { createStadium } from '../src/render/stadium.js';
+  import { throwTiming, throwOffset, beatDuration } from '../src/render/meet-presentation.js';
+  import { playbackRate } from '../src/platform/pacing.js';
+  const cv=document.querySelector('#meet'), ev=document.querySelector('#event'), mark=document.querySelector('#mark'),
+    pace=document.querySelector('#pace'), reduced=document.querySelector('#reduced'), foul=document.querySelector('#foul'),
+    time=document.querySelector('#time'), play=document.querySelector('#play'), status=document.querySelector('#status');
+  let s, beat, renderer, elapsed=0, paused=false, last=performance.now();
+  function reset() {
+    s=G.newGame(721);delete s.onboarding;
+    for(const a of s.roster) { a.stats.fill(90);for(const event of EVENT_IDS)a.mastery[event]=90; }
+    G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
+    const i=EVENT_IDS.indexOf(ev.value);s.match.eventIndex=i;s.match.entryIndex=0;s.match.turnSide='home';s.match.phase='decide';s.match.started[i]=true;
+    beat=G.decideThrow(s,'balanced');
+    const distance=Math.max(1,Math.min(110,Number(mark.value)||70));
+    Object.assign(beat,{mark:foul.checked?null:distance,flightDistance:distance,foul:foul.checked,ownBest:foul.checked?null:distance,place:foul.checked?null:1,newPb:false,worldRecord:false,tookLead:false,scoringSwing:0,activations:[]});
+    s.match.fields[i].home[0].marks=[beat.mark];s.match.homeMarks[i]=[beat.mark];
+    s.worldRecords[ev.value]={...s.worldRecords[ev.value],mark:Math.max(G.worldRecord(s,ev.value),distance)};
+    time.max=beatDuration(beat);elapsed=0;renderer=createStadium(cv);
+  }
+  function draw(t) {
+    renderer.draw(s,t,{beat,elapsed:t,pace:Number(pace.value),reduced:reduced.checked});
+    const timing=throwTiming(beat), flight=t-throwOffset(beat)-timing.releaseAt;
+    status.value=`${(t/1000).toFixed(2)} s · ${flight<0?'delivery':flight<timing.flightMs?'in flight':'landed'} · flight ${(timing.flightMs/1000).toFixed(2)} s`;
+    time.value=t;
+  }
+  window.seekMeetStudy=t=>{
+    paused=true;play.textContent='Play';renderer=createStadium(cv);
+    for(let at=0;at<t;at+=50)draw(at);
+    elapsed=t;draw(t);
+  };
+  window.meetStudyTiming=()=>({offset:throwOffset(beat),...throwTiming(beat),duration:beatDuration(beat)});
+  for(const control of [ev,mark,pace,reduced,foul])control.onchange=()=>{reset();draw(0);};
+  time.oninput=()=>window.seekMeetStudy(Number(time.value));
+  play.onclick=()=>{paused=!paused;play.textContent=paused?'Play':'Pause';};
+  reset();
+  function tick(now) {
+    if(!paused)elapsed=(elapsed+Math.min(100,now-last)*playbackRate(Number(pace.value)))%Number(time.max);
+    last=now;draw(elapsed);requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+</html>
