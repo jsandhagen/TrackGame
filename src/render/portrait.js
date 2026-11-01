@@ -97,9 +97,10 @@ const lightness = (c) => hslOf(c)[2];
 const HEAD_TOP = 5;
 const HEAD = [[11, 10], [9, 14], [8, 16], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [8, 16], [9, 14], [10, 12], [12, 8]];
 const KID_HEAD = HEAD.map(([x, w], r) => (r > 12 && r < 17 ? [x - 1, w + 2] : [x, w]));
-// Big eyes set low and wide: 3×4 at x 9 and x 20, rows 13–16. Brows sit at row 11, the mouth at
-// row 19 just under the eyes, and the nose is a single shadow pixel.
-const EYES = [9, 20],
+// Big eyes, 3×4 at x 11 and x 18, rows 13–16: one eye-width apart and mirrored about the face's
+// centre, so they read as a natural pair rather than set too wide. Brows sit at row 11, the mouth
+// at row 19 just under the eyes, and the nose is a single shadow pixel.
+const EYES = [11, 18],
   EYE_Y = 13,
   MOUTH_Y = 19;
 
@@ -213,7 +214,6 @@ function drawBust(g, o) {
   if (metal) P(4, 12, 3, 6, "#9aa6b0"), P(25, 12, 3, 6, "#7a8a96");
   rowsOf(0, head.length, fur ? hair : skin);
   if (!fur) {
-    for (let r = 4; r < head.length; r++) P(head[r][0] + head[r][1] - 1, HEAD_TOP + r, 1, 1, skinLo);
     rowsOf(head.length - 1, head.length, skinLo);
     P(head[16][0] + 1, HEAD_TOP + 16, head[16][1] - 2, 1, skinLo), P(head[16][0] + 1, HEAD_TOP + 16, 3, 1, skin);
   }
@@ -267,27 +267,26 @@ function drawBust(g, o) {
         case "closed": P(x, y + 1, 1, 1, EYE), P(x + 1, y + 2, 1, 1, EYE), P(x + 2, y + 1, 1, 1, EYE); return y + 1;
         case "line": P(x, y + 2, 3, 1, EYE); return y + 2;
         case "half":
-          P(x, y, 3, 1, skinLo2), P(x, y + 1, 3, 1, EYE);
-          P(x, y + 2, 1, 1, iris), P(x + 1, y + 2, 1, 2, EYE), P(x + 2, y + 2, 1, 1, iris), P(x, y + 3, 1, 1, iris), P(x + 2, y + 3, 1, 1, irisHi);
+          P(x, y, 3, 1, skinLo2), P(x, y + 1, 3, 2, EYE), P(x, y + 2, 1, 1, SHINE);
+          P(x, y + 3, 3, 1, iris), P(x + 1, y + 3, 1, 1, irisHi);
           return y + 1;
         case "narrow":
-          P(x, y + 1, 3, 1, EYE);
-          P(x, y + 2, 1, 1, SHINE), P(x + 1, y + 2, 1, 2, EYE), P(x + 2, y + 2, 1, 1, iris), P(x, y + 3, 1, 1, iris), P(x + 2, y + 3, 1, 1, irisHi);
+          P(x, y + 1, 3, 2, EYE), P(x, y + 2, 1, 1, SHINE);
+          P(x, y + 3, 3, 1, iris), P(x + 1, y + 3, 1, 1, irisHi);
           return y + 1;
         case "wide":
           P(x, y - 1, 3, 1, EYE), P(x, y, 3, 4, "#f8f4f0"), P(x + 1, y + 1, 1, 2, EYE), P(x + 1, y + 1, 1, 1, SHINE), P(x + 1, y + 2, 1, 1, iris);
           return y - 1;
         case "aside":
-          P(x, y, 3, 1, EYE);
-          P(x, y + 1, 1, 1, SHINE), P(x + 1, y + 1, 1, 1, iris), P(x + 2, y + 1, 1, 2, EYE), P(x, y + 2, 2, 1, iris), P(x, y + 3, 3, 1, irisHi);
+          // Glancing down and aside: the dark of the eye pools in the lower corner.
+          P(x, y, 3, 1, EYE), P(x, y + 1, 1, 2, "#f8f4f0"), P(x + 1, y + 1, 2, 2, EYE), P(x + 1, y + 1, 1, 1, SHINE);
+          P(x, y + 3, 3, 1, iris), P(x + 2, y + 3, 1, 1, irisHi);
           return y;
         default:
-          // Lash line, a two-pixel pupil, the iris around it, a big shine top left and a small
-          // sparkle bottom right, in the same corners on both eyes.
-          P(x, y, 3, 1, EYE);
-          P(x, y + 1, 1, 1, SHINE), P(x + 1, y + 1, 1, 2, EYE), P(x + 2, y + 1, 1, 1, iris);
-          P(x, y + 2, 1, 1, iris), P(x + 2, y + 2, 1, 1, iris);
-          P(x, y + 3, 3, 1, irisHi), P(x + 2, y + 3, 1, 1, SHINE);
+          // A dark eye with its shine in the top-left corner (the same corner on both eyes) and
+          // the coloured iris catching light along the bottom.
+          P(x, y, 3, 3, EYE), P(x, y + 1, 1, 1, SHINE);
+          P(x, y + 3, 3, 1, iris), P(x + 1, y + 3, 1, 1, irisHi);
           return y;
       }
     };
@@ -300,9 +299,10 @@ function drawBust(g, o) {
     else P(15, 17, 2, 1, "#4a5a6a");
     // Cheeks: a soft blush under the outer corner of each eye; shy faces flush with hatching.
     if (beard !== "full") {
-      P(7, 17, 3, 1, BLUSH), P(22, 17, 3, 1, BLUSH);
-      if (expr.blush) P(7, 18, 3, 1, BLUSH), P(22, 18, 3, 1, BLUSH), P(8, 17, 1, 1, ramp(BLUSH, -1.5)), P(23, 17, 1, 1, ramp(BLUSH, -1.5));
-    } else P(9, 17, 2, 1, BLUSH), P(21, 17, 2, 1, BLUSH);
+      const [bl, br] = [EYES[0] - 2, EYES[1] + 2];
+      P(bl, 17, 3, 1, BLUSH), P(br, 17, 3, 1, BLUSH);
+      if (expr.blush) P(bl, 18, 3, 1, BLUSH), P(br, 18, 3, 1, BLUSH), P(bl + 1, 17, 1, 1, ramp(BLUSH, -1.5)), P(br + 1, 17, 1, 1, ramp(BLUSH, -1.5));
+    } else P(EYES[0] - 1, 17, 2, 1, BLUSH), P(EYES[1] + 2, 17, 2, 1, BLUSH);
     // The mouth, small and tucked under the eyes.
     const y = MOUTH_Y;
     switch (expr.mouth) {
@@ -471,14 +471,15 @@ function drawBust(g, o) {
       P(x - 1, 12, 5, 1, frame), P(x - 1, 17, 5, 1, frame), P(x - 1, 12, 1, 6, frame), P(x + 3, 12, 1, 6, frame);
       P(x + 2, 13, 1, 1, "#ffffff");
     }
-    P(13, 14, 6, 1, frame);
-    P(6, 14, 2, 1, frame), P(24, 14, 2, 1, frame);
+    P(EYES[0] + 4, 14, EYES[1] - EYES[0] - 5, 1, frame);
+    P(6, 14, EYES[0] - 7, 1, frame), P(EYES[1] + 4, 14, 26 - EYES[1] - 4, 1, frame);
   }
   if (gear === "shades" && !metal) {
     const lens = "#1c2030";
-    P(7, 13, 6, 4, lens), P(19, 13, 6, 4, lens), P(13, 13, 6, 1, lens);
-    P(8, 13, 2, 1, "#6a7a98"), P(20, 13, 2, 1, "#6a7a98"), P(8, 14, 1, 1, "#4a5a78"), P(20, 14, 1, 1, "#4a5a78");
-    P(5, 13, 2, 1, lens), P(25, 13, 2, 1, lens);
+    // Two lenses mirrored about the centre, a bridge and the arms back to the ears.
+    for (const x of EYES) P(x - 1, 13, 5, 4, lens), P(x, 13, 2, 1, "#6a7a98"), P(x, 14, 1, 1, "#4a5a78");
+    P(EYES[0] + 4, 13, EYES[1] - EYES[0] - 5, 1, lens);
+    P(5, 13, EYES[0] - 6, 1, lens), P(EYES[1] + 4, 13, 27 - EYES[1] - 4, 1, lens);
   }
   if (gear === "band" && !metal) {
     P(6, 7, 20, 3, gc), P(6, 7, 7, 1, ramp(gc, 1.2)), P(6, 9, 20, 1, ramp(gc, -1)), P(21, 7, 5, 2, ramp(gc, -0.6));
