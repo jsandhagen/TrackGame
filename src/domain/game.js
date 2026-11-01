@@ -136,6 +136,7 @@ export function newGame(seed = Date.now() >>> 0) {
     stadium: Object.fromEntries(Object.entries(STADIUM).map(([k, d]) => [k, d.start])),
     discovered: [],
     prospects: [],
+    scouting: { week: 0, searches: 0 },
     match: null,
     sponsor: "bakery",
     sponsorLocked: false,
@@ -897,12 +898,19 @@ export function promote(s, athleteId) {
 }
 
 // ── People ────────────────────────────────────────────────────────────
-export const scoutCost = (s) => Math.round((60 + 25 * s.league) * (1 - 0.15 * facilityLevel(s, "scout")));
+export const scoutingWeek = (s) => Math.floor((s.day - 1) / 7);
+export const weeklySearches = (s) => s.scouting?.week === scoutingWeek(s) ? s.scouting.searches : 0;
+export const scoutBaseCost = (s) => Math.round((60 + 25 * s.league) * (1 - 0.15 * facilityLevel(s, "scout")));
+export const scoutCost = (s) => scoutBaseCost(s) * (1 + weeklySearches(s));
 export function scout(s, free = false) {
-  if (!systemUnlocked(s, "recruit")) return false;
-  if (!free && s.money < scoutCost(s)) return false;
-  if (!free) s.money -= scoutCost(s);
-  if (!free) ledgerAdd(s, "money", "Scouting", -scoutCost(s));
+  if (!systemUnlocked(s, "recruit") || s.match) return false;
+  const cost = free ? 0 : scoutCost(s);
+  if (s.money < cost && !free) return false;
+  if (!free) {
+    s.money -= cost;
+    ledgerAdd(s, "money", "Scouting", -cost);
+    s.scouting = { week: scoutingWeek(s), searches: weeklySearches(s) + 1 };
+  }
   const luck = 0.25 * facilityLevel(s, "scout") + (hasCombo(s, "network") ? 0.3 : 0) + 0.05 * s.league;
   s.prospects = Array.from({ length: 3 }, () =>
     createAthlete(s, pick(s, EVENT_IDS), { base: Math.max(22, LEAGUES[s.league].rating - 4 + random(s) * 4), rarity: rollRarity(s, luck) }),

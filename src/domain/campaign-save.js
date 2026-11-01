@@ -262,6 +262,9 @@ function checkMatch(s, ids) {
           !championshipClubs(s).some(c => c.id === e.clubId && c.athletes.some(a => a.id === e.id)) || f.away.filter(r=>r.clubId===e.clubId).length>2)) bad();
       if (f.finalOrder != null && (!Array.isArray(f.finalOrder) || new Set(f.finalOrder.map(e=>e.side+":"+e.id)).size!==f.finalOrder.length ||
           f.finalOrder.some(e=>!["home","away"].includes(e.side) || !f[e.side].some(r=>r.id===e.id && r.finalist)))) bad();
+      if (f.startOrder != null && (!Array.isArray(f.startOrder) || f.startOrder.length !== f.home.length + f.away.length ||
+          new Set(f.startOrder.map(e=>e?.side+":"+e?.id)).size !== f.startOrder.length ||
+          f.startOrder.some(e=>!e || !["home","away"].includes(e.side) || !f[e.side].some(r=>r.id===e.id)))) bad();
     }
     syncMarks(s);
     if (m.leagueChampionship) rescore(m);
@@ -300,6 +303,8 @@ export function validateCampaign(input) {
   }
   const s = data;
   if (!s || s.v !== 8 || !word(s.clubName) || !int(s.league, 0, 4) || !int(s.season, 1, 1e6) || !int(s.day, 1, 1e7)) bad();
+  s.scouting ??= { week: Math.floor((s.day - 1) / 7), searches: 0 };
+  if (!int(s.scouting.week, 0, Math.floor((s.day - 1) / 7)) || !int(s.scouting.searches, 0, 1e9)) bad();
   if (s.onboarding != null && (!int(s.onboarding.meets,0,INTRODUCTIONS.length))) bad();
   if (!num(s.money, -1e9, 1e12) || !num(s.fans, 0, 1e12) || !["planning", "season", "seasonEnd"].includes(s.phase) || !int(s.fixture, 0, 3)) bad();
   if (s.phase === "planning") {

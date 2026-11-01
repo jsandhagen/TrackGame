@@ -77,8 +77,11 @@ test('changing entries shows portraits and stats, and the picker explains who ca
   const again=P.entryPicker(s,ev,0);
   assert.match(again,new RegExp(`data-pick="${busy.id}"[^>]*disabled`));
   assert.match(again,/Already in two events/);
-    // The best forecast comes first, and the list reads in forecast order.
-  const marks=[...again.matchAll(/<span class="entry-forecast"><b>([\d.]+) m<\/b>/g)].map(m=>+m[1]);
+  // PBs, not estimated distance, determine entry order.
+  for(const [i,a] of s.roster.entries()) a.pb.shot=9+i;
+  const withPbs=P.entryPicker(s,ev,0);
+  const available=[...withPbs.matchAll(/<button class="pick-row entry-pick[^]*?<\/button>/g)].map(m=>m[0]).filter(row=>!/^<button[^>]*disabled/.test(row) && !row.includes("entry-clear"));
+  const marks=available.map(row=>+row.match(/<b>PB ([\d.]+) m<\/b>/)[1]);
   assert(marks.length>=2);
   assert.deepEqual(marks,[...marks].sort((x,y)=>y-x));
 });
