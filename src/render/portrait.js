@@ -97,10 +97,10 @@ const lightness = (c) => hslOf(c)[2];
 const HEAD_TOP = 5;
 const HEAD = [[11, 10], [9, 14], [8, 16], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [8, 16], [9, 14], [10, 12], [12, 8]];
 const KID_HEAD = HEAD.map(([x, w], r) => (r > 12 && r < 17 ? [x - 1, w + 2] : [x, w]));
-// Big eyes, 3×4 at x 11 and x 18, rows 13–16: one eye-width apart and mirrored about the face's
-// centre, so they read as a natural pair rather than set too wide. Brows sit at row 11, the mouth
-// at row 19 just under the eyes, and the nose is a single shadow pixel.
-const EYES = [11, 18],
+// Big eyes, 3×4 at x 10 and x 19, rows 13–16, two eye-widths apart and mirrored about the face's
+// centre. Brows sit at row 11, the mouth at row 19 just under the eyes, and the nose is a single
+// shadow pixel.
+const EYES = [10, 19],
   EYE_Y = 13,
   MOUTH_Y = 19;
 
@@ -116,28 +116,31 @@ function drawBust(g, o) {
     g.fillStyle = c;
     g.fillRect(x, y, w, h);
   };
-  const skin = metal ? "#b8c4cc" : look.skin || "#e2b08a",
+  // Deep skin is drawn a touch warmer and richer, so it keeps its glow next to black hair and the
+  // dark outline instead of flattening into them.
+  const baseSkin = metal ? "#b8c4cc" : look.skin || "#e2b08a",
+    deep = !metal && lightness(baseSkin) < 0.36,
+    skin = deep ? (([h, s0, l]) => hexOf(toward(h, 22, 6), Math.min(0.62, s0 + 0.14), l + 0.035))(hslOf(baseSkin)) : baseSkin,
     skinLo = ramp(skin, -1, 10),
     skinLo2 = ramp(skin, -2, 10),
     skinHi = ramp(skin, 1),
     hair = look.hair || "#3a2a20",
     hairLo = ramp(hair, -1.3),
     hairLo2 = ramp(hair, -2.2),
-    hairHi = ramp(hair, 1.4),
-    hairHi2 = ramp(hair, 2.4),
+    hairHi = ramp(hair, deep && lightness(hair) < 0.2 ? 2 : 1.4),
+    hairHi2 = ramp(hair, deep && lightness(hair) < 0.2 ? 3 : 2.4),
     shirt = o.shirt || "#2f6b52",
     collar = o.collar || "#e2b04a",
     broad = look.build === "broad",
     style = look.style || 0;
   // Warm features: a mouth line from the skin's own deep shadow, soft blush, a coloured iris.
-  // On deep skin a dark line would vanish, so the mouth goes lighter and rosier and the iris warmer,
-  // keeping every feature readable at its smallest size.
-  const deep = lightness(skin) < 0.36;
-  const MOUTH = deep ? mix(skin, "#f0a0a0", 0.5) : hexOf(...(([h, s2, l]) => [toward(h, 5, 12), Math.min(0.6, s2 + 0.1), Math.max(0.18, l * 0.45)])(hslOf(skin))),
+  // On deep skin a dark line would vanish, so the mouth goes rosier and the iris stays deep (a light
+  // one glows), keeping every feature readable at its smallest size.
+  const MOUTH = deep ? mix(skin, "#c86a6a", 0.45) : hexOf(...(([h, s2, l]) => [toward(h, 5, 12), Math.min(0.6, s2 + 0.1), Math.max(0.18, l * 0.45)])(hslOf(skin))),
     INSIDE = deep ? "#2a0c14" : "#5a2230",
     TONGUE = "#e8787a",
     BLUSH = mix(skin, "#ff6a78", 0.42),
-    iris = look.eyeColor || (lightness(hair) > 0.55 && lightness(skin) > 0.7 ? "#4a78b0" : deep ? "#b07848" : "#7a4a30"),
+    iris = look.eyeColor || (lightness(hair) > 0.55 && lightness(skin) > 0.7 ? "#4a78b0" : deep ? "#3a2218" : "#7a4a30"),
     irisHi = ramp(iris, 1.6);
   const head = kid ? KID_HEAD : HEAD;
   const rowsOf = (from, to, c, inset = 0) => {
@@ -294,6 +297,8 @@ function drawBust(g, o) {
     if (look.lashes && expr.eyes !== "line") P(EYES[0] - 1, lashY[0] - 1, 1, 1, EYE), P(EYES[0] - 1, lashY[0], 1, 1, EYE), P(EYES[1] + 3, lashY[1] - 1, 1, 1, EYE), P(EYES[1] + 3, lashY[1], 1, 1, EYE);
     if (look.shadow && expr.eyes !== "line") P(EYES[0] - 1, lashY[0] - 1, 3, 1, look.shadow), P(EYES[1] + 1, lashY[1] - 1, 3, 1, look.shadow);
     if (expr.bags) P(EYES[0], EYE_Y + 4, 3, 1, skinLo), P(EYES[1], EYE_Y + 4, 3, 1, skinLo);
+    // Deep skin catches the light along the cheekbones.
+    if (deep && beard !== "full") P(EYES[0] - 1, EYE_Y + 4, 2, 1, skinHi), P(EYES[1] + 2, EYE_Y + 4, 2, 1, skinHi);
     // A minimal nose: one shadow pixel on the side away from the light.
     if (!fur) P(16, 17, 1, 1, skinLo);
     else P(15, 17, 2, 1, "#4a5a6a");
