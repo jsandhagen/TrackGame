@@ -198,6 +198,8 @@ let shownPage = null;
 function render(preserve = true) {
   const groupPlans = $("#panel .group-plans");
   if (groupPlans) view.showGroupPlans = groupPlans.open;
+  const squadFilters = $("#panel .squad-filter-panel");
+  if (squadFilters) view.squadFiltersOpen = squadFilters.open;
   const panel = $("#panel"),
     page = state.match ? "meet:" + state.match.phase : [view.window, view.athlete, view.tab, view.tabs?.[view.window], view.trainTab, view.shopTab, view.drill].join(":"),
     scroll = preserve && page === shownPage ? panel.scrollTop : 0,
@@ -492,7 +494,7 @@ function chooseAthlete(title, item, fn, cancel = "Cancel") {
       }),
   );
 }
-// Choosing who fills a meet entry: a picker with every athlete's portrait, stats and forecast.
+// Entry selection shows earned event PBs, with unknown marks left unseeded.
 function pickEntry(ev, k) {
   if (!EVENTS[ev] || state.match) return;
   dialog(EVENTS[ev].name + " · entry " + (k + 1), P.entryPicker(state, ev, k), [{ label: "Cancel", secondary: true }], { eyebrow: "Choose an athlete", tone: "news", cls: "entry-dialog" });
@@ -955,7 +957,7 @@ $("#app").addEventListener("click", async (e) => {
       return renameAthlete(+b.dataset.id);
     case "autolineup":
       G.autoLineup(state);
-      toast("Strongest lineup entered.");
+      toast("Lineup entered by personal best. Unmarked athletes use their specialty.");
       break;
     case "medical":
       if (!G.medicalDay(state)) toast("Only available when an injured athlete is in the lineup.");
@@ -1069,6 +1071,21 @@ $("#app").addEventListener("click", async (e) => {
       view.athlete = null;
       view.selected = null;
       return render(false);
+    case "squad-reset":
+      Object.assign(view,{squadEvent:"all",squadRole:"all",squadStatus:"all",squadSort:"event"});
+      if ($(".squad-filter-panel")) $(".squad-filter-panel").open = false;
+      return render(false);
+    case "squad-compare":
+      view.squadCompareOpen = true;
+      if ($(".squad-filter-panel")) $(".squad-filter-panel").open = false;
+      return render(false);
+    case "squad-compare-close":
+      view.squadCompareOpen = false;
+      return render();
+    case "squad-compare-clear":
+      view.squadCompare = [];
+      view.squadCompareOpen = false;
+      return render();
     case "meet-progress":
     case "result-view":
       view.resultView = act === "meet-progress" ? "progress" : b.dataset.value;
@@ -1404,6 +1421,21 @@ $("#app").addEventListener("change", async (e) => {
     a = state.roster.find((x) => x.id === +el.dataset.id);
   // Plain form fields (the club name) commit on submit; re-rendering here would detach the form first.
   if (!kind) return;
+  if (kind.startsWith("squad-")) {
+    if (kind === "squad-compare") {
+      const selected = (view.squadCompare || []).filter(id=>id!==+el.dataset.id && state.roster.some(a=>a.id===id));
+      if (el.checked && selected.length < 2) selected.push(+el.dataset.id);
+      view.squadCompare = selected;
+      if (selected.length !== 2) view.squadCompareOpen = false;
+    } else {
+      const key = {"squad-event":"squadEvent","squad-role":"squadRole","squad-status":"squadStatus","squad-sort":"squadSort","squad-compare-event":"squadCompareEvent"}[kind];
+      if (key) view[key] = el.value;
+      if (kind === "squad-event" && el.value === "all" && view.squadSort === "pb") view.squadSort = "event";
+    }
+    render();
+    $("#panel [data-change='"+kind+"']"+(el.dataset.id ? "[data-id='"+el.dataset.id+"']" : ""))?.focus({preventScroll:true});
+    return;
+  }
   if (kind === "facility-staff") G.assignDuty(state,el.dataset.site,+el.value);
   if (kind === "athlete-duty" && a) {
     if(el.value === "auto") {
@@ -1521,6 +1553,7 @@ async function useClub(n, incoming = null) {
   shownInsights = null;
   presenter = null;
   Object.assign(view, { window: null, athlete: null, selected: null, moving: null, meetSpeed: state.settings.meetSpeed || 1 });
+  Object.assign(view,{squadEvent:"all",squadRole:"all",squadStatus:"all",squadSort:"event",squadCompare:[],squadCompareOpen:false,squadCompareEvent:null,squadFiltersOpen:false});
   setSound(state.settings.sound);
   world.reset();
   render(false);

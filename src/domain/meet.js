@@ -21,6 +21,8 @@ import {
   facilityLevel,
   hasCombo,
   ledgerAdd,
+  personalBest,
+  compareEntryPbs,
 } from "./core.js";
 import { checkGoals, yearStat } from "./story.js";
 import { competitionTier } from "./competition.js";
@@ -48,7 +50,7 @@ export function championshipEntries(s) {
   for (const club of championshipClubs(s)) {
     const uses = new Map();
     for (let slot=0;slot<2;slot++) for (const ev of EVENT_IDS) {
-      const athlete = [...club.athletes].filter(a => championshipQualified(s,a.id,ev) && (uses.get(a.id) || 0) < 2 && !out[ev].some(e=>e.athlete.id===a.id)).sort((a,b) => qualifyingMark(s,b.id,ev)-qualifyingMark(s,a.id,ev))[0];
+      const athlete = [...club.athletes].filter(a => championshipQualified(s,a.id,ev) && (uses.get(a.id) || 0) < 2 && !out[ev].some(e=>e.athlete.id===a.id)).sort((a,b) => compareEntryPbs(a,b,ev))[0];
       if (!athlete) continue;
       out[ev].push({ athlete, club });
       uses.set(athlete.id, (uses.get(athlete.id) || 0) + 1);
@@ -109,20 +111,20 @@ export function assignEntry(s, event, slot, id) {
   return true;
 }
 export const assign = (s, event, id) => assignEntry(s, event, 0, id);
-// Greedy best lineup: specialists first, then the strongest healthy cover.
+// Choose by event PB; unmarked athletes use specialty and ID as a stable tie-break.
 export function autoLineup(s) {
   if (s.match) return false;
   const lineup = {};
   const healthy = s.roster.filter((a) => !a.injury);
   if (!healthy.length) return false;
   const order = [...EVENT_IDS].sort(
-    (x, y) => Math.max(...healthy.map((a) => forecast(s, a, y) / EVENTS[y].max)) - Math.max(...healthy.map((a) => forecast(s, a, x) / EVENTS[x].max)),
+    (x, y) => Math.max(...healthy.map((a) => personalBest(a, y) / EVENTS[y].max)) - Math.max(...healthy.map((a) => personalBest(a, x) / EVENTS[x].max)),
   );
   for (const ev of order) {
     const options = healthy
       .filter((a) => usesOf(s, a.id, lineup) < (healthy.length >= 4 ? 1 : 2) && (!isLeagueChampionship(s) || championshipQualified(s,a.id,ev)))
-      .sort((a, b) => forecast(s, b, ev) - forecast(s, a, ev));
-    const fallback = healthy.filter((a) => usesOf(s, a.id, lineup) < 2 && (!isLeagueChampionship(s) || championshipQualified(s,a.id,ev))).sort((a, b) => forecast(s, b, ev) - forecast(s, a, ev));
+      .sort((a, b) => compareEntryPbs(a, b, ev));
+    const fallback = healthy.filter((a) => usesOf(s, a.id, lineup) < 2 && (!isLeagueChampionship(s) || championshipQualified(s,a.id,ev))).sort((a, b) => compareEntryPbs(a, b, ev));
     const pickA = options[0] || fallback[0];
     if (!pickA) { if (isLeagueChampionship(s)) { lineup[ev]=null; continue; } return false; }
     lineup[ev] = pickA.id;
@@ -136,7 +138,7 @@ export function autoLineup(s) {
     const slots=healthy.flatMap(a=>Array.from({length:2-EVENT_IDS.filter(ev=>entriesOf(s,ev).includes(a.id)).length},()=>a.id));
     const matched=new Map();
     function fill(ev,seen) {
-      const choices=slots.map((id,index)=>({id,index,a:healthy.find(a=>a.id===id)})).filter(x=>!entriesOf(s,ev).includes(x.id) && (!isLeagueChampionship(s) || championshipQualified(s,x.id,ev))).sort((a,b)=>forecast(s,b.a,ev)-forecast(s,a.a,ev));
+      const choices=slots.map((id,index)=>({id,index,a:healthy.find(a=>a.id===id)})).filter(x=>!entriesOf(s,ev).includes(x.id) && (!isLeagueChampionship(s) || championshipQualified(s,x.id,ev))).sort((a,b)=>compareEntryPbs(a.a,b.a,ev));
       for(const slot of choices) {
         if(seen.has(slot.index))continue;seen.add(slot.index);
         if(!matched.has(slot.index)||fill(matched.get(slot.index),seen)){matched.set(slot.index,ev);return true;}
@@ -149,11 +151,16 @@ export function autoLineup(s) {
   return true;
 }
 
-function rivalEntries(s,rival) {
-  const out=Object.fromEntries(EVENT_IDS.map(ev=>[ev,[rival.athletes.find(a=>a.event===ev).id]]));
+export function rivalEntries(s,rival) {
+  const out=Object.fromEntries(EVENT_IDS.map(ev=>[ev,[]]));
+  const uses = id => EVENT_IDS.filter(ev=>out[ev].includes(id)).length;
+  for (const ev of EVENT_IDS) {
+    const candidates = rival.athletes.filter(a=>uses(a.id)<1).sort((a,b)=>compareEntryPbs(a,b,ev));
+    if (candidates[0]) out[ev].push(candidates[0].id);
+  }
   if (firstMeet(s)) return out;
   for(let pass=0;pass<2;pass++) for(const ev of EVENT_IDS) {
-    const candidates=rival.athletes.filter(a=>!out[ev].includes(a.id)&&EVENT_IDS.filter(e=>out[e].includes(a.id)).length<2).sort((a,b)=>forecast(s,b,ev,{club:false})-forecast(s,a,ev,{club:false}));
+    const candidates=rival.athletes.filter(a=>!out[ev].includes(a.id)&&uses(a.id)<2).sort((a,b)=>compareEntryPbs(a,b,ev));
     if(candidates[0])out[ev].push(candidates[0].id);
   }
   return out;
@@ -219,6 +226,15 @@ export function startMatch(s) {
     last: null,
     rewards: null,
   };
+  // Keep the opening order fixed through the meet and across save/reload. No PB
+  // throws first, then increasing PB, so the highest earned seed throws last.
+  for (const [i, ev] of EVENT_IDS.entries()) {
+    const field = s.match.fields[i];
+    field.startOrder = Array.from({length:Math.max(field.home.length,field.away.length)},(_,index)=>index)
+      .flatMap(index=>["away","home"].flatMap(side=>field[side][index] ? [{side,id:field[side][index].id}] : []))
+      .sort((x,y) => personalBest(x.side === "home" ? s.roster.find(a=>a.id===x.id) : rival.athletes.find(a=>a.id===x.id),ev)
+        - personalBest(y.side === "home" ? s.roster.find(a=>a.id===y.id) : rival.athletes.find(a=>a.id===y.id),ev));
+  }
   return true;
 }
 export const entrant = (s, side, i = s.match?.eventIndex) => s.match?.fields?.[i]?.[side]?.[s.match.entryIndex || 0];
@@ -657,7 +673,8 @@ function selectFieldTurn(s) {
     const e=f[side][index];if(e&&(!m.finalRound||e.finalist)&&e.marks.length<m.attempts) queue.push({side,index,attempt:e.marks.length});
   }
   if(!queue.length)return null;
-  if (m.prelimFinals && m.finalRound && f.finalOrder) queue.sort((a,b) => f.finalOrder.findIndex(e=>e.side===a.side&&e.id===f[a.side][a.index].id)-f.finalOrder.findIndex(e=>e.side===b.side&&e.id===f[b.side][b.index].id));
+  const order = m.finalRound && f.finalOrder ? f.finalOrder : f.startOrder;
+  if (order) queue.sort((a,b) => order.findIndex(e=>e.side===a.side&&e.id===f[a.side][a.index].id)-order.findIndex(e=>e.side===b.side&&e.id===f[b.side][b.index].id));
   const round=Math.min(...queue.map(t=>t.attempt));return queue.find(t=>t.attempt===round);
 }
 function advanceFieldMatch(s) {
@@ -678,7 +695,7 @@ function advanceFieldMatch(s) {
         const cutoff=series(ranked[limit-1]);
         finalists.push(...ranked.slice(limit).filter(e=>series(e)===cutoff));
       }
-      if (m.prelimFinals) f.finalOrder=[...all].reverse().filter(e=>finalists.some(r=>r.side===e.side&&r.id===e.id)).map(e=>({side:e.side,id:e.id}));
+      f.finalOrder=[...all].reverse().filter(e=>finalists.some(r=>r.side===e.side&&r.id===e.id)).map(e=>({side:e.side,id:e.id}));
       for(const side of ["home","away"]) for(const e of f[side]) e.finalist=finalists.some(r=>r.side===side&&r.id===e.id);
       m.finalRound=true;m.attempts=6;turn=selectFieldTurn(s);
       if(turn){m.entryIndex=turn.index;m.turnSide=turn.side;syncMarks(s);return m.last={type:"eventStart",event:EVENT_IDS[m.eventIndex],eventIndex:m.eventIndex,home:homeAthlete(s).id,away:rivalAthlete(s).id,finals:true,finalistLimit:limit};}
@@ -822,6 +839,8 @@ export function settleMatch(s) {
   }
   if(m.fields) for(const [i,ev] of EVENT_IDS.entries()) for(const entry of m.fields[i].away) {
     const a=matchClub(s).athletes.find(a=>a.id===entry.id);
+    const mark = best(entry.marks);
+    if (mark != null && mark > personalBest(a,ev)) a.pb[ev] = mark;
     competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
   }
   // World records: the sport's biggest headline, paid in prize money, fans and Insights.

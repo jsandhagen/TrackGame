@@ -1,5 +1,5 @@
 import { EVENTS, EVENT_IDS } from "../game-content.js";
-import { realMark, forecast, random } from "./core.js";
+import { realMark, forecast, random, personalBest, compareEntryPbs } from "./core.js";
 import { competitionTier, RIVAL_RATING } from "./competition.js";
 
 export const CHAMPIONSHIP_FINALISTS = 6;
@@ -26,13 +26,15 @@ export function simulateQualifiers(s, club, entries) {
     const a = club.athletes.find(a => a.id === id), marks = [];
     for (let n=0;n<3;n++) marks.push(random(s)<0.1 ? null : +(forecast(s,a,ev,{club:false}) * (0.94+random(s)*0.09)).toFixed(2));
     recordQualifier(s,id,ev,marks);
+    const mark = Math.max(0, ...marks.filter(v=>v!=null));
+    if (mark > personalBest(a,ev)) a.pb[ev] = mark;
   }
 }
 export function seedChampionshipLineup(s) {
   const entries = Object.fromEntries(EVENT_IDS.map(ev => [ev,[]])), uses = new Map();
   for (let slot=0;slot<3;slot++) for (const ev of EVENT_IDS) {
     const a = s.roster.filter(a => championshipQualified(s,a.id,ev) && !entries[ev].includes(a.id) && (uses.get(a.id)||0)<2)
-      .sort((a,b) => (!!a.injury)-(!!b.injury) || qualifyingMark(s,b.id,ev)-qualifyingMark(s,a.id,ev))[0];
+      .sort((a,b) => (!!a.injury)-(!!b.injury) || compareEntryPbs(a,b,ev))[0];
     if (a) { entries[ev].push(a.id); uses.set(a.id,(uses.get(a.id)||0)+1); }
   }
   s.entries = entries;

@@ -980,6 +980,80 @@ select {
 }
 
 /* ── Squad ─────────────────────────────────────────────────────────── */
+.squad-filter-panel { column-span: all; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper2); margin: 10px 0; }
+.squad-filter-panel > summary { padding: 10px; cursor: pointer; font-size: 13px; font-weight: 700; }
+.squad-filter-panel > summary small { margin-left: 6px; font-weight: 400; }
+.squad-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  background: var(--paper2);
+  padding: 10px;
+  margin: 0;
+  column-span: all;
+}
+.squad-filters label, .squad-comparison > label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 0;
+}
+.squad-filters select, .squad-comparison select { min-width: 0; width: 100%; min-height: 40px; }
+.squad-filters > p { grid-column: 1 / -1; }
+.squad-compare-bar {
+  position: sticky;
+  top: -1px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  margin: 10px 0;
+  background: var(--card);
+  border: 2px solid var(--green2);
+  border-radius: var(--radius);
+  box-shadow: 0 3px 0 #163a2c12;
+  column-span: all;
+  font-size: 13px;
+  font-weight: 700;
+}
+.squad-compare-bar > div { display: flex; align-items: center; gap: 8px; }
+.squad-member { min-width: 0; break-inside: avoid; }
+.squad-member .athlete-card { width: 100%; border-bottom: 0; border-radius: 10px 10px 0 0; }
+.squad-member .statline { flex-wrap: wrap; }
+.squad-member-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 8px;
+  border: 2px solid var(--line);
+  border-top-width: 1px;
+  border-radius: 0 0 10px 10px;
+  background: var(--paper);
+  font-size: 12px;
+}
+.squad-member-foot label { display: flex; align-items: center; gap: 5px; min-height: 44px; cursor: pointer; }
+.squad-member-foot input { width: 18px; height: 18px; accent-color: var(--green); }
+.squad-member.comparing :is(.athlete-card,.squad-member-foot) { border-color: var(--green2); }
+.readiness { font-weight: 700; }
+.readiness.ready { color: var(--green2); }
+.readiness.recover { color: #96552d; }
+.squad-comparison { column-span: all; }
+.squad-comparison table { width: 100%; table-layout: fixed; }
+.squad-comparison th, .squad-comparison td { padding: 8px 6px; overflow-wrap: anywhere; font-size: 12px; vertical-align: middle; }
+.squad-comparison thead th { width: 34%; text-align: center; }
+.squad-comparison thead th:first-child { width: 32%; text-align: left; }
+.squad-comparison thead .portrait { margin: 0 auto 6px; }
+.squad-comparison th small { display: block; margin-top: 4px; font-weight: 400; }
+.squad-comparison td { text-align: center; }
+.squad-comparison caption { caption-side: bottom; padding: 10px 0; text-align: left; }
+.squad-comparison .rate { display: flex; justify-content: center; margin: 4px auto 0; }
+.squad-empty { column-span: all; text-align: center; padding: 20px; }
 .squad-grid {
   display: grid;
   gap: 8px;

@@ -317,6 +317,12 @@ export function effects(s, a, club = true, mode = s.match ? "meet" : "training",
 }
 
 // ── Performance ───────────────────────────────────────────────────────
+// Entry lists use earned marks only. An untested athlete has no seed, even when
+// their attributes suggest they could throw further than an established rival.
+export const personalBest = (a, event) => a?.pb?.[event] || 0;
+export const compareEntryPbs = (a, b, event) => personalBest(b, event) - personalBest(a, event)
+  || Number(b.event === event) - Number(a.event === event) || a.id - b.id;
+
 export function eventRating(a, event) {
   return a.stats.reduce((v, n, i) => v + n * EVENTS[event].weights[i], 0) * (0.60 + 0.40 * masteryOf(a,event)/100);
 }

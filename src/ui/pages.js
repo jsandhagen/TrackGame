@@ -48,6 +48,7 @@ import { playbackRate } from "../platform/pacing.js";
 export const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 export const cash = (n) => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString();
 export const mark = (n) => (n == null ? "FOUL" : n.toFixed(2) + " m");
+export const pbMark = (a, event) => G.personalBest(a, event) ? mark(G.personalBest(a, event)) : "???";
 export const portrait = (a, size = "", extra = "") => `<canvas class="portrait ${size}" width="${size === "large" ? 96 : 48}" height="${size === "large" ? 96 : 48}" data-portrait="${a.id}" ${extra} aria-hidden="true"></canvas>`;
 const rivalPortrait = (clubId, i) => `<canvas class="portrait" width="48" height="48" data-rival="${clubId}:${i}" aria-hidden="true"></canvas>`;
 export const icon = (id, size = 32) => `<canvas class="icon" width="${size}" height="${size}" data-icon="${id}" aria-hidden="true"></canvas>`;
@@ -169,22 +170,91 @@ function facilityBoard(s) {
 }
 
 // ── Squad ───────────────────────────────────────────────────────────────
+export function squadReadiness(a) {
+  return a.injury ? "Injured" : a.stamina < 60 ? "Tired" : a.condition < 35 ? "Low condition" : "Ready";
+}
+function squadUpgrade(s, a) {
+  return G.systemUnlocked(s,"skills") && (!G.promoteProblem(s,a)
+    || Object.keys(SKILLS).some(k=>G.skillAvailable(a,k) && !G.learnProblem(s,a,k))
+    || Object.keys(s.bag).some(k=>ITEMS[k].kind === "book" && !G.bookProblem(s,a,k)));
+}
+const squadEntries = (s, a) => EVENT_IDS.filter(ev=>G.entriesOf(s,ev).includes(a.id));
+function squadRole(s, a) {
+  const entries = squadEntries(s,a), duty = G.athleteDuty(s,a.id);
+  return [entries.length ? entries.map(ev=>EVENTS[ev].short).join(" + ") + " entry" : "Bench",
+    duty || a.plan === "facilities" ? "Club duties" : ""].filter(Boolean).join(" · ");
+}
+export function squadAthletes(s, view = {}) {
+  const event = EVENTS[view.squadEvent] ? view.squadEvent : "all";
+  const rows = s.roster.filter(a=>(event === "all" || a.event === event)
+    && (!view.squadRole || view.squadRole === "all" || (view.squadRole === "entered" ? squadEntries(s,a).length > 0
+      : view.squadRole === "bench" ? !squadEntries(s,a).length : !!G.athleteDuty(s,a.id) || a.plan === "facilities"))
+    && (!view.squadStatus || view.squadStatus === "all" || (view.squadStatus === "upgrades" ? squadUpgrade(s,a)
+      : view.squadStatus === "ready" ? squadReadiness(a) === "Ready" : view.squadStatus === "injured" ? !!a.injury : !a.injury && squadReadiness(a) !== "Ready")));
+  const nameOrder = (a,b)=>a.name.localeCompare(b.name) || a.id-b.id;
+  return rows.sort((a,b)=>{
+    if(view.squadSort === "name") return nameOrder(a,b);
+    if(view.squadSort === "pb" && event !== "all") return G.compareEntryPbs(a,b,event);
+    if(view.squadSort === "rating") return G.overall(b)-G.overall(a) || nameOrder(a,b);
+    if(view.squadSort === "stamina") return b.stamina-a.stamina || nameOrder(a,b);
+    if(view.squadSort === "wage") return G.wageOf(a)-G.wageOf(b) || nameOrder(a,b);
+    return EVENT_IDS.indexOf(a.event)-EVENT_IDS.indexOf(b.event) || G.compareEntryPbs(a,b,a.event);
+  });
+}
+function squadFilters(s, view) {
+  const select = (key,label,options)=>`<label>${label}<select data-change="squad-${key}">${options.map(([id,text])=>`<option value="${id}" ${view["squad"+key[0].toUpperCase()+key.slice(1)] === id ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
+  const summary = [EVENTS[view.squadEvent]?.name,
+    {entered:"Meet entrants",bench:"Bench",staff:"Club duties"}[view.squadRole],
+    {ready:"Ready",tired:"Needs recovery",injured:"Injured",upgrades:"Upgrade available"}[view.squadStatus]].filter(Boolean).join(" · ");
+  return `<details class="squad-filter-panel" ${view.squadFiltersOpen?"open":""}><summary>Filter & sort <small>${summary || "All athletes"}</small></summary><section class="squad-filters" aria-label="Filter and sort the squad">
+    ${select("event","Specialty",[["all","All events"],...EVENT_IDS.map(ev=>[ev,EVENTS[ev].name])])}
+    ${select("role","Role",[["all","Everyone"],["entered","Meet entrants"],["bench","Bench"],...(G.systemUnlocked(s,"duties")?[["staff","Club duties"]]:[])])}
+    ${select("status","Status",[["all","Any status"],["ready","Ready"],["tired","Needs recovery"],["injured","Injured"],...(G.systemUnlocked(s,"skills")?[["upgrades","Upgrade available"]]:[])])}
+    ${select("sort","Sort by",[["event","Event & PB"],["name","Name"],...(EVENTS[view.squadEvent]?[["pb","Personal best"]]:[]),["rating","Overall rating"],["stamina","Stamina"],["wage","Weekly wage"]])}
+    <p class="hint">Ready: healthy, 60+ stamina and 35+ condition. ${btn("Reset filters","squad-reset","","text")}</p></section></details>`;
+}
+function squadComparison(s, view, picked) {
+  const athletes = picked.map(id=>s.roster.find(a=>a.id===id));
+  if (!view.squadCompareOpen || athletes.length !== 2) return "";
+  const event = EVENTS[view.squadCompareEvent] ? view.squadCompareEvent : EVENTS[view.squadEvent] ? view.squadEvent : athletes[0].event;
+  const row = (label, render)=>`<tr><th scope="row">${label}</th>${athletes.map(a=>`<td>${render(a)}</td>`).join("")}</tr>`;
+  return `<section class="squad-comparison card" aria-label="Athlete comparison"><div class="card-title"><h2>Side by side</h2>${btn("Close","squad-compare-close","","text")}</div>
+    <label>Compare event<select data-change="squad-compare-event">${EVENT_IDS.map(ev=>`<option value="${ev}" ${event===ev?"selected":""}>${EVENTS[ev].name}</option>`).join("")}</select></label>
+    <div class="table-wrap"><table><caption class="hint">PBs are earned marks. ??? means no recorded mark; their next throw may surprise you.</caption><thead><tr><th scope="col">Athlete</th>${athletes.map(a=>`<th scope="col">${portrait(a)}${esc(a.name)}<small>${EVENTS[a.event].short} · ${esc(typeName(a))}</small></th>`).join("")}</tr></thead><tbody>
+      ${row(EVENTS[event].short+" PB",a=>`<b>${pbMark(a,event)}</b>`)}
+      ${row("Readiness",a=>squadReadiness(a)+(a.injury?` · ${a.injury}d`:""))}
+      ${row("Stamina",a=>Math.round(a.stamina)+" / 100")}
+      ${row("Role",a=>esc(squadRole(s,a)))}
+      ${STAT_NAMES.map((name,i)=>row(name,a=>`${showStat(a.stats[i])} ${growthMark(a,i)}`)).join("")}
+      ${row("Rank / level",a=>esc(G.rankName(a))+" · Lv "+a.level)}
+      ${row("Weekly wage",a=>cash(G.wageOf(a)))}
+      ${G.systemUnlocked(s,"skills")?row("Equipped skills",a=>a.equipped.map(k=>esc(SKILLS[k].name)).join(", ")||"None"):""}
+      ${row("Athlete file",a=>btn("View athlete","athlete",`data-id="${a.id}"`,"subtle small"))}
+    </tbody></table></div><p class="hint">Growth bars show how quickly each attribute develops. PBs do not predict today's distance.</p></section>`;
+}
 export function squad(s, view) {
   if (view.athlete) {
     const a = s.roster.find((x) => x.id === view.athlete);
     if (a) return athletePage(s, a, view);
   }
-  return `<div class="row-head"><p>${s.roster.length} / ${G.rosterCap(s)} athletes · a Dormitory makes room for more</p>${G.systemUnlocked(s,"recruit") ? btn(ico("plus") + " Scout", "page", 'data-page="recruit"', "small") : ""}</div>
+  const rows = squadAthletes(s,view), picked = [...new Set(view.squadCompare || [])].filter(id=>s.roster.some(a=>a.id===id)).slice(0,2);
+  return `<div class="row-head"><p>${s.roster.length} / ${G.rosterCap(s)} athletes · ${s.roster.filter(a=>squadReadiness(a)==="Ready").length} ready · ${cash(s.roster.reduce((n,a)=>n+G.wageOf(a),0))}/wk wages</p>${G.systemUnlocked(s,"recruit") ? btn(ico("plus") + " Scout", "page", 'data-page="recruit"', "small") : ""}</div>
+  ${squadFilters(s,view)}
+  <div class="squad-compare-bar"><span>${picked.length ? picked.map(id=>esc(s.roster.find(a=>a.id===id).name)).join(" + ") : "Select two athletes to compare"}</span><div>${btn("Compare · "+picked.length+" / 2","squad-compare",picked.length!==2?"disabled":"","subtle small")}${picked.length?btn("Clear","squad-compare-clear","","text"):""}</div></div>
+  ${squadComparison(s,view,picked)}
   ${G.systemUnlocked(s,"duties") ? facilityBoard(s) : ""}
-  <div class="squad-grid">${s.roster
+  <p class="hint" role="status">Showing ${rows.length} of ${s.roster.length} athletes</p>
+  <div class="squad-grid">${rows
     .map(
-      (a) => `<button class="athlete-card rarity-${a.rarity}" data-act="athlete" data-id="${a.id}">
+      (a) => `<article class="squad-member ${picked.includes(a.id)?"comparing":""}"><button class="athlete-card rarity-${a.rarity}" data-act="athlete" data-id="${a.id}">
       ${portrait(a)}<span class="info"><strong>${esc(a.name)}</strong><small>${eventChip(a.event)} ${rankChip(a)} Lv ${a.level}</small>
-      <span class="statline">${a.stats.map((v, i) => `<i style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}">${STAT_SHORT[i]} ${showStat(v)}</i>`).join("")}</span></span>
-      <span class="side">${ovrBadge(a)}<span class="row">${mood(a)}${stamina(a)}</span>${alerts(s, a)}</span></button>`,
+      <span class="statline">${a.stats.map((v, i) => `<i style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}">${STAT_SHORT[i]} ${showStat(v)}</i>`).join("")}</span><small>PB ${pbMark(a,a.event)} · ${esc(squadRole(s,a))}</small></span>
+      <span class="side">${ovrBadge(a)}<span class="row">${mood(a)}${stamina(a)}</span>${alerts(s, a)}</span></button>
+      <div class="squad-member-foot"><span class="readiness ${squadReadiness(a)==="Ready"?"ready":"recover"}">${squadReadiness(a)}${a.injury?" · "+a.injury+"d":""}</span><label><input type="checkbox" data-change="squad-compare" data-id="${a.id}" ${picked.includes(a.id)?"checked":""} ${picked.length===2&&!picked.includes(a.id)?"disabled":""}> Compare<span class="sr-only"> ${esc(a.name)}</span></label></div></article>`,
     )
     .join("")}</div>
-  <p class="hint">Stats run 1–100 and grade from G up to S (90+). OVR is the rating in their main event.</p>`;
+  ${!rows.length?`<div class="card squad-empty"><h2>No athletes match</h2><p>Try another specialty, role or status.</p>${btn("Show the whole squad","squad-reset","","subtle")}</div>`:""}
+  <p class="hint">Stats run 1–100. OVR rates their main event. PB is their recorded personal best; ??? means they have yet to record a mark.</p>`;
 }
 export function statRows(a, compact = false) {
   const cap = G.capOf(a);
@@ -220,7 +290,7 @@ function athletePage(s, a, view) {
       ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>` : ""}
     <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}<br><b>${esc(typeName(a))}</b>: ${esc(ATHLETE_TYPES[a.type]?.desc || "")} <em>Growth: ${STAT_NAMES.map((n, i) => n + " " + GROWTH[ATHLETE_TYPES[a.type]?.growth[i] ?? 2].name.toLowerCase()).join(" · ")}.</em></div>
-    <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Projected <b>${mark(G.forecast(s, a, a.event))}</b></span></div>`;
+    <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Personal best <b>${pbMark(a,a.event)}</b></span></div>`;
   }
   if (tab === "stats" && G.systemUnlocked(s,"plans")) body += btn(s.settings.followAthlete===a.id ? "Following in highlights · stop" : "Follow this athlete in highlights","follow-athlete",`data-id="${a.id}"`,"subtle")+masteryCard(s,a)+developmentCard(a);
   if (tab === "train") {
@@ -628,6 +698,8 @@ export function recruit(s) {
     })
     .join("")}</div>
   ${btn("Scout three more · " + cash(G.scoutCost(s)), "scout", s.money < G.scoutCost(s) ? "disabled" : "", "subtle")}
+  <p class="hint scouting-cost">${G.weeklySearches(s)} paid search${G.weeklySearches(s)===1?"":"es"} this week · next search ${G.weeklySearches(s)+1}× the ${cash(G.scoutBaseCost(s))} base fee. Resets ${esc(G.shortDate((G.scoutingWeek(s)+1)*7+1))}. Free reports do not raise the fee.</p>
+  ${s.money<G.scoutCost(s)?`<p class="warning">Need ${cash(G.scoutCost(s)-s.money)} more to scout again.</p>`:""}
   <p class="hint">${full ? "The squad is full. Build or upgrade a Dormitory, or release a contract." : "A Scout Office and the Scouting Network combo improve rarity."} Secret characters appear when you reach certain milestones.</p>`;
 }
 
@@ -1055,7 +1127,7 @@ export function league(s, view) {
       const r = s.results.find((x) => x.kind === "league" && x.name === c.name);
       const open = view.rival === c.id;
       return `<div class="rival ${open ? "open" : ""}" style="--c:${c.color}"><button class="rival-head" data-act="rival" data-id="${c.id}"><span class="crest" style="--rival:${c.color}">${esc(c.name[0])}</span><span><strong>${esc(c.name)}</strong><small>${esc(c.style)}</small></span><b>${r ? (r.win ? "W " : r.draw ? "D " : "L ") + r.score + "–" + r.against : ci === s.fixture ? "NEXT" : ci < s.fixture ? "—" : "Fixture " + (ci + 1)}</b></button>
-      ${open ? `<div class="rival-squad">${c.athletes.map((a, i) => `<div class="rival-athlete">${rivalPortrait(c.id, i)}<span><strong>${esc(a.name)}${nationTag(a)}</strong><small>${EVENTS[a.event].name} · ~${mark(G.rawMark(a, a.event))}</small>${a.elite ? `<small class="elite-line">${esc(ELITES.find((e) => e.id === a.elite)?.blurb || "")}</small>` : ""}<small>${a.skills.map((k) => SKILLS[k].name).join(" · ") || "No skills"} · ${esc(G.PROFILES[a.profile].name)} · mastery ${Math.floor(G.masteryOf(a,a.event))} · ${Object.values(a.gear).filter(Boolean).map(k=>ITEMS[k].name).join(" / ")}</small></span>${ovrBadge(a)}</div>`).join("")}</div>` : ""}</div>`;
+      ${open ? `<div class="rival-squad">${c.athletes.map((a, i) => `<div class="rival-athlete">${rivalPortrait(c.id, i)}<span><strong>${esc(a.name)}${nationTag(a)}</strong><small>${EVENTS[a.event].name} · PB ${pbMark(a,a.event)}</small>${a.elite ? `<small class="elite-line">${esc(ELITES.find((e) => e.id === a.elite)?.blurb || "")}</small>` : ""}<small>${a.skills.map((k) => SKILLS[k].name).join(" · ") || "No skills"} · ${esc(G.PROFILES[a.profile].name)} · mastery ${Math.floor(G.masteryOf(a,a.event))} · ${Object.values(a.gear).filter(Boolean).map(k=>ITEMS[k].name).join(" / ")}</small></span>${ovrBadge(a)}</div>`).join("")}</div>` : ""}</div>`;
     })
     .join("")}`;
 }
@@ -1192,31 +1264,32 @@ export function lobby(s, view = {}) {
     // Every entry slot for the event sits in one row, beside the rival's specialist.
     const ids = G.entriesOf(s, ev),
       a = s.roster.find((x) => x.id === ids[0]),
-      r = championship ? [...field[ev]].sort((a,b) => G.rawMark(b.athlete,ev)-G.rawMark(a.athlete,ev))[0]?.athlete : m.athletes[i],
-      fc = (x) => G.forecast(s, x, ev, { doubleDuty: G.usesOf(s, x.id) > 1 }),
-      mine = ids.reduce((n, id) => Math.max(n, fc(s.roster.find((x) => x.id === id))), 0),
-      theirs = r ? G.rawMark(r, ev) * G.MOOD_MARK[2] : 0;
-    const edge = mine / theirs - 1;
-    // Each entry slot opens the athlete picker, with portraits, stats and forecasts side by side.
+      r = championship ? [...field[ev]].sort((a,b) => G.compareEntryPbs(a.athlete,b.athlete,ev))[0]?.athlete : m.athletes.filter(x=>G.rivalEntries(s,m)[ev].includes(x.id)).sort((x,y)=>G.compareEntryPbs(x,y,ev))[0],
+      pb = (x) => G.personalBest(x, ev),
+      mine = ids.reduce((n, id) => Math.max(n, pb(s.roster.find((x) => x.id === id))), 0),
+      theirs = pb(r);
+    const known = mine > 0 && theirs > 0, edge = known ? mine / theirs - 1 : 0;
+    // Each entry slot opens the athlete picker, with portraits, stats and recorded PBs side by side.
     const slot = (k) => {
       const x = s.roster.find((y) => y.id === ids[k]);
-      return `<button class="entry-slot ${x ? "" : "empty"}" data-act="pick-entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}: ${x ? esc(x.name) + ". Change" : "add an athlete"}">${x ? `${portrait(x)}<span><b>${esc(shortName(x.name))}${x.event === ev ? " ★" : ""}</b><small>${mark(fc(x))} · OVR ${Math.round(G.eventRating(x, ev))}</small></span><em>Change</em>` : `<span class="add">${ico("plus")}</span><span><b>${k ? "Add entry " + (k + 1) : "Choose an athlete"}</b></span>`}</button>`;
+      return `<button class="entry-slot ${x ? "" : "empty"}" data-act="pick-entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}: ${x ? esc(x.name) + ". Change" : "add an athlete"}">${x ? `${portrait(x)}<span><b>${esc(shortName(x.name))}${x.event === ev ? " ★" : ""}</b><small>PB ${pbMark(x,ev)} · OVR ${Math.round(G.eventRating(x, ev))}</small></span><em>Change</em>` : `<span class="add">${ico("plus")}</span><span><b>${k ? "Add entry " + (k + 1) : "Choose an athlete"}</b></span>`}</button>`;
     };
     // Entries read as names until the coach asks to change them.
-    const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> ${mark(fc(x))}${x.event === ev ? " ★" : ""}`).join("<br>");
-    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Your best entry against their specialist">${edge > 0.01 ? "Ahead" : edge < -0.01 ? "Behind" : "Level"}</span></div>
+    const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> PB ${pbMark(x,ev)}${x.event === ev ? " ★" : ""}`).join("<br>");
+    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Recorded PB comparison">${!known ? "Unproven" : edge > 0.01 ? "PB ahead" : edge < -0.01 ? "PB behind" : "PB level"}</span></div>
       <div class="lineup-us">${a && !view.editLineup ? portrait(a) : ""}<span class="entry-slots">${view.editLineup ? [0, 1, 2].filter((k) => k <= ids.length).map(slot).join("") : `<span class="entry-names">${names || "No entry yet"}</span>`}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : ""}</small></span></div>
-      <div class="lineup-them">${championship ? `<span>${field[ev].map(({athlete,club}) => `<span class="championship-entry"><strong>${esc(athlete.name)}</strong><small>${esc(club.name)} · ~${mark(G.rawMark(athlete,ev))}</small></span>`).join("")}</span>` : `${rivalPortrait(m.id, i)}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · ~${mark(theirs)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span>`}</div></div>`;
+      <div class="lineup-them">${championship ? `<span>${field[ev].map(({athlete,club}) => `<span class="championship-entry"><strong>${esc(athlete.name)}</strong><small>${esc(club.name)} · PB ${pbMark(athlete,ev)}</small></span>`).join("")}</span>` : `${rivalPortrait(m.id, m.athletes.indexOf(r))}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · PB ${pbMark(r,ev)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span>`}</div></div>`;
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
   <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ★ marks a specialist. ${btn("How meets work", "meet-guide", "", "text")}${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
-  <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick best lineup", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
+  <p class="hint">PBs are recorded marks, not predictions. ??? means no recorded mark. Opening order runs from unseeded to highest PB; finals use marks earned in this meet.</p>
+  <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick by PB", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
   ` : ""}<div class="card-title"><h2>How do you want to run it?</h2></div>${meetModes(s)}
   ${btn(ico("stadium") + " Start the meet", "enter", problem ? "disabled" : "")}`;
 }
 
-// Who goes in an entry slot: every athlete with their portrait, stats for this event, forecast,
+// Who goes in an entry slot: every athlete with their portrait, stats for this event, PB,
 // stamina and condition, and why they can't be picked when they can't.
 export function entryPicker(s, ev, k) {
   const ids = G.entriesOf(s, ev), championship = G.isLeagueChampionship(s), w = EVENTS[ev].weights,
@@ -1230,17 +1303,16 @@ export function entryPicker(s, ev, k) {
     return null;
   };
   const elsewhere = (a) => EVENT_IDS.filter((e) => e !== ev && G.entriesOf(s, e).includes(a.id)).map((e) => EVENTS[e].short);
-  const projected = new Map(s.roster.map((a) => [a.id, G.forecast(s, a, ev, { doubleDuty: elsewhere(a).length > 0 })]));
-  const order = [...s.roster].sort((x, y) => !!why(x) - !!why(y) || projected.get(y.id) - projected.get(x.id));
+  const order = [...s.roster].sort((x, y) => !!why(x) - !!why(y) || G.compareEntryPbs(x,y,ev));
   const row = (a) => {
     const problem = why(a), cap = G.capOf(a), also = elsewhere(a);
     return `<button class="pick-row entry-pick ${a.id === current ? "on" : ""}" data-pick="${a.id}" aria-pressed="${a.id === current}" ${problem ? "disabled" : ""}>
       <span class="pick-who">${portrait(a)}<span><b>${esc(a.name)}</b> ${eventChip(a.event)}<small>${a.event === ev ? "★ Specialist · " : ""}Lv ${a.level} · ${esc(typeName(a))}${also.length ? " · also in " + also.join(", ") : ""}</small>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span></span>
       <span class="sheet-stats">${a.stats.map((v, i) => `<span class="sheet-stat ${w[i] >= 0.25 ? "key" : ""}" style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}: ${Math.round(w[i] * 100)}% of ${esc(EVENTS[ev].name)}"><small>${STAT_SHORT[i]}</small><b>${showStat(v)}</b><i style="width:${Math.min(100, (v / cap) * 100)}%"></i></span>`).join("")}</span>
-      <span class="entry-forecast">${problem ? `<small class="why">${esc(problem)}</small>` : `<b>${mark(projected.get(a.id))}</b><small>OVR ${Math.round(G.eventRating(a, ev))} · ${mood(a)} ${Math.round(a.stamina)}</small>`}</span>
+      <span class="entry-forecast"><b>PB ${pbMark(a,ev)}</b>${problem ? `<small class="why">${esc(problem)}</small>` : `<small>OVR ${Math.round(G.eventRating(a, ev))} · ${mood(a)} ${Math.round(a.stamina)}</small>`}</span>
     </button>`;
   };
-  return `<p class="hint">Forecasts include condition, stamina and doubling up. Outlined stats matter most in the ${esc(EVENTS[ev].name.toLowerCase())}.</p>
+  return `<p class="hint">Ordered by recorded event PB. ??? means no recorded mark; unmarked athletes follow by specialty. Outlined stats matter most in the ${esc(EVENTS[ev].name.toLowerCase())}.</p>
   <div class="pick-list">${order.map(row).join("")}</div>
   ${current != null ? `<button class="pick-row entry-pick entry-clear" data-pick="0"><span class="pick-who"><span class="add">${ico("minus")}</span><span><b>No entry</b><small>Leave this slot empty</small></span></span></button>` : ""}`;
 }
@@ -1363,20 +1435,19 @@ function decideStandings(s, a) {
 export function decide(s, view) {
   const m = s.match,
     a = G.homeAthlete(s),
-    P = G.projected(s, "home"),
     sigReady = G.canSignature(s, "home");
   if (view.meter)
     return `<div class="meter-panel"><span class="eyebrow">RELEASE ON THE GOLD</span><div class="meter"><span class="zone good"></span><span class="zone perfect" style="--w:${G.effects(s, a).perfect ? 22 : 14}%"></span><span id="needle"></span></div>${btn("Release!", "release")}<small>Tap Release, or press Space.</small></div>`;
-  return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · projected ${mark(P)}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
+  return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · PB ${pbMark(a,EVENT_IDS[m.eventIndex])}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
     <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>
     ${decideStandings(s, a)}
     <div class="tactics">${Object.entries(TACTICS)
       .map(([id, t]) => {
         const p = G.throwPreview(s, id, "good", view.sig);
-        return `<button class="tactic t-${id}" data-act="tactic" data-value="${id}" title="${esc(t.desc)}"><strong>${t.name}</strong><small>${mark(p.low)} – ${mark(p.high)}</small><em>${Math.round(p.foul * 100)}% foul risk</em></button>`;
+        return `<button class="tactic t-${id}" data-act="tactic" data-value="${id}" title="${esc(t.desc)}"><strong>${t.name}</strong><small>${esc(t.desc)}</small><em>${Math.round(p.foul * 100)}% foul risk</em></button>`;
       })
       .join("")}</div>
-    <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} The range is the likely distance.</p>
+    <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} Distance is revealed when the throw lands.</p>
     <div class="decide-speed"><span>Watch this throw at</span><span class="seg" role="group" aria-label="Speed for this throw">${speedButtons(view.throwSpeed || view.meetSpeed || s.settings.meetSpeed || 1, "throw-speed")}</span></div>
     ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}</div>`;
 }
