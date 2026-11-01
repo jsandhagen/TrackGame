@@ -81,7 +81,7 @@ test('three arrow speeds are selectable and persist, alongside skips to your nex
   const html=P.meetBar(s,{});
   for (const n of [1,2,3]) {
     assert(html.includes(`data-act="meet-speed" data-speed="${n}"`));
-    assert(html.includes('>'+ '▸'.repeat(n) +'</span>'));
+    assert(html.includes('ico-' + ['','play','fast','faster'][n]));
   }
   assert.match(html,/Very fast · 8× speed/);
   assert.match(html,/data-act="meet-skip" data-to="mine"/);assert.match(html,/data-act="meet-skip" data-to="event"/);
@@ -119,7 +119,7 @@ test('qualification screens name qualified athletes, show standards and hide in-
   assert(shown.qualified);assert.equal(shown.mark,standard+0.25);
   assert.equal(G.qualifyingMark(s,entry.id,'shot'),0,'reading live progress does not create a season record');
   const panel=P.qualifications(s);
-  assert(panel.includes(shown.name));assert(panel.includes(standard.toFixed(2)));assert.match(panel,/✓ Qualified/);
+  assert(panel.includes(shown.name));assert(panel.includes(standard.toFixed(2)));assert.match(panel,/ico-check[^>]*><\/i> Qualified/);
   assert.match(P.meetBar(s,{meetStandards:true}),/Championship qualification/);
   assert.match(P.meetComplete({...s,match:{...s.match,rewards:{items:[],pbs:[],levelUps:[],goals:[]}}},{resultView:'standards'}),/Championship qualification/);
   assert(G.simulateMatch(s));assert(G.leaveMatch(s));

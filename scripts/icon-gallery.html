@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ring & Sector · Pixel icon proof</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: #ede6d3; color: #302b35; font: 14px system-ui; }
+  h1 { margin: 0; font-size: 24px; } p { max-width: 760px; line-height: 1.5; }
+  h2 { margin: 28px 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 8px; }
+  article { border: 1px solid #c7bca2; background: #fff3d6; padding: 8px; }
+  article b { display: block; margin-bottom: 8px; font-size: 12px; }
+  .samples { display: flex; align-items: center; justify-content: space-around; min-height: 70px; }
+  .dark { background: #203e32; margin-top: 6px; }
+  canvas { image-rendering: pixelated; flex: none; }
+  .stars { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stars article { width: 200px; }
+  @media(max-width:480px) { body { padding:12px; } .grid { grid-template-columns:1fr 1fr; } }
+</style>
+<h1>Pixel icon proof</h1>
+<p>Original 16×16 art, shown at 1×, 2× and 4× on light and dark surfaces. Check the silhouette at 1× first, then the pixel steps and highlight clusters at 4×.</p>
+<h2>Stars and sparkles</h2><div class="stars" id="stars"></div>
+<h2>Interface · <span id="ui-count"></span></h2><div class="grid" id="ui"></div>
+<h2>Equipment and items · <span id="item-count"></span></h2><div class="grid" id="items"></div>
+<h2>Bitmap text symbols</h2><div id="symbols"></div>
+<script type="module">
+  import { ICON_NAMES, uiIconCanvas } from '/src/render/uiicons.js';
+  import { ITEM_ICON_NAMES, iconCanvas } from '/src/render/icons.js';
+  import { text } from '/src/render/font.js';
+  const sample = (parent, label, image) => {
+    const article = document.createElement('article');
+    const title = document.createElement('b'); title.textContent = label; article.append(title);
+    for (const theme of ['light','dark']) {
+      const row = document.createElement('div'); row.className = 'samples ' + theme;
+      for (const scale of [1,2,4]) {
+        const cv = document.createElement('canvas'); cv.width = cv.height = 16 * scale;
+        const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+        g.drawImage(image,0,0,cv.width,cv.height); row.append(cv);
+      }
+      article.append(row);
+    }
+    parent.append(article);
+  };
+  for (const name of ['star','mvp','spark','bolt']) sample(document.querySelector('#stars'),name,uiIconCanvas(name));
+  for (const name of ICON_NAMES) sample(document.querySelector('#ui'),name,uiIconCanvas(name));
+  for (const name of ITEM_ICON_NAMES) sample(document.querySelector('#items'),name,iconCanvas(name,'#70a8ce'));
+  document.querySelector('#ui-count').textContent = ICON_NAMES.length;
+  document.querySelector('#item-count').textContent = ITEM_ICON_NAMES.length;
+  const cv = document.createElement('canvas'); cv.width = 640; cv.height = 56;
+  const g = cv.getContext('2d'); g.fillStyle = '#203e32'; g.fillRect(0,0,640,56);
+  text(g,'★  ✦  ♥  ♪  ~  ×  ↑  ↓  +  -  =  >  <',8,8,{scale:4});
+  document.querySelector('#symbols').append(cv);
+  window.iconProofReady = true;
+</script>
+</html>
