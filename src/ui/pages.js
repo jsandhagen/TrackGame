@@ -46,12 +46,17 @@ import { ico, moodIco } from "../render/uiicons.js";
 import { playbackRate } from "../platform/pacing.js";
 
 export const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+export const starText = (v) => esc(v).replaceAll("★", `<span class="text-star" role="img" aria-label="star">${ico("star")}</span>`);
 export const cash = (n) => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString();
 export const mark = (n) => (n == null ? "FOUL" : n.toFixed(2) + " m");
 export const pbMark = (a, event) => G.personalBest(a, event) ? mark(G.personalBest(a, event)) : "???";
 export const portrait = (a, size = "", extra = "") => `<canvas class="portrait ${size}" width="${size === "large" ? 96 : 48}" height="${size === "large" ? 96 : 48}" data-portrait="${a.id}" ${extra} aria-hidden="true"></canvas>`;
+const specialistMark = () => `<span role="img" aria-label="Specialist">${ico("star")}</span>`;
 const rivalPortrait = (clubId, i) => `<canvas class="portrait" width="48" height="48" data-rival="${clubId}:${i}" aria-hidden="true"></canvas>`;
-export const icon = (id, size = 32) => `<canvas class="icon" width="${size}" height="${size}" data-icon="${id}" aria-hidden="true"></canvas>`;
+export const icon = (id, size = 32) => {
+  const pixels = size <= 16 ? 16 : 32;
+  return `<canvas class="icon" width="${pixels}" height="${pixels}" style="--icon-size:${pixels}px" data-icon="${id}" aria-hidden="true"></canvas>`;
+};
 const btn = (label, act, extra = "", kind = "primary") => `<button class="button ${kind}" data-act="${act}" ${extra}>${label}</button>`;
 const chip = (text, color = "", cls = "") => `<span class="chip ${cls}" ${color ? `style="--chip:${esc(color)}"` : ""}>${esc(text)}</span>`;
 const heading = (eyebrow, title, sub = "") => `<header class="page-head"><span class="eyebrow">${esc(eyebrow)}</span><h1>${esc(title)}</h1>${sub ? `<p>${sub}</p>` : ""}</header>`;
@@ -69,7 +74,7 @@ const typeName = (a) => (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounder).name
 const typeChip = (a) => chip(typeName(a), "#c99a4a");
 const ovrBadge = (a) => `<span class="ovr"><small>OVR</small><b>${G.overall(a)}</b>${grade(G.overall(a))}</span>`;
 export const mood = (a) => `<span class="mood-wrap" title="${G.MOODS[G.moodOf(a)]} condition">${moodIco(G.moodOf(a))}</span>`;
-const rankChip = (a) => chip(G.rankName(a), ["#9aa58f", "#5aa4c8", "#8cc152", "#e2b04a", "#b060d0"][a.rank], "rank");
+const rankChip = (a) => `<span class="chip rank" style="--chip:${["#9aa58f", "#5aa4c8", "#8cc152", "#e2b04a", "#b060d0"][a.rank]}">${starText(G.rankName(a))}</span>`;
 const rarityChip = (a) => (a.rarity !== "common" ? chip(RARITY[a.rarity].name, RARITY[a.rarity].color, "rarity") : "");
 const eventChip = (ev) => chip(EVENTS[ev].short, EVENTS[ev].color);
 const stamina = (a) => `<span class="mini-stat" title="Stamina ${Math.round(a.stamina)}">${ico("bolt")}${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span>`;
@@ -94,7 +99,7 @@ export function lockedSystem(s, id) {
 export function speedButtons(speed, action, { pause = false, disabled = false } = {}) {
   return (pause ? [0,1,2,3] : [1,2,3]).map(n => {
     const label = n ? ["", "Watch", "Fast", "Very fast"][n] + " · " + playbackRate(n) + "× speed" : "Pause";
-    return `<button class="${speed === n ? "active" : ""}" data-act="${action}" data-speed="${n}" aria-label="${label}" title="${label}" aria-pressed="${speed === n}" ${disabled ? "disabled" : ""}>${n ? `<span class="speed-arrows" aria-hidden="true">${"▸".repeat(n)}</span>` : ico("pause")}</button>`;
+    return `<button class="${speed === n ? "active" : ""}" data-act="${action}" data-speed="${n}" aria-label="${label}" title="${label}" aria-pressed="${speed === n}" ${disabled ? "disabled" : ""}>${n ? `<span class="speed-arrows" aria-hidden="true">${ico(["", "play", "fast", "faster"][n])}</span>` : ico("pause")}</button>`;
   }).join("");
 }
 
@@ -226,7 +231,7 @@ function squadComparison(s, view, picked) {
       ${row("Stamina",a=>Math.round(a.stamina)+" / 100")}
       ${row("Role",a=>esc(squadRole(s,a)))}
       ${STAT_NAMES.map((name,i)=>row(name,a=>`${showStat(a.stats[i])} ${growthMark(a,i)}`)).join("")}
-      ${row("Rank / level",a=>esc(G.rankName(a))+" · Lv "+a.level)}
+      ${row("Rank / level",a=>starText(G.rankName(a))+" · Lv "+a.level)}
       ${row("Weekly wage",a=>cash(G.wageOf(a)))}
       ${G.systemUnlocked(s,"skills")?row("Equipped skills",a=>a.equipped.map(k=>esc(SKILLS[k].name)).join(", ")||"None"):""}
       ${row("Athlete file",a=>btn("View athlete","athlete",`data-id="${a.id}"`,"subtle small"))}
@@ -286,8 +291,8 @@ function athletePage(s, a, view) {
     <label class="primary-event">Primary event<select data-change="athlete-event" data-id="${a.id}" ${s.match ? "disabled" : ""}>${EVENT_IDS.map(ev => `<option value="${ev}" ${a.event === ev ? "selected" : ""}>${EVENTS[ev].name} · OVR ${Math.round(G.eventRating(a, ev))}</option>`).join("")}</select><small>Also sets the technical training event. Mastery and PBs are kept.</small></label>
     ${G.systemUnlocked(s,"duties") ? athleteDutyPicker(s,a) : ""}
     <details class="card"><summary>Event attribute scaling</summary><p>Attribute weights before mastery, condition and equipment bonuses.</p>${EVENT_IDS.map(ev => `<p><b>${EVENTS[ev].name}</b> · ${EVENTS[ev].weights.map((w,i) => `${STAT_NAMES[i]} ${Math.round(w*100)}%`).join(" · ")}</p>`).join("")}</details>
-    ${G.systemUnlocked(s,"skills") ? `<article class="card rank-card"><div class="card-title"><h2>${G.rankName(a)}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
-      ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn ★" + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
+    ${G.systemUnlocked(s,"skills") ? `<article class="card rank-card"><div class="card-title"><h2>${starText(G.rankName(a))}${next ? " to " + next.name : " · stars"}</h2>${rankChip(a)}</div>
+      ${next ? `<p>Raises the limit to <b>${Math.floor(Math.min(100, a.potential + next.cap))}</b>${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn star " + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>` : ""}
     <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}<br><b>${esc(typeName(a))}</b>: ${esc(ATHLETE_TYPES[a.type]?.desc || "")} <em>Growth: ${STAT_NAMES.map((n, i) => n + " " + GROWTH[ATHLETE_TYPES[a.type]?.growth[i] ?? 2].name.toLowerCase()).join(" · ")}.</em></div>
     <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Personal best <b>${pbMark(a,a.event)}</b></span></div>`;
@@ -379,7 +384,7 @@ function shortForecast(s, a) {
 // Training menu: each session is one tap. Cards show the step on the drill's ladder, what it raises
 // for the chosen group (chemistry included) and the bill; sessions waiting on a building are listed
 // underneath.
-const stars = (tier) => `<span class="tier" title="Step ${tier} of 5">${"★".repeat(tier)}<i>${"★".repeat(5 - tier)}</i></span>`;
+const stars = (tier) => `<span class="tier" role="img" title="Step ${tier} of 5" aria-label="Step ${tier} of 5">${ico("star").repeat(tier)}<span class="unearned">${ico("star").repeat(5 - tier)}</span></span>`;
 // The step on the drill's ladder: stars, then pips (or a bar) to the next step.
 function drillLadder(s, id) {
   const level = G.drillLevel(s, id), next = G.drillThreshold(level), xp = G.drillXp(s, id), prev = G.drillThreshold(level - 1);
@@ -418,7 +423,7 @@ function drillGrid(s, family = "all") {
       problem = !able.length ? "No one can do this today" : able.length < (d.minGroup || 1) ? `Needs ${d.minGroup} athletes free` : null,
       base = d.gains.map((g, i) => (G.tierOf(G.drillLevel(s, id)) >= 3 && d.broad === i ? g + Math.max(...d.gains) * 0.25 : g));
     return `<button class="drill fam-${d.family} ${problem ? "locked" : ""} ${G.tierOf(G.drillLevel(s, id)) >= 4 ? "high-tier" : ""}" data-act="pick-drill" data-drill="${id}" ${problem ? "disabled" : ""} title="${esc(drillTip(s, id))}">
-        <span class="drill-top"><span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong>${drillLadder(s, id)}</span><span class="drill-cost">${billChips(s, G.sessionCost(s, id, 1), G.drillEnergy(s, id))}</span></span>
+        <span class="drill-top"><span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${starText(G.drillName(s, id))}</strong>${drillLadder(s, id)}</span><span class="drill-cost">${billChips(s, G.sessionCost(s, id, 1), G.drillEnergy(s, id))}</span></span>
         <span class="gains">${gainPills(base)}${extraPills(id, d, null)}</span>
         <small class="${problem ? "why" : "able"}">${problem ? esc(problem) : `${able.length} of ${s.roster.length} can train${d.minGroup ? ` · ${d.minGroup}+ together` : ""}`}</small>
       </button>`;
@@ -430,7 +435,7 @@ function drillGrid(s, family = "all") {
     later = entries.filter(waiting);
   return `<p class="hint">Training emphasis: + light · ++ moderate · +++ strong. The session's rating decides the final gains.</p>
   <div class="drill-grid">${ready.map(card).join("") || `<p class="hint">Nothing in this family yet: see the buildings below.</p>`}</div>
-  ${later.length ? `<details class="drill-later"><summary>${ico("lock")} ${later.length} more session${later.length > 1 ? "s" : ""} unlock with new buildings</summary><ul>${later.map(([id, d]) => `<li title="${esc(d.desc || "")}">${ico(DRILL_ICONS[id] || "levelup")}<span><strong>${esc(G.drillName(s, id))}</strong><small>${esc(G.facilityProblem(s, s.roster[0], d.needs))}</small></span></li>`).join("")}</ul></details>` : ""}`;
+  ${later.length ? `<details class="drill-later"><summary>${ico("lock")} ${later.length} more session${later.length > 1 ? "s" : ""} unlock with new buildings</summary><ul>${later.map(([id, d]) => `<li title="${esc(d.desc || "")}">${ico(DRILL_ICONS[id] || "levelup")}<span><strong>${starText(G.drillName(s, id))}</strong><small>${esc(G.facilityProblem(s, s.roster[0], d.needs))}</small></span></li>`).join("")}</ul></details>` : ""}`;
 }
 // Step two: who does it. Every athlete is listed with their event, type, stats and growth, and what
 // this session would give them in the current group. The stats their event leans on are outlined.
@@ -452,7 +457,7 @@ function drillPicker(s, view, id) {
   };
   const tip = id === "delivery" && ids.length ? [...new Set(ids.map((x) => s.roster.find((a) => a.id === x)?.trainingEvent || s.roster.find((a) => a.id === x)?.event))].map((ev) => G.EVENT_DRILLS[ev]).join(" ") : drillTip(s, id);
   return `<div class="drill-pick">
-  <div class="pick-head fam-${d.family}">${btn("‹ Sessions", "pick-drill", 'data-drill=""', "text")}<span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${esc(G.drillName(s, id))}</strong>${drillLadder(s, id)}<small>${esc(tip)}</small></span><span class="gains">${extraPills(id, d, null)}</span></div>
+  <div class="pick-head fam-${d.family}">${btn("‹ Sessions", "pick-drill", 'data-drill=""', "text")}<span class="drill-ico">${ico(DRILL_ICONS[id] || "levelup")}</span><span class="drill-name"><strong>${starText(G.drillName(s, id))}</strong>${drillLadder(s, id)}<small>${esc(tip)}</small></span><span class="gains">${extraPills(id, d, null)}</span></div>
   <p class="session-hint">${n > 1 ? `<b>Group of ${n}: +${(n - 1) * 10}%.</b> ` : `Pick up to ${G.MAX_GROUP} to train together; each partner adds 10%. `}${chemistryLine(s, ids)}</p>
   <div class="pick-list">${s.roster.map(row).join("")}</div>
   <p class="sheet-key"><span class="k-key">Key stat for their event</span><span>Growth speed ${rateMeter(0, "Fast")} fast · ${rateMeter(4, "Very slow")} slow</span><span>Training emphasis: + light · ++ moderate · +++ strong. Every session rolls its own result.</span></p>
@@ -583,13 +588,13 @@ export function trainingStage(s, session, befores) {
   const level = session.level,
     next = G.drillThreshold(level),
     prev = G.drillThreshold(level - 1);
-  return `<div class="stage"><canvas class="stage-canvas" width="480" height="240" aria-label="Training scene"></canvas><span class="stage-tap">Tap to skip ▸</span></div>
+  return `<div class="stage"><canvas class="stage-canvas" width="480" height="240" aria-label="Training scene"></canvas><span class="stage-tap">Tap to skip ${ico("play")}</span></div>
   <div class="stage-results">
     ${session.tierUp ? `<div class="levelup-banner upgrade">${ico("levelup")}<span><small>TRAINING UPGRADED</small>${esc(session.name)} → <b>${esc(session.levelUp)}</b> ${stars(G.tierOf(level))}<em>Bigger gains${G.tierOf(level) >= 3 && G.DRILLS[session.drill].broad != null ? ", now works " + STAT_NAMES[G.DRILLS[session.drill].broad] + " too" : ""}${G.tierOf(level) === G.PAID_TIER ? ". This step is a camp the club pays for" : ""}.</em></span></div>` : session.levelUp ? `<div class="levelup-banner">${ico("levelup")} ${esc(session.levelUp)}: +8% gains</div>` : ""}
     ${session.chemistry ? `<div class="chem-banner ${session.chemistry.discovered ? "new" : ""}">${ico("spark")}<span>${session.chemistry.discovered ? "<small>NEW TRAINING CHEMISTRY</small>" : ""}<b>${esc(session.chemistry.name)}</b> · ${session.chemistry.stat == null ? "all stats" : STAT_NAMES[session.chemistry.stat]} +${session.chemistry.pct}%</span></div>` : ""}
     ${session.coachLevelUp ? `<div class="levelup-banner coach">${ico("clipboard")} Head coach reached <b>level ${session.coachLevel}</b>: sessions give ${(session.coachLevel - 1) * 3}% more.</div>` : ""}
     ${rows}
-    <div class="drill-xp">${ico("dumbbell")} <span>${esc(session.levelUp || session.name)} ${stars(G.tierOf(level))}</span>${next != null ? `<span class="bar"><i style="width:${((session.xp - prev) / (next - prev)) * 100}%;--bar:#f2c94c"></i></span><small>${next - session.xp} more to ${level < G.DRILL_NAMES[session.drill].length ? esc(G.DRILL_NAMES[session.drill][level]) : "the next ★"}</small>` : "<small>Mastered</small>"}<small>${session.money ? ico("coin") + " −" + cash(session.money) : ico("idea") + " −" + session.cost}</small></div>
+    <div class="drill-xp">${ico("dumbbell")} <span>${starText(session.levelUp || session.name)} ${stars(G.tierOf(level))}</span>${next != null ? `<span class="bar"><i style="width:${((session.xp - prev) / (next - prev)) * 100}%;--bar:#f2c94c"></i></span><small>${next - session.xp} more to ${level < G.DRILL_NAMES[session.drill].length ? esc(G.DRILL_NAMES[session.drill][level]) : "the next " + ico("star")}</small>` : "<small>Mastered</small>"}<small>${session.money ? ico("coin") + " −" + cash(session.money) : ico("idea") + " −" + session.cost}</small></div>
   </div>`;
 }
 function growRows(a, before) {
@@ -960,7 +965,7 @@ function developmentCard(a, all = false) {
   const list = all ? G.DEVELOPMENT : upcoming.slice(0, 2);
   const labels = { meets: "meets", clean: "valid throws", pbs: "personal bests", wins: "event wins" };
   return `<section class="card development-card"><div class="card-title"><h3>A career built here</h3><small>${earned.length} / ${G.DEVELOPMENT.length}</small></div>
-  ${list.map((d) => `<div class="goal ${earned.includes(d.id) ? "done" : ""}"><div><strong>${earned.includes(d.id) ? "✓ " : ""}${d.name}</strong><small>${G.developmentProgress(a, d)} / ${d.target} ${labels[d.field]}</small>${bar(G.developmentProgress(a, d), d.target, "#8cc152")}</div><span class="reward">${d.reward}</span></div>`).join("") || "<p>A club great. Every milestone earned.</p>"}<p class="hint">Milestones are awarded automatically through competition.</p></section>`;
+  ${list.map((d) => `<div class="goal ${earned.includes(d.id) ? "done" : ""}"><div><strong>${earned.includes(d.id) ? ico("check") + " " : ""}${d.name}</strong><small>${G.developmentProgress(a, d)} / ${d.target} ${labels[d.field]}</small>${bar(G.developmentProgress(a, d), d.target, "#8cc152")}</div><span class="reward">${d.reward}</span></div>`).join("") || "<p>A club great. Every milestone earned.</p>"}<p class="hint">Milestones are awarded automatically through competition.</p></section>`;
 }
 // The rare invitation, pinned above the regular circuit while it's open.
 function invitationCard(s) {
@@ -1045,7 +1050,7 @@ export function leagueTutorial() {
 export function qualifications(s, view = {}, event = null) {
   if (!G.championshipBooking(s)) return `<article class="card"><h2>Championship qualification</h2><p>Enter a league to earn qualifying marks in its three duels.</p></article>${leagueTutorial()}`;
   const events=event ? [event] : EVENT_IDS;
-  return `<section class="qualification-board"><div class="card-title"><h2>Championship qualification</h2></div>${event ? "" : `<p>Earn these standards in this league's duels. Recorded league marks count; training forecasts and lifetime PBs do not.</p>`}${events.map(ev=>`<article class="card qualification-event"><header><h3>${EVENTS[ev].name}</h3><span>Standard <b>${mark(G.qualifyingStandard(s,ev))}</b></span></header><div class="qualification-rows">${G.qualificationProgress(s,ev,view.hide).map(row=>`<div class="qualification-row ${row.qualified ? "qualified" : ""}"><strong>${esc(row.name)}</strong><b>${row.mark ? mark(row.mark) : "No league mark"}</b><span class="qualification-status">${row.qualified ? "✓ Qualified" : row.mark ? (row.standard-row.mark).toFixed(2)+" m to qualify" : "Not qualified yet"}</span></div>`).join("")}</div></article>`).join("")}</section>`;
+  return `<section class="qualification-board"><div class="card-title"><h2>Championship qualification</h2></div>${event ? "" : `<p>Earn these standards in this league's duels. Recorded league marks count; training forecasts and lifetime PBs do not.</p>`}${events.map(ev=>`<article class="card qualification-event"><header><h3>${EVENTS[ev].name}</h3><span>Standard <b>${mark(G.qualifyingStandard(s,ev))}</b></span></header><div class="qualification-rows">${G.qualificationProgress(s,ev,view.hide).map(row=>`<div class="qualification-row ${row.qualified ? "qualified" : ""}"><strong>${esc(row.name)}</strong><b>${row.mark ? mark(row.mark) : "No league mark"}</b><span class="qualification-status">${row.qualified ? ico("check") + " Qualified" : row.mark ? (row.standard-row.mark).toFixed(2)+" m to qualify" : "Not qualified yet"}</span></div>`).join("")}</div></article>`).join("")}</section>`;
 }
 
 function competitionBoard(s, view) {
@@ -1185,7 +1190,7 @@ function lookCard(s) {
 export function gameMenu(s, {page = "main", native = false} = {}) {
   const toggle = (key, label, help = "") => `<label class="toggle"><input type="checkbox" data-change="setting" data-key="${key}" ${s.settings[key] ? "checked" : ""}> ${label}${help ? `<small>${help}</small>` : ""}</label>`;
   const title = page === "saved" ? "Club saved" : page === "settings" ? "Settings" : "Game menu";
-  return `<header class="game-menu-head"><div><small>RING & SECTOR</small><h1 id="gameMenuTitle">${title}</h1></div>${page !== "saved" ? '<button data-act="menu-close" aria-label="Close menu">×</button>' : ""}</header><div class="game-menu-body">
+  return `<header class="game-menu-head"><div><small>RING & SECTOR</small><h1 id="gameMenuTitle">${title}</h1></div>${page !== "saved" ? '<button data-act="menu-close" aria-label="Close menu">' + ico("close") + '</button>' : ""}</header><div class="game-menu-body">
   ${page === "saved" ? `<div class="saved-club"><b>All progress saved.</b><p>${esc(s.clubName)} is ready for your next visit. You can safely close this tab.</p>${btn("Resume game", "menu-close")}</div>` : page === "settings" ? `
     <label>Screen orientation<select data-change="orientation" ${native ? "" : "disabled"}>${[["auto","Follow device"],["portrait","Portrait"],["landscape","Landscape"]].map(([id,name])=>`<option value="${id}" ${(s.settings.orientation||"auto")===id?"selected":""}>${name}</option>`).join("")}</select><small>${native ? "Follow device respects your phone’s rotation setting." : "In your browser, rotate the device or resize the window."}</small></label>
     <label>Default meet mode<select data-change="menu-meet-mode">${["watch","coach"].map(mode=>`<option value="${mode}" ${s.settings.meetMode===mode?"selected":""}>${mode==="watch"?"Watch":"Coach every throw"}</option>`).join("")}</select></label>
@@ -1281,16 +1286,16 @@ export function lobby(s, view = {}) {
     // Each entry slot opens the athlete picker, with portraits, stats and recorded PBs side by side.
     const slot = (k) => {
       const x = s.roster.find((y) => y.id === ids[k]);
-      return `<button class="entry-slot ${x ? "" : "empty"}" data-act="pick-entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}: ${x ? esc(x.name) + ". Change" : "add an athlete"}">${x ? `${portrait(x)}<span><b>${esc(shortName(x.name))}${x.event === ev ? " ★" : ""}</b><small>PB ${pbMark(x,ev)} · OVR ${Math.round(G.eventRating(x, ev))}</small></span><em>Change</em>` : `<span class="add">${ico("plus")}</span><span><b>${k ? "Add entry " + (k + 1) : "Choose an athlete"}</b></span>`}</button>`;
+      return `<button class="entry-slot ${x ? "" : "empty"}" data-act="pick-entry" data-event="${ev}" data-slot="${k}" aria-label="${EVENTS[ev].name} entry ${k + 1}: ${x ? esc(x.name) + ". Change" : "add an athlete"}">${x ? `${portrait(x)}<span><b>${esc(shortName(x.name))}${x.event === ev ? " " + specialistMark() : ""}</b><small>PB ${pbMark(x,ev)} · OVR ${Math.round(G.eventRating(x, ev))}</small></span><em>Change</em>` : `<span class="add">${ico("plus")}</span><span><b>${k ? "Add entry " + (k + 1) : "Choose an athlete"}</b></span>`}</button>`;
     };
     // Entries read as names until the coach asks to change them.
-    const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> PB ${pbMark(x,ev)}${x.event === ev ? " ★" : ""}`).join("<br>");
+    const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> PB ${pbMark(x,ev)}${x.event === ev ? " " + specialistMark() : ""}`).join("<br>");
     return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Recorded PB comparison">${!known ? "Unproven" : edge > 0.01 ? "PB ahead" : edge < -0.01 ? "PB behind" : "PB level"}</span></div>
       <div class="lineup-us">${a && !view.editLineup ? portrait(a) : ""}<span class="entry-slots">${view.editLineup ? [0, 1, 2].filter((k) => k <= ids.length).map(slot).join("") : `<span class="entry-names">${names || "No entry yet"}</span>`}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : ""}</small></span></div>
       <div class="lineup-them">${championship ? `<span>${field[ev].map(({athlete,club}) => `<span class="championship-entry"><strong>${esc(athlete.name)}</strong><small>${esc(club.name)} · PB ${pbMark(athlete,ev)}</small></span>`).join("")}</span>` : `${rivalPortrait(m.id, m.athletes.indexOf(r))}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · PB ${pbMark(r,ev)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span>`}</div></div>`;
   }).join("")}</div>
   ${problem ? `<p class="warning">${esc(problem)}</p>` : ""}
-  <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ★ marks a specialist. ${btn("How meets work", "meet-guide", "", "text")}${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
+  <p class="hint">${championship ? "Championship places score 10–8–6–5–4–3–2–1." : "Places score 5–3–1."} ${ico("star")} marks a specialist. ${btn("How meets work", "meet-guide", "", "text")}${view.editLineup ? " Up to three entries per event and two events per athlete; all-foul entries score zero, and ties go to the next-best throw." : ""}</p>
   <p class="hint">PBs are recorded marks, not predictions. ??? means no recorded mark. Opening order runs from unseeded to highest PB; finals use marks earned in this meet.</p>
   <div class="inline">${btn(view.editLineup ? "Done changing entries" : "Change entries", "edit-lineup", "", "subtle")}${btn("Auto-pick by PB", "autolineup", "", "subtle")}${s.roster.some((a) => a.injury) ? btn("Medical postponement (+1 day)", "medical", "", "subtle") : ""}</div>
   ${G.systemUnlocked(s,"kit") ? `<div class="quick-items">${["drink", "cake", "feast", "icebath", "goldchalk"].filter((k) => s.bag[k]).map((k) => `<button class="use-item" data-act="use" data-item="${k}">${icon(k, 24)}<span><strong>${ITEMS[k].name} ×${s.bag[k]}</strong><small>${ITEMS[k].desc}</small></span></button>`).join("")}</div>
@@ -1316,7 +1321,7 @@ export function entryPicker(s, ev, k) {
   const row = (a) => {
     const problem = why(a), cap = G.capOf(a), also = elsewhere(a);
     return `<button class="pick-row entry-pick ${a.id === current ? "on" : ""}" data-pick="${a.id}" aria-pressed="${a.id === current}" ${problem ? "disabled" : ""}>
-      <span class="pick-who">${portrait(a)}<span><b>${esc(a.name)}</b> ${eventChip(a.event)}<small>${a.event === ev ? "★ Specialist · " : ""}Lv ${a.level} · ${esc(typeName(a))}${also.length ? " · also in " + also.join(", ") : ""}</small>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span></span>
+      <span class="pick-who">${portrait(a)}<span><b>${esc(a.name)}</b> ${eventChip(a.event)}<small>${a.event === ev ? ico("star") + " Specialist · " : ""}Lv ${a.level} · ${esc(typeName(a))}${also.length ? " · also in " + also.join(", ") : ""}</small>${bar(a.stamina, 100, a.stamina < 30 ? "#e0604a" : "#6ac08a")}</span></span>
       <span class="sheet-stats">${a.stats.map((v, i) => `<span class="sheet-stat ${w[i] >= 0.25 ? "key" : ""}" style="--c:${STAT_COLORS[i]}" title="${STAT_NAMES[i]}: ${Math.round(w[i] * 100)}% of ${esc(EVENTS[ev].name)}"><small>${STAT_SHORT[i]}</small><b>${showStat(v)}</b><i style="width:${Math.min(100, (v / cap) * 100)}%"></i></span>`).join("")}</span>
       <span class="entry-forecast"><b>PB ${pbMark(a,ev)}</b>${problem ? `<small class="why">${esc(problem)}</small>` : `<small>OVR ${Math.round(G.eventRating(a, ev))} · ${mood(a)} ${Math.round(a.stamina)}</small>`}</span>
     </button>`;

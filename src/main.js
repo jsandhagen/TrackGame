@@ -110,7 +110,7 @@ const snapshot = () => ({ goals: state.goals.length, discovered: state.discovere
 function hud() {
   const m = state.match;
   if (m) {
-    $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
+    $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="game-menu" aria-label="Open game menu">${ico("menu")}</button>`;
     return;
   }
   const days = state.matchDay == null ? null : state.matchDay - state.day,
@@ -129,7 +129,7 @@ function hud() {
   <div class="hud-wallet"><button class="res fans" data-act="ledger" data-cur="fans" aria-label="${state.fans} fans. Open the ledger">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></button>
   ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="ledger" data-cur="insights" aria-label="${insights} Coaching Insights. Open the ledger">${ico("idea")}<b>${insights.toLocaleString()}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
   <button class="res money" data-act="ledger" data-cur="money" aria-label="${cash(state.money)}. Open the ledger">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></button></div>
-  <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
+  <button class="hud-btn" data-act="game-menu" aria-label="Open game menu">${ico("menu")}</button>`;
 }
 function menu() {
   if (state.match) {
@@ -1180,7 +1180,7 @@ $("#app").addEventListener("click", async (e) => {
         sfx("goal");
         const star = (a.stars || 0) > 0;
         if (state.settings.quietMode !== false) { toast(a.name + " promoted to " + G.rankName(a) + ".", "level"); break; }
-        dialog(star ? G.rankName(a) + "!" : "A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now <b>${esc(G.rankName(a))}</b>. Their limit is higher, every stat gains a point${!star && RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
+        dialog(star ? G.rankName(a) + "!" : "A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now <b>${P.starText(G.rankName(a))}</b>. Their limit is higher, every stat gains a point${!star && RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
       }
       break;
     }
