@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {frameShot, followCamera, clampCamera, throwShot, ZOOM_MAX, MAX_ZOOM_RATE, MAX_PAN_RATE, FLIGHT_LEAD_MS} from '../src/render/meet-camera.js';
+import {frameShot, followCamera, clampCamera, throwShot, createBroadcastCamera, ZOOM_MAX, MAX_ZOOM_RATE, MAX_PAN_RATE, FLIGHT_LEAD_MS} from '../src/render/meet-camera.js';
 import {throwingSector, SCENE_HEIGHT, AIRSPACE} from '../src/render/meet-geometry.js';
 import {throwTiming, flightPoint, beatDuration, throwOffset, LANDING_HOLD_MS} from '../src/render/meet-presentation.js';
 import {throwReleasePoint} from '../src/render/throw-motion.js';
@@ -18,10 +18,10 @@ test('the camera stays inside the extended venue and can pull back to fit the fu
  }
 });
 
-test('the moving camera keeps 70 m flights visible at varied frame rates and finishes with the complete span in view',()=>{
- for(const view of views) for(const event of ['discus','hammer','jav']) for(const dt of [16,50]) for(const angle of [-1.2,0,0.5]) {
-  const beat={type:'throw',event,mark:70,side:'away'},timing=throwTiming(beat),sector=throwingSector(event,view.width,110),
-    origin=[sector.origin.x,sector.origin.y],landing=sector.point(70,angle*sector.halfAngle),release=throwReleasePoint(event,3),start=[origin[0]+release[0],origin[1]+release[1]];
+test('the moving camera keeps shot put and long flights visible, then shows the complete measured span',()=>{
+ for(const view of views) for(const [event,mark] of [['shot',9],['shot',23],['discus',70],['hammer',70],['jav',70]]) for(const dt of [16,50]) for(const angle of [-1.2,0,0.5]) {
+  const beat={type:'throw',event,mark,side:'away'},timing=throwTiming(beat),sector=throwingSector(event,view.width,110),
+    origin=[sector.origin.x,sector.origin.y],landing=sector.point(mark,angle*sector.halfAngle),release=throwReleasePoint(event,3),start=[origin[0]+release[0],origin[1]+release[1]];
   let cam=frameShot(throwShot('thrower',{thrower:origin}).rect,view);
   for(let ms=-FLIGHT_LEAD_MS;ms<0;ms+=dt) {
    const anticipate=flightPoint(start,landing,(ms+FLIGHT_LEAD_MS)/timing.flightMs,timing.arcHeight);
@@ -29,7 +29,7 @@ test('the moving camera keeps 70 m flights visible at varied frame rates and fin
    cam=followCamera(cam,frameShot(shot.rect,view),dt,shot.rate,view);
   }
   for(let ms=0;ms<timing.flightMs;ms+=dt) {
-   const p=ms/timing.flightMs,implement=flightPoint(start,landing,p,timing.arcHeight),ground=sector.point(70*p,angle*sector.halfAngle);
+   const p=ms/timing.flightMs,implement=flightPoint(start,landing,p,timing.arcHeight),ground=sector.point(mark*p,angle*sector.halfAngle);
    const anticipate=flightPoint(start,landing,Math.min(1,p+FLIGHT_LEAD_MS/timing.flightMs),timing.arcHeight);
    const shot=throwShot('flight',{origin,implement,ground,anticipate,upperAt:sector.upperY,chase:true});
    cam=followCamera(cam,frameShot(shot.rect,view),dt,shot.rate,view,shot.pan);
@@ -106,16 +106,46 @@ test('the result shot frames the circle and the mark, and the camera eases betwe
  }
 });
 
-test('a shot put opens on the athlete and the landing area together, then pulls out without a jump',()=>{
- for(const view of views) {
-  const sector=throwingSector('shot',view.width,15),origin=[sector.origin.x,sector.origin.y],[ex]=sector.point(9);
-  const close=frameShot(throwShot('thrower',{thrower:origin}).rect,view),shot=throwShot('thrower',{thrower:origin,expect:ex}),cam=frameShot(shot.rect,view);
-  assert(cam.z<close.z*0.9,'wider than the close-up');
-  const [x0,,x1]=visible(cam,view);
-  assert(x0<=origin[0]&&x1>=ex,'the circle and the expected landing are both in frame');
-  const release=throwShot('flight',{origin,implement:[origin[0]+10,origin[1]-60],ground:[origin[0]+10,origin[1]],upperAt:sector.upperY,expect:ex}).rect;
-  assert.deepEqual(release.map(Math.round),shot.rect.map(Math.round),'no jump at release');
+test('shot put opens close on the athlete, follows the put and pulls back for the result',()=>{
+ for(const view of views) for(const metres of [9,23]) {
+  const sector=throwingSector('shot',view.width,30),origin=[sector.origin.x,sector.origin.y],landing=sector.point(metres);
+  const close=frameShot(throwShot('thrower',{thrower:origin}).rect,view);
+  const [x0,,x1]=visible(close,view);
+  assert(close.z>=2.4,'preparation gets the same athlete close-up as the long events');
+  assert(x0<=origin[0] && x1<landing[0],'the close-up does not pre-frame the landing');
+  const land=throwShot('landing',{origin,landing,upperAt:sector.upperY,chase:true});
+  assert(land.rect[0]>origin[0],'the shot travels away from the circle in the chase');
+  const result=frameShot(throwShot('result',{origin,landing,upperAt:sector.upperY,chase:true}).rect,view);
+  const [left,,right]=visible(result,view);
+  assert(left<=origin[0] && right>=landing[0],'the result shows the circle and the measured mark');
  }
+});
+
+test('each next athlete is framed immediately after a long result, with no return pan during preparation',()=>{
+ for(const view of views) {
+  const direct=createBroadcastCamera(),origin=[96,214],landing=[1696,214],size=String(view.width);
+  const resultShot=throwShot('result',{origin,landing}),result=frameShot(resultShot.rect,view);
+  direct(result,view,{now:0,size,shot:resultShot});
+  const readyShot=throwShot('thrower',{thrower:origin}),ready=frameShot(readyShot.rect,view);
+  const next=direct(ready,view,{now:16,size,shot:readyShot,preparation:'0:1:home:0'});
+  assert(next.cut);assert.deepEqual(next.camera,ready,'full close-up on the first setup frame');
+  for(let now=32;now<700;now+=16) assert(!direct(ready,view,{now,size,shot:readyShot,preparation:'0:1:home:0'}).cut,'setup frames keep a continuous camera');
+  direct(result,view,{now:700,size,shot:resultShot});
+  const again=direct(ready,view,{now:716,size,shot:readyShot,preparation:'0:1:home:1'});
+  assert(again.cut);assert.deepEqual(again.camera,ready,'the same athlete also gets an immediate return on their next attempt');
+ }
+});
+
+test('a coaching decision flows into the same athlete’s throw without a second cut',()=>{
+ const view=views[0],direct=createBroadcastCamera(),shot=throwShot('thrower',{thrower:[96,214]}),size='640';
+ const decision=frameShot(shot.rect,view,2.1),ready=frameShot(shot.rect,view);
+ direct(decision,view,{now:0,size,shot,preparation:'0:1:home:0'});
+ const next=direct(ready,view,{now:16,size,shot,preparation:'0:1:home:0'});
+ assert(!next.cut);assert(next.camera.z>decision.z && next.camera.z<ready.z,'close-up zoom eases after the tactic choice');
+ const fast=direct(decision,view,{now:32,size,shot,pace:2});
+ assert(!fast.cut,'fast playback keeps its steady overview');
+ const watch=direct(ready,view,{now:48,size,shot,preparation:'0:1:home:0'});
+ assert(watch.cut,'returning to watch speed frames the athlete immediately');
 });
 
 test('a long throw is chased down the sector: the implement stays in frame, the circle drops out, the result pulls back',()=>{

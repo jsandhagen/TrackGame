@@ -6,7 +6,7 @@ import { homeAthlete, rivalAthlete, best, meetVenue, stadiumCrowd, fieldLeaderbo
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, AIRSPACE, METRE_PX, throwingSector, meetCamera } from "./meet-geometry.js";
-import { frameShot, followCamera, clampCamera, throwShot, eventShot, FLIGHT_LEAD_MS } from "./meet-camera.js";
+import { frameShot, clampCamera, throwShot, eventShot, createBroadcastCamera, FLIGHT_LEAD_MS } from "./meet-camera.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
 import { line as voiceLine, throwSituation } from "../domain/voice.js";
 import { measure } from "./font.js";
@@ -744,13 +744,12 @@ export function createStadium(cv) {
     g = off.getContext("2d"),
     hud = canvas(W, H),
     h = hud.getContext("2d"),
-    out = cv.getContext("2d");
+    out = cv.getContext("2d"),
+    directCamera = createBroadcastCamera();
   let base = null,
     key = "",
     cam = null,
-    centre = null,
-    camAt = 0,
-    camSize = "";
+    centre = null;
   const fireworks = [];
   function draw(s, now, view = {}) {
     const m = s.match;
@@ -790,8 +789,8 @@ export function createStadium(cv) {
     g.translate(0, airspace);
     h.setTransform(1, 0, 0, 1, 0, 0);
     h.clearRect(0, 0, hud.width, LH);
-    // Long events chase the implement in flight; the shot put's short flight stays in one frame.
-    const focus = { origin: [O.x, O.y], upperAt: upperY, chase: ev !== "shot" };
+    // Every event starts close on the athlete, then follows the implement at watch speed.
+    const focus = { origin: [O.x, O.y], upperAt: upperY, chase: true };
     const el = view.elapsed ?? 99999;
     const hasCut = hasCutIn(beat);
     const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
@@ -810,8 +809,11 @@ export function createStadium(cv) {
     g.drawImage(base, 0, 0);
     const reacting = beat?.type === "throw" && landed && el < beatDuration(beat) && beat.mark != null && beat.side === "home" && (beat.newPb || beat.scoringSwing > 0);
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
-    const crowdHalf = cam ? view2.width / (2 * cam.z) + 180 : W;
-    drawCrowd(g, s, m, now, cheer, venue, cam ? cam.x - crowdHalf : 0, cam ? cam.x + crowdHalf : W);
+    // Preparation can cut back across the field; include the circle's crowd on that first frame.
+    const preparing = (view.pace || 1) < 2 && (beat?.type === "decide" || (beat?.type === "throw" && tt < timing.releaseAt)),
+      crowdHalf = preparing ? view2.width / 2 + 180 : cam ? view2.width / (2 * cam.z) + 180 : W,
+      crowdX = preparing ? O.x : cam?.x ?? W / 2;
+    drawCrowd(g, s, m, now, cheer, venue, crowdX - crowdHalf, crowdX + crowdHalf);
     homeBanners(g, s, venue);
     // Flashbulbs pop in the stands after a big throw.
     if (big && !view.reduced && sinceLand >= 0 && sinceLand < (celebrates(beat) ? LANDING_HOLD_MS + CELEBRATION_MS : 1600))
@@ -983,8 +985,6 @@ export function createStadium(cv) {
         focus.anticipate = flightPoint([O.x + rx, O.y + ry], sector.point(timing.distance),
           (tt - timing.releaseAt + FLIGHT_LEAD_MS) / timing.flightMs, timing.arcHeight);
       }
-      // A shot put lands just past the circle: frame the athlete with where it should land.
-      if (ev === "shot") focus.expect = Math.min(W - 6, O.x + rawMark(active, ev) * ppm);
       const look = athleteLook(active, activeColors);
       // The best throwers leave a blur of afterimages through the turns.
       if (mo?.ghost && !view.reduced)
@@ -1176,7 +1176,7 @@ export function createStadium(cv) {
     const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 2;
     if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.origin, sector.point(SPAN)[0], upperY);
     else if (thrown && focus.thrower && tt < timing.releaseAt)
-      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y], expect: focus.expect }) : throwShot("thrower", focus);
+      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y] }) : throwShot("thrower", focus);
     else if (thrown && !landed && focus.implement) shot = view.reduced ? eventShot(focus.origin, sector.point(SPAN)[0], upperY) : throwShot("flight", focus);
     else if (thrown && focus.landing && sinceLand < LANDING_HOLD_MS) shot = throwShot("landing", focus);
     else if (thrown && party && focus.thrower && sinceLand < partyEnd)
@@ -1184,13 +1184,12 @@ export function createStadium(cv) {
     else if (thrown && el < 1e8) shot = throwShot("result", focus);
     else if (beat?.type === "decide" && focus.thrower) shot = { ...throwShot("thrower", { thrower: [O.x, O.y] }), cap: 2.1 };
     const target = shot.rect ? frameShot(shot.rect, view2, shot.cap) : clampCamera({ x: W / 2, y: H / 2, z: 1 }, view2),
-      // Only a new canvas size cuts the camera; the overlays changing height never does.
-      size = [cw, ch, W].join();
-    const dt = Math.min(100, Math.max(0, now - camAt)), cut = view.reduced || !cam || size !== camSize;
-    camAt = now;
-    // Faster playback hurries the camera a little, never into a whip.
-    cam = cut ? target : followCamera(cam, target, dt, shot.rate * Math.min(1.5, view.pace || 1), view2, shot.pan);
-    camSize = size;
+      size = [cw, ch, W].join(),
+      preparation = !fast && focus.thrower && (beat?.type === "decide" || (thrown && tt < timing.releaseAt))
+        ? [bi, beat.athleteId ?? active?.id, beat.side ?? "home", beat.attempt ?? m.homeMarks[bi].length].join(":") : null;
+    const next = directCamera(target, view2, { now, size, shot, preparation, pace: view.pace || 1, reduced: view.reduced }),
+      { dt, cut } = next;
+    cam = next.camera;
     // The space between the overlays sets the frame's centre; ease it when they resize.
     const middle = (insetTop + ch - insetBottom) / 2;
     centre = cut || centre == null ? middle : centre + (middle - centre) * (1 - Math.exp(-dt / 180));

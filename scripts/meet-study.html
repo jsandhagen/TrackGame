@@ -18,6 +18,7 @@
 <p>Production meet rendering: fixed metre scale, flight, chase, landing and result pullback.</p>
 <div class="controls">
   <button id="play">Pause</button>
+  <button id="next">Next athlete</button>
   <label>Event <select id="event"><option value="shot">Shot put</option><option value="discus">Discus</option><option value="hammer">Hammer</option><option value="jav" selected>Javelin</option></select></label>
   <label>Mark <input id="mark" type="number" min="1" max="110" step="1" value="70"> m</label>
   <label>Speed <select id="pace"><option value="1">1×</option><option value="2">2×</option><option value="3">8×</option></select></label>
@@ -37,22 +38,27 @@
     pace=document.querySelector('#pace'), reduced=document.querySelector('#reduced'), foul=document.querySelector('#foul'),
     time=document.querySelector('#time'), play=document.querySelector('#play'), status=document.querySelector('#status');
   let s, beat, renderer, elapsed=0, paused=false, last=performance.now();
+  function showBeat(next) {
+    beat=next;ev.value=beat.event;
+    const i=beat.eventIndex,distance=Math.max(1,Math.min(110,Number(mark.value)||70));
+    Object.assign(beat,{mark:foul.checked?null:distance,flightDistance:distance,foul:foul.checked,ownBest:foul.checked?null:distance,place:foul.checked?null:1,newPb:false,worldRecord:false,tookLead:false,scoringSwing:0,activations:[]});
+    const entry=s.match.fields[i][beat.side].find(e=>e.id===beat.athleteId);
+    entry.marks[beat.attempt]=beat.mark;
+    s.match[beat.side==='home'?'homeMarks':'awayMarks'][i]=entry.marks;
+    s.worldRecords[ev.value]={...s.worldRecords[ev.value],mark:Math.max(G.worldRecord(s,ev.value),distance)};
+    time.max=beatDuration(beat);elapsed=0;
+  }
   function reset() {
     s=G.newGame(721);delete s.onboarding;
     for(const a of s.roster) { a.stats.fill(90);for(const event of EVENT_IDS)a.mastery[event]=90; }
     G.enterCompetition(s,{kind:'duel',tier:0});s.day=s.matchDay;G.startMatch(s);
     const i=EVENT_IDS.indexOf(ev.value);s.match.eventIndex=i;s.match.entryIndex=0;s.match.turnSide='home';s.match.phase='decide';s.match.started[i]=true;
-    beat=G.decideThrow(s,'balanced');
-    const distance=Math.max(1,Math.min(110,Number(mark.value)||70));
-    Object.assign(beat,{mark:foul.checked?null:distance,flightDistance:distance,foul:foul.checked,ownBest:foul.checked?null:distance,place:foul.checked?null:1,newPb:false,worldRecord:false,tookLead:false,scoringSwing:0,activations:[]});
-    s.match.fields[i].home[0].marks=[beat.mark];s.match.homeMarks[i]=[beat.mark];
-    s.worldRecords[ev.value]={...s.worldRecords[ev.value],mark:Math.max(G.worldRecord(s,ev.value),distance)};
-    time.max=beatDuration(beat);elapsed=0;renderer=createStadium(cv);
+    showBeat(G.decideThrow(s,'balanced'));renderer=createStadium(cv);
   }
   function draw(t) {
     renderer.draw(s,t,{beat,elapsed:t,pace:Number(pace.value),reduced:reduced.checked});
     const timing=throwTiming(beat), flight=t-throwOffset(beat)-timing.releaseAt;
-    status.value=`${(t/1000).toFixed(2)} s · ${flight<0?'delivery':flight<timing.flightMs?'in flight':'landed'} · flight ${(timing.flightMs/1000).toFixed(2)} s`;
+    status.value=`${beat.name} · ${(t/1000).toFixed(2)} s · ${flight<0?'delivery':flight<timing.flightMs?'in flight':'landed'} · flight ${(timing.flightMs/1000).toFixed(2)} s`;
     time.value=t;
   }
   window.seekMeetStudy=t=>{
@@ -60,13 +66,24 @@
     for(let at=0;at<t;at+=50)draw(at);
     elapsed=t;draw(t);
   };
-  window.meetStudyTiming=()=>({offset:throwOffset(beat),...throwTiming(beat),duration:beatDuration(beat)});
+  window.meetStudyTiming=()=>({athleteId:beat.athleteId,side:beat.side,attempt:beat.attempt,offset:throwOffset(beat),...throwTiming(beat),duration:beatDuration(beat)});
+  window.nextMeetStudy=()=>{
+    let next;
+    do {next=G.advanceMatch(s);if(next.type==='decide')next=G.decideThrow(s,'balanced');}
+    while(next.type!=='throw' && next.type!=='complete');
+    if(next.type==='complete')reset();else showBeat(next);
+    draw(0);
+  };
+  document.querySelector('#next').onclick=window.nextMeetStudy;
   for(const control of [ev,mark,pace,reduced,foul])control.onchange=()=>{reset();draw(0);};
   time.oninput=()=>window.seekMeetStudy(Number(time.value));
   play.onclick=()=>{paused=!paused;play.textContent=paused?'Play':'Pause';};
   reset();
   function tick(now) {
-    if(!paused)elapsed=(elapsed+Math.min(100,now-last)*playbackRate(Number(pace.value)))%Number(time.max);
+    if(!paused) {
+      elapsed+=Math.min(100,now-last)*playbackRate(Number(pace.value));
+      if(elapsed>=Number(time.max))window.nextMeetStudy();
+    }
     last=now;draw(elapsed);requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
