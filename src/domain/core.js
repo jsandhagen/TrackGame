@@ -126,15 +126,19 @@ export const growthOf = (a) => (ATHLETE_TYPES[a.type] || ATHLETE_TYPES.allrounde
 
 // Some athletes wear something: shades, a sweatband or a cap. Read from the generator's state
 // without drawing from it, so adding accessories changes no other roll in the game.
+const FACIALS = ["stubble", "moustache", "full", "goatee"];
 const GEAR = ["shades", "band", "cap"], GEAR_COLORS = ["#e04a3a", "#3a7ad0", "#f2c94c", "#2f9a6a", "#f4f4f0", "#2a2a32"];
 export function makeLook(s, extra = {}) {
   const look = {
     skin: pick(s, SKINS),
     hair: pick(s, HAIRS),
-    style: Math.floor(random(s) * HAIR_STYLES),
+    style: HAIR_STYLES[Math.floor(random(s) * HAIR_STYLES.length)],
   };
   const r = s.rng >>> 0;
   if (r % 100 < 22) Object.assign(look, { gear: GEAR[(r >>> 8) % GEAR.length], gearColor: GEAR_COLORS[(r >>> 12) % GEAR_COLORS.length] });
+  // Some have facial hair, a few wear glasses (never with shades).
+  if (((r >>> 16) & 255) < 36) look.facial = FACIALS[(r >>> 24) % FACIALS.length];
+  if (((r >>> 20) & 255) < 18 && look.gear !== "shades") look.glasses = true;
   return { ...look, ...extra };
 }
 

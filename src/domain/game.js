@@ -189,7 +189,12 @@ export function newGame(seed = Date.now() >>> 0) {
 export function seatElites(club, league) {
   if (league !== 4) return club;
   for (const e of ELITES.filter((x) => x.club === club.id)) {
-    if (club.athletes.some((a) => a.elite === e.id)) continue;
+    // One already seated keeps up with the roster's current name and look.
+    const seated = club.athletes.find((a) => a.elite === e.id);
+    if (seated) {
+      Object.assign(seated, { name: e.name, look: { ...e.look }, nation: e.nation });
+      continue;
+    }
     const a = club.athletes.find((x) => x.event === e.event && !x.elite);
     if (a) Object.assign(a, { name: e.name, look: { ...e.look }, elite: e.id, nation: e.nation });
   }

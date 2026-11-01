@@ -1,4 +1,4 @@
-import { canvas, outlined, flipped, shade, line, ellipse, OUTLINE } from "./pixel.js";
+import { canvas, outlined, flipped, shade, mix, line, ellipse, OUTLINE } from "./pixel.js";
 import { SHORTS_COLORS } from "../game-content.js";
 
 // Chibi figures: a big head, a small body, a crisp outline. Drawn facing right on a
@@ -576,7 +576,16 @@ function drawFigure(g, o) {
     H(0, 3, 2, 3, hair);
   } else if (!fur) {
     const st = look.style || 0;
-    if (st === 4) {
+    if (st === 8) {
+      // Buzz cut: a short fuzz over the crown.
+      mask(mix(hair, skin, 0.3), 0, 3);
+      for (const x of [2, 5, 8]) H(x, 1, 1, 1, hair);
+    } else if (st === 12) {
+      // Bald on top, neat at the sides.
+      H(0, 3, 2, 4, hair);
+      H(10, 3, 2, 4, hair);
+      H(3, 1, 3, 1, shade(skin, 0.25));
+    } else if (st === 4) {
       H(1, -2, 10, 1, hair);
       H(-1, -1, 14, 4, hair);
       H(-1, 3, 3, 5, hair);
@@ -600,6 +609,14 @@ function drawFigure(g, o) {
       H(3, 3, 6, 1, hair);
     }
     if (st === 5) H(-1, 3, 4, 11, hair);
+    // A mullet hangs behind the neck; a high ponytail swings off the back of the crown.
+    if (st === 7) H(-1, 3, 3, 9, hair), H(11, 4, 2, 7, hair);
+    if (st === 9) H(-3, 1, 3, 2, hair), H(-4, 3, 2, 6, hair), H(-2, 1, 1, 1, collar);
+    if (st === 10) {
+      H(-1, 3, 2, 10, hair), H(11, 3, 2, 10, hair);
+      H(-1, 12, 2, 1, collar), H(11, 12, 2, 1, collar);
+    }
+    if (st === 11) for (const [x, y] of [[1, -1], [4, -2], [7, -2], [10, -1], [-1, 2], [12, 2]]) H(x, y, 2, 2, hair);
     if (st === 6) {
       H(2, -3, 5, 3, hair);
       H(3, -3, 2, 1, hairHi);
@@ -616,10 +633,12 @@ function drawFigure(g, o) {
     H(1, 8, 2, 1, hair);
     H(4, 6, 1, 2, shade(skin, -0.15));
   }
-  if (special === "beard" && !back) {
+  const facial = special === "beard" ? "full" : look.facial;
+  if (facial === "full" && !back) {
     H(5, 8, 7, 3, hair);
     H(6, 8, 5, 1, shade(hair, -0.2));
-  }
+    if (!side) H(1, 8, 4, 3, hair);
+  } else if (facial === "stubble" && !back) H(side ? 5 : 1, 9, side ? 7 : 10, 2, mix(skin, hair, 0.3));
   if (rank >= 2 && !metal && !kid) {
     H(0, 3, 12, 1, rank >= 3 ? GOLD : collar);
     H(-2, 3, 2, 2, rank >= 3 ? GOLD : collar);
@@ -649,7 +668,7 @@ function drawFigure(g, o) {
       H(2, 8, 2, 1, BLUSH);
       if (!fur) H(10, 8, 1, 1, BLUSH);
     }
-    if (special !== "beard") {
+    if (facial !== "full") {
       if (face === "happy") H(6 + mx, 9, 3, 1, "#8a3a30"), H(7 + mx, 10, 1, 1, "#e07070");
       else if (face === "sad") H(6 + mx, 9, 3, 1, shade(skin, -0.35));
       else if (face === "strain") H(6 + mx, 9, 2, 1, "#8a3a30");
@@ -659,6 +678,14 @@ function drawFigure(g, o) {
       H(side ? 7 : 3, 5, side ? 5 : 9, 1, "#9a8a80");
       for (const x of side ? [7, 11] : [3, 7, 11]) H(x, 6, 1, 2, "#9a8a80");
     }
+  }
+  // A moustache sits over the mouth, a goatee under it.
+  if (!back && !metal && (facial === "moustache" || facial === "walrus")) H(side ? 6 : 5 + mx, 8, facial === "walrus" ? 5 : 4, 1, hair);
+  if (!back && !metal && facial === "goatee") H(side ? 7 : 6, 10, 2, 1, hair);
+  if (look.glasses && !back && !metal) {
+    const frame = look.glassesColor || "#3a3440";
+    if (side) H(8, 5, 3, 1, frame), H(10, 6, 1, 1, frame);
+    else H(4, 5, 3, 1, frame), H(8, 5, 3, 1, frame), H(7, 6, 1, 1, frame);
   }
   // Accessories: sunglasses over the eyes, a sweatband or a cap. From behind only the band and cap show.
   const gear = look.gear, gc = look.gearColor || "#e04a3a";
@@ -754,17 +781,4 @@ export function shadow(g, x, y, w = 6) {
 export function athleteLook(a, colors, extra = {}) {
   const shorts = colors.shorts === "trim" ? shade(colors.secondary, -0.1) : SHORTS_COLORS[colors.shorts];
   return { look: a.look, shirt: colors.primary, collar: colors.secondary, kit: colors.kit, ...(shorts ? { shorts } : {}), rank: a.rank || 0, ...extra };
-}
-// Portrait: head and shoulders cropped from the idle figure.
-export function portrait(cv, a, colors, opts = {}) {
-  const g = cv.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  g.clearRect(0, 0, cv.width, cv.height);
-  const c = sprite(athleteLook(a, colors, { pose: opts.pose || "idle", frame: 0, face: opts.face }));
-  const sx = OX - 8,
-    sy = OY - 24,
-    size = 16,
-    scale = Math.floor(Math.min(cv.width, cv.height) / size);
-  const off = (cv.width - size * scale) / 2;
-  g.drawImage(c, sx, sy, size, size, Math.round(off), Math.round(cv.height - size * scale), size * scale, size * scale);
 }
