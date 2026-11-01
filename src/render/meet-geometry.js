@@ -2,7 +2,7 @@ export const SCENE_HEIGHT = 360;
 // The ring and people already use roughly this scale. Keep metres at that scale too:
 // a long sector extends beyond the screen instead of shrinking to fit the current field.
 export const METRE_PX = 20;
-export const SECTOR_DEPTH = 0.12;
+export const SECTOR_DEPTH = 0.14;
 export const AIRSPACE = 420;
 // How far the throwing direction climbs the screen per pixel forward. Level with the track and
 // the stands, so the field reads as one ground plane under the camera.
