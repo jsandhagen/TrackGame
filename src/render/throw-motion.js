@@ -8,7 +8,7 @@
 // power position) · 2 release · 3 follow-through · 4 and up the event's own technique frames.
 // A right-handed thrower turns anticlockwise seen from above: back to the sector (side-on,
 // flipped), round to face the camera, side-on to the sector, facing away, and so on.
-import { frontFootOf, feetOf, implementPointOf } from "./sprites.js";
+import { frontFootOf, feetOf, implementPointOf, SHOT_ROTATION_START } from "./sprites.js";
 import { throwTiming, techniqueTrim } from "./meet-presentation.js";
 import { groundRise } from "./meet-geometry.js";
 
@@ -75,15 +75,25 @@ export function throwMotion(ev, level, phase, p, { foul = false, style = 0, flop
   if (ev === "hammer") return hammer(m, level, phase, p, foul, style);
   if (ev === "discus") {
     discus(m, level, phase, p, foul, style);
-    return discusFacing(m, level, phase, p, style);
+    return circularFacing(m, level, phase, p, style);
+  }
+  if (ev === "shot" && level === 3) {
+    // The same slow wind, left-leg sweep, low flight and right-left catch as a full discus
+    // turn, running in shot's own technique window with a tucked arm and an upward put.
+    discus(m, 2, phase, p, foul, style);
+    circularFacing(m, 2, phase, p, style);
+    m.frame += SHOT_ROTATION_START;
+    m.blend.frame += SHOT_ROTATION_START;
+    return m;
   }
   return shot(m, level, phase, p, foul, style);
 }
 
 // Unwrapped counterclockwise headings, seen from above. Sector = 0; π faces the rear.
-// Torso, head, limb depth, arms and pelvis share these angles instead of inferring a turn from
-// unrelated side/front/back drawings. The shoulder wind may reverse; the throwing turn does not.
-function discusFacing(m, level, phase, p, style) {
+// Shared by discus and rotational shot. Torso, head, limb depth, arms and pelvis share these
+// angles instead of inferring a turn from unrelated side/front/back drawings. The shoulder wind
+// may reverse; the throwing turn does not.
+function circularFacing(m, level, phase, p, style) {
   const pi = Math.PI, end = level >= 2 ? 4 * pi : level === 1 ? 2 * pi : 0;
   let chest, hips;
   if (phase === "ready") chest = hips = DISCUS[level][0][3] * pi;
@@ -121,34 +131,24 @@ function finish(m, p, foul, at) {
 
 // Shot frames: 4 glide crouch and 5 glide drive (both facing away), 6 turning to face us,
 // 7 facing away, 8 driving across toward the sector, 9 the closed centre catch, 10 leg drive,
-// 13 the tall glide start, 14 the rotational stance and 15 its wind.
+// 13 the tall glide start. Rotational shot uses the shared circular contacts above.
 function shot(m, level, phase, p, foul, style) {
-  if (phase === "ready") return Object.assign(m, level ? { frame: level === 3 ? 14 : 13, flip: true, dx: BACK } : { frame: 0 });
+  if (phase === "ready") return Object.assign(m, level ? { frame: 13, flip: true, dx: BACK } : { frame: 0 });
   if (phase === "release") return Object.assign(m, { frame: p < 0.28 ? 2 : 11, dx: 6 });
   if (phase === "follow") {
     finish(m, p, foul, 6);
     m.frame = 11;
     if (p < 0.16) return m;
     // Bouncy: a reverse with a hop on the right foot. Composed: no reverse, the finish held tall
-    // over the left leg. Classic: gliders reverse; rotational throwers let the turn run on.
+    // over the left leg. Classic: gliders reverse.
     if (style === 1) return hop(Object.assign(m, { frame: p < 0.7 ? 3 : 12 }), p, 0.3, 0.55, 5);
     if (style === 2) return Object.assign(m, { frame: p < 0.6 ? 16 : 12 });
-    if (level === 3) return Object.assign(m, p < 0.45 ? { frame: 3 } : p < 0.7 ? { frame: 17 } : { frame: 18, flip: true });
     m.frame = p < 0.64 && level >= 2 ? 3 : 12;
     return m;
   }
   // Standing delivery uses the same late leg/hip/arm sequence, without crossing the circle: sink
   // slowly into the power position, then drive.
   if (level === 0) return track(m, p, [[0, 0, 0], [0.3, 1, 0], [0.74, 1, 0], [0.88, 10, 4], [1, 10, 6]]);
-  if (level === 3) {
-    // Crouser reference: a slow wind, then ever faster. Pivot on the left with a wide, low sweep
-    // of the right leg, a short low flight, the right foot down in the middle with the chest
-    // still closed, the left foot down almost at once, then hips and the strike. The shot stays
-    // at the neck until release.
-    return track(m, p, [[0, 14, BACK, true], [0.1, 15, BACK], [0.32, 14, BACK, true],
-      [0.38, 6, BACK + 1], [0.56, 8, -10, false, -3], [0.64, 7, -4], [0.7, 9, -1, true],
-      [0.76, 1, 0], [0.87, 10, 4], [1, 10, 6]]);
-  }
   // Storl reference: start tall, fold down over the right leg, then kick the left leg low toward
   // the board and pull the right foot under. Land with the shoulders back, and only then drive.
   const fold = level === 2 ? 0.2 : 0.22, drive = level === 2 ? 0.44 : 0.48, catchAt = level === 2 ? 0.56 : 0.62;

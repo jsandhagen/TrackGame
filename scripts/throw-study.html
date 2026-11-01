@@ -18,7 +18,7 @@
 <p>All four events and form levels. Slow down or scrub to inspect foot contacts, delivery and recovery.</p>
 <div class="controls">
   <button id="play" type="button">Pause</button>
-  <label>Compare <select id="focus"><option value="all">All events</option><option value="discus">Discus · half / full</option><option value="jav">Javelin · three-step / full</option><option value="jav-developed">Javelin · crossover / elite</option></select></label>
+  <label>Compare <select id="focus"><option value="all">All events</option><option value="shot-rotation">Rotational shot / discus</option><option value="discus">Discus · half / full</option><option value="jav">Javelin · three-step / full</option><option value="jav-developed">Javelin · crossover / elite</option></select></label>
   <label>Speed <select id="speed"><option value="0.25">¼×</option><option value="0.5" selected>½×</option><option value="1">1×</option><option value="2">2×</option></select></label>
   <label>Recovery <select id="style"><option value="0">Classic</option><option value="1">Bouncy</option><option value="2">Composed</option></select></label>
   <label><input id="foul" type="checkbox"> Foul</label>
@@ -59,7 +59,8 @@
   function draw(t) {
     const comparing = focus.value !== 'all', ev = focus.value.startsWith('jav') ? 'jav' : 'discus';
     const levels = focus.value === 'discus' ? [1,2] : focus.value === 'jav-developed' ? [2,3] : [0,1];
-    const cells = comparing ? levels.map((level,col)=>({ev,level,col,row:0})) : events.flatMap((ev,row)=>[0,1,2,3].map((level,col)=>({ev,level,col,row})));
+    const cells = focus.value === 'shot-rotation' ? [{ev:'shot',level:3,col:0,row:0},{ev:'discus',level:2,col:1,row:0}]
+      : comparing ? levels.map((level,col)=>({ev,level,col,row:0})) : events.flatMap((ev,row)=>[0,1,2,3].map((level,col)=>({ev,level,col,row})));
     if (cv.height !== (comparing ? 400 : 640)) cv.height = comparing ? 400 : 640;
     g.imageSmoothingEnabled = false;
     g.fillStyle = '#172a27'; g.fillRect(0, 0, cv.width, cv.height);
@@ -99,7 +100,7 @@
         g.fillStyle = '#bfccbd'; g.fillText(`${phase} · pose ${m.frame}`, left + 12, top + height - (comparing ? 48 : 13));
         if (comparing) {
           g.font='14px system-ui';
-          const cue = ev === 'discus' ? level === 1 ? 'Facing sector → right-foot drive → turn → delivery' : 'Rear wind → sweep → right-foot catch → delivery' : level === 0 ? 'Already withdrawn → three steps → block' : level === 1 ? 'Carry run → withdrawal → crossovers → block' : level === 2 ? 'Earlier withdrawal → impulse stride → block' : 'Earlier withdrawal → long low impulse → block';
+          const cue = ev === 'shot' ? 'Wind → sweep → right-left catch → put from the neck' : ev === 'discus' ? level === 1 ? 'Facing sector → right-foot drive → turn → delivery' : 'Rear wind → sweep → right-foot catch → delivery' : level === 0 ? 'Already withdrawn → three steps → block' : level === 1 ? 'Carry run → withdrawal → crossovers → block' : level === 2 ? 'Earlier withdrawal → impulse stride → block' : 'Earlier withdrawal → long low impulse → block';
           g.fillText(cue,left+12,top+height-18);
         }
     });

@@ -298,6 +298,16 @@ const THROWS = {
     { y: 2, lean: 2, hip: 1, legs: [[[3, -4], [3, -1]], [[-2, -1], [-6, -1]]], arms: [[[1, 2], [3, 4]], [[1, 3], [4, 2]]], face: "happy" },
   ],
 };
+// Rotational shot shares the discus's contact poses and lower-body mechanics. Its arm stays
+// folded at the neck through the turn, then punches upward instead of slinging a long arm.
+// Keep the original shot frames intact for standing puts and glides.
+export const SHOT_ROTATION_START = THROWS.shot.length;
+THROWS.shot.push(...THROWS.discus.map((contact, frame) => {
+  const hold = contact.hold ?? 1, tuck = !!contact.item;
+  const upper = THROWS.shot[frame === 2 ? 2 : frame === 15 ? 17 : frame === 16 || frame === 13 ? 12 : 11];
+  return { ...contact, sling: undefined, hold, tuck, item: tuck ? "shot" : undefined,
+    arms: tuck ? (hold === 0 ? THROWS.shot[0].arms : [...THROWS.shot[0].arms].reverse()) : upper.arms };
+}));
 export const THROW_FRAMES = { ready: 0, wind: 1, release: 2, follow: 3 };
 export const THROW_FRAME_COUNTS = Object.fromEntries(Object.entries(THROWS).map(([ev, frames]) => [ev, frames.length]));
 
@@ -356,7 +366,7 @@ function resolvedPose(o) {
     arms: joints.map(([s, e, h]) => [e, h].map(v => [v[0] - s[0], v[1] - s[1]])) };
   const sa = SHAFTS[a.item], sb = SHAFTS[b.item] || sa;
   if (sa && sb) p.shaft = sa.map((v, i) => mixNumber(v, i % 2 ? sb[i] : scalar(sb[i]), t));
-  if (o.event === "discus" && Number.isFinite(blend.turn)) {
+  if ((o.event === "discus" || o.event === "shot") && Number.isFinite(blend.turn)) {
     const turn = blend.turn, hipTurn = blend.hipTurn ?? turn, dir = (blend.basisFlip ?? o.flip) ? -1 : 1,
       towardCamera = -Math.sin(turn), right = p.hold, centre = -1 + lean;
     // Past about 37° from side-on, show the chest or back; the deepest backswing stays side-on.
@@ -385,6 +395,19 @@ function resolvedPose(o) {
       p.behind = [];
       p.behind[right] = arm(right, turn - Math.PI / 2 - lag * Math.PI, 6, 1);
       p.behind[1 - right] = arm(1 - right, turn + Math.PI / 2 - lead * Math.PI, reach, -1);
+    }
+    if (o.event === "shot") {
+      const loaded = mixNumber(a.tuck ? 1 : 0, b.tuck ? 1 : 0, t),
+        outward = Math.sin(turn) * dir,
+        neck = [[outward * 3.5, -0.5], [outward * 1.5, -3]],
+        reach = Math.cos(turn + Math.PI / 2 - 0.15 * Math.PI) * 5 * dir;
+      p.arms[right] = p.arms[right].map((v, j) => mixPoint(v, neck[j], loaded));
+      p.arms[1 - right] = p.arms[1 - right].map((v, j) => mixPoint(v, [reach * (j ? 1 : 0.5), 0], loaded));
+      if (loaded > 0) {
+        p.behind = [];
+        p.behind[right] = Math.cos(turn) < 0;
+        p.behind[1 - right] = Math.cos(turn) >= 0;
+      }
     }
   }
   return p;

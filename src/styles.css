@@ -4579,6 +4579,8 @@ ol.howto li::marker {
 @container (max-width: 620px) {
   .entry-pick { grid-template-columns: minmax(0, 1fr) minmax(80px, auto); }
 }
+/* Contract actions are visible on every athlete tab. */
+.athlete-contract .hint { margin: 6px 0; font-size: 11px; }
 /* Renaming an athlete from their profile. */
 .profile h1 .rename {
   margin-left: 4px;
@@ -4696,6 +4698,7 @@ dialog > .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscr
     .stadium-list, .plot-list, .competition-grid, .lineup, .duel-list, .sponsors, .palettes, .records, .trophies, .look-row, .modes, .quick-items)) { column-span: all; }
   .panel-body > .hint:has(+ :is(.item-grid, .duel-list, .drill-grid)) { column-span: all; }
   /* Compact athlete profile so the tabs stay on screen. */
+  .athlete-side { position: static; }
   .athlete-side .profile { display: grid; grid-template-columns: 44px 1fr; gap: 2px 8px; padding: 6px; margin: 0; align-items: center; }
   .athlete-side .profile > .portrait { width: 44px; height: 44px; grid-row: span 2; }
   .athlete-side .profile h1 { font-size: 15px; margin: 2px 0 0; }

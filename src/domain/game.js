@@ -953,19 +953,25 @@ export function renameAthlete(s, id, name) {
   a.name = claimName(s, clean);
   return true;
 }
+export function releaseProblem(s, id) {
+  if (!s.roster.some((a) => a.id === id)) return "That athlete is not on the squad.";
+  if (!systemUnlocked(s, "recruit")) return "Athlete releases unlock with scouting. " + systemProblem(s, "recruit");
+  if (s.match) return "Finish the current meet before releasing an athlete.";
+  if (s.roster.length <= 4) return "Keep at least four athletes on the squad. Sign a replacement first.";
+  return null;
+}
 export function releaseAthlete(s, id) {
-  if (!systemUnlocked(s, "recruit")) return false;
-  if (s.match || s.roster.length <= 4) return false;
+  if (releaseProblem(s, id)) return false;
   const a = s.roster.find((x) => x.id === id);
-  if (!a) return false;
   for (const slot of GEAR_SLOTS) if (a.gear[slot]) addItem(s, a.gear[slot]);
   s.alumni.unshift({ name: a.name, event: a.event, career: a.career, pb: a.pb, season: s.season, rank: a.rank });
   s.alumni = s.alumni.slice(0, 24);
   s.roster = s.roster.filter((x) => x.id !== id);
+  if (s.settings.followAthlete === id) s.settings.followAthlete = null;
   for(const [key,athlete] of Object.entries(s.facilityDuties||{})) if(athlete===id) delete s.facilityDuties[key];
   if (s.entries) for (const ev of EVENT_IDS) s.entries[ev] = s.entries[ev].filter((x) => x !== id);
   if (a.secret) s.secretsSigned = s.secretsSigned.filter((k) => k !== a.secret);
-  if (EVENT_IDS.some((ev) => s.lineup[ev] === id)) autoLineup(s);
+  for (const ev of EVENT_IDS) if (s.lineup[ev] === id) s.lineup[ev] = s.entries?.[ev]?.[0] || null;
   note(s, a.name + " begins a new chapter. Their marks stay in the club’s history.", "story");
   return true;
 }

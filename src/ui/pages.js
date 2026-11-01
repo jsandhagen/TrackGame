@@ -351,12 +351,13 @@ function athletePage(s, a, view) {
     body = `<div class="records">${EVENT_IDS.map((ev) => `<span>${EVENTS[ev].name}<b>${a.pb[ev] ? mark(a.pb[ev]) : "—"}</b></span>`).join("")}</div>
     <div class="facts"><span>Meets <b>${a.meets}</b></span><span>Sessions <b>${a.sessions}</b></span><span>This season <b>${a.seasonPoints} pts · ${a.seasonPbs} PBs</b></span></div>
     ${developmentCard(a, true)}
-    <div class="card-title"><h2>Career moments</h2></div>${a.career.length ? a.career.map((c) => `<div class="history"><span>Season ${c.season} · ${esc(c.label)}</span><b>${c.mark ? mark(c.mark) : ico("star")}</b></div>`).join("") : "<p class='hint'>The first official meet starts the story.</p>"}
-    <details class="danger"><summary>Release contract</summary><p class="hint">${esc(a.name)} leaves the squad; their gear returns to the bag and their marks stay in club history.</p>${btn("Release " + esc(a.name.split(" ")[0]), "release-contract", `data-id="${a.id}" ${s.roster.length <= 4 ? "disabled" : ""}`, "subtle")}</details>`;
+    <div class="card-title"><h2>Career moments</h2></div>${a.career.length ? a.career.map((c) => `<div class="history"><span>Season ${c.season} · ${esc(c.label)}</span><b>${c.mark ? mark(c.mark) : ico("star")}</b></div>`).join("") : "<p class='hint'>The first official meet starts the story.</p>"}`;
   }
+  const releaseProblem = G.releaseProblem(s, a.id);
   return `<div class="athlete-page"><aside class="athlete-side">${btn("‹ Squad", "back-squad", "", "text")}
   <div class="profile rarity-${a.rarity}">${portrait(a, "large")}<div>${eventChip(a.event)} ${rankChip(a)} ${rarityChip(a)}<h1>${esc(a.name)} <button class="rename" data-act="rename-athlete" data-id="${a.id}" title="Rename ${esc(a.name)}" aria-label="Rename ${esc(a.name)}">Rename</button></h1><p>Level ${a.level} · ${BACKGROUNDS[a.background].name} · ${esc(typeName(a))} ${mood(a)}</p>${alerts(s, a)}</div>${ovrBadge(a)}</div>
-  <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav></aside><div class="athlete-body">${body}</div></div>`;
+  <nav class="tabs athlete-tabs">${tabs.map(([id, name]) => `<button data-act="tab" data-tab="${id}" class="${tab === id ? "active" : ""}">${name}</button>`).join("")}</nav>
+  <div class="athlete-contract">${btn("Release athlete", "release-contract", `data-id="${a.id}" ${releaseProblem ? "disabled" : ""}`, "subtle small")}<p class="hint">${releaseProblem ? esc(releaseProblem) : "Leaves the squad. Gear returns to the bag; marks stay in club history."}</p></div></aside><div class="athlete-body">${body}</div></div>`;
 }
 // ── Training ground ─────────────────────────────────────────────────────
 const DRILL_ICONS = { sandbag: "dumbbell", ladder: "shoe", shadow: "eye", visualise: "idea", recovery: "heart", contest: "trophy", indoor: "target", peer: "video", trial: "ball", lifting: "dumbbell", acceleration: "track", delivery: "target", review: "video", medicine: "ball" };
