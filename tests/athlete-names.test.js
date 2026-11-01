@@ -85,3 +85,15 @@ test('changing entries shows portraits and stats, and the picker explains who ca
   assert(marks.length>=2);
   assert.deepEqual(marks,[...marks].sort((x,y)=>y-x));
 });
+
+test('nobody in view shares a given name: the squad, the scouting report and this league\'s rivals',()=>{
+  for(const seed of [1,7,400,9001,31337]) {
+    const s=G.newGame(seed);s.money=1e9;
+    for(let n=0;n<30;n++) {
+      assert(G.scout(s,true));
+      if(n%4===0) G.recruit(s,s.prospects[0].id);
+      const given=[...s.roster,...s.prospects,...s.clubs.flatMap(c=>c.athletes)].map(a=>a.name.split(' ')[0]);
+      assert.equal(new Set(given).size,given.length,`seed ${seed}: ${given.join(', ')}`);
+    }
+  }
+});

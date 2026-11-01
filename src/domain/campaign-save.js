@@ -2,7 +2,7 @@ import { initMastery, PROFILES } from "./mastery.js";
 import { ensureCustom } from "./customize.js";
 import { newGame, makeClubs, seatElites, DEFAULT_SETTINGS } from "./game.js";
 import { validateSave as validateLegacy } from "./savegame.js";
-import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE, ATHLETE_TYPES } from "../game-content.js";
+import { EVENT_IDS, CLUBS, FACILITIES, STADIUM, PLANS, BACKGROUNDS, ITEMS, SKILLS, RARITY, SPONSORS, SECRETS, GEAR_SLOTS, RANKS, PLOT_COUNT, CLUB_PLOT, PLOT_ORDER, PLOTS_BY_LEAGUE, ATHLETE_TYPES, FACIAL_HAIR } from "../game-content.js";
 import { syncMarks, rescore, matchClub, championshipClubs, isLeagueChampionship } from "./meet.js";
 import { INTRODUCTIONS } from "./progression.js";
 import { championshipQualified } from "./qualification.js";
@@ -201,6 +201,8 @@ function checkAthlete(a, ids, rival = false) {
   if (!a.pb || typeof a.pb !== "object" || Object.entries(a.pb).some(([ev, m]) => !EVENT_IDS.includes(ev) || !num(m, 0, 1e4))) bad();
   if (!Array.isArray(a.career) || !int(a.injury, 0, 100) || !a.look || !color(a.look.skin) || !color(a.look.hair)) bad();
   if (a.look.gear != null && (!["shades", "band", "cap"].includes(a.look.gear) || !color(a.look.gearColor))) bad();
+  if (a.look.facial != null && !FACIAL_HAIR.includes(a.look.facial)) bad();
+  if (a.look.glasses != null && typeof a.look.glasses !== "boolean") bad();
   if (a.secret != null && !SECRETS[a.secret]) bad();
   if (a.buff != null && !num(a.buff, 1, 1.2)) bad();
   if (!rival && !num(a.sessions, 0, 1e9)) bad();

@@ -165,10 +165,10 @@ export function newGame(seed = Date.now() >>> 0) {
   s.plots[CLUB_PLOT] = { type: "club", level: 1 };
   s.plots[10] = { type: "gym", level: 1 };
   const starters = [
-    ["shot", "Mara Kowal", "farm", { skin: "#e2b08a", hair: "#8e4c33", style: 2 }, "powerhouse"],
-    ["discus", "Tomas Reyes", "gymnast", { skin: "#c98f66", hair: "#1e1e24", style: 0 }, "technician"],
-    ["hammer", "Noor Haddad", "dancer", { skin: "#a06a48", hair: "#1e1e24", style: 4 }, "natural"],
-    ["jav", "Kofi Mensah", "sprinter", { skin: "#5e3a2a", hair: "#1e1e24", style: 1 }, "speedster"],
+    ["shot", "Mara Kowal", "farm", { skin: "#e2b08a", hair: "#8e4c33", style: 2, expression: "grin" }, "powerhouse"],
+    ["discus", "Tomas Reyes", "gymnast", { skin: "#c98f66", hair: "#1e1e24", style: 0, expression: "smirk" }, "technician"],
+    ["hammer", "Noor Haddad", "dancer", { skin: "#a06a48", hair: "#1e1e24", style: 4, expression: "calm" }, "natural"],
+    ["jav", "Kofi Mensah", "sprinter", { skin: "#5e3a2a", hair: "#1e1e24", style: 1, expression: "happy" }, "speedster"],
   ];
   for (const [event, name, background, look, type] of starters) {
     const a = createAthlete(s, event, { name, background, look, type, potential: 62 + Math.round(random(s) * 4) });
@@ -190,7 +190,12 @@ export function newGame(seed = Date.now() >>> 0) {
 export function seatElites(club, league) {
   if (league !== 4) return club;
   for (const e of ELITES.filter((x) => x.club === club.id)) {
-    if (club.athletes.some((a) => a.elite === e.id)) continue;
+    // One already seated keeps up with the roster's current name and look.
+    const seated = club.athletes.find((a) => a.elite === e.id);
+    if (seated) {
+      Object.assign(seated, { name: e.name, look: { ...e.look }, nation: e.nation });
+      continue;
+    }
     const a = club.athletes.find((x) => x.event === e.event && !x.elite);
     if (a) Object.assign(a, { name: e.name, look: { ...e.look }, elite: e.id, nation: e.nation });
   }
