@@ -52,9 +52,8 @@ for (let seed = 1; seed <= seeds; seed++) {
 const avg = (a) => (a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : "-");
 const rate = ([w, n]) => (n ? (w / n).toFixed(2) : "-");
 const median = (a) => [...a].sort((x, y) => x - y)[(a.length - 1) >> 1];
-const TIERS = ["Community", "County", "Regional", "National", "World"];
-console.log("stage                   clubs seasons fixtures finals");
+console.log("division                clubs seasons fixtures finals");
 for (let n = 0; n < 15; n++)
-  if (spent[n].length) console.log((TIERS[n / 3 | 0] + " " + G.CIRCUIT_STAGES[n % 3]).padEnd(24), String(spent[n].length).padStart(4), avg(spent[n]).padStart(7), rate(wins[n].fixtures).padStart(8), rate(wins[n].finals).padStart(6));
+  if (spent[n].length) console.log(G.DIVISIONS[n].name.padEnd(26), String(spent[n].length).padStart(4), avg(spent[n]).padStart(7), rate(wins[n].fixtures).padStart(8), rate(wins[n].finals).padStart(6));
 console.log("first World Championship:", titles.map((t) => (t === Infinity ? "-" : t)).join(", "), "· median", median(titles));
 console.log("median bank by season:", Object.entries(bank).filter(([k]) => k % 3 === 1).map(([k, v]) => k + ": $" + median(v)).join(" · "));

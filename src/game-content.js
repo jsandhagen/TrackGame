@@ -278,12 +278,39 @@ export const GRADES = [
 ];
 export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1);
 
+// One promotion ladder. Each row owns its event distance bands and entry standards in metres.
+// tier/stage are stable save coordinates; the five tiers also retain facility/venue milestones.
+export const DIVISIONS = [
+  ["Community Division",       [[8,10],[20,28],[22,32],[24,34]],       [8.2,21,24,26]],
+  ["Local Division",           [[9,11],[25,33],[28,38],[30,40]],       [8.5,23,26,28]],
+  ["District Division",        [[10,12],[30,38],[34,44],[36,46]],      [9.5,28,32,34]],
+  ["County Division",          [[11,13],[35,42],[42,51],[44,54]],      [10.5,32,38,40]],
+  ["County Premier Division",  [[12,14],[39,46],[47,56],[49,59]],      [11.5,36,43,45]],
+  ["Regional Division",        [[13,15],[43,49],[52,60],[54,64]],      [12.5,40,48,50]],
+  ["Regional Premier Division",[[14,16],[46,52],[56,64],[58,68]],      [13.5,43,52,54]],
+  ["National Division 3",      [[15,17],[49,55],[60,68],[62,72]],      [14.5,46,56,58]],
+  ["National Division 2",      [[16,18],[52,58],[64,72],[66,76]],      [15.5,49,60,62]],
+  ["National Division 1",      [[17,19],[55,61],[68,75],[70,79]],      [16.5,52,64,66]],
+  ["National Premier Division",[[18,20],[57,63],[70,77],[73,82]],      [17.5,54,66,69]],
+  ["Continental Division",     [[18.5,20.5],[59,65],[72,79],[76,85]],  [18,56,68,72]],
+  ["International Division",   [[19,21],[61,67],[74,81],[79,88]],      [18.5,58,70,75]],
+  ["World Tour Division",      [[19.5,21.5],[63,69],[76,83],[82,91]],  [19,60,72,78]],
+  ["Diamond Division",         [[20,22],[65,71],[78,85],[85,94]],      [19.5,62,74,81]],
+].map(([name, bands, standards], index) => ({
+  index, key: `${Math.floor(index/3)}:${index%3}`, name, tier: Math.floor(index/3), stage: index%3,
+  marks: Object.fromEntries(EVENT_IDS.map((event,i) => [event,bands[i]])),
+  standards: Object.fromEntries(EVENT_IDS.map((event,i) => [event,standards[i]])),
+  titlePrize: [325,425,525,625,750,900,1050,1200,1400,1600,1850,2150,2500,3000,4000][index],
+}));
+
+// Compatibility metadata for facility, recruiting and venue milestones. Competition names,
+// promotion and distance tuning come from the single DIVISIONS ladder above.
 export const LEAGUES = [
-  { name: "County League", entry: 0, tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
-  { name: "Regional League", entry: 250, tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
-  { name: "National League", entry: 600, tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "National Athletics Centre", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
-  { name: "International League", entry: 1500, tag: "Your little club has made a name abroad.", rating: 79, prize: 2400, color: "#cf986d", venue: "Aurora International Arena", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
-  { name: "Diamond League", entry: 3000, tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Diamond Bowl", crowd: 0.95, unlock: "Defend the world title" },
+  { name: DIVISIONS[0].name, entry: 0, tag: "A small club. A big beginning.", rating: 24, prize: 650, color: "#7f9f71", venue: "Willow Park", crowd: 0.25, unlock: "Two new plots, the Video room, Scout Office & Workshop" },
+  { name: DIVISIONS[3].name, entry: 250, tag: "The local paper is paying attention.", rating: 46, prize: 1000, color: "#6eaaa8", venue: "Riverside Sports Ground", crowd: 0.4, unlock: "Two new plots, floodlights, competition throwing areas, Sports Lab & Indoor Training Hall" },
+  { name: DIVISIONS[6].name, entry: 600, tag: "Familiar faces. Fiercer competition.", rating: 64, prize: 1600, color: "#9b94bf", venue: "National Athletics Centre", crowd: 0.55, unlock: "The last two plots, a championship track & Coaching Lodge" },
+  { name: DIVISIONS[9].name, entry: 1500, tag: "Your little club has made a name abroad.", rating: 79, prize: 2400, color: "#cf986d", venue: "Aurora International Arena", crowd: 0.75, unlock: "The world stage & Equipment Testing Centre" },
+  { name: DIVISIONS[12].name, entry: 3000, tag: "One club against the best.", rating: 89, prize: 4000, color: "#c4a458", venue: "Diamond Bowl", crowd: 0.95, unlock: "Defend the world title" },
 ];
 
 export const CLUBS = [
@@ -333,6 +360,10 @@ export const CLUB_BIASES = [
   [-1, 3, -1, 0],
   [-2, -1, 2, 2],
 ];
+export const CLUB_EVENT_BIASES = {
+  power: [4,-2,3,-3], control: [-2,4,-1,0], speed: [-2,0,2,4], hammer: [0,-2,5,-2],
+  adaptable: [-1,2,0,1], depth: [2,0,0,0], clutch: [-2,-1,2,2],
+};
 
 export const SPONSORS = {
   bakery: { name: "Corner Bakery", fans: 0, weekly: 160, desc: "$160 a week. Simple and friendly." },
@@ -349,7 +380,7 @@ export const SECRETS = {
   bjorn: { name: "Bjørn “The Oak”", event: "hammer", skill: "timber", type: "powerhouse", background: "lumberjack", fee: 900, look: { skin: "#e8b890", hair: "#a0522d", style: 1, special: "beard", expression: "grin" }, stats: 5, potential: 80, hint: "Upgrade the Strength Room to level 3", story: "A lumberjack heard your weights clanging from the forest." },
   r7: { name: "R-7 “Throwbot”", event: "discus", skill: "calibrated", type: "technician", background: "chess", fee: 1500, look: { skin: "#b8c4cc", hair: "#7a8a96", style: 0, special: "robot", expression: "smile" }, stats: 6, potential: 82, hint: "Upgrade the Kit Workshop and the Video room to level 2", story: "Your workshop and video room wired themselves together. Something is beeping." },
   yuki: { name: "Yuki Kaze", event: "jav", skill: "windreader", type: "speedster", background: "sprinter", fee: 1200, look: { skin: "#f0d0b0", hair: "#2a2a3a", style: 5, special: "scarf", expression: "calm" }, stats: 6, potential: 82, hint: "Win 10 meets", story: "A quiet javelin thrower who reads the wind like a book." },
-  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti", expression: "grin" }, stats: 9, potential: 88, hint: "Reach the Diamond League", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
+  yeti: { name: "The Yeti", event: "hammer", skill: "avalanche", type: "powerhouse", background: "farm", fee: 3000, look: { skin: "#a8c0d8", hair: "#f4f4f4", style: 0, special: "yeti", expression: "grin" }, stats: 9, potential: 88, hint: "Reach the International Division", story: "Enormous footprints lead from the mountains straight to your clubhouse." },
   pip: { name: "Pip", event: "discus", skill: "wonderkid", type: "allrounder", background: "prodigy", fee: 400, look: { skin: "#e0a880", hair: "#e8a040", style: 3, special: "kid", expression: "cheeky" }, stats: -6, potential: 90, hint: "Discover 6 facility combos", story: "The groundskeeper's kid has been copying your athletes for months." },
 };
 

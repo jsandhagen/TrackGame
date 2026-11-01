@@ -87,8 +87,8 @@ test('rival strength rises smoothly through every stage of the circuit', () => {
     ratings.push(specialists.reduce((n, a) => n + G.eventRating(a, a.event), 0) / specialists.length);
   }
   for (let i = 1; i < ratings.length; i++) assert(ratings[i] >= ratings[i - 1] - 1, 'stage ' + i + ' is not easier than the one before');
-  assert(ratings[2] - ratings[0] > 20, 'Community has a real climb from Open to Championship');
-  assert(ratings[5] - ratings[3] > 8, 'so does Regional');
+  assert(ratings[2] - ratings[0] > 10, 'early divisions have a visible climb');
+  assert(ratings[5] - ratings[3] > 8, 'County to Regional also raises the challenge');
 });
 
 test('auto-pick enters a deep squad three deep in every event', () => {

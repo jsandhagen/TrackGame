@@ -208,7 +208,7 @@ test('calendar and athlete pages render in planning, booked, completed and migra
   assert.match(P.league(s, view), /Book duel/);
   assert.match(P.squad(s, { athlete: s.roster[0].id, tab: 'skills' }), /Saved skill setups/);
   G.enterCompetition(s, { kind: 'league', tier: 0 });
-  assert.match(P.home(s, view), /County League/);
+  assert.match(P.home(s, view), /Community Division/);
   winLeague(s);
   assert.match(P.home(s, view), /Choose the next chapter/);
   validateCampaign(s);

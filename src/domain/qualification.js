@@ -1,6 +1,6 @@
 import { EVENTS, EVENT_IDS } from "../game-content.js";
 import { realMark, forecast, random, personalBest, compareEntryPbs } from "./core.js";
-import { competitionTier, RIVAL_RATING } from "./competition.js";
+import { competitionTier, currentDivision, RIVAL_RATING } from "./competition.js";
 
 export const CHAMPIONSHIP_FINALISTS = 6;
 export const CHAMPIONSHIP_POINTS = [10,8,6,5,4,3,2,1];
@@ -8,6 +8,9 @@ export const championshipBooking = s => s.competition?.kind === "league" && s.co
 // Game standards scale with the division. Only marks actually earned during this
 // league count; a training forecast or a lifetime PB is not an entry qualification.
 export function qualifyingStandard(s, event) {
+  if (s.competition?.standards) return s.competition.standards[event];
+  if (s.competition?.kind !== "league") return currentDivision(s).standards[event];
+  // An already-booked legacy season retains its standards and earned qualifications.
   const e = EVENTS[event], rating = RIVAL_RATING[competitionTier(s) * 3 + (s.competition?.stage || 0)] * 0.85;
   return +realMark(event, e.min + (e.max-e.min) * (rating/100) ** 1.12).toFixed(2);
 }
