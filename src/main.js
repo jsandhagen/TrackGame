@@ -310,14 +310,14 @@ function paint(root) {
     g.clearRect(0, 0, c.width, c.height);
     g.drawImage(buildingImage(c.dataset.building), 0, 0, c.width, c.height);
   });
-  root.querySelectorAll("canvas[data-secret]").forEach((c) => paintPortrait(c, { look: SECRETS[c.dataset.secret].look, rank: 4 }, state.colors, { face: "happy" }));
-  root.querySelectorAll("canvas[data-helper]").forEach((c) => paintPortrait(c, { look: HELPER_LOOK }, state.colors, { face: "happy", role: "helper" }));
+  root.querySelectorAll("canvas[data-secret]").forEach((c) => paintPortrait(c, { look: SECRETS[c.dataset.secret].look, rank: 4 }, state.colors));
+  root.querySelectorAll("canvas[data-helper]").forEach((c) => paintPortrait(c, { look: HELPER_LOOK }, state.colors, { role: "helper" }));
   root.querySelectorAll("canvas[data-elite]").forEach((c) => {
     const e = ELITES.find((x) => x.id === c.dataset.elite);
     const [primary, secondary] = NATION_KITS[e?.nation] || ["#888", "#f4efe2"];
-    if (e) paintPortrait(c, { look: e.look, rank: 0 }, { primary, secondary }, { face: "happy", bib: true });
+    if (e) paintPortrait(c, { look: e.look, rank: 0 }, { primary, secondary }, { bib: true });
   });
-  root.querySelectorAll("canvas[data-shopkeeper]").forEach((c) => paintPortrait(c, { look: SHOPKEEPER.look }, SHOPKEEPER.colors, { face: "happy", role: "shopkeeper", apron: SHOPKEEPER.apron }));
+  root.querySelectorAll("canvas[data-shopkeeper]").forEach((c) => paintPortrait(c, { look: SHOPKEEPER.look }, SHOPKEEPER.colors, { role: "shopkeeper", apron: SHOPKEEPER.apron }));
 }
 // A character pops up in the corner to say something worth knowing: the shopkeeper calling out
 // a delivery, the secretary announcing meet day. Tapping them goes where they point.

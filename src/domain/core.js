@@ -161,22 +161,66 @@ function takenNames(s) {
   return set;
 }
 export const claimName = (s, name) => (takenNames(s).add(name), name);
+// The names the player can see side by side: the squad, the scouting report and this league's
+// rivals, plus the last few handed out (so a club built in one go is varied too). Many screens show
+// only a given name, so two Maras on one screen read as the same athlete.
+const recentNames = new WeakMap();
+const RECENT_NAMES = 60;
+function namesInView(s) {
+  const given = new Set(), family = new Set();
+  const add = (name) => {
+    if (typeof name !== "string") return;
+    const [first, ...rest] = name.split(" ");
+    given.add(first);
+    for (const part of rest.join(" ").split("-")) if (part) family.add(part);
+  };
+  s.roster?.forEach((a) => add(a?.name));
+  s.prospects?.forEach((a) => add(a?.name));
+  (Array.isArray(s.clubs) ? s.clubs : []).forEach((c) => c?.athletes?.forEach((a) => add(a?.name)));
+  (recentNames.get(s) || []).forEach(add);
+  return { given, family };
+}
+function remember(s, name) {
+  const list = recentNames.get(s) || [];
+  list.push(name);
+  if (list.length > RECENT_NAMES) list.shift();
+  recentNames.set(s, list);
+  return claimName(s, name);
+}
 // One given name and one family name. A few athletes carry both parents' family names; that is read
-// from the generator's state without drawing from it, so no other roll in the game changes.
+// from the generator's state without drawing from it, so no other roll in the game changes. The
+// first choice is a given name and a family name nobody in view has, then a fresh given name, then
+// any name not yet used in the career.
 export function athleteName(s) {
   const f = Math.floor(random(s) * FIRST.length),
     l = Math.floor(random(s) * LAST.length),
     r = s.rng >>> 0,
     taken = takenNames(s),
+    view = namesInView(s),
     double = r % 100 < 6;
-  for (let k = 0; k < 60; k++) {
-    let family = LAST[(l + k * 7) % LAST.length];
-    const second = LAST[((r >>> 8) + k * 3) % LAST.length];
-    if (double && second !== family) family += "-" + second;
-    const name = FIRST[(f + k * 11) % FIRST.length] + " " + family;
-    if (!taken.has(name)) return claimName(s, name);
+  const candidate = (k) => {
+    const given = FIRST[(f + k) % FIRST.length],
+      families = [LAST[(l + k * 13) % LAST.length]],
+      second = LAST[((r >>> 8) + k * 3) % LAST.length];
+    if (double && second !== families[0]) families.push(second);
+    return { given, families, name: given + " " + families.join("-") };
+  };
+  const passes = [
+    (c) => !view.given.has(c.given) && c.families.every((x) => !view.family.has(x)),
+    (c) => !view.given.has(c.given),
+    () => true,
+  ];
+  const tries = Math.max(FIRST.length, LAST.length);
+  for (const ok of passes)
+    for (let k = 0; k < tries; k++) {
+      const c = candidate(k);
+      if (!taken.has(c.name) && ok(c)) return remember(s, c.name);
+    }
+  for (let k = 0; k < FIRST.length * 4; k++) {
+    const name = FIRST[(f + k) % FIRST.length] + " " + LAST[(l + k * 7) % LAST.length];
+    if (!taken.has(name)) return remember(s, name);
   }
-  return claimName(s, FIRST[f] + " " + LAST[l]);
+  return remember(s, FIRST[f] + " " + LAST[l]);
 }
 export const NAME_MAX = 24;
 // A coach-chosen name: single spaces, no control characters, at most NAME_MAX characters.

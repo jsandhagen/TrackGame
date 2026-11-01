@@ -10,6 +10,43 @@ const EYE = "#2a2028",
   GOLD = "#f2c94c",
   LIP = "#8a3a30";
 
+// How a face is set: which eyes, brows and mouth, and any extra blush, bags or sweat.
+export const EXPRESSIONS = {
+  smile: { eyes: "open", brows: "level", mouth: "smile" },
+  happy: { eyes: "happy", brows: "level", mouth: "happy" },
+  grin: { eyes: "happy", brows: "raised", mouth: "grin" },
+  smirk: { eyes: "open", brows: "one", mouth: "smirk" },
+  determined: { eyes: "narrow", brows: "angry", mouth: "flat" },
+  fierce: { eyes: "narrow", brows: "angry", mouth: "teeth" },
+  calm: { eyes: "closed", brows: "level", mouth: "smile" },
+  cheeky: { eyes: "wink", brows: "one", mouth: "tongue" },
+  shy: { eyes: "aside", brows: "worried", mouth: "small", blush: true },
+  deadpan: { eyes: "half", brows: "level", mouth: "flat" },
+  surprised: { eyes: "wide", brows: "raised", mouth: "o" },
+  sad: { eyes: "open", brows: "worried", mouth: "sad" },
+  tired: { eyes: "half", brows: "worried", mouth: "small", bags: true, sweat: true },
+  strain: { eyes: "narrow", brows: "angry", mouth: "strain" },
+  blink: { eyes: "line", brows: "level", mouth: "smile" },
+  sleep: { eyes: "line", brows: "level", mouth: "small" },
+};
+// Each background has two faces it tends to wear; the athlete's id picks one, so a squad of the
+// same background still varies.
+const PERSONALITY = {
+  farm: ["grin", "smile"], lumberjack: ["smile", "determined"], gymnast: ["smile", "determined"], dancer: ["calm", "smile"],
+  sprinter: ["determined", "grin"], chess: ["smirk", "deadpan"], poker: ["deadpan", "smirk"], marathon: ["calm", "smile"],
+  clown: ["cheeky", "grin"], bloomer: ["shy", "smile"], showboat: ["grin", "cheeky"], prodigy: ["smirk", "grin"],
+};
+// The face a portrait wears: one asked for, then the character's own, unless they feel awful or low.
+export function expressionOf(a, asked) {
+  if (asked) return asked;
+  const mood = Number.isFinite(a?.condition) ? Math.floor(a.condition / 20) : 2;
+  if (mood <= 0) return "sad";
+  if (mood === 1) return "tired";
+  if (a?.look?.expression) return a.look.expression;
+  const pair = PERSONALITY[a?.background];
+  return pair ? pair[Math.abs(a.id | 0) % 2] : "smile";
+}
+
 // The head: rows y 5–22, [x0, width], centred on x 16.
 const HEAD_TOP = 5;
 const HEAD = [[11, 10], [9, 14], [8, 16], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [7, 18], [8, 16], [8, 16], [9, 14], [10, 12], [12, 8]];
@@ -120,8 +157,31 @@ function drawBust(g, o) {
     P(8, 8, 2, 4, skinHi);
   }
 
-  // The face itself.
-  const face = o.face,
+  // Facial hair under the features; a moustache goes over the mouth afterwards.
+  const beard = special === "beard" ? "full" : look.facial;
+  if (!fur && !metal && beard === "stubble") {
+    // A shadow along the jaw and chin, flecked darker.
+    const shadow = mix(skin, hair, 0.28);
+    for (let r = 12; r < head.length; r++) {
+      const [x0, w] = head[r];
+      P(x0, HEAD_TOP + r, w, 1, shadow);
+      for (let x = x0 + (r % 2); x < x0 + w; x += 3) P(x, HEAD_TOP + r, 1, 1, mix(skin, hair, 0.5));
+    }
+    P(12, 17, 8, 1, mix(skin, hair, 0.12));
+  } else if (!fur && !metal && beard === "full") {
+    for (let r = 12; r < head.length; r++) P(head[r][0], HEAD_TOP + r, head[r][1], 1, hair);
+    P(head[17][0] + 1, HEAD_TOP + 18, head[17][1] - 2, 1, hair);
+    P(head[17][0] + 2, HEAD_TOP + 19, head[17][1] - 4, 1, hairLo);
+    P(7, 16, 1, 1, hairLo), P(24, 16, 1, 1, hairLo);
+    // The cheeks show through above it.
+    P(9, 17, 4, 1, skin), P(19, 17, 4, 1, skin), P(14, 16, 4, 1, skin);
+    P(12, 17, 8, 1, hairHi);
+  } else if (!fur && !metal && beard === "goatee") {
+    P(14, 20, 4, 3, hair), P(15, 22, 2, 1, hairLo);
+  }
+
+  // The face itself: eyes, brows, nose, cheeks and mouth as the expression sets them.
+  const expr = EXPRESSIONS[o.face] || EXPRESSIONS.smile,
     eyes = [11, 19];
   if (fur) {
     // A face peering out of the fur.
@@ -134,72 +194,69 @@ function drawBust(g, o) {
     P(8, 11, 16, 6, "#2a3440");
     P(9, 12, 14, 4, "#4ad0e8");
     P(10, 12, 5, 1, "#c8f8ff");
+    if (expr.eyes === "happy" || expr.eyes === "closed") P(9, 14, 14, 2, "#2a3440"), P(11, 13, 3, 1, "#2a3440"), P(18, 13, 3, 1, "#2a3440");
     P(11, 18, 10, 2, "#5a6670");
     for (let x = 12; x < 21; x += 2) P(x, 18, 1, 2, "#9aa6b0");
     P(7, 5, 18, 2, "#7a8a96");
     P(15, 1, 2, 4, "#7a8a96"), P(14, 0, 4, 2, "#e85a50");
   } else {
-    for (const x of eyes) {
-      if (face === "happy") P(x - 1, 14, 1, 1, EYE), P(x, 13, 2, 1, EYE), P(x + 2, 14, 1, 1, EYE);
-      else if (face === "blink" || face === "sleep") P(x - 1, 14, 4, 1, EYE);
-      else {
-        P(x, 12, 2, 4, EYE);
-        P(x - 1, 13, 1, 3, WHITE);
-        P(x, 12, 1, 1, WHITE);
+    const lid = shade(skin, -0.32);
+    const eye = (x, kind) => {
+      switch (kind) {
+        case "happy": P(x - 1, 14, 1, 1, EYE), P(x, 13, 2, 1, EYE), P(x + 2, 14, 1, 1, EYE); break;
+        case "closed": P(x - 1, 13, 1, 1, EYE), P(x, 14, 2, 1, EYE), P(x + 2, 13, 1, 1, EYE); break;
+        case "line": P(x - 1, 14, 4, 1, EYE); break;
+        case "half": P(x - 1, 13, 4, 1, lid), P(x, 14, 2, 2, EYE), P(x - 1, 14, 1, 2, WHITE); break;
+        case "narrow": P(x - 1, 13, 4, 1, EYE), P(x, 14, 2, 2, EYE), P(x - 1, 14, 1, 2, WHITE), P(x + 2, 14, 1, 1, WHITE); break;
+        case "wide": P(x - 1, 12, 4, 4, WHITE), P(x, 13, 2, 2, EYE), P(x, 13, 1, 1, WHITE); break;
+        case "aside": P(x - 1, 12, 3, 4, WHITE), P(x + 1, 13, 2, 3, EYE), P(x + 1, 13, 1, 1, WHITE); break;
+        default: P(x, 12, 2, 4, EYE), P(x - 1, 13, 1, 3, WHITE), P(x, 12, 1, 1, WHITE);
       }
-      if (look.lashes && face !== "sleep") P(x === eyes[0] ? x - 2 : x + 2, face === "happy" ? 13 : 12, 1, 1, EYE);
-    }
-    // Brows, in the hair colour (white fur gets dark ones).
+    };
+    eye(eyes[0], expr.eyes === "wink" ? "happy" : expr.eyes);
+    eye(eyes[1], expr.eyes === "wink" ? "open" : expr.eyes);
+    if (look.lashes && expr.eyes !== "line") P(eyes[0] - 2, 12, 1, 1, EYE), P(eyes[1] + 2, 12, 1, 1, EYE);
+    // Bold eye make-up: a sweep of colour above each eye, out to the corner.
+    if (look.shadow && expr.eyes !== "line") P(eyes[0] - 2, 11, 3, 1, look.shadow), P(eyes[1] + 1, 11, 3, 1, look.shadow);
+    if (expr.bags) P(eyes[0] - 1, 16, 4, 1, shade(skin, -0.16)), P(eyes[1] - 1, 16, 4, 1, shade(skin, -0.16));
+    // Brows, in the hair colour (the Yeti's are slate).
     const brow = fur ? "#6a7a8a" : look.brow || hairLo;
-    if (!fur) {
-      if (face === "sad") P(9, 11, 3, 1, brow), P(10, 10, 1, 1, brow), P(20, 11, 3, 1, brow), P(21, 10, 1, 1, brow);
-      else P(9, 10, 4, 1, brow), P(19, 10, 4, 1, brow);
+    switch (expr.brows) {
+      case "raised": P(9, 9, 4, 1, brow), P(19, 9, 4, 1, brow); break;
+      case "one": P(9, 10, 4, 1, brow), P(19, 9, 4, 1, brow), P(22, 10, 1, 1, brow); break;
+      case "angry": P(9, 9, 2, 1, brow), P(11, 10, 2, 1, brow), P(19, 10, 2, 1, brow), P(21, 9, 2, 1, brow); break;
+      case "worried": P(9, 10, 2, 1, brow), P(11, 9, 2, 1, brow), P(19, 9, 2, 1, brow), P(21, 10, 2, 1, brow); break;
+      default: P(9, 10, 4, 1, brow), P(19, 10, 4, 1, brow);
     }
     // Nose and cheeks.
     if (!fur) P(15, 16, 2, 1, skinLo), P(16, 15, 1, 1, skinLo);
     else P(15, 16, 2, 1, "#4a5a6a");
-    P(8, 17, 3, 1, BLUSH), P(21, 17, 3, 1, BLUSH);
+    if (beard !== "full") {
+      if (expr.blush) P(8, 16, 4, 2, BLUSH), P(20, 16, 4, 2, BLUSH);
+      else P(8, 17, 3, 1, BLUSH), P(21, 17, 3, 1, BLUSH);
+    } else P(10, 17, 2, 1, BLUSH), P(20, 17, 2, 1, BLUSH);
     // Mouth.
-    if (face === "happy") P(13, 18, 6, 1, LIP), P(14, 19, 4, 1, LIP), P(15, 19, 2, 1, "#e07070");
-    else if (face === "sad") P(14, 19, 4, 1, LIP), P(13, 20, 1, 1, LIP), P(18, 20, 1, 1, LIP);
-    else if (face === "strain") P(13, 18, 6, 2, LIP), P(14, 18, 4, 1, WHITE);
-    else P(14, 18, 4, 1, LIP), P(13, 17, 1, 1, LIP), P(18, 17, 1, 1, LIP);
+    const DARK = "#5a2024", TONGUE = "#e07070";
+    switch (expr.mouth) {
+      case "happy": P(13, 18, 6, 1, LIP), P(14, 19, 4, 1, LIP), P(15, 19, 2, 1, TONGUE); break;
+      case "grin": P(12, 17, 1, 1, LIP), P(19, 17, 1, 1, LIP), P(13, 18, 6, 2, DARK), P(13, 18, 6, 1, WHITE), P(14, 20, 4, 1, LIP), P(15, 19, 2, 1, TONGUE); break;
+      case "smirk": P(15, 18, 4, 1, LIP), P(19, 17, 1, 1, LIP), P(14, 18, 1, 1, shade(skin, -0.3)); break;
+      case "flat": P(14, 18, 4, 1, LIP); break;
+      case "teeth": P(13, 17, 6, 1, LIP), P(13, 18, 6, 1, WHITE), P(13, 19, 6, 1, LIP), P(15, 18, 1, 1, "#c8c0b0"), P(17, 18, 1, 1, "#c8c0b0"); break;
+      case "tongue": P(14, 18, 4, 1, LIP), P(13, 17, 1, 1, LIP), P(18, 17, 1, 1, LIP), P(16, 19, 2, 2, TONGUE), P(17, 20, 1, 1, shade(TONGUE, -0.2)); break;
+      case "small": P(15, 18, 2, 1, LIP); break;
+      case "o": P(15, 17, 2, 1, LIP), P(14, 18, 1, 2, LIP), P(17, 18, 1, 2, LIP), P(15, 20, 2, 1, LIP), P(15, 18, 2, 2, DARK); break;
+      case "sad": P(14, 19, 4, 1, LIP), P(13, 20, 1, 1, LIP), P(18, 20, 1, 1, LIP); break;
+      case "strain": P(13, 18, 6, 2, LIP), P(14, 18, 4, 1, WHITE); break;
+      default: P(14, 18, 4, 1, LIP), P(13, 17, 1, 1, LIP), P(18, 17, 1, 1, LIP);
+    }
+    if (expr.sweat) P(25, 9, 1, 2, "#8ad0f0"), P(24, 11, 3, 2, "#8ad0f0"), P(25, 11, 1, 1, "#e8f8ff");
   }
 
-  // Facial hair.
-  const beard = special === "beard" ? "full" : look.facial;
-  if (!fur && !metal && beard) {
-    const stub = mix(skin, hair, 0.45);
-    if (beard === "stubble") {
-      // A shadow along the jaw and chin, flecked darker.
-      const shadow = mix(skin, hair, 0.28);
-      for (let r = 12; r < head.length; r++) {
-        const [x0, w] = head[r];
-        P(x0, HEAD_TOP + r, w, 1, shadow);
-        for (let x = x0 + (r % 2); x < x0 + w; x += 3) P(x, HEAD_TOP + r, 1, 1, mix(skin, hair, 0.5));
-      }
-      P(12, 17, 8, 1, mix(skin, hair, 0.12)), P(15, 16, 2, 1, skinLo), P(9, 16, 3, 1, BLUSH), P(20, 16, 3, 1, BLUSH);
-      if (face === "happy") P(13, 18, 6, 1, LIP), P(14, 19, 4, 1, LIP), P(15, 19, 2, 1, "#e07070");
-      else P(14, 18, 4, 1, LIP), P(13, 17, 1, 1, LIP), P(18, 17, 1, 1, LIP);
-    } else if (beard === "full") {
-      for (let r = 12; r < head.length; r++) P(head[r][0], HEAD_TOP + r, head[r][1], 1, hair);
-      P(head[17][0] + 1, HEAD_TOP + 18, head[17][1] - 2, 1, hair);
-      P(head[17][0] + 2, HEAD_TOP + 19, head[17][1] - 4, 1, hairLo);
-      P(7, 16, 1, 1, hairLo), P(24, 16, 1, 1, hairLo);
-      // The cheeks and mouth show through.
-      P(9, 17, 4, 1, skin), P(19, 17, 4, 1, skin), P(10, 17, 2, 1, BLUSH), P(20, 17, 2, 1, BLUSH);
-      P(14, 16, 4, 1, skin), P(15, 16, 2, 1, skinLo);
-      P(12, 17, 8, 1, hairHi);
-      P(14, 19, 4, 1, face === "happy" ? LIP : hairLo);
-      if (face === "happy") P(15, 19, 2, 1, "#e07070");
-    } else if (beard === "goatee") {
-      P(12, 17, 8, 1, hair), P(14, 20, 4, 3, hair), P(15, 22, 2, 1, hairLo);
-    }
-    if (beard === "moustache" || beard === "walrus") {
-      const w = beard === "walrus" ? 12 : 8, x0 = 16 - w / 2;
-      P(x0, 17, w, 1, hair), P(x0 + 1, 16, w - 2, 1, hair), P(x0, 18, 2, 1, hair), P(x0 + w - 2, 18, 2, 1, hair);
-      P(x0 + 2, 16, 2, 1, hairHi);
-    }
+  if (!fur && !metal && (beard === "moustache" || beard === "walrus")) {
+    const w = beard === "walrus" ? 12 : 8, x0 = 16 - w / 2;
+    P(x0, 17, w, 1, hair), P(x0 + 1, 16, w - 2, 1, hair), P(x0, 18, 2, 1, hair), P(x0 + w - 2, 18, 2, 1, hair);
+    P(x0 + 2, 16, 2, 1, hairHi);
   }
 
   // Hair over the head.
@@ -288,7 +345,7 @@ function drawBust(g, o) {
   }
 
   // Ranks: a headband in the trim colour, gold for Stars and Legends.
-  if (rank >= 2 && !metal && !kid && !role) {
+  if (rank >= 2 && !metal && !kid && !role && look.gear !== "band") {
     const band = rank >= 3 ? GOLD : collar;
     P(7, 9, 18, 2, band), P(7, 10, 18, 1, shade(band, -0.2));
     P(4, 10, 3, 3, band), P(3, 12, 2, 3, band);
@@ -311,7 +368,7 @@ function drawBust(g, o) {
     P(9, 12, 3, 1, "#5a6a80"), P(18, 12, 3, 1, "#5a6a80");
     P(6, 12, 2, 1, "#1c2028"), P(24, 12, 2, 1, "#1c2028");
   }
-  if (gear === "band" && !metal && !(rank >= 2 && !role)) {
+  if (gear === "band" && !metal) {
     P(7, 8, 18, 3, gc), P(7, 10, 18, 1, shade(gc, -0.25)), P(9, 8, 5, 1, shade(gc, 0.3));
   }
   if (gear === "cap" && !metal) {
@@ -350,5 +407,5 @@ export function portrait(cv, a, colors = {}, opts = {}) {
   const g = cv.getContext("2d");
   g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, size, size);
-  g.drawImage(bust({ look: a.look, shirt: colors.primary, collar: colors.secondary, kit: colors.kit, rank: a.rank || 0, face: opts.face, role: opts.role, apron: opts.apron, bib: opts.bib }), 0, 0, size, size);
+  g.drawImage(bust({ look: a.look, shirt: colors.primary, collar: colors.secondary, kit: colors.kit, rank: a.rank || 0, face: expressionOf(a, opts.face), role: opts.role, apron: opts.apron, bib: opts.bib }), 0, 0, size, size);
 }

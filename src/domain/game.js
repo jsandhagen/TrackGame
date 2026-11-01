@@ -164,10 +164,10 @@ export function newGame(seed = Date.now() >>> 0) {
   s.plots[CLUB_PLOT] = { type: "club", level: 1 };
   s.plots[10] = { type: "gym", level: 1 };
   const starters = [
-    ["shot", "Mara Kowal", "farm", { skin: "#e2b08a", hair: "#8e4c33", style: 2 }, "powerhouse"],
-    ["discus", "Tomas Reyes", "gymnast", { skin: "#c98f66", hair: "#1e1e24", style: 0 }, "technician"],
-    ["hammer", "Noor Haddad", "dancer", { skin: "#a06a48", hair: "#1e1e24", style: 4 }, "natural"],
-    ["jav", "Kofi Mensah", "sprinter", { skin: "#5e3a2a", hair: "#1e1e24", style: 1 }, "speedster"],
+    ["shot", "Mara Kowal", "farm", { skin: "#e2b08a", hair: "#8e4c33", style: 2, expression: "grin" }, "powerhouse"],
+    ["discus", "Tomas Reyes", "gymnast", { skin: "#c98f66", hair: "#1e1e24", style: 0, expression: "smirk" }, "technician"],
+    ["hammer", "Noor Haddad", "dancer", { skin: "#a06a48", hair: "#1e1e24", style: 4, expression: "calm" }, "natural"],
+    ["jav", "Kofi Mensah", "sprinter", { skin: "#5e3a2a", hair: "#1e1e24", style: 1, expression: "determined" }, "speedster"],
   ];
   for (const [event, name, background, look, type] of starters) {
     const a = createAthlete(s, event, { name, background, look, type, potential: 62 + Math.round(random(s) * 4) });
