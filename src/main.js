@@ -110,7 +110,7 @@ const snapshot = () => ({ goals: state.goals.length, discovered: state.discovere
 function hud() {
   const m = state.match;
   if (m) {
-    $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
+    $("#hud").innerHTML = `${P.meetScore(state)}<button class="hud-btn" data-act="game-menu" aria-label="Open game menu">${ico("menu")}</button>`;
     return;
   }
   const days = state.matchDay == null ? null : state.matchDay - state.day,
@@ -123,13 +123,13 @@ function hud() {
   shownInsights = insights;
   const since = performance.now() - insightBump.at,
     bump = since < 1400 ? `style="--since:-${Math.round(since)}ms"` : "";
-  $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${LEAGUES[state.league].name}</small></span></button>
+  $("#hud").innerHTML = `<button class="brand" data-act="window" data-page="club"><span class="crest" style="--p:${state.colors.primary};--s:${state.colors.secondary}">${esc(state.clubName[0])}</span><span><strong>${esc(state.clubName)}</strong><small>${G.unlockedDivision(state).name}</small></span></button>
   <button class="hud-date" data-act="window" data-page="calendar" title="${G.longDate(state.day)} · Season ${state.season} · ${G.WEATHER[G.weatherToday(state)].name}" aria-label="Calendar: ${G.longDate(state.day)}, ${G.WEATHER[G.weatherToday(state)].name}">${ico(G.WEATHER[G.weatherToday(state)].icon, "hud-weather")}<span><b><span class="date-text">${G.shortDate(state.day)} </span><span class="clock" id="clock">${G.clockLabel(view.dayP)}</span></b><small>${state.phase === "seasonEnd" ? "Season complete" : state.phase === "planning" ? "Off-season · book a meet" : days <= 0 ? "Meet day!" : "Meet in " + days + (days === 1 ? " day" : " days") + " · keep building"}</small></span></button>
   <div class="seg time" role="group" aria-label="Training speed">${P.speedButtons(speed, "speed", { pause: true, disabled: !canPlay })}</div>
   <div class="hud-wallet"><button class="res fans" data-act="ledger" data-cur="fans" aria-label="${state.fans} fans. Open the ledger">${ico("heart")}<b>${counterText("fans", counters.fans.shown)}</b></button>
   ${G.systemUnlocked(state, "sessions") ? `<button class="res insight ${bump ? "bump" : ""}" ${bump} data-act="ledger" data-cur="insights" aria-label="${insights} Coaching Insights. Open the ledger">${ico("idea")}<b>${insights.toLocaleString()}</b>${bump ? `<em>+${insightBump.n}</em>` : ""}</button>` : ""}
   <button class="res money" data-act="ledger" data-cur="money" aria-label="${cash(state.money)}. Open the ledger">${ico("coin")}<b>${counterText("money", counters.money.shown)}</b></button></div>
-  <button class="hud-btn" data-act="game-menu" aria-label="Open game menu"><span aria-hidden="true">☰</span></button>`;
+  <button class="hud-btn" data-act="game-menu" aria-label="Open game menu">${ico("menu")}</button>`;
 }
 function menu() {
   if (state.match) {
@@ -1038,7 +1038,7 @@ $("#app").addEventListener("click", async (e) => {
       stopPlaying();
       if (state.pendingEvent) return showEvent();
       const booked = G.enterCompetition(state, { kind: act === "book-duel" ? "duel" : "league", tier: +b.dataset.tier,
-        stage: +(b.dataset.stage || 0), rival: +(b.dataset.rival || 0), preparation: view.preparation || 5, spacing: view.spacing || 7 });
+        stage: +(b.dataset.stage || 0), ...(b.dataset.division != null ? {division:+b.dataset.division} : {}), rival: +(b.dataset.rival || 0), preparation: view.preparation || 5, spacing: view.spacing || 7 });
       if (booked) { view.window = G.firstMeet(state) ? "lobby" : "home"; view.rival = null; world.replan(); toast(G.firstMeet(state) ? "Your first rival is ready. Let's throw!" : "Booked for day " + state.matchDay + ". The countdown starts now."); }
       else toast("That competition isn't available right now.", "warn");
       break;
@@ -1058,11 +1058,11 @@ $("#app").addEventListener("click", async (e) => {
       break;
     case "season":
     case "defend": {
-      const before = state.league;
+      const before = G.currentDivision(state).index, champion = state.champion;
       G.nextSeason(state);
       view.window = "league";
       world.replan();
-      if (state.league > before) setTimeout(() => world.banner(LEAGUES[state.league].name.toUpperCase(), "NEW INVITATIONS · NEW GROUNDS", "#f2c94c"), 300);
+      if (champion && G.unlockedDivision(state).index > before) setTimeout(() => world.banner(G.unlockedDivision(state).name.toUpperCase(), "PROMOTION EARNED", "#f2c94c"), 300);
       break;
     }
     case "athlete":
@@ -1180,7 +1180,7 @@ $("#app").addEventListener("click", async (e) => {
         sfx("goal");
         const star = (a.stars || 0) > 0;
         if (state.settings.quietMode !== false) { toast(a.name + " promoted to " + G.rankName(a) + ".", "level"); break; }
-        dialog(star ? G.rankName(a) + "!" : "A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now <b>${esc(G.rankName(a))}</b>. Their limit is higher, every stat gains a point${!star && RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
+        dialog(star ? G.rankName(a) + "!" : "A new " + RANKS[a.rank].name + "!", `<div class="promo">${P.portrait(a, "large")}<p><b>${esc(a.name)}</b> is now <b>${P.starText(G.rankName(a))}</b>. Their limit is higher, every stat gains a point${!star && RANKS[a.rank].slots > RANKS[a.rank - 1].slots ? " and there's a new skill slot" : ""}.</p></div>`, [{ label: "Wonderful!" }], { eyebrow: "PROMOTION", tone: "gold" });
       }
       break;
     }
@@ -1517,7 +1517,7 @@ function importSave(fromMenu = false) {
       const incoming = validateCampaign(JSON.parse(await input.files[0].text()));
       const empty = fromMenu ? (await listSlots(summarise)).findIndex((x) => !x) : -1,
         target = empty >= 0 ? empty : slot;
-      dialog("Restore this club?", `<p>${esc(incoming.clubName)} · Season ${incoming.season} · ${LEAGUES[incoming.league].name}</p><p>${empty >= 0 ? `It goes into slot ${target + 1}.` : "This replaces the current club. Export it first to keep it."}</p>`, [
+      dialog("Restore this club?", `<p>${esc(incoming.clubName)} · Season ${incoming.season} · ${G.unlockedDivision(incoming).name}</p><p>${empty >= 0 ? `It goes into slot ${target + 1}.` : "This replaces the current club. Export it first to keep it."}</p>`, [
         {
           label: "Restore club",
           fn: async () => {
@@ -1539,7 +1539,7 @@ function importSave(fromMenu = false) {
 // ── Save slots and the main menu ────────────────────────────────────────
 const summarise = (raw) => {
   const c = validateCampaign(raw);
-  return { clubName: c.clubName, league: c.league, season: c.season, day: c.day, money: c.money, fans: c.fans, colors: c.colors };
+  return { clubName: c.clubName, league: c.league, division: G.unlockedDivision(c).index, season: c.season, day: c.day, money: c.money, fans: c.fans, colors: c.colors };
 };
 // Make slot n the one in play, with `incoming` as its club, or whatever it holds (a new club
 // when it is empty). The previous club is saved first.

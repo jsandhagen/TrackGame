@@ -2,7 +2,7 @@ import { canvas, rect, poly, ellipse, ring, line, shade, hash, px, mix } from ".
 import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf, roofColorOf } from "../game-content.js";
-import { homeAthlete, rivalAthlete, best, meetVenue, stadiumCrowd, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf } from "../domain/game.js";
+import { homeAthlete, rivalAthlete, best, meetVenue, stadiumCrowd, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf, divisionOf } from "../domain/game.js";
 import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, AIRSPACE, METRE_PX, throwingSector, meetCamera } from "./meet-geometry.js";
@@ -240,7 +240,7 @@ const inkOn = (c) => {
 function honours(s) {
   const league = [...(s.trophies || [])]
     .sort((a, b) => b.league - a.league || (b.stage ?? 2) - (a.stage ?? 2) || b.season - a.season)
-    .map((t) => `${LEAGUES[t.league].name.split(" ")[0].replace("International", "Int'l")} ${["Open", "Challenger", "Champions"][t.stage ?? 2]}`.toUpperCase());
+    .map((t) => divisionOf(t.league,t.stage??2).name.replace(" Division", "").toUpperCase());
   const cups = (s.invitations?.won || []).map((t) => t.name.toUpperCase());
   return [...league, ...cups];
 }

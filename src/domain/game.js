@@ -14,6 +14,7 @@ import {
   CLUB_PLOT,
   CLUBS,
   CLUB_BIASES,
+  CLUB_EVENT_BIASES,
   SPONSORS,
   SHOP_TIERS,
   CLUB_PALETTES,
@@ -61,7 +62,7 @@ import {
 import { checkGoals, rollStoryEvent, closeYear, yearStat } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
 
-import { competitionTier, competitionName, circuitKey, TITLE_GIFTS, rivalBase, rivalMastery } from "./competition.js";
+import { competitionTier, competitionName, circuitKey, TITLE_GIFTS, rivalBase, rivalMastery, tuneDivisionRival, divisionName, divisionOf } from "./competition.js";
 export * from "./competition.js";
 export * from "./progression.js";
 export * from "./qualification.js";
@@ -208,7 +209,7 @@ function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
   const meetSkills = Object.keys(SKILLS).filter((k) => SKILLS[k].cat === "meet" && SKILLS[k].rank <= Math.min(2, league));
   return indices.map((index) => {
     const club = CLUBS[league][index], identity = club.identity;
-    const bias = { power:[4,-2,3,-3], control:[-2,4,-1,0], speed:[-2,0,2,4], hammer:[0,-2,5,-2], adaptable:[-1,2,0,1], depth:[2,0,0,0], clutch:[-2,-1,2,2] }[identity] || CLUB_BIASES[index % 3];
+    const bias = CLUB_EVENT_BIASES[identity] || CLUB_BIASES[index % 3];
     return ({
     id: index,
     developedStage: stage,
@@ -269,6 +270,7 @@ function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
       }
       a.skills = [...new Set(a.skills)];
       a.equipped = [...a.skills];
+      tuneDivisionRival(s,a,league,stage,index);
       return a;
     }),
   }); });
@@ -1020,7 +1022,7 @@ export function leaveMatch(s) {
     if (s.champion) {
       const tier = competitionTier(s), stage = s.competition?.stage ?? 2;
       const key = circuitKey(tier, stage), first = !s.circuit.cleared.includes(key);
-      const prize = Math.round(LEAGUES[tier].prize * (0.5 + stage * 0.25) * (first ? 1 : 0.5));
+      const prize = Math.round(divisionOf(tier,stage).titlePrize * (first ? 1 : 0.5));
       if (first) s.circuit.cleared.push(key);
       s.money += prize;
       ledgerAdd(s, "money", "Title prizes", prize);
@@ -1059,7 +1061,6 @@ export function leaveMatch(s) {
 export function nextSeason(s) {
   if (s.phase !== "seasonEnd") return false;
   const wasChampion = s.champion, tier = competitionTier(s), stage = s.competition?.stage ?? 2;
-  const previousLeague = s.league;
   if (wasChampion && stage === 2) s.league = Math.max(s.league, Math.min(4, tier + 1));
   s.season++;
   s.fixture = 0;
@@ -1087,8 +1088,8 @@ export function nextSeason(s) {
     a.seasonPbs = 0;
   }
   scout(s, true);
-  note(s, s.league > previousLeague ? "Invited to the " + LEAGUES[s.league].name + "! New grounds and rivals await."
-    : wasChampion ? "The trophy stays. Choose your next challenge on the Meets board."
+  note(s, wasChampion && s.lastTitleGift && !(tier === 4 && stage === 2) ? "Promoted to " + divisionName(s) + "! Choose the next division on the Meets board."
+    : wasChampion ? "Division title secured! Defend the title or revisit an earlier division."
     : "Rebuild camp: key stats improved. Try a duel, keep developing, or enter again.", "story");
   checkGoals(s);
   return true;

@@ -47,7 +47,7 @@ test("stand styles and skylines unlock with the stadium and the club's progress"
   s.fans = 400;
   assert(G.buyCustom(s, "standStyle", "terrace") && s.stadiumStyle.standStyle === "terrace");
   assert.match(G.customLock(s, "standStyle", "cantilever"), /stands all round/);
-  assert.match(G.customLock(s, "backdrop", "mountains"), /National League/);
+  assert.match(G.customLock(s, "backdrop", "mountains"), /Regional Premier Division/);
   assert(G.buyCustom(s, "backdrop", "trees") && s.stadiumStyle.backdrop === "trees");
   const back = validateCampaign(JSON.parse(JSON.stringify(s)));
   assert.equal(back.stadiumStyle.standStyle, "terrace");

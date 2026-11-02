@@ -46,14 +46,15 @@ export function followCamera(cam, target, dt, rate, view, pan = MAX_PAN_RATE) {
 // Cut to each athlete as their preparation starts. Following the implement and reading the
 // result still ease normally; returning across the field never eats into the next delivery.
 export function createBroadcastCamera() {
-  let camera = null, lastAt = 0, lastSize = null, lastPreparation = null;
+  let camera = null, lastAt = 0, lastSize = null, lastPreparation = null, lastFast = false;
   return (target, view, { now, size, shot, pace = 1, reduced = false, preparation = null }) => {
-    const dt = Math.min(100, Math.max(0, now - lastAt)),
-      cut = reduced || !camera || size !== lastSize || (preparation != null && preparation !== lastPreparation);
+    const dt = Math.min(100, Math.max(0, now - lastAt)), fast = pace >= 2,
+      cut = reduced || !camera || size !== lastSize || fast !== lastFast || (preparation != null && preparation !== lastPreparation);
     camera = cut ? target : followCamera(camera, target, dt, shot.rate * Math.min(1.5, pace), view, shot.pan);
     lastAt = now;
     lastSize = size;
     lastPreparation = preparation;
+    lastFast = fast;
     return { camera, cut, dt };
   };
 }

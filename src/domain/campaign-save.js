@@ -312,6 +312,7 @@ export function validateCampaign(input) {
   } else {
     const c = s.competition;
     if (c?.format != null && (c.kind !== "league" || c.format !== "championship")) bad();
+    if (c?.standards != null && (c.kind !== "league" || !c.standards || typeof c.standards !== "object" || Array.isArray(c.standards) || Object.keys(c.standards).length !== 4 || EVENT_IDS.some(ev=>!num(c.standards[ev],0.01,200)))) bad();
     if (c?.qualifyingMarks != null && (typeof c.qualifyingMarks!=="object" || Array.isArray(c.qualifyingMarks) || Object.keys(c.qualifyingMarks).length>120 ||
         Object.entries(c.qualifyingMarks).some(([id,marks])=>!int(+id,1,1e9) || !marks || typeof marks!=="object" || Array.isArray(marks) || Object.entries(marks).some(([ev,mark])=>!EVENT_IDS.includes(ev)||!num(mark,0,200))))) bad();
     if (!c || !["duel", "league", "cup"].includes(c.kind) || !int(c.tier, 0, s.league) || !int(c.stage, 0, 2) ||

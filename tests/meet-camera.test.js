@@ -143,7 +143,7 @@ test('a coaching decision flows into the same athlete’s throw without a second
  const next=direct(ready,view,{now:16,size,shot,preparation:'0:1:home:0'});
  assert(!next.cut);assert(next.camera.z>decision.z && next.camera.z<ready.z,'close-up zoom eases after the tactic choice');
  const fast=direct(decision,view,{now:32,size,shot,pace:2});
- assert(!fast.cut,'fast playback keeps its steady overview');
+ assert(fast.cut,'switching to fast playback establishes its steady overview immediately');
  const watch=direct(ready,view,{now:48,size,shot,preparation:'0:1:home:0'});
  assert(watch.cut,'returning to watch speed frames the athlete immediately');
 });
