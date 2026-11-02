@@ -1,6 +1,7 @@
 import { playbackRate } from "../platform/pacing.js";
 import { EVENTS, EVENT_IDS } from "../game-content.js";
 import { METRE_PX } from "./meet-geometry.js";
+import { javelinApproachExtraMs } from "./javelin-approach.js";
 
 // Animation speed and reading time are separate: highlights may shorten the
 // delivery, but never flash a result past the coach.
@@ -35,11 +36,12 @@ const TECHNIQUE_TRIM = { shot: [400, 250, 200, 0], jav: [1000, 75, 165, 235], di
 export const techniqueTrim = (event, form) => TECHNIQUE_TRIM[event]?.[form] ?? 0;
 // Give the delivery time to build speed. Flight depends on the actual mark,
 // rather than stretching a short put across the same time as a long javelin.
-export function throwTiming(beat = {}) {
+export function throwTiming(beat = {}, { compactApproach = false } = {}) {
   const event = EVENTS[beat?.event] ? beat.event : EVENT_IDS[beat?.eventIndex] || "shot";
   const measured = Number.isFinite(beat?.mark) && beat.mark > 0 ? beat.mark : beat?.flightDistance;
   const distance = Number.isFinite(measured) && measured > 0 ? measured : EVENTS[event].min;
-  const releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event] - techniqueTrim(event, beat?.form);
+  const approachMs = event === "jav" && !compactApproach ? javelinApproachExtraMs(beat?.form) : 0,
+    releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event] + approachMs - techniqueTrim(event, beat?.form);
   // A ballistic flight from about shoulder height, at a typical release angle for each event.
   // This is presentation only: the measured mark still comes from the meet simulation.
   // About 1.3 s for a 9 m put, 3.2 s for a 70 m javelin, 3.7 s for a 70 m hammer.
@@ -48,7 +50,7 @@ export function throwTiming(beat = {}) {
     flightMs = Math.round(flightSeconds * 1000);
   return {
     readyMs: 300, releaseAt, releaseMs: event === "hammer" || event === "jav" ? 120 : 180,
-    recoveryMs: 900, flightMs, landAt: releaseAt + flightMs, distance,
+    recoveryMs: event === "jav" ? 1200 : 900, flightMs, landAt: releaseAt + flightMs, distance,
     arcHeight: 9.81 * flightSeconds * flightSeconds / 8 * METRE_PX,
   };
 }

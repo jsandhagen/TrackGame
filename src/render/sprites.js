@@ -298,6 +298,22 @@ const THROWS = {
     { y: 2, lean: 2, hip: 1, legs: [[[3, -4], [3, -1]], [[-2, -1], [-6, -1]]], arms: [[[1, 2], [3, 4]], [[1, 3], [4, 2]]], face: "happy" },
   ],
 };
+// Full-runway carry strides: roll over a planted shoe while the other knee comes through.
+// Compact club drills retain their short contact/toe-off poses at frames 4–7.
+export const JAVELIN_RUN_START = THROWS.jav.length;
+THROWS.jav.push(
+  { ...THROWS.jav[4], legs: [[[2, -3], [3, -1]], [[-2, -4], [-4, -4]]] },
+  { ...THROWS.jav[5], legs: [[[-2, -3], [-4, -1]], [[3, -5], [2, -3]]] },
+  { ...THROWS.jav[6], legs: [[[-2, -4], [-4, -4]], [[2, -3], [3, -1]]] },
+  { ...THROWS.jav[7], legs: [[[3, -5], [2, -3]], [[-2, -3], [-4, -1]]] },
+);
+// The reverse catches on a bent right leg; the torso stays forward while momentum is absorbed.
+export const JAVELIN_RECOVERY_START = THROWS.jav.length;
+THROWS.jav.push(
+  { y: 2, lean: 4, hip: 1, legs: [[[-2, -4], [-5, -4]], [[0, -3], [-2, -1]]], arms: [[[-2, 1], [-4, 2]], [[2, 3], [3, 5]]] },
+  { y: 1, lean: 2, legs: [[[-1, -3], [-4, -2]], [[-1, -3], [-3, -1]]], arms: [[[-2, 1], [-3, 2]], [[1, 3], [1, 5]]] },
+  { y: 1, lean: 2, legs: [[[4, -3], [5, -1]], [[-1, -3], [-3, -2]]], arms: [[[-2, 1], [-4, 2]], [[2, 3], [2, 5]]] },
+);
 // Rotational shot shares the discus's contact poses and lower-body mechanics. Its arm stays
 // folded at the neck through the turn, then punches upward instead of slinging a long arm.
 // Keep the original shot frames intact for standing puts and glides.

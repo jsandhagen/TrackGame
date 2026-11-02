@@ -7,6 +7,7 @@ import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./t
 import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, AIRSPACE, METRE_PX, throwingSector, meetCamera } from "./meet-geometry.js";
 import { frameShot, clampCamera, throwShot, eventShot, createBroadcastCamera, FLIGHT_LEAD_MS } from "./meet-camera.js";
+import { JAVELIN_RUNWAY_METRES } from "./javelin-approach.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
 import { line as voiceLine, throwSituation } from "../domain/voice.js";
 import { measure } from "./font.js";
@@ -790,7 +791,8 @@ export function createStadium(cv) {
     h.setTransform(1, 0, 0, 1, 0, 0);
     h.clearRect(0, 0, hud.width, LH);
     // Every event starts close on the athlete, then follows the implement at watch speed.
-    const focus = { origin: [O.x, O.y], upperAt: upperY, chase: true };
+    const focus = { origin: [O.x, O.y], upperAt: upperY, chase: true,
+      runway: ev === "jav" ? [O.x - JAVELIN_RUNWAY_METRES * METRE_PX, O.y] : null };
     const el = view.elapsed ?? 99999;
     const hasCut = hasCutIn(beat);
     const tt = beat?.type === "throw" ? el - throwOffset(beat) : el;
@@ -811,8 +813,8 @@ export function createStadium(cv) {
     const cheer = reacting || (beat?.type === "eventEnd" && beat.h > beat.a) || (beat?.type === "complete" && beat.win) ? "home" : beat?.type === "meetStart" ? "all" : null;
     // Preparation can cut back across the field; include the circle's crowd on that first frame.
     const preparing = (view.pace || 1) < 2 && (beat?.type === "decide" || (beat?.type === "throw" && tt < timing.releaseAt)),
-      crowdHalf = preparing ? view2.width / 2 + 180 : cam ? view2.width / (2 * cam.z) + 180 : W,
-      crowdX = preparing ? O.x : cam?.x ?? W / 2;
+      crowdHalf = preparing ? (view2.width + (focus.runway ? O.x - focus.runway[0] : 0)) / 2 + 180 : cam ? view2.width / (2 * cam.z) + 180 : W,
+      crowdX = preparing ? ((focus.runway?.[0] ?? O.x) + O.x) / 2 : cam?.x ?? W / 2;
     drawCrowd(g, s, m, now, cheer, venue, crowdX - crowdHalf, crowdX + crowdHalf);
     homeBanners(g, s, venue);
     // Flashbulbs pop in the stands after a big throw.
@@ -1174,15 +1176,19 @@ export function createStadium(cv) {
     // Fast and very fast hold one steady frame per event (the whole sector from the circle); the
     // close-ups, the chase and the celebrations are for watch speed.
     const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 2;
-    if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.origin, sector.point(SPAN)[0], upperY);
+    if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.runway ?? focus.origin, sector.point(SPAN)[0], upperY);
     else if (thrown && focus.thrower && tt < timing.releaseAt)
-      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y] }) : throwShot("thrower", focus);
-    else if (thrown && !landed && focus.implement) shot = view.reduced ? eventShot(focus.origin, sector.point(SPAN)[0], upperY) : throwShot("flight", focus);
+      shot = view.reduced
+        ? focus.runway ? eventShot(focus.runway, O.x + 86, upperY) : throwShot("thrower", { thrower: focus.origin })
+        : throwShot("thrower", focus);
+    else if (thrown && !landed && focus.implement) shot = view.reduced ? eventShot(focus.runway ?? focus.origin, sector.point(SPAN)[0], upperY) : throwShot("flight", focus);
     else if (thrown && focus.landing && sinceLand < LANDING_HOLD_MS) shot = throwShot("landing", focus);
     else if (thrown && party && focus.thrower && sinceLand < partyEnd)
       shot = { ...throwShot(focus.landing && focus.landing[0] - O.x > view2.width ? "result" : "thrower", focus), rate: 3 };
     else if (thrown && el < 1e8) shot = throwShot("result", focus);
-    else if (beat?.type === "decide" && focus.thrower) shot = { ...throwShot("thrower", { thrower: [O.x, O.y] }), cap: 2.1 };
+    else if (beat?.type === "decide" && focus.thrower)
+      shot = view.reduced && focus.runway ? eventShot(focus.runway, O.x + 86, upperY)
+        : { ...throwShot("thrower", focus.runway ? focus : { thrower: focus.origin }), cap: 2.1 };
     const target = shot.rect ? frameShot(shot.rect, view2, shot.cap) : clampCamera({ x: W / 2, y: H / 2, z: 1 }, view2),
       size = [cw, ch, W].join(),
       preparation = !fast && focus.thrower && (beat?.type === "decide" || (thrown && tt < timing.releaseAt))
