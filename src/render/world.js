@@ -27,7 +27,7 @@ const lerpTo = (a, b, q) => a + (b - a) * Math.max(0, Math.min(1, q));
 function practice(ev, level, style, t, west) {
   const dir = west ? -1 : 1,
     toMap = (m) => ({ ox: (dir * m.dx) / 2, oy: (m.dy - (ev === "jav" ? Math.round(-m.dx * 0.1) : 0)) / 2 }),
-    [rx, ry] = throwReleasePoint(ev, level),
+    [rx, ry] = throwReleasePoint(ev, level, { compactApproach: true }),
     from = [(dir * rx) / 2, ry / 2],
     start = toMap(throwMotion(ev, level, "ready", 0, { compactApproach: true })).ox,
     end = toMap(throwMotion(ev, level, "follow", 1, { style })).ox,

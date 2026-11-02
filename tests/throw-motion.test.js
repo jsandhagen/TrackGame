@@ -4,12 +4,12 @@ import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
 import { throwTiming } from '../src/render/meet-presentation.js';
 import { groundRise, throwingSector, METRE_PX } from '../src/render/meet-geometry.js';
-import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS, SHOT_ROTATION_START } from '../src/render/sprites.js';
+import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS, SHOT_ROTATION_START, JAVELIN_RUN_START } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
 const sample = (ev, level, phase, n = 40) => Array.from({ length: n + 1 }, (_, i) => throwMotion(ev, level, phase, i / n));
 const spriteOptions = (event, m) => ({ pose: m.pose || (m.run ? 'carry' : 'throw'), event, frame: m.frame, flip: m.flip, blend: m.blend });
-const carrying = m => [4, 5, 6, 7].includes(m.frame);
+const carrying = m => [4, 5, 6, 7].includes(m.frame) || (m.frame >= JAVELIN_RUN_START && m.frame < JAVELIN_RUN_START + 4);
 const worldFeet = (event, m) => feetOf(spriteOptions(event, m)).map(([x, y]) => [m.dx + 2 * (m.flip ? -3 - x : x), m.dy + 2 * y]);
 
 test('every event and form level produces valid frames and stays near the circle or on the runway', () => {
@@ -283,7 +283,7 @@ test('discus and javelin arms keep compact proportions through preparation, deli
     for (const [shoulder, elbow, hand] of armJointsOf(o)) {
       assert(length(shoulder, elbow) <= 4.5 && length(elbow, hand) <= 4.5, `${event}/${frame}: compact upper arm and forearm`);
       // Only the javelin carry reaches up to the hairline, and only just past the usual reach.
-      const reach = event === 'jav' && [0, 4, 5, 6, 7].includes(frame) && hand[1] < shoulder[1] - 6 ? 8.6 : 8;
+      const reach = event === 'jav' && (frame === 0 || carrying({ frame })) && hand[1] < shoulder[1] - 6 ? 8.6 : 8;
       assert(length(shoulder, elbow) + length(elbow, hand) <= reach, `${event}/${frame}: no stretched reach`);
     }
     if (event === 'jav') {
@@ -476,6 +476,33 @@ test('javelin rhythm: even strides, the longest penultimate, a quick block step 
   assert(ms - block[0] <= 155, `${level}: block to release in ${ms - block[0]} ms`);
   assert(last[1] === 0, 'the penultimate leaves from the left foot');
   if (level) assert(landings.length >= [0,14,16,18][level], `${level}: a full carry run before withdrawal and crossovers`);
+ }
+});
+
+test('full javelin approaches accelerate smoothly instead of stopping over each planted shoe', () => {
+ for (const level of [1, 2, 3]) {
+  const timing = throwTiming({ event: 'jav', form: level }), ms = timing.releaseAt - timing.readyMs;
+  const motion = sample('jav', level, 'technique', ms);
+  const first = motion.findIndex(m => m.frame === JAVELIN_RUN_START + 2), end = motion.findIndex(m => m.frame === 8);
+  const speeds = [];
+  for (let t = first + 10; t < end; t += 10) speeds.push((motion[t].dx - motion[t - 10].dx) / (METRE_PX * 0.01));
+  assert(speeds.every(speed => speed > 3 && speed < 8.5), `${level}: controlled running speed without stalls or lunges`);
+  const average = values => values.reduce((a, b) => a + b, 0) / values.length;
+  const fifth = Math.floor(speeds.length / 5);
+  assert(average(speeds.slice(-fifth)) > average(speeds.slice(0, fifth)) * 1.15, 'build speed into withdrawal');
+ }
+});
+
+test('the javelin reverse catches momentum on the right foot before a balanced recovery', () => {
+ for (let level = 0; level < 4; level++) {
+  const timing = throwTiming({ event: 'jav', form: level }), motion = sample('jav', level, 'follow', 1200);
+  const catchAt = motion.findIndex(m => m.frame === 22), standingAt = motion.findIndex(m => m.frame === 3);
+  const catchMs = timing.releaseMs + catchAt * timing.recoveryMs / 1200;
+  assert(catchMs >= 220 && catchMs <= 360, 'a quick right-leg recovery after release');
+  assert(standingAt * timing.recoveryMs / 1200 >= 900, 'absorb momentum before standing upright');
+  assert(Math.max(...motion.map(m => m.dx)) - motion[0].dx >= 20, 'follow the throw forward into the recovery');
+  const contact = worldFeet('jav', motion[catchAt])[1][0];
+  for (const m of motion.slice(catchAt)) assert(Math.abs(worldFeet('jav', m)[1][0] - contact) < 1e-8, 'the catching shoe remains planted');
  }
 });
 

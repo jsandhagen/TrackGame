@@ -40,6 +40,16 @@ Discus full-turn preparation uses a dedicated planted stance for the forward swi
 
 ## Rhythm and timing
 
+### Javelin approach and recovery refinement
+
+The running approach uses [Thomas Röhler's own run-up guidance](https://www.thomas-roehler.de/how-to-throw-the-javelin-the-run-up/): build controlled speed, stay upright with a steady carry and flow into the crossovers. Full-runway carry contacts now move progressively farther apart, with body travel distributed across support and flight so the thrower does not pause over each shoe. The compact club-map drills retain their short stride poses.
+
+The final withdrawal, impulse, block and delivery keep their approved relative poses and timing. The entire meet motion is placed two metres farther behind the arc to leave braking room. For context, [World Athletics' London 2017 men's report](https://worldathletics.org/download/download?filename=8540e126-0766-428e-8a04-fcedbf63b167.pdf&urlslug=Men%27s+javelin+throw+-+2017+IAAF+World+Championships+Biomechanical+report), printed page 13, measures approach speeds of 6.40–7.63 m/s at the start of the impulse. These are reference ranges, not exact reproductions of individual athletes.
+
+Recovery follows [Terseus Liebenberg, *Science and Practice of the Javelin Throw*](https://www.kuortane.com/uploads/1/1/6/4/116425015/terseus_liebenberg_science_and_practice_of_the_javelin_throw-content_s.pdf), printed page 103 (PDF page 117): fold forward, catch on a bent right leg, absorb momentum and regain balance before standing. The game now gives that recovery 1.2 s. The right shoe remains planted through the classic catch and balance; the bouncy finish adds a small second recovery hop. The composed finish holds the left block longer.
+
+The [Branko Paukovic footage](https://commons.wikimedia.org/wiki/File:Branko_Paukovic,_javelin_throw.webm) (Sdcsabac / Diagnostic Sports Center Šabac, 2014, CC BY-SA 4.0) was reviewed across its complete 2.13 s clip to inspect the last crossovers, forward fold and right-leg catch. [EuroGames Bern 2023 footage](https://commons.wikimedia.org/wiki/File:Javelin_Competition_EuroGames_Bern_2023.webm) (Hyruspex, CC BY-SA 4.0) supplies a wider approach view. No reference footage is included as a game asset.
+
 Every phase runs in real time at the meet's 1× speed, with durations taken from elite biomechanics. Ranges are approximate; reference values vary by athlete and study. Javelin now has enough time for a running approach: developed forms add 1.53, 1.96 and 2.3 seconds of carry strides, rather than squeezing a longer run into the old delivery window. Club-map practice keeps its compact runway drill at the original cadence. Before each throw the meet shows the next thrower for 0.7 s, then a 0.3 s ready settle. The technique window is trimmed for short forms (the three-step javelin, standing and half-turn discus, standing and glide shot), so they don't stand still to fill an event's full window. Every thrower starts moving within about 1.2 s of stepping up. Each throw records the thrower's form, and throws saved before that keep the full window.
 
 | Javelin | Game: three-step · full · crossover · elite | Real (approx.) |
@@ -99,7 +109,7 @@ Technique comes from form; the finish after release is the athlete's own, so two
 | Shot | Gliders reverse; rotational throwers let the turn run on to the back of the circle | Reverse with a hop on the right foot | No reverse: the finish held tall over the left leg |
 | Discus | Spinners reverse, let the turn run on low over the right leg, then turn back to watch the flight | Reverse with a hop on the right foot | No reverse: the arm wraps across over planted feet |
 | Hammer | Three quarters of a turn more, then plant | A turn and a quarter, or a hop back for standing finishes | No turn: plant and sit back |
-| Javelin | Fold over the block, reverse and stand | A second hop on the right foot after the reverse | Hold the fold over the block, then rise |
+| Javelin | Fold forward, catch on a bent right leg, absorb momentum, balance and rise | A small second recovery hop after the catch | Hold the left block longer, then regain balance |
 
 One finish is earned rather than chosen. After a big javelin throw (a personal best, a world record, taking the lead, or a best throw that holds it), a Natural Athlete with the elite approach does a Johannes Vetter-style flop. They carry over the blocked left leg instead of stepping through, dive with both legs off the runway, land flat on their hands behind the arc, then come up onto one knee pulling a fist down before standing for the reaction. Hands and shoes stay behind the arc, so the throw stays legal. `flopsForward` in `src/render/throw-motion.js` decides it, and the study page has a Flop toggle.
 

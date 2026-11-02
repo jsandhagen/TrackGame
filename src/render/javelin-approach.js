@@ -1,6 +1,8 @@
 // Meet approaches use the field's metre scale. Extra carry strides build speed before the
 // existing withdrawal, crossover, impulse and block. Compact club-map drills keep their layout.
 export const JAVELIN_RUNWAY_METRES = 30;
+// Leave room to absorb the run-up after release. The delivery's relative poses are unchanged.
+export const JAVELIN_RELEASE_BACK = 40;
 export const JAVELIN_APPROACH = [
   { start: -128, extraSteps: 0, stepMs: 0, stepPx: 0, at: [-84, -30] },
   { start: -370, extraSteps: 6, stepMs: 255, stepPx: 26, at: [-192, -166, -140, -114, -88, -62, -32] },

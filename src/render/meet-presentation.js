@@ -50,7 +50,7 @@ export function throwTiming(beat = {}, { compactApproach = false } = {}) {
     flightMs = Math.round(flightSeconds * 1000);
   return {
     readyMs: 300, releaseAt, releaseMs: event === "hammer" || event === "jav" ? 120 : 180,
-    recoveryMs: 900, flightMs, landAt: releaseAt + flightMs, distance,
+    recoveryMs: event === "jav" ? 1200 : 900, flightMs, landAt: releaseAt + flightMs, distance,
     arcHeight: 9.81 * flightSeconds * flightSeconds / 8 * METRE_PX,
   };
 }

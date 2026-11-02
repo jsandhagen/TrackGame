@@ -12,7 +12,7 @@ export const GROUND_SLOPE = 0;
 // Height change along that direction, in whole pixels (never -0).
 export const groundRise = dx => Math.round(-dx * GROUND_SLOPE) || 0;
 export const THROW_ORIGIN = { x: 96, y: 214 };
-const JAVELIN_ORIGIN = { x: 32 + JAVELIN_RUNWAY_METRES * METRE_PX, y: 214 };
+const JAVELIN_ORIGIN = { x: 96 + JAVELIN_RUNWAY_METRES * METRE_PX, y: 214 };
 
 // An oblique view of the ground plane. Angles and distances are measured on
 // that plane first; the same projection draws sectors, arcs and landing marks.
