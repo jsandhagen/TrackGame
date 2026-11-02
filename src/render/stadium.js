@@ -750,7 +750,10 @@ export function createStadium(cv) {
     cam = null,
     centre = null,
     camAt = 0,
-    camSize = "";
+    camSize = "",
+    camBeat = null,
+    camElapsed = 0,
+    camFast = false;
   const fireworks = [];
   function draw(s, now, view = {}) {
     const m = s.match;
@@ -1184,13 +1187,21 @@ export function createStadium(cv) {
     else if (thrown && el < 1e8) shot = throwShot("result", focus);
     else if (beat?.type === "decide" && focus.thrower) shot = { ...throwShot("thrower", { thrower: [O.x, O.y] }), cap: 2.1 };
     const target = shot.rect ? frameShot(shot.rect, view2, shot.cap) : clampCamera({ x: W / 2, y: H / 2, z: 1 }, view2),
-      // Only a new canvas size cuts the camera; the overlays changing height never does.
-      size = [cw, ch, W].join();
-    const dt = Math.min(100, Math.max(0, now - camAt)), cut = view.reduced || !cam || size !== camSize;
+      size = [cw, ch, W].join(),
+      newAttempt = beat !== camBeat || el < camElapsed,
+      onAthlete = beat?.type === "decide" || (thrown && tt < timing.releaseAt);
+    // A broadcast cuts from the completed distance reveal to the next athlete. Panning and
+    // zooming all the way back can outlast their delivery, especially after a long chase.
+    // Keep the flight, landing and full-span result continuous; fast playback stays wide.
+    const dt = Math.min(100, Math.max(0, now - camAt)),
+      cut = view.reduced || !cam || size !== camSize || fast !== camFast || (!fast && newAttempt && onAthlete);
     camAt = now;
     // Faster playback hurries the camera a little, never into a whip.
     cam = cut ? target : followCamera(cam, target, dt, shot.rate * Math.min(1.5, view.pace || 1), view2, shot.pan);
     camSize = size;
+    camBeat = beat;
+    camElapsed = el;
+    camFast = fast;
     // The space between the overlays sets the frame's centre; ease it when they resize.
     const middle = (insetTop + ch - insetBottom) / 2;
     centre = cut || centre == null ? middle : centre + (middle - centre) * (1 - Math.exp(-dt / 180));

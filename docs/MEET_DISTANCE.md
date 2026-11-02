@@ -8,6 +8,12 @@ At watch speed the camera opens over the thrower, makes room for the rising impl
 
 Fast and very fast retain a steady full-sector shot. Reduce motion cuts to a field overview during flight instead of panning. Existing speed multipliers and manual pause controls still apply.
 
+Once the distance reveal finishes, the next attempt cuts directly to the athlete on its first setup frame. Coaching decisions also cut back immediately, including another attempt by the same athlete. This gives every delivery its full time on screen instead of spending its wind-up travelling back from the sector. Flight tracking, the landing hold, the wide view of the complete measured distance and their reading time stay the same. Switching between watch and fast playback establishes the appropriate shot immediately; fast throws keep one steady full-sector view.
+
+This uses the separation between shots and continuous camera moves described in [Creating an Event-Driven Cinematic Camera](https://www.gamedeveloper.com/programming/creating-an-event-driven-cinematic-camera-part-two). [World Athletics' field-event broadcasting guidance](https://worldathletics.org/news/news/tv-coverage-of-major-athletics-events-field-e) likewise treats athlete preparation, the flight, measurement and reactions as distinct coverage beats, with distance lines visible to help viewers judge the throw.
+
 Run `npm run dev` and open `/scripts/meet-study.html` to inspect the production renderer. Choose an event and measured distance, scrub through release, apex, descent, landing and result, or compare playback speeds, fouls and reduced motion. The original throw study also gives the longer flights time to land.
 
 Geometry tests verify that metres retain their scale across events and viewport widths. Camera tests step through real flights at 16 ms intervals, checking that the implement and ground stay visible and that the result includes both ends of a 70 m throw. Timing tests cover longer airtime and arcs, short puts, foul flights and playback speeds. These checks supplement browser review in portrait and landscape.
+
+Renderer transition tests record the actual scene placement across consecutive attempts in portrait and landscape. They check the first setup frame after routine throws, highlights and fouls, coaching decisions, repeat attempts, speed changes and continuous movement during flight and the result pullback.
