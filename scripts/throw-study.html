@@ -42,8 +42,8 @@
     status = document.querySelector('#phase'),
     events = ['shot', 'discus', 'hammer', 'jav'],
     names = ['Shot put · Storl / Crouser', 'Discus · sprint turn / full throw', 'Hammer · Sedykh / Fajdek', 'Javelin · withdrawal / block'];
-  const timingOf = ev => throwTiming({event: ev, mark: {shot: 9, discus: 30, hammer: 35, jav: 35}[ev]});
-  const duration = Math.max(...events.map(ev => { const t=timingOf(ev); return Math.max(t.landAt,t.releaseAt+t.releaseMs+t.recoveryMs); })) + 400;
+  const timingOf = (ev, level) => throwTiming({event: ev, form: level, mark: {shot: 9, discus: 30, hammer: 35, jav: 35}[ev]});
+  const duration = Math.max(...events.flatMap(ev => [0,1,2,3].map(level => { const t=timingOf(ev,level); return Math.max(t.landAt,t.releaseAt+t.releaseMs+t.recoveryMs); }))) + 400;
   slider.max = duration;
   const requested = new URLSearchParams(location.search).get('focus');
   if ([...focus.options].some(o=>o.value===requested)) focus.value=requested;
@@ -53,8 +53,8 @@
   slider.oninput = () => { elapsed = Number(slider.value); paused = true; play.textContent = 'Play'; draw(elapsed); };
   foul.onchange = flop.onchange = style.onchange = focus.onchange = () => draw(elapsed);
 
-  function phaseAt(ev, t) {
-    return throwPhase(timingOf(ev), t);
+  function phaseAt(ev, level, t) {
+    return throwPhase(timingOf(ev, level), t);
   }
   function draw(t) {
     const comparing = focus.value !== 'all', ev = focus.value.startsWith('jav') ? 'jav' : 'discus';
@@ -67,16 +67,19 @@
     cells.forEach(({ev,level,col,row}) => {
         const width = comparing ? 540 : 270, height = comparing ? 400 : 160;
         const left = col * width, top = row * height, scale = comparing ? 4 : 2, factor = scale / 2;
-        const ox = left + (comparing ? 360 : 164), oy = top + (comparing ? 282 : 124),
-          [phase, p] = phaseAt(ev, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked, style: Number(style.value), flop: flop.checked && ev === 'jav' && level === 3 }),
+        const [phase, p] = phaseAt(ev, level, t), m = throwMotion(ev, level, phase, p, { foul: foul.checked, style: Number(style.value), flop: flop.checked && ev === 'jav' && level === 3 }),
+          pan = ev === 'jav' ? Math.min(0, m.dx + 96) * factor : 0,
+          ox = left + (comparing ? 360 : 164) - pan, oy = top + (comparing ? 282 : 124),
           pose = m.pose || (m.run ? 'carry' : 'throw'), x = ox + m.dx * factor, y = oy + m.dy * factor;
+        g.save(); g.beginPath(); g.rect(left + 2, top + 2, width - 4, height - 4); g.clip();
         g.fillStyle = col % 2 ? '#293e32' : '#304635';
         g.fillRect(left + 2, top + 2, width - 4, height - 4);
         g.fillStyle = '#f4ecda'; g.font = `${comparing ? 19 : 12}px system-ui`;
         g.fillText(names[events.indexOf(ev)], left + 12, top + (comparing ? 34 : 22));
         g.fillStyle = '#efc76a'; g.fillText(`${level} · ${FORMS[ev][level]}`, left + 12, top + (comparing ? 64 : 40));
         if (ev === 'jav') {
-          line(g, left + 16, oy + (ox-left-16)*.1, ox + 20, oy - 2, '#b79a73');
+          line(g, ox - 600*factor, oy, ox + 20, oy, '#b79a73');
+          for (let d=0;d<=600;d+=100) line(g, ox-d*factor, oy-3*factor, ox-d*factor, oy+3*factor, '#97ac83');
           line(g, ox, oy - 8, ox, oy + 8, '#f4ecda', 2);
         } else ellipse(g, ox - 5*factor, oy + 2*factor, 37*factor, 10*factor, '#9da291');
         shadow(g, x, y + 1, 10*factor);
@@ -90,7 +93,7 @@
           shirt: comparing ? '#4d9e86' : ['#4d9e86', '#d17b66', '#719bc0', '#ba8cbd'][level], collar: '#efc76a',
           look: { skin: '#d8a47e', hair: '#47352d', style: comparing ? 0 : level } }, x, y, scale);
         if (m.ball && !m.ball.behind) chain();
-        const timing = timingOf(ev);
+        const timing = timingOf(ev, level);
         if (t >= timing.releaseAt) {
           const [rx, ry] = throwReleasePoint(ev, level), q = Math.min(1, (t - timing.releaseAt) / timing.flightMs),
             [bx,by] = flightPoint([ox+rx*factor,oy+ry*factor],[left+width-24,oy-8],q,timing.arcHeight*factor);
@@ -103,6 +106,7 @@
           const cue = ev === 'shot' ? 'Wind → sweep → right-left catch → put from the neck' : ev === 'discus' ? level === 1 ? 'Facing sector → right-foot drive → turn → delivery' : 'Rear wind → sweep → right-foot catch → delivery' : level === 0 ? 'Already withdrawn → three steps → block' : level === 1 ? 'Carry run → withdrawal → crossovers → block' : level === 2 ? 'Earlier withdrawal → impulse stride → block' : 'Earlier withdrawal → long low impulse → block';
           g.fillText(cue,left+12,top+height-18);
         }
+        g.restore();
     });
     status.value = `${(t / 1000).toFixed(2)} s`;
   }

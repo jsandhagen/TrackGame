@@ -21,6 +21,7 @@
   <button id="next">Next athlete</button>
   <label>Event <select id="event"><option value="shot">Shot put</option><option value="discus">Discus</option><option value="hammer">Hammer</option><option value="jav" selected>Javelin</option></select></label>
   <label>Mark <input id="mark" type="number" min="1" max="110" step="1" value="70"> m</label>
+  <label>Form <select id="form"><option value="">Athlete's own</option><option value="0">Beginner</option><option value="1">Developing</option><option value="2">Advanced</option><option value="3">Elite</option></select></label>
   <label>Speed <select id="pace"><option value="1">1×</option><option value="2">2×</option><option value="3">8×</option></select></label>
   <label><input id="reduced" type="checkbox"> Reduce motion</label>
   <label><input id="foul" type="checkbox"> Foul</label>
@@ -35,13 +36,14 @@
   import { throwTiming, throwOffset, beatDuration } from '../src/render/meet-presentation.js';
   import { playbackRate } from '../src/platform/pacing.js';
   const cv=document.querySelector('#meet'), ev=document.querySelector('#event'), mark=document.querySelector('#mark'),
-    pace=document.querySelector('#pace'), reduced=document.querySelector('#reduced'), foul=document.querySelector('#foul'),
+    pace=document.querySelector('#pace'), reduced=document.querySelector('#reduced'), foul=document.querySelector('#foul'), form=document.querySelector('#form'),
     time=document.querySelector('#time'), play=document.querySelector('#play'), status=document.querySelector('#status');
   let s, beat, renderer, elapsed=0, paused=false, last=performance.now();
   function showBeat(next) {
     beat=next;ev.value=beat.event;
     const i=beat.eventIndex,distance=Math.max(1,Math.min(110,Number(mark.value)||70));
     Object.assign(beat,{mark:foul.checked?null:distance,flightDistance:distance,foul:foul.checked,ownBest:foul.checked?null:distance,place:foul.checked?null:1,newPb:false,worldRecord:false,tookLead:false,scoringSwing:0,activations:[]});
+    if(form.value!=='')beat.form=Number(form.value);
     const entry=s.match.fields[i][beat.side].find(e=>e.id===beat.athleteId);
     entry.marks[beat.attempt]=beat.mark;
     s.match[beat.side==='home'?'homeMarks':'awayMarks'][i]=entry.marks;
@@ -75,7 +77,7 @@
     draw(0);
   };
   document.querySelector('#next').onclick=window.nextMeetStudy;
-  for(const control of [ev,mark,pace,reduced,foul])control.onchange=()=>{reset();draw(0);};
+  for(const control of [ev,mark,pace,reduced,foul,form])control.onchange=()=>{reset();draw(0);};
   time.oninput=()=>window.seekMeetStudy(Number(time.value));
   play.onclick=()=>{paused=!paused;play.textContent=paused?'Play':'Pause';};
   reset();

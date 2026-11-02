@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { throwMotion, throwReleasePoint, recoveryStyle } from '../src/render/throw-motion.js';
 import { throwTiming } from '../src/render/meet-presentation.js';
-import { groundRise } from '../src/render/meet-geometry.js';
+import { groundRise, throwingSector, METRE_PX } from '../src/render/meet-geometry.js';
 import { frontFootOf, feetOf, armJointsOf, gripOf, implementPointOf, THROW_FRAME_COUNTS, SHOT_ROTATION_START } from '../src/render/sprites.js';
 
 const phases = ['ready', 'technique', 'release', 'follow'];
@@ -17,7 +17,7 @@ test('every event and form level produces valid frames and stays near the circle
     for (const m of sample(ev, level, phase)) {
       assert(Number.isInteger(m.frame) && m.frame >= 0 && m.frame < THROW_FRAME_COUNTS[ev], `${ev}/${level}/${phase} frame ${m.frame}`);
       assert(Number.isFinite(m.dx) && Number.isFinite(m.dy));
-      if (ev === 'jav') assert(m.dx >= -96 && m.dx <= 12); else assert(Math.abs(m.dx) <= 30, `${ev} leaves the circle: ${m.dx}`);
+      if (ev === 'jav') assert(m.dx >= -600 && m.dx <= 12); else assert(Math.abs(m.dx) <= 30, `${ev} leaves the circle: ${m.dx}`);
     }
 });
 
@@ -145,6 +145,19 @@ test('javelin three-step and full approaches have different starts, travel and f
  }
 });
 
+test('meet javelin approaches cover a runway at metre scale, while club drills stay compact', () => {
+ for (let level = 0; level < 4; level++) {
+  const start = throwMotion('jav', level, 'ready', 0), release = throwMotion('jav', level, 'release', 0);
+  const metres = (release.dx - start.dx) / METRE_PX;
+  const [min, max] = [[5,6], [16,18], [20,23], [25,27]][level];
+  assert(metres >= min && metres <= max, `${level}: ${metres} m approach`);
+  const runway = throwingSector('jav', 480, 100);
+  assert(runway.origin.x + start.dx >= 70, 'room behind the athlete for the whole carried javelin');
+  const compact = throwMotion('jav', level, 'ready', 0, { compactApproach: true });
+  assert(compact.dx >= -96, 'practice fits the club runway');
+ }
+});
+
 test('the hammer ball swings round and passes behind the thrower; fouls carry over the front', () => {
   const balls = sample('hammer', 2, 'technique', 200).map((m) => m.ball);
   assert(balls.every(Boolean)); assert(balls.some((b) => b.behind) && balls.some((b) => !b.behind));
@@ -196,9 +209,10 @@ test('contact timing joins preparation, delivery and recovery without body jumps
       const a = throwMotion(ev, level, phases[i], 1), b = throwMotion(ev, level, phases[i + 1], 0);
       assert(Math.abs(a.dx - b.dx) < 0.01 && Math.abs(a.dy - b.dy) < 0.01, `${ev}/${level}: ${phases[i]} jumps to ${phases[i + 1]}`);
     }
-    const technique = sample(ev, level, 'technique', 1000);
+    const timing = throwTiming({ event: ev, form: level });
+    const technique = sample(ev, level, 'technique', timing.releaseAt - timing.readyMs);
     for (let i = 1; i < technique.length; i++)
-      assert(Math.abs(technique[i].dx - technique[i - 1].dx) < 1, `${ev}/${level}: body teleports during approach`);
+      assert(Math.abs(technique[i].dx - technique[i - 1].dx) < 1, `${ev}/${level}: body teleports within one millisecond`);
   }
 });
 
@@ -417,10 +431,10 @@ test('an athlete keeps one recovery style, led by their background', () => {
 test('the club map loops the meet throw: same frames, a release, then a rest before the next', async () => {
  const { throwLoop, throwLoopPhases, throwLoopMs } = await import('../src/render/throw-motion.js');
  for (const ev of ['shot', 'discus', 'hammer', 'jav']) for (let level = 0; level < 4; level++) {
-  const THROW_LOOP = throwLoopPhases(ev, level), total = throwLoopMs(ev, level), meet = throwTiming({ event: ev, form: level });
-  assert.equal(THROW_LOOP.technique, meet.releaseAt - meet.readyMs, `${ev}: practice runs the technique at meet speed`);
+  const THROW_LOOP = throwLoopPhases(ev, level), total = throwLoopMs(ev, level), meet = throwTiming({ event: ev, form: level }, { compactApproach: true });
+  assert.equal(THROW_LOOP.technique, meet.releaseAt - meet.readyMs, `${ev}: practice keeps the compact drill's stride timing`);
   const at = (t) => throwLoop(ev, level, t, { style: 1 });
-  assert.deepEqual(at(THROW_LOOP.ready + THROW_LOOP.technique / 2).frame, throwMotion(ev, level, 'technique', 0.5).frame, `${ev}/${level}: technique matches the meet`);
+  assert.deepEqual(at(THROW_LOOP.ready + THROW_LOOP.technique / 2).frame, throwMotion(ev, level, 'technique', 0.5, { compactApproach: true }).frame, `${ev}/${level}: technique matches the compact drill`);
   assert(at(THROW_LOOP.ready + THROW_LOOP.technique + 1).released, 'released after the technique');
   assert(at(THROW_LOOP.ready + THROW_LOOP.technique - 1).sinceRelease < 0 && at(THROW_LOOP.ready + THROW_LOOP.technique + 10).sinceRelease > 0);
   assert.equal(at(total - 1).frame, throwMotion(ev, level, 'follow', 1, { style: 1 }).frame, 'rests in the finish');
@@ -461,7 +475,7 @@ test('javelin rhythm: even strides, the longest penultimate, a quick block step 
   assert(final < 0.6 * penultimate, `${level}: the block step is quick`);
   assert(ms - block[0] <= 155, `${level}: block to release in ${ms - block[0]} ms`);
   assert(last[1] === 0, 'the penultimate leaves from the left foot');
-  if (level) assert(landings.length >= 8, `${level}: carry run, withdrawal and crossovers`);
+  if (level) assert(landings.length >= [0,14,16,18][level], `${level}: a full carry run before withdrawal and crossovers`);
  }
 });
 

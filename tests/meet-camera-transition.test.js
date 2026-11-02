@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { EVENT_IDS } from '../src/game-content.js';
 import { createStadium } from '../src/render/stadium.js';
-import { beatDuration, throwOffset, throwTiming, LANDING_HOLD_MS } from '../src/render/meet-presentation.js';
-import { meetCamera } from '../src/render/meet-geometry.js';
+import { beatDuration, throwOffset, throwTiming, throwPhase, LANDING_HOLD_MS } from '../src/render/meet-presentation.js';
+import { meetCamera, throwingSector } from '../src/render/meet-geometry.js';
+import { throwMotion } from '../src/render/throw-motion.js';
 
 // Record the production renderer's scene placement without rasterizing its pixel art.
 class RecordingCanvas {
@@ -136,6 +137,31 @@ test('the production shot put camera opens close, tracks the put, then zooms out
         camera.draw(s, at, { beat, elapsed: at, pace: 1 });
       }
       assert(camera.scale() < landingScale * 0.9, `${mark} m/${width}: zoom out after the landing hold`);
+    }
+  }
+});
+
+test('the camera follows the whole javelin run-up and fast or reduced views include the runway', t => {
+  mockCanvas(t);
+  const origin = throwingSector('jav', 480, 110).origin;
+  for (const [width, height] of [[640, 360], [480, 645]]) for (const form of [0, 1, 2, 3]) {
+    for (const view of [{ pace: 1 }, { pace: 2 }, { pace: 8 }, { pace: 1, reduced: true }]) {
+      const { s, beat } = fixture('jav', 80, { form }), camera = renderer(width, height);
+      const timing = throwTiming(beat), end = throwOffset(beat) + timing.releaseAt;
+      const setup = camera.draw(s, 0, { ...view, beat, elapsed: 0 });
+      let last = setup;
+      for (let at = 50; at < end; at += 50) {
+        last = camera.draw(s, at, { ...view, beat, elapsed: at });
+        const motion = throwMotion('jav', form, ...throwPhase(timing, at - throwOffset(beat)));
+        const x = last[0] + (origin.x + motion.dx) * camera.scale();
+        assert(x - 54 * camera.scale() >= -1 && x + 40 * camera.scale() <= width + 1,
+          `form ${form}/${width}/${view.pace}/${!!view.reduced}: the athlete and carried javelin stay in view at ${at} ms`);
+        if (view.pace > 1 || view.reduced) assert.deepEqual(last, setup, 'the approach overview stays still');
+      }
+      if (form > 0 && view.pace === 1 && !view.reduced) {
+        assert(last[0] < setup[0] - 200 * camera.scale(), 'the camera travels down the runway with the athlete');
+        assert(camera.scale() / meetCamera(width, height).scale > 2, 'the run-up keeps an athlete close-up');
+      }
     }
   }
 });
