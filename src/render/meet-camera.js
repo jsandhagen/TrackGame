@@ -43,6 +43,22 @@ export function followCamera(cam, target, dt, rate, view, pan = MAX_PAN_RATE) {
   return clampCamera({ x: cam.x + dx, y: cam.y + dy, z }, view);
 }
 
+// Cut to each athlete as their preparation starts. Following the implement and reading the
+// result still ease normally; returning across the field never eats into the next delivery.
+export function createBroadcastCamera() {
+  let camera = null, lastAt = 0, lastSize = null, lastPreparation = null, lastFast = false;
+  return (target, view, { now, size, shot, pace = 1, reduced = false, preparation = null }) => {
+    const dt = Math.min(100, Math.max(0, now - lastAt)), fast = pace >= 2,
+      cut = reduced || !camera || size !== lastSize || fast !== lastFast || (preparation != null && preparation !== lastPreparation);
+    camera = cut ? target : followCamera(camera, target, dt, shot.rate * Math.min(1.5, pace), view, shot.pan);
+    lastAt = now;
+    lastSize = size;
+    lastPreparation = preparation;
+    lastFast = fast;
+    return { camera, cut, dt };
+  };
+}
+
 // Which shot each moment of a throw deserves.
 //  - Before release: tight on the thrower, with room in front of them.
 //  - In flight: from the circle out past the implement and its shadow.
@@ -53,13 +69,9 @@ export function followCamera(cam, target, dt, rate, view, pan = MAX_PAN_RATE) {
 // Short flights widen from the thrower shot to include the mark. Long flights transition to
 // a chase, hold on the landing, then pull back to show the circle, mark and lead line together.
 //
-// f.expect, when set, is where the throw should land (the shot put's short flight): every shot
-// of that throw reaches out to it, so the athlete and the landing area share the frame from the
-// start rather than the camera opening tight on the thrower.
-const SPACE = { back: 80, ahead: 96, above: 104, below: 40, lead: 86, expect: 40 };
-const ahead = (x, expect) => Math.max(x + SPACE.ahead, expect != null ? expect + SPACE.expect : -Infinity);
-const reach = (origin, x, y, upperAt, ground = origin[1], expect) => [origin[0] - SPACE.back, Math.min(origin[1] - SPACE.above, y - 30, upperAt ? upperAt(x) - 24 : Infinity), Math.max(ahead(origin[0], expect), x + SPACE.lead), Math.max(origin[1] + SPACE.below, ground + SPACE.below)];
-// f.chase (discus, hammer, javelin): once the flight outgrows CHASE_WIDTH the camera stops pulling
+const SPACE = { back: 80, ahead: 96, above: 104, below: 40, lead: 86 };
+const reach = (origin, x, y, upperAt, ground = origin[1]) => [origin[0] - SPACE.back, Math.min(origin[1] - SPACE.above, y - 30, upperAt ? upperAt(x) - 24 : Infinity), Math.max(origin[0] + SPACE.ahead, x + SPACE.lead), Math.max(origin[1] + SPACE.below, ground + SPACE.below)];
+// f.chase (all events at watch speed): once the flight outgrows CHASE_WIDTH the camera stops pulling
 // back to keep the circle and runs with the implement instead, so a long throw carries the eye
 // down the sector, past the distance lines, and lands well away from the circle. The landing
 // holds that frame on the mark; the result then pulls back to show how far it went.
@@ -69,18 +81,18 @@ const chase = (rect, f) => (f.chase && rect[2] - rect[0] > CHASE_WIDTH ? [rect[2
 export function throwShot(phase, f) {
   if (phase === "thrower") {
     const [x, y] = f.thrower;
-    return { rect: [x - SPACE.back, Math.min(y - SPACE.above, f.anticipate ? f.anticipate[1] - 30 : Infinity), ahead(x, f.expect), y + SPACE.below], rate: 4 };
+    return { rect: [x - SPACE.back, Math.min(y - SPACE.above, f.anticipate ? f.anticipate[1] - 30 : Infinity), x + SPACE.ahead, y + SPACE.below], rate: 4 };
   }
   if (phase === "flight") {
     const [ix, iy] = f.implement, [gx, gy] = f.ground, [ax, ay] = f.anticipate || f.implement;
     // Lead the rising implement a fraction of a second, so easing never leaves it above or
     // ahead of the camera. The measured landing stays concealed until impact.
-    return { rect: chase(reach(f.origin, Math.max(ix, gx, ax), Math.min(iy, ay), f.upperAt, gy, f.expect), f), rate: 6, pan: f.chase ? 2 : undefined };
+    return { rect: chase(reach(f.origin, Math.max(ix, gx, ax), Math.min(iy, ay), f.upperAt, gy), f), rate: 6, pan: f.chase ? 2 : undefined };
   }
-  if (phase === "landing") return { rect: chase(reach(f.origin, f.landing[0], f.landing[1], f.upperAt, f.landing[1], f.expect), f), rate: 4 };
+  if (phase === "landing") return { rect: chase(reach(f.origin, f.landing[0], f.landing[1], f.upperAt, f.landing[1]), f), rate: 4 };
   if (phase === "result") {
     const far = Math.max(f.landing?.[0] ?? f.origin[0], f.lead ?? f.origin[0]);
-    return { rect: reach(f.origin, far, f.landing?.[1] ?? f.origin[1], f.upperAt, f.landing?.[1], f.expect), rate: 2.5 };
+    return { rect: reach(f.origin, far, f.landing?.[1] ?? f.origin[1], f.upperAt, f.landing?.[1]), rate: 2.5 };
   }
   return { rect: null, rate: 3 };
 }

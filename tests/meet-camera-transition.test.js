@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { EVENT_IDS } from '../src/game-content.js';
 import { createStadium } from '../src/render/stadium.js';
-import { beatDuration, throwOffset, throwTiming } from '../src/render/meet-presentation.js';
+import { beatDuration, throwOffset, throwTiming, LANDING_HOLD_MS } from '../src/render/meet-presentation.js';
+import { meetCamera } from '../src/render/meet-geometry.js';
 
 // Record the production renderer's scene placement without rasterizing its pixel art.
 class RecordingCanvas {
@@ -45,6 +46,10 @@ function renderer(width, height) {
       canvas.images.length = 0;
       stadium.draw(s, now, view);
       return canvas.scene();
+    },
+    scale() {
+      const scene = canvas.images.at(-2);
+      return scene.placement[2] / scene.source.width;
     },
   };
 }
@@ -110,4 +115,27 @@ test('live flight and result pullback retain their eased movement within an atte
   const result = camera.draw(s, 10032, { beat, elapsed: beatDuration(beat) - 1, pace: 1 });
   const resultTarget = renderer(640, 360).draw(s, 10032, { beat, elapsed: beatDuration(beat) - 1, pace: 1 });
   assert.notDeepEqual(result, resultTarget, 'the full-distance result still pulls back');
+});
+
+test('the production shot put camera opens close, tracks the put, then zooms out for the result', t => {
+  mockCanvas(t);
+  for (const [width, height] of [[640, 360], [480, 645]]) {
+    for (const mark of [9, 23]) {
+      const { s, beat } = fixture('shot', mark), camera = renderer(width, height);
+      const setup = camera.draw(s, 0, { beat, elapsed: 0, pace: 1 });
+      assert(camera.scale() / meetCamera(width, height).scale >= 2.4,
+        `${mark} m/${width}: preparation must zoom in on the athlete`);
+      const timing = throwTiming(beat), landingAt = throwOffset(beat) + timing.landAt + LANDING_HOLD_MS - 1;
+      let landing;
+      for (let at = 50; at <= landingAt; at += 50) {
+        landing = camera.draw(s, at, { beat, elapsed: at, pace: 1 });
+      }
+      assert(landing[0] < setup[0] - 5, `${mark} m/${width}: the camera pans downfield with the put`);
+      const landingScale = camera.scale();
+      for (let at = landingAt + 50; at < beatDuration(beat); at += 50) {
+        camera.draw(s, at, { beat, elapsed: at, pace: 1 });
+      }
+      assert(camera.scale() < landingScale * 0.9, `${mark} m/${width}: zoom out after the landing hold`);
+    }
+  }
 });
