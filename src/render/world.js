@@ -29,7 +29,7 @@ function practice(ev, level, style, t, west) {
     toMap = (m) => ({ ox: (dir * m.dx) / 2, oy: (m.dy - (ev === "jav" ? Math.round(-m.dx * 0.1) : 0)) / 2 }),
     [rx, ry] = throwReleasePoint(ev, level),
     from = [(dir * rx) / 2, ry / 2],
-    start = toMap(throwMotion(ev, level, "ready", 0)).ox,
+    start = toMap(throwMotion(ev, level, "ready", 0, { compactApproach: true })).ox,
     end = toMap(throwMotion(ev, level, "follow", 1, { style })).ox,
     throws = FETCH_AFTER[ev],
     landing = (k) => [from[0] + dir * REACH[ev] * (0.85 + 0.25 * hash(k * 13 + level)), (hash(k * 7 + 3) - 0.5) * 6],
@@ -425,7 +425,7 @@ function targetFor(s, a, index, now, activity, counts) {
       west = ev === "hammer" || ev === "jav";
     const off = [[0, 2], [14, 12], [-14, 12], [22, 4]][n % 4];
     if (!built) return { x: sp.x + (west ? -off[0] : off[0]), y: sp.y + off[1], pose: "drill", event: ev, frame: Math.floor(now / 420 + index) % 4, flip: west };
-    // The same throw as at a meet, at the athlete's form and with their own finish.
+    // The athlete's technique and finish, with a compact approach for the club runway.
     const level = formOf(a, ev),
       style = recoveryStyle(a);
     if (ev === "jav") {

@@ -1,3 +1,5 @@
+import { JAVELIN_RUNWAY_METRES } from "./javelin-approach.js";
+
 export const SCENE_HEIGHT = 360;
 // The ring and people already use roughly this scale. Keep metres at that scale too:
 // a long sector extends beyond the screen instead of shrinking to fit the current field.
@@ -10,7 +12,7 @@ export const GROUND_SLOPE = 0;
 // Height change along that direction, in whole pixels (never -0).
 export const groundRise = dx => Math.round(-dx * GROUND_SLOPE) || 0;
 export const THROW_ORIGIN = { x: 96, y: 214 };
-const JAVELIN_ORIGIN = { x: 128, y: 214 }; // room for the withdrawn run and long penultimate
+const JAVELIN_ORIGIN = { x: 32 + JAVELIN_RUNWAY_METRES * METRE_PX, y: 214 };
 
 // An oblique view of the ground plane. Angles and distances are measured on
 // that plane first; the same projection draws sectors, arcs and landing marks.
