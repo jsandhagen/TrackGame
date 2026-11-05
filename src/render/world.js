@@ -1,12 +1,13 @@
 import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
-import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
+import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, CROSSINGS, FURNITURE, drawRoadMarkings, drawLoadingBay, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
 import { MAP_W, MAP_H, LOTS, LOT_W, STREETS, LOWER_LOT_TOP, streetOf, baseOf, front, parcelBounds, PARKING, POCKET_PARK, BUS_BAY, BUS_STOP } from "./campus-layout.js";
 export { MAP_W, MAP_H, LOTS } from "./campus-layout.js";
 import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
 import { throwLoop, throwLoopMs, throwMotion, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
-import { lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
+import { lockedPlot, emptyPlot, tree, pine, bush, bench, box, TREE_KINDS } from "./buildings.js";
+import { vehicle, vehicleLength, CAR_COLOURS } from "./vehicles.js";
 import { facilityModel, drawFacilityGround, drawFacilityStructure } from "./facility-scene.js";
 import { surface } from "./terrain.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
@@ -165,23 +166,51 @@ function vpaving(g, x, y, w, h, season) {
   rect(g, x, y, 1, h, shade(c, 0.25));
   rect(g, x + w - 1, y, 1, h, shade(c, -0.22));
 }
-function carPark(g, x, y, w, h, seed) {
+// A car park laid out like one: a two-way aisle down the middle from the entrance, bays either
+// side with wheel stops, an accessible bay by the entrance, arrows on the aisle, and in the
+// larger park a planted island with a tree and a light. Parked cars face the aisle and vary in
+// type and colour, with some bays left empty.
+export const LOT_LIGHTS = [];
+function carPark(g, x, y, w, h, seed, season, items) {
+  const A = 18, bay = Math.floor((w - A) / 2), ax = x + bay, pitch = 12, rows = Math.floor(h / pitch), big = rows >= 4;
   rect(g, x - 1, y - 1, w + 2, h + 2, "#b8b4a8");
-  rect(g, x, y, w, h, "#86888a");
-  for (let i = 0; i <= h; i += 16) rect(g, x, y + i, Math.floor(w / 2) - 2, 1, "#e8e4d8"), rect(g, x + Math.ceil(w / 2) + 2, y + i, Math.floor(w / 2) - 2, 1, "#e8e4d8");
-  const cols = ["#c84a40", "#4a7ac0", "#e8e4d8", "#5a9a5a", "#e8b040", "#7a7a80"];
-  for (let i = 0; i < Math.floor(h / 16); i++)
-    for (const side of [0, 1]) if (hash(seed + i * 2 + side) < 0.7) car(g, x + 3 + side * (Math.ceil(w / 2) + 1), y + 4 + i * 16, cols[Math.floor(hash(seed + i * 5 + side * 3) * cols.length)]);
-}
-function car(g, x, y, c) {
-  rect(g, x + 1, y + 8, 22, 2, "rgba(20,24,20,0.25)");
-  rect(g, x, y + 1, 22, 8, shade(c, -0.25));
-  rect(g, x, y, 22, 7, c);
-  rect(g, x + 5, y - 3, 12, 4, shade(c, 0.15));
-  rect(g, x + 6, y - 2, 4, 2, "#9cc8d8");
-  rect(g, x + 12, y - 2, 4, 2, "#9cc8d8");
-  rect(g, x + 2, y + 7, 3, 2, "#2a2a2a");
-  rect(g, x + 17, y + 7, 3, 2, "#2a2a2a");
+  rect(g, x, y, w, h, "#808486");
+  for (let k = 0; k < (w * h) / 120; k++) rect(g, x + 2 + hash(seed + k * 3) * (w - 6), y + 2 + hash(seed + k * 7) * (h - 4), 2, 1, k % 3 ? "#767a7c" : "#8a8e90");
+  rect(g, ax, y, A, h, "#86898b");
+  // Aisle arrows: in on the left, out on the right.
+  const arrow = (cx, cy, up) => { rect(g, cx, cy - 3, 1, 7, "#e8e4d8"); const t = up ? cy - 3 : cy + 3, d = up ? 1 : -1; px(g, cx - 1, t + d, "#e8e4d8"); px(g, cx + 1, t + d, "#e8e4d8"); px(g, cx - 2, t + 2 * d, "#e8e4d8"); px(g, cx + 2, t + 2 * d, "#e8e4d8"); };
+  arrow(ax + 5, y + Math.round(h / 2), false); arrow(ax + A - 6, y + Math.round(h / 2), true);
+  const island = big ? rows - 1 : -1;
+  for (const side of [0, 1]) {
+    const bx = side ? ax + A : x;
+    for (let k = 0; k <= rows; k++) rect(g, bx, y + k * pitch, bay, 1, "#e8e4d8");
+    for (let k = 0; k < rows; k++) {
+      const by = y + k * pitch + 1;
+      if (side === 1 && k === island) {
+        // A kerbed planting island with a tree and a lamp.
+        rect(g, bx + 1, by, bay - 2, pitch - 1, "#b8b4a8"); rect(g, bx + 2, by + 1, bay - 4, pitch - 3, ["#86b860", "#6ea850", "#a8a052", "#dfe6e0"][season]);
+        const tx = bx + Math.round(bay / 2) + 4, ty = by + pitch - 3;
+        items.push({ y: ty, draw: (g2) => tree(g2, tx, ty, .55, season, seed + 5, "round") });
+        const lx = bx + 5, ly = by + pitch - 3;
+        LOT_LIGHTS.push([lx, ly]);
+        items.push({ y: ly, draw: (g2) => { rect(g2, lx, ly - 18, 1, 18, "#5a6266"); rect(g2, lx - 2, ly - 19, 5, 2, "#4a5054"); rect(g2, lx - 1, ly - 17, 3, 1, "#fff0b0"); } });
+        continue;
+      }
+      // Wheel stops at the outer end of each bay.
+      rect(g, side ? bx + bay - 4 : bx + 2, by + 3, 2, pitch - 6, "#c8c4b8");
+      if (side === 0 && k === 0) {
+        rect(g, bx + 1, by, bay - 1, pitch - 1, "#3a6ab0");
+        const cx = bx + Math.round(bay / 2), cy = by + 5;
+        px(g, cx, cy - 3, "#f4f4f0"); rect(g, cx, cy - 1, 1, 3, "#f4f4f0"); rect(g, cx, cy + 1, 3, 1, "#f4f4f0"); rect(g, cx - 2, cy, 1, 3, "#f4f4f0"); rect(g, cx - 1, cy + 3, 2, 1, "#f4f4f0");
+        continue;
+      }
+      if (hash(seed + k * 2 + side) > 0.68) continue;
+      const kinds = ["sedan", "hatch", "suv", "pickup", "van"].filter((v) => vehicleLength(v) <= bay - 4),
+        kind = kinds[Math.floor(hash(seed + k * 5 + side * 3) * kinds.length)], L = vehicleLength(kind);
+      const vx = side ? bx + bay - 3 - L : bx + 3;
+      items.push({ y: by + pitch - 2, draw: (g2) => vehicle(g2, kind, vx, by + pitch - 2, CAR_COLOURS[Math.floor(hash(seed + k * 9 + side) * CAR_COLOURS.length)], side ? -1 : 1) });
+    }
+  }
 }
 function bus(g, x, y, colors) {
   rect(g, x + 2, y + 2, 34, 3, "rgba(20,24,20,0.25)");
@@ -230,9 +259,16 @@ function practiceField(g, x, y, w, h, season) {
   g.fillRect(x + 4, y + h - 5, w - 8, 1);
   g.fillRect(x + 4, y + 4, 1, h - 8);
   g.fillRect(x + w - 5, y + 4, 1, h - 8);
-  // A practice throwing circle with its net, and a row of hurdles.
-  ellipse(g, x + 24, y + h / 2, 6, 3, "#c8c0b0");
-  ellipse(g, x + 24, y + h / 2, 4, 2, "#8a8a84");
+  // A practice throwing circle with its sector fanning down the field and distance flags.
+  const cx = x + 24, cy = y + h / 2;
+  for (const s of [-1, 1]) line(g, cx + 6, cy + s * 2, x + 220, cy + s * 30, c);
+  for (const [d, col] of [[80, "#e8c04a"], [140, "#e86a4a"], [196, "#4a8ac8"]]) {
+    const fx = cx + d, half = Math.round(2 + (d / 196) * 28);
+    for (let k = -half; k <= half; k += 3) px(g, fx + Math.round(Math.abs(k) * .05), cy + k, c);
+    rect(g, fx, cy - half - 6, 1, 6, "#6a6e72"); rect(g, fx + 1, cy - half - 6, 3, 2, col);
+  }
+  ellipse(g, cx, cy, 6, 3, "#c8c0b0");
+  ellipse(g, cx, cy, 4, 2, "#8a8a84");
   for (let i = 0; i < 4; i++) {
     rect(g, x + w - 70 + i * 14, y + h - 16, 9, 1, "#f4f0e0");
     rect(g, x + w - 70 + i * 14, y + h - 15, 1, 3, "#3a3e46");
@@ -245,9 +281,11 @@ function grove(items, x0, y0, x1, y1, n, seed, season, avoid = [], pines = 0.3) 
     const x = Math.round(x0 + hash(seed + i * 3) * (x1 - x0)),
       y = Math.round(y0 + hash(seed + i * 7 + 1) * (y1 - y0));
     if (avoid.some(([ax, ay, aw, ah]) => x > ax - 8 && x < ax + aw + 8 && y > ay && y < ay + ah + 24)) continue;
-    const sc = 0.75 + hash(seed + i * 11) * 0.5,
-      isPine = hash(seed + i * 13) < pines;
-    items.push({ y, draw: (g) => (isPine ? pine(g, x, y, sc, season) : tree(g, x, y, sc, season, seed + i)) });
+    // Mixed silhouettes and sizes from one family, never a field of identical blobs.
+    const sc = 0.7 + hash(seed + i * 11) * 0.55,
+      isPine = hash(seed + i * 13) < pines,
+      kind = ["round", "round", "wide", "column", "flower"][Math.floor(hash(seed + i * 17) * 5)];
+    items.push({ y, draw: (g) => (isPine ? pine(g, x, y, sc, season) : tree(g, x, y, kind === "wide" ? sc * .85 : sc, season, seed + i, kind)) });
   }
 }
 
@@ -300,11 +338,14 @@ function baseWorld(s) {
   paving(g, 0, BLVD - 6, MAP_W, 13, season);
   paving(g, 0, 530, MAP_W, 13, season);
   // Preserve the crossings wherever these walks meet the Avenue and approach.
-  for(const [cx,cy,width] of [[562,250,20],[562,394,20],[562,500,20],[280,536,24],[280,BLVD,24],[976,250,20],[976,500,20],[976,BLVD,20]]) {
+  for(const [cx,cy,,width] of CROSSINGS.filter(c=>c[2]==='v')) {
     rect(g,cx-width/2,cy-7,width,14,"#737c7b");
     for(let xx=cx-width/2+2;xx<cx+width/2-1;xx+=4) rect(g,xx,cy-4,2,9,"#eee9d8");
   }
-  for (const p of PARKING) carPark(g,p.x,p.y,p.w,p.h,p.seed);
+  drawRoadMarkings(g,season);
+  drawLoadingBay(g);
+  LOT_LIGHTS.length = 0;
+  for (const p of PARKING) carPark(g,p.x,p.y,p.w,p.h,p.seed,season,items);
   // Parking parcels have landscaped edges and an entrance at the centre aisle.
   for(const {x,y,w,h} of PARKING) {
     hedge(g,x,y-2,Math.floor(w/2)-7,season);
@@ -316,6 +357,11 @@ function baseWorld(s) {
   rect(g,BUS_BAY.x,BUS_BAY.y+BUS_BAY.h-2,BUS_BAY.w,2,"#c9bea1");
   bus(g,BUS_BAY.x+6,BUS_BAY.y+20,s.colors);
   practiceField(g, 592, 296, 348, 88, season);
+  // A row of columnar trees screens the field from North Lane.
+  for (let tx = 606, k = 0; tx < 940; tx += 48, k++) items.push({ y: 293, draw: (g) => tree(g, tx, 293, .7 + (k % 3) * .06, season, tx, "column") });
+  // Street trees in pits along the boulevard's south verge, at a steady rhythm, with gaps at
+  // the approach and the eastern road.
+  for (let tx = 36; tx < MAP_W - 10; tx += 68) if (Math.abs(tx - 280) > 30 && Math.abs(tx - 976) > 22) items.push({ y: 672, draw: (g) => tree(g, tx, 672, .8, season, tx * 3, "street") });
   pond(g, POCKET_PARK.x+76, POCKET_PARK.y+42, season);
   // Inlaid club colours and paired borders frame the stadium entrance.
   for(let xx=BOWL.x+4;xx<BOWL.x+BOWL.w-4;xx+=12) rect(g,xx,PLAZA+9,8,2,s.colors.primary);
@@ -355,7 +401,7 @@ function baseWorld(s) {
   items.push({y:130,draw:g=>streetSign(g,568,130,"TOWN LANE")});
   items.push({y:BLVD,draw:g=>streetSign(g,ROAD-84,BLVD,"STADIUM")});
   // Street furniture: lamps along the near side of each street, benches on the forecourt.
-  drawStreetFurniture(g,items);
+  drawStreetFurniture(g,items,s.colors);
   // Forecourt: ticket kiosks by the gate, trees in planters and benches along the front.
   for (const x of [ROAD - 52, ROAD + 32]) items.push({ y: PLAZA - 2, draw: (g) => kiosk(g, x, PLAZA - 2, s.colors) });
   for (let x = BOWL.x + 10; x < BOWL.x + BOWL.w; x += 64) if (Math.abs(x - ROAD) > 40) items.push({ y: PLAZA + 14, draw: (g) => planter(g, x, PLAZA + 14, season, x) });
@@ -667,6 +713,9 @@ export function createWorld(cv) {
     });
     for (const lot of RESIDENTIAL_LOTS) glow(lot.x + lot.w / 2, lot.y + (lot.w > 60 ? 56 : 38), 22, dark * 0.18, "255,210,140");
     for (const [x, y] of STREET_LAMPS) glow(x, y - 16, 14, dark * 0.45);
+    // Car park lights and the signals glow too; the rest of the night stays dark.
+    for (const [x, y] of LOT_LIGHTS) { glow(x, y - 8, 22, dark * 0.18); glow(x, y - 17, 10, dark * 0.45); }
+    for (const [kind, x, y] of FURNITURE) if (kind === "signal") glow(x, y - 23, 8, dark * 0.35, "255,190,150");
     sg.globalCompositeOperation = "source-over";
   }
   function draw(s, now, o = {}) {

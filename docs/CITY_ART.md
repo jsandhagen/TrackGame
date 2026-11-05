@@ -113,6 +113,76 @@ Each design has its own lived-in details: washing, a woodpile, a porch chair, bi
 - **Roads:** clustered cracks and patches instead of speckle, and a shadow strip along the north kerb.
 - **Plots:** a clipped hedge closes the back of each plot, and its edges are lit on the left and shaded on the right.
 
+## The town (`src/render/neighbourhood.js`, `src/render/world.js`)
+
+This section follows the project's *Modern Pixel-Art Town Design* guide. The street grid and plot layout are unchanged, because walking routes and the parcel tests depend on them. Everything drawn on and around the streets follows the guide.
+
+### Road hierarchy
+
+| Rank | Roads | Markings and treatment |
+| --- | --- | --- |
+| Main | Club Row, Stadium Boulevard, station approach | Double yellow centre line; traffic lights where the approach and Club Avenue meet them; a marked loading bay with a delivery van |
+| Secondary | Club Avenue, North Lane, eastern road | Dashed white centre line; stop lines and stop signs where they meet a main road |
+| Residential | Town Lane | No centre line; cars parked along the kerb, clear of driveways and the crossing; stop lines and stop signs at both ends |
+
+### Junctions and kerbs
+
+- **Junction control varies:** the three busiest junctions have signals on two corners, cycling red, amber and green, plus a signal cabinet. Elsewhere the lower-ranked road stops and gives way.
+- **Stop lines:** each stop line spans the inbound lane (traffic keeps right) and sits outside any zebra on that arm.
+- **Crossings:** every crossing ends in tactile paving at both kerbs. All crossings come from one list (`CROSSINGS`), so markings and stop lines always agree.
+- **Road surface details:**
+  - manhole covers in the lanes, at a steady interval and kept clear of junctions and crossings
+  - gully grates against the kerb
+  - fallen leaves along the kerbs in autumn
+
+### Parking
+
+The car parks are laid out like real ones:
+
+- a two-way aisle from the entrance, marked with arrows
+- bays on both sides with wheel stops
+- an accessible bay by the entrance
+- in the larger park, a kerbed planting island with a tree and a light
+
+Cars face the aisle and are a mix of sedans, hatchbacks, SUVs, pickups and vans (`src/render/vehicles.js`), in varied colours, with some bays empty.
+
+### Trees and planting
+
+`tree()` in `buildings.js` is now a family of silhouettes:
+
+| Kind | Shape | Where it's used |
+| --- | --- | --- |
+| round | Everyday park tree | Groves, gardens |
+| wide | Spreading canopy | Groves |
+| column | Tall and narrow | Screens the practice field from North Lane |
+| flower | Small ornamental that blossoms in spring | Groves |
+| street | Young tree in a grated pit with guards | A steady row along the boulevard's south verge, with gaps at the side roads |
+
+Canopies are built in layers:
+
+1. a cool ground shadow
+2. a dark underside mass
+3. overlapping foliage clusters
+4. highlights on the upper left
+
+Autumn mixes three palettes. Deciduous trees go bare in winter, with snow on their limbs. Groves mix kinds and sizes instead of repeating one blob.
+
+### Parks and the practice field
+
+- **Pocket park:** a recognisable entrance (brick gate piers, a name board, flowers), plus a drinking fountain and a bin on the loop.
+- **Practice field:** an actual layout, with a throwing sector fanning from the circle and distance flags at three marks.
+
+### Street furniture
+
+Each piece stands where it would in a real town, and never in the carriageway:
+
+- hydrants by the kerb along the main roads
+- bins by the benches
+- mailboxes on Town Lane and Club Row
+- signals and their cabinets at the signalised corners
+
+At night the car-park light and the signals glow as well as the street lamps.
+
 ## Reviewing
 
 Run `npm run dev` and open `/scripts/city-study.html`. It renders the whole production map with every plot built at a chosen level, in any season and with two plot layouts. Open it on a high-density screen or zoom the browser to see individual pixels.
@@ -126,9 +196,16 @@ Run `npm run dev` and open `/scripts/city-study.html`. It renders the whole prod
 
 `tests/neighbourhood.test.js` checks that every wing fits its parcel.
 
+`tests/town.test.js` checks:
+
+- that every road has a rank
+- that every junction has a stop line, with signals only on main roads
+- that no furniture stands in the carriageway
+- that kerb parking stays in the residential lane, clear of driveways and the crossing
+
 ## Sources
 
-- The project's *Pixel Art Buildings and Towns: Design Reference*.
+- The project's *Pixel Art Buildings and Towns: Design Reference* and *Modern Pixel-Art Town Design* guide.
 - [SLYNYRD Pixelblog 14: Cityscapes](https://www.slynyrd.com/blog/2019/2/23/pixelblog-14-cityscapes) and [Pixelblog 6: Light and Shadow](https://www.slynyrd.com/blog/2018/6/15/pixelblog-6-light-and-shadow).
 - [Pedro Medeiros' tutorials on Lospec](https://lospec.com/pixel-art-tutorials/author/pedro-medeiros) and [Lospec, Pixel art outlines part 2: using color](https://lospec.com/articles/pixel-art-outlines-part-2-using-color).
 - [Pixnote, Shading & Lighting](https://pixnote.net/en/learn/shading) and [Pixel Joint, A Wee Tutorial](https://pixeljoint.com/projects/wee/tutorial.asp).
