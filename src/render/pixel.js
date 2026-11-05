@@ -79,6 +79,24 @@ export function shade(c, f) {
   shades.set(key, out);
   return out;
 }
+// Hue-shifted ramps for scenery: shadows cool toward blue-violet and highlights warm toward
+// sunlit cream, instead of only darkening or lightening the same hue. Light comes from the upper
+// left everywhere on the map, so lit faces take positive f and shadow faces negative f.
+const COOL = [30, 34, 62], WARM = [255, 242, 204];
+const tones = new Map();
+export function tone(c, f) {
+  const key = c + f;
+  if (tones.has(key)) return tones.get(key);
+  const [r, g, b] = hex(c), [tr, tg, tb] = f >= 0 ? WARM : COOL, t = Math.min(1, Math.abs(f));
+  const out = toHex(r + (tr - r) * t, g + (tg - g) * t, b + (tb - b) * t);
+  tones.set(key, out);
+  return out;
+}
+// Selective outline: a dark line in the colour's own cool shadow rather than flat black, so a
+// silhouette reads against grass and paving without looking pasted on.
+export const selOut = (c, f = 0.62) => tone(c, -f);
+// Cast shadows on the ground share one cool, translucent colour.
+export const CAST = "rgba(26,32,66,0.26)";
 export function mix(a, b, t) {
   const [r1, g1, b1] = hex(a),
     [r2, g2, b2] = hex(b);

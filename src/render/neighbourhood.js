@@ -1,9 +1,10 @@
-import { rect, poly, line, shade, hash, px } from './pixel.js';
+import { rect, poly, line, shade, hash, px, tone, selOut, CAST } from './pixel.js';
 import { windowAt, tree, bush, bench, lamp } from './buildings.js';
 import { text } from './font.js';
 import { MAP_W, MAP_H, STREETS, LOWER_LOT_TOP, POCKET_PARK, PARKING } from './campus-layout.js';
 import { withinGround, surface } from './terrain.js';
-import { drawBuildingVolume, projectedFootprint } from './facility-scene.js';
+import { projectedFootprint } from './facility-scene.js';
+import { drawBuildingVolume, windowAt as houseWindow, doorAt, steps, chimney, smoke, laundry, woodpile, chair, wateringCan, bike, barrel, aboard, crate, vine, SHADOW } from './architecture.js';
 const BOULEVARD = STREETS.blvd;
 
 // Carriageways are a single connected network. Walking routes use their sidewalks.
@@ -28,6 +29,7 @@ export const STREET_LAMPS = [
   ...[610, 734, 858].map(x => [x, 129]),
   ...[324, 412, 650, 738, 836, 930].map(x => [x, 537]),
 ];
+const ASPHALT = '#737c7b';
 const green = season => ['#8fb76b', '#79a75d', '#a5a36b', '#e1e7de'][season];
 const stone = season => season === 3 ? '#e5e6df' : '#d4c9b1';
 function walk(g, x, y, w, h, season) {
@@ -57,12 +59,21 @@ export function drawStreetNetwork(g, season) {
   for (const r of CITY_ROADS) {
     const [x, y, w, h] = roadRect(r);
     rect(g, x - 1, y - 1, w + 2, h + 2, '#b7b5a8');
-    rect(g, x, y, w, h, '#737c7b');
-    for (let i = 0; i < w * h / 18; i++) px(g, x + hash(i * 3 + x) * (w-1), y + hash(i * 7 + y) * (h-1), i%3?'#6a7473':'#828a85');
+    rect(g, x - 1, y + h, w + 2, 1, tone('#b7b5a8', .2));
+    rect(g, x, y, w, h, ASPHALT);
+    // The north and west kerbs shade a strip of road, as the light comes from the upper left.
+    if (horizontal(r)) rect(g, x, y, w, 2, tone(ASPHALT, -.16)); else rect(g, x, y, 2, h, tone(ASPHALT, -.16));
+    // Wear in clusters, not speckle: sealed cracks and patched, sun-bleached tarmac.
+    for (let i = 0; i < w * h / 220; i++) {
+      const px0 = x + 3 + Math.floor(hash(i * 3 + x) * (w - 8)), py0 = y + 3 + Math.floor(hash(i * 7 + y) * (h - 6)), n = hash(i * 11 + x + y);
+      if (n < .4) rect(g, px0, py0, 4, 1, tone(ASPHALT, -.14));
+      else if (n < .75) {rect(g, px0, py0, 3, 2, tone(ASPHALT, .07));px(g, px0, py0, tone(ASPHALT, .14));}
+      else rect(g, px0, py0, 2, 1, tone(ASPHALT, -.08));
+    }
   }
   // Remove kerbs inside the crossing streets, including the approach's T-junction.
   for (const j of JUNCTIONS) {
-    rect(g, j.x - j.v.width / 2, j.y - j.h.width / 2, j.v.width, j.h.width, '#737c7b');
+    rect(g, j.x - j.v.width / 2, j.y - j.h.width / 2, j.v.width, j.h.width, ASPHALT);
   }
   for (const r of CITY_ROADS) {
     const isH = horizontal(r), start = isH ? r.x1 : r.y1, end = isH ? r.x2 : r.y2;
@@ -106,9 +117,14 @@ export function drawResidentialLots(g,season,items) {
   const colors=['#d7cab3','#c2d1c8','#dfc3a3','#c4b8a5','#d9d4bc','#b4c8ce','#d1b49a','#c4caba','#e1c8ae'];
   for(const lot of RESIDENTIAL_LOTS) {
     const {x,y,w,h,seed}=lot, large=w>60, base=large?y+69:y+48, front=y+h;
-    const doorX=x+(large?27:21), driveX=large?x+62:x+w-14;
-    const lx=x+(large?12:4),buildingW=large?43:34,buildingH=seed%3===1?27:lot.kind==='bakery'?25:20;
-    const home={x:lx,y:base,w:buildingW,h:buildingH,d:18,wall:colors[seed],roof:['#8b6350','#617784','#8a7456'][seed%3],material:seed%2?'timber':'brick',gable:6};
+    // No two neighbours share a design: each lot has its own form, materials, roof and the
+    // things its household leaves outside.
+    const form=HOUSE_FORMS[seed%HOUSE_FORMS.length], bakery=lot.kind==='bakery';
+    const lx=x+(large?12:4),buildingW=large?44:form.w||34,buildingH=bakery?25:form.h;
+    // The front door sits on the facade's centre line (the bakery's beside its shop window), and
+    // the windows pair up either side of it.
+    const doorX=bakery?lx+buildingW-10:lx+Math.round(buildingW/2)-3, driveX=large?x+62:x+w-14;
+    const home={x:lx,y:base,w:buildingW,h:buildingH,d:18,wall:colors[seed],roof:form.roof,material:bakery?'plaster':form.material,roofKind:form.roofKind,gable:form.gable,roofMat:form.roofMat,seed:seed*13+5};
     const garage={x:lx+48,y:base+3,w:20,h:13,d:17,wall:'#c0b9a3',roof:'#6b7879',material:'stone',gable:4};
     withinGround(g,lot,()=>{
       surface(g,x,y,w,h,green(season),'lawn',seed);
@@ -118,7 +134,7 @@ export function drawResidentialLots(g,season,items) {
       for(const block of large?[home,garage]:[home]) {
         const f=projectedFootprint(block);
         surface(g,f.x-2,f.y-2,f.w+4,f.h+5,stone(season),'paving',seed);
-        poly(g,[[f.x,base],[f.x+f.w+9,base+4],[f.x+f.w+13,f.y+3],[f.x+7,f.y]],'rgba(30,43,31,.19)');
+        poly(g,[[f.x,base],[f.x+f.w+9,base+4],[f.x+f.w+13,f.y+3],[f.x+7,f.y]],CAST);
       }
       walk(g,doorX,base,5,front-base,season);
       if(lot.kind!=='bakery') {
@@ -146,32 +162,73 @@ export function drawResidentialLots(g,season,items) {
       items.push({y:y+20,draw:g=>tree(g,x+70,y+20,.7,season,seed)});
       items.push({y:y+25,draw:g=>bench(g,x+10,y+25)});
     }
-    items.push({y:base,draw:g=>{
+    if(form.laundry&&!bakery) items.push({y:y+16,draw:g=>laundry(g,x+(large?40:40),y+16,large?18:14,['#f4f0e6',colors[(seed+3)%9],'#9ab4d0','#e8a0a0'],0,seed)});
+    items.push({y:base,draw:(g,now=0)=>{
+      if(form.woodpile) woodpile(g,lx-3,base-1,2);
       drawBuildingVolume(g,home,season);
-      for(let row=0;row<(buildingH>20?2:1);row++) for(let n=0;n<2;n++) windowAt(g,lx+4+n*23,base-13-row*10,5,5,seed%3===0);
-      rect(g,doorX,base-11,6,11,'#657b70');rect(g,doorX+1,base-10,4,3,'#b7d4d4');px(g,doorX+4,base-5,'#ead29a');
-      rect(g,doorX-2,base,10,2,'#c3b99e');
-      rect(g,lx+buildingW-5,base-buildingH-12,3,7,'#956f57');
-      if(lot.kind==='bakery') {
-        for(let xx=lx-1;xx<lx+buildingW+1;xx+=4) rect(g,xx,base-14,4,4,xx%8?'#efe5c6':'#9b6252');
-        rect(g,lx-2,base-buildingH+2,38,9,'#80614d');text(g,'BAKERY',lx,base-buildingH+3,{color:'#f4ead5',outline:null});
+      const rows=buildingH>=27?2:1, kind=large?'shutter':'sash', inset=large?6:4, slots=[lx+inset,lx+buildingW-inset-6];
+      for(let row=0;row<rows;row++) for(const wx of row&&!bakery?[...slots,doorX]:bakery?[lx+buildingW-inset-6]:slots) {
+        if(bakery&&row===0) continue;
+        houseWindow(g,kind,wx,base-14-row*12,{lit:hash(wx*3+row+seed)<.3,shutter:form.shutter,box:row===0&&form.boxes?(seed%2?'#d99a8b':'#e4cb75'):null,season});
       }
+      if(bakery) {
+        houseWindow(g,'shop',lx+3,base-13,{lit:true,goods:['#d8a050','#f0d090','#b87a3a']});
+        for(let xx=lx-1;xx<lx+buildingW+1;xx+=4) rect(g,xx,base-15,Math.min(4,lx+buildingW+1-xx),3,xx%8?'#efe5c6':'#9b6252');
+        rect(g,lx,base-12,buildingW,1,SHADOW);
+        rect(g,lx-2,base-buildingH+2,38,9,'#80614d');rect(g,lx-2,base-buildingH+2,38,1,tone('#80614d',.25));text(g,'BAKERY',lx,base-buildingH+3,{color:'#f4ead5',outline:null});
+      }
+      doorAt(g,'panel',doorX,base,{color:form.door,w:6,h:11});
+      steps(g,doorX-1,base,8);
+      if(form.porch) {
+        // A porch roof on posts over the door.
+        rect(g,doorX-6,base-15,18,2,tone(form.roof,.08));rect(g,doorX-6,base-15,18,1,tone(form.roof,.3));rect(g,doorX-5,base-13,16,1,SHADOW);
+        for(const px0 of [doorX-5,doorX+10]) rect(g,px0,base-13,1,13,'#e8e0cc');
+      }
+      if(form.chimney) {
+        const cx=lx+Math.round(buildingW*(seed%2?.25:.72)),cy=base-buildingH-6;
+        chimney(g,cx,cy,form.chimney,7);
+        if(form.smoke) smoke(g,cx+1,cy-8,now,seed);
+      }
+      if(form.vine) vine(g,lx+buildingW-3,base-buildingH+5,base-1,season,seed);
       if(large) {
         drawBuildingVolume(g,garage,season);
-        rect(g,lx+51,base-6,13,9,'#969e96');for(let yy=base-4;yy<base+2;yy+=3)rect(g,lx+51,yy,13,1,'#77867e');
+        doorAt(g,'roller',lx+51,base+3,{trim:tone('#c0b9a3',-.3),w:13,h:9});
       }
-      // Bins and flower boxes belong to the house, not the sidewalk.
-      rect(g,lx-1,base-3,3,5,'#63816c');rect(g,lx-1,base-4,3,1,'#435e4f');
-      if(season!==3) for(const dx of [3,26]) {rect(g,lx+dx,base-7,7,2,'#9d7753');for(let j=0;j<3;j++)px(g,lx+dx+j*2,base-8,seed%2?'#d99a8b':'#e4cb75');}
+      // Bins, chairs, bikes and cans belong to the house, not the sidewalk.
+      rect(g,lx-1,base-3,3,5,'#63816c');rect(g,lx-1,base-4,3,1,tone('#63816c',.25));rect(g,lx+1,base-3,1,5,selOut('#63816c',.4));
+      if(form.chair) chair(g,doorX+(large?14:9),base+4,form.door);
+      if(form.can&&season!==3) wateringCan(g,lx+buildingW-8,base+5);
+      if(form.bike) bike(g,lx+buildingW-12,base+7,form.door);
+      if(form.rainBarrel) barrel(g,lx+buildingW-2,base+1,'#5a7a6a');
+      if(bakery) {crate(g,lx+buildingW+2,base+4,'#d8c8a0');aboard(g,doorX+10,base+8);}
     }});
   }
 }
+// House designs along the residential streets: cottage, two-storey, bungalow, a timber house
+// with a porch, a brick semi with dormer-height eaves, and a plaster villa.
+const HOUSE_FORMS = [
+  {h:20,material:'brick',roof:'#9a5a42',roofKind:'gable',gable:7,roofMat:'tile',chimney:'#8a5040',smoke:true,boxes:true,can:true,door:'#4a6a8a',woodpile:true},
+  {h:29,material:'clapboard',roof:'#5f6e7a',roofKind:'gable',gable:6,roofMat:'slate',laundry:true,door:'#a04a3a',shutter:'#4a6a5a'},
+  {h:25,material:'plaster',roof:'#a85a3e',roofKind:'gable',gable:7,roofMat:'tile',door:'#5a7a5a'},
+  {h:18,w:36,material:'stone',roof:'#6a5a48',roofKind:'hip',gable:7,roofMat:'shingle',porch:true,chair:true,laundry:true,door:'#7a5a8a'},
+  {h:28,material:'brick',roof:'#4f5866',roofKind:'hip',gable:6,roofMat:'slate',chimney:'#7a4a3a',bike:true,boxes:true,door:'#2f5a4a'},
+  {h:21,material:'timber',roof:'#7a5a40',roofKind:'gable',gable:8,roofMat:'shingle',porch:true,vine:true,rainBarrel:true,chimney:'#8a7a6a',smoke:true,door:'#8a4a3a'},
+  {h:22,material:'plaster',roof:'#8b6350',roofKind:'gable',gable:7,roofMat:'tile',vine:true,chair:true,door:'#3a5a7a'},
+  {h:28,material:'brick',roof:'#617784',roofKind:'gable',gable:7,roofMat:'slate',chimney:'#8a5040',laundry:true,bike:true,door:'#6a3a3a',shutter:'#3f5a4a'},
+  {h:20,material:'clapboard',roof:'#8a7456',roofKind:'hip',gable:8,roofMat:'shingle',porch:true,chair:true,can:true,woodpile:true,door:'#4a7a6a',shutter:'#7a5a3a'},
+];
+const HEDGE = ['#5f8f4a', '#4d8445', '#8a7a40', '#9aa898'];
 export function drawClubParcel(g,x,top,w,front,open,season,index) {
-  const color=open?green(season):shade(green(season),-.08);
-  withinGround(g,{x:x+1,y:top+8,w:w-2,h:front-top-8},()=>surface(g,x+1,top+8,w-2,front-top-8,color,'lawn',index));
-  rect(g,x+1,top+8,w-2,1,open?'#c4c3a7':'#a9ad94');
-  rect(g,x+1,top+8,1,front-top-8,'#a2ac90');
-  rect(g,x+w-1,top+8,1,front-top-8,'#a2ac90');
+  const color=open?green(season):shade(green(season),-.08),y=top+8,h=front-y;
+  withinGround(g,{x:x+1,y,w:w-2,h},()=>surface(g,x+1,y,w-2,h,color,'lawn',index));
+  // A clipped hedge closes the back of each plot: sunlit along its top, a cool shadow on the
+  // lawn below, and leaf clusters rather than a hard line.
+  const hc=open?HEDGE[season]:tone(HEDGE[season],-.12);
+  rect(g,x+1,y,w-2,4,hc);rect(g,x+1,y,w-2,1,tone(hc,.24));rect(g,x+1,y+4,w-2,1,CAST);
+  for(let xx=x+3;xx<x+w-3;xx+=6) {rect(g,xx,y+1,2,1,tone(hc,.12));px(g,xx+3,y+3,tone(hc,-.24));}
+  // Plot edges: lit on the left, shaded on the right.
+  rect(g,x+1,y+4,1,h-4,tone(color,.16));
+  rect(g,x+w-2,y+4,1,h-4,tone(color,-.2));
 }
 export function drawClubFront(g,x,w,front,open,index) {
   const c=open?'#bfc1a7':'#a7ae95';
