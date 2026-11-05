@@ -9,8 +9,8 @@
 // A right-handed thrower turns anticlockwise seen from above: back to the sector (side-on,
 // flipped), round to face the camera, side-on to the sector, facing away, and so on.
 import { frontFootOf, feetOf, implementPointOf, SHOT_ROTATION_START } from "./sprites.js";
-import { throwTiming, techniqueTrim } from "./meet-presentation.js";
-import { groundRise } from "./meet-geometry.js";
+import { throwTiming, techniqueTrim, runupStrides, runupMs } from "./meet-presentation.js";
+import { groundRise, METRE_PX } from "./meet-geometry.js";
 
 const ease = (t) => t * t * (3 - 2 * t);
 const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
@@ -52,19 +52,22 @@ const hop = (m, p, a, b, h = 4) => {
 
 // phase: "ready" | "technique" | "release" | "follow"; p: progress through that phase, 0–1.
 // A trimmed technique (see techniqueTrim) runs the end of the full timeline at the same speed;
-// pass trim: false for a throw timed over the event's full window.
-export function throwMotion(ev, level, phase, p, { foul = false, style = 0, flop = false, trim = true } = {}) {
+// pass trim: false for a throw timed over the event's full window. runup (m/s, see approachSpeed)
+// runs a javelin full approach down the meet's long runway at that speed, timed by throwTiming
+// for a meet throw; without it the approach is the compact one that fits club practice.
+export function throwMotion(ev, level, phase, p, { foul = false, style = 0, flop = false, trim = true, runup = null } = {}) {
   p = Math.max(0, Math.min(1, p));
-  const cut = trim ? techniqueTrim(ev, level) : 0;
+  const cut = trim ? techniqueTrim(ev, level) : 0,
+    speed = ev === "jav" && level > 0 && Number.isFinite(runup) && runup > 0 ? runup : null;
   if (phase === "technique" && cut) {
-    const full = throwTiming({ event: ev }), window = full.releaseAt - full.readyMs;
+    const full = throwTiming({ event: ev }), window = full.releaseAt - full.readyMs + (speed ? runupMs(ev, level) : 0);
     p = 1 - (1 - p) * (window - cut) / window;
   }
   const m = { frame: 0, flip: false, dx: 0, dy: 0, ball: null, released: phase === "release" || phase === "follow", ghost: level >= 3 && phase === "technique" };
   // A foul carries the thrower over the front whatever their style.
   if (foul) style = 0;
   if (ev === "jav") {
-    javelin(m, level, phase, p, foul, style, flop && !foul);
+    javelin(m, level, phase, p, foul, style, flop && !foul, speed);
     const before = m.dx;
     // Legal deliveries stop with the outlined shoe behind the near edge of the arc (dx = 0).
     // Keep this guard tied to the sprite geometry as new technique/recovery poses are added.
@@ -297,7 +300,8 @@ const L = 0, R = 1;
 // The ms each shoe lands and the runway x it lands at. Full approaches: right, left, right (carry),
 // left (withdrawal begins), right (cross), left (penultimate take-off), right (catch), then the left
 // block. The three-step goes left, right (catch), left block after standing until `stand`. The
-// block lands where the catch leg carries it; release is at JAV_MS.
+// block lands where the catch leg carries it; release is at JAV_MS. This is the compact approach
+// for club practice; the meet runs the same rhythm down a full-length runway (runwayPlan).
 const JAV_APPROACH = [
   { start: -58, stand: 1150, land: [1680, 1980, 2150], at: [-46, -30], impulse: 14 },
   { start: -96, land: [475, 730, 980, 1225, 1465, 1705, 1990, 2150], at: [-86, -78, -70, -62, -54, -46, -32], impulse: 14 },
@@ -305,17 +309,53 @@ const JAV_APPROACH = [
   { start: -96, land: [635, 865, 1090, 1310, 1525, 1740, 2030, 2180], at: [-87, -79, -71, -63, -55, -47, -29], impulse: 15 },
 ];
 const javFootX = (frame, k) => feetOf({ pose: "throw", event: "jav", frame })[k][0];
-const javKeys = [];
-function javelinKeys(level) {
-  if (javKeys[level]) return javKeys[level];
-  const plan = JAV_APPROACH[level], keys = [];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Approach speed on the meet runway, in m/s. The Speed stat sets it and form decides how much of
+// it the thrower carries into the block: about 5 m/s for a slow club thrower on a full approach,
+// 8 m/s for the fastest elite (elite men reach 7–8.5 m/s by the crossovers). Quantised so each
+// athlete's run-up is planned once.
+const FORM_SPEED = [0.5, 0.9, 0.95, 1];
+export function approachSpeed(athlete, level) {
+  const stat = clamp(Number(athlete?.stats?.[2]) || 50, 1, 100);
+  return Math.round((4.2 + 3.8 * stat / 100) * FORM_SPEED[clamp(level | 0, 0, 3)] * 20) / 20;
+}
+// A full approach down the meet runway: the compact plan's rhythm with extra carry strides in
+// front (runupStrides), and every stride as long as the speed carries the body in its time. The
+// carry run builds from a standing push to 95% of approach speed at the withdrawal, then holds it
+// through the crossovers and the impulse. Contacts are placed back from the right-foot catch, so
+// the block and release land exactly where the compact approach puts them.
+function runwayPlan(level, speed) {
+  const plan = JAV_APPROACH[level], extra = runupStrides("jav", level), shift = extra.reduce((a, b) => a + b, 0),
+    land = [plan.land[0]], v = speed * METRE_PX / 1000, carry = extra.length + 3;
+  extra.forEach(d => land.push(land.at(-1) + d));
+  land.push(...plan.land.slice(1).map(t => t + shift));
+  const at = Array(land.length - 1);
+  at[at.length - 1] = plan.at.at(-1);
+  for (let j = at.length - 2; j >= 0; j--) {
+    const pace = j < carry ? 0.95 - 0.4 * (1 - (j + 1) / carry) ** 2 : 1;
+    at[j] = at[j + 1] - pace * v * (land[j + 1] - land[j]);
+  }
+  // The first shoe lands a short, slow step ahead of the standing push.
+  const startFoot = at[0] - 2 * (javFootX(6, R) - javFootX(5, L)) - 0.45 * v * 60;
+  return { start: startFoot - 2 * javFootX(0, L), land, at, impulse: plan.impulse, total: JAV_MS + shift, even: true };
+}
+const javKeys = new Map();
+function javelinKeys(level, speed = null) {
+  const id = speed && level ? `${level}:${speed}` : level;
+  if (javKeys.has(id)) return javKeys.get(id);
+  const plan = speed && level ? runwayPlan(level, speed) : JAV_APPROACH[level], keys = [], total = plan.total ?? JAV_MS;
+  const bodyAt = (frame, k, x) => x - 2 * javFootX(frame, k);
   // A supporting shoe stays where it landed: place the body so shoe k of the frame is at x.
-  const plant = (t, frame, k, x, dy = 0) => keys.push([t / JAV_MS, frame, x - 2 * javFootX(frame, k), false, dy]);
-  const stride = (t, next, contact, toeOff, k, x, stance = 0.55) => {
+  const plant = (t, frame, k, x, dy = 0) => keys.push([t / total, frame, bodyAt(frame, k, x), false, dy]);
+  // On the runway the shoe stays down only as long as keeps the body's speed even through the
+  // stride; the compact approach spends a fixed share of each stride on the ground.
+  const share = (from, to, next, most) => plan.even ? clamp((to - from) / (next - from), 0.1, most) : most;
+  const stride = (t, next, contact, toeOff, k, x, nextBody) => {
     plant(t, contact, k, x);
-    plant(t + stance * (next - t), toeOff, k, x);
+    plant(t + share(bodyAt(contact, k, x), bodyAt(toeOff, k, x), nextBody, 0.55) * (next - t), toeOff, k, x);
   };
-  const [catchAt, blockAt] = plan.land.slice(-2), last = plan.at.length - 1;
+  const [catchAt, blockAt] = plan.land.slice(-2), last = plan.at.length - 1, catchBody = bodyAt(16, R, plan.at[last]);
   let takeOff;
   if (level === 0) {
     // Already withdrawn: a settled stance, the weight rolling onto the right foot as the left
@@ -328,32 +368,37 @@ function javelinKeys(level) {
     takeOff = contact + 0.45 * (catchAt - contact);
     plant(takeOff, 13, L, plan.at[0]);
   } else {
-    // Standing tall, a lean into the first push, then the run.
-    const start = plan.start + 2 * javFootX(0, L), [first] = plan.land;
+    // Standing tall, a lean into the first push, then the run: carry strides (right, left, …)
+    // with the javelin overhead, the withdrawal on a left contact and the right crossover.
+    const start = plan.start + 2 * javFootX(0, L), [first] = plan.land, strides = last - 1;
     plant(0, 0, L, start);
     plant(first - 300, 0, L, start);
     plant(first - 170, 4, L, start);
     plant(first - 60, 5, L, start);
-    const frames = [[6, 7], [4, 5], [6, 7], [8, 9], [10, 11]];
-    frames.forEach(([contact, toeOff], i) => stride(plan.land[i], plan.land[i + 1], contact, toeOff, i % 2 ? L : R, plan.at[i]));
-    const contact = plan.land[5];
-    plant(contact, 12, L, plan.at[5]);
-    takeOff = contact + 0.45 * (catchAt - contact);
-    plant(takeOff, 13, L, plan.at[5]);
+    const frames = Array.from({ length: strides }, (_, i) => i === strides - 2 ? [8, 9] : i === strides - 1 ? [10, 11] : i % 2 ? [4, 5] : [6, 7]);
+    frames.forEach(([contact, toeOff], i) => {
+      const next = i + 1 < strides ? bodyAt(frames[i + 1][0], (i + 1) % 2 ? L : R, plan.at[i + 1]) : bodyAt(12, L, plan.at[i + 1]);
+      stride(plan.land[i], plan.land[i + 1], contact, toeOff, i % 2 ? L : R, plan.at[i], next);
+    });
+    const contact = plan.land[strides], x = plan.at[strides];
+    plant(contact, 12, L, x);
+    takeOff = contact + share(bodyAt(12, L, x), bodyAt(13, L, x), catchBody, 0.45) * (catchAt - contact);
+    plant(takeOff, 13, L, x);
   }
   // The impulse: low, long and airborne, landing on the right ahead of the leaning-back body.
-  const from = keys.at(-1)[2], to = plan.at[last] - 2 * javFootX(16, R), mid = (takeOff + catchAt) / 2;
-  keys.push([mid / JAV_MS, plan.impulse, (from + to) / 2, false, -2]);
+  const from = keys.at(-1)[2], to = catchBody, mid = (takeOff + catchAt) / 2;
+  keys.push([mid / total, plan.impulse, (from + to) / 2, false, -2]);
   plant(catchAt, 16, R, plan.at[last]);
   // The left leg reaches into the block over a planted right foot, then everything happens on
   // that braced left leg: free arm, hips, elbow, release.
   plant(blockAt, 17, R, plan.at[last]);
-  const block = keys.at(-1)[2] + 2 * javFootX(17, L), quick = JAV_MS - blockAt;
+  const block = keys.at(-1)[2] + 2 * javFootX(17, L), quick = total - blockAt;
   [[0.25, 18], [0.5, 19], [0.78, 20], [1, 2]].forEach(([q, frame]) => plant(blockAt + q * quick, frame, L, block));
-  return (javKeys[level] = keys);
+  javKeys.set(id, keys);
+  return keys;
 }
-function javelin(m, level, phase, p, foul, style, flop) {
-  const slope = groundRise, keys = javelinKeys(level), [, , release] = keys.at(-1);
+function javelin(m, level, phase, p, foul, style, flop, speed) {
+  const slope = groundRise, keys = javelinKeys(level, speed), [, , release] = keys.at(-1);
   if (phase === "ready") return Object.assign(m, { frame: keys[0][1], dx: keys[0][2], dy: slope(keys[0][2]) });
   if (phase === "release") {
     track(m, p, [[0, 2, release], [1, 21, release]], true); m.dy = slope(release); return m;

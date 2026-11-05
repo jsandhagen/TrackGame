@@ -139,3 +139,25 @@ test('the production shot put camera opens close, tracks the put, then zooms out
     }
   }
 });
+
+test('the camera runs with a full javelin approach and keeps the thrower in frame', async t => {
+  mockCanvas(t);
+  const { throwMotion, approachSpeed } = await import('../src/render/throw-motion.js');
+  const { throwPhase } = await import('../src/render/meet-presentation.js');
+  const { throwingSector } = await import('../src/render/meet-geometry.js');
+  for (const [width, height] of [[640, 360], [480, 645]]) {
+    for (const reduced of [false, true]) {
+      const { s, beat } = fixture('jav', 70), camera = renderer(width, height), timing = throwTiming(beat), offset = throwOffset(beat);
+      const athlete = G.homeAthlete(s, beat.eventIndex), speed = approachSpeed(athlete, beat.form), origin = throwingSector('jav', 640, 100).origin;
+      assert(beat.form >= 1, 'a developed thrower runs the full approach');
+      for (let at = offset; at < offset + timing.releaseAt; at += 16) {
+        const placement = camera.draw(s, at, { beat, elapsed: at, pace: 1, reduced });
+        const m = throwMotion('jav', beat.form, ...throwPhase(timing, at - offset), { runup: speed });
+        const x = placement[0] + (origin.x + m.dx) * camera.scale();
+        if (process.env.RUNUP_LOG && (at - offset) % 320 < 16) console.log(width, reduced, at - offset, Math.round(x), camera.scale().toFixed(2));
+        assert(x > 20 && x < width - 20, `${width}/${reduced}: thrower at ${Math.round(x)} px at ${at - offset} ms`);
+      }
+      assert(throwMotion('jav', beat.form, 'ready', 0, { runup: speed }).dx < -200, 'the run-up starts well back down the runway');
+    }
+  }
+});

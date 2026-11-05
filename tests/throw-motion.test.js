@@ -524,3 +524,41 @@ test('every thrower starts moving within about a second of stepping up', async (
   assert(SETUP_MS + timing.readyMs + still <= 1250, `${ev}/${level}: stands still for ${SETUP_MS + timing.readyMs + still} ms`);
  }
 });
+
+test('the meet javelin runway runs a full approach at real stride lengths, scaled by the athlete speed', async () => {
+ const { approachSpeed } = await import('../src/render/throw-motion.js');
+ const { JAVELIN_ORIGIN, METRE_PX } = await import('../src/render/meet-geometry.js');
+ const athlete = speed => ({ stats: [50, 50, speed, 50] });
+ for (let level = 1; level < 4; level++) {
+  const slow = approachSpeed(athlete(20), level), fast = approachSpeed(athlete(100), level);
+  assert(fast > slow + 1.5, `${level}: speed stat sets approach speed`);
+  const start = v => throwMotion('jav', level, 'ready', 0, { runup: v }).dx;
+  assert(start(fast) < start(slow) - 40, `${level}: a faster athlete starts farther back`);
+  assert(-start(slow) / METRE_PX >= 10, `${level}: a full approach is at least 10 m of runway`);
+  assert(JAVELIN_ORIGIN.x + start(approachSpeed(athlete(100), 3)) >= 80, 'the longest run-up and its camera room fit on the scene');
+  // The release, recovery and so the flight are the same as the compact approach.
+  for (const phase of ['release', 'follow']) assert.deepEqual(throwMotion('jav', level, phase, 0.5, { runup: fast }), throwMotion('jav', level, phase, 0.5));
+  const meet = throwTiming({ type: 'throw', event: 'jav', form: level, mark: 60 }), ms = meet.releaseAt - meet.readyMs;
+  assert(meet.releaseAt > throwTiming({ event: 'jav', form: level, mark: 60 }).releaseAt, `${level}: the extra carry strides take time`);
+  for (const v of [slow, fast]) {
+   let before = null, landings = [], top = 0, prev = null;
+   const planted = m => worldFeet('jav', m).map(([x, y]) => Math.abs(y - (groundRise(m.dx) - 2)) < 1e-6 ? x : null);
+   for (let t = 0; t <= ms; t++) {
+    const m = throwMotion('jav', level, 'technique', t / ms, { runup: v }), now = planted(m);
+    if (before) now.forEach((x, k) => {
+     if (x !== null && before[k] !== null) assert(Math.abs(x - before[k]) < 0.05, `${level}/${v}: ${'LR'[k]} shoe slides at ${t} ms`);
+     if (x !== null && before[k] === null) landings.push([t, k, x]);
+    });
+    if (prev && t > ms * 0.3 && t < ms * 0.85) top = Math.max(top, (m.dx - prev.dx) * 1000 / METRE_PX);
+    before = now; prev = m;
+   }
+   assert(landings.length >= 8 + 2 * level, `${level}/${v}: longer approaches add carry strides (${landings.length})`);
+   assert(landings.every(([, k], i) => !i || k !== landings[i - 1][1]), `${level}/${v}: feet alternate`);
+   assert(Math.abs(top - v) < 0.2 * v, `${level}/${v}: the runner travels at the approach speed (${top.toFixed(2)} m/s)`);
+   const crossover = landings.at(-4)[2] - landings.at(-5)[2];
+   assert(Math.abs(crossover / METRE_PX - v * 0.23) < 0.5, `${level}/${v}: crossover stride is speed × stride time`);
+  }
+ }
+ // Three-step throwers and club practice keep the compact approach.
+ assert.deepEqual(throwMotion('jav', 0, 'technique', 0.5, { runup: 8 }), throwMotion('jav', 0, 'technique', 0.5));
+});
