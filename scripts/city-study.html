@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>City study · Ring & Sector</title>
+<style>
+  :root { color-scheme: dark; font: 15px system-ui; background: #172a27; color: #f4ecda; }
+  body { margin: 16px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { color: #bfccbd; max-width: 70ch; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+  select, input { font: inherit; }
+  canvas { display: block; width: 1000px; height: 680px; image-rendering: pixelated; }
+</style>
+<h1>City study</h1>
+<p>The production club map, with every plot built at the chosen level and the stadium developed to match. Use it to review buildings, upgrade steps and street design; open it on a high-density screen (or zoom the browser) to see every pixel.</p>
+<div class="controls">
+  <label>Level <select id="level"><option>1</option><option>2</option><option selected>3</option></select></label>
+  <label>Season <select id="season"><option value="0">Spring</option><option value="1" selected>Summer</option><option value="2">Autumn</option><option value="3">Winter</option></select></label>
+  <label>Layout <select id="layout"><option value="a" selected>Training & science</option><option value="b">Visitors & community</option></select></label>
+</div>
+<canvas id="map" aria-label="Club map with developed facilities"></canvas>
+<script type="module">
+  import * as G from '../src/domain/game.js';
+  import { createWorld } from '../src/render/world.js';
+  import { CLUB_PLOT } from '../src/game-content.js';
+  const cv = document.querySelector('#map'), level = document.querySelector('#level'), season = document.querySelector('#season'), layout = document.querySelector('#layout');
+  const LAYOUTS = {
+    a: ['gym', 'spa', 'lab', 'institute', 'indoor', 'testing', 'lodge', 'library', 'workshop', null, 'dorm', 'scout', 'cafe'],
+    b: ['shop', 'cafe', 'garden', 'fountain', 'statue', 'dorm', 'library', 'spa', 'gym', null, 'scout', 'workshop', 'lab'],
+  };
+  let s, world;
+  function build() {
+    s = G.newGame(721); delete s.onboarding;
+    const L = Number(level.value);
+    s.league = 4;
+    s.plots = LAYOUTS[layout.value].map((type, i) => i === CLUB_PLOT ? { type: 'club', level: L } : type && { type, level: L });
+    for (const k of Object.keys(s.stadium)) s.stadium[k] = Math.min(L, k === 'stands' ? L + 1 : L);
+    let day = 1; while (G.seasonOfDay(day) !== Number(season.value) && day < 400) day++;
+    s.day = day;
+    world = createWorld(cv);
+    world.draw(s, 0, { dayProgress: 0.3 });
+    world.zoomBy(-4);
+  }
+  function frame(now) { world.draw(s, now, { dayProgress: 0.3 }); requestAnimationFrame(frame); }
+  for (const c of [level, season, layout]) c.onchange = build;
+  build(); requestAnimationFrame(frame);
+</script>

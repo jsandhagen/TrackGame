@@ -1,4 +1,4 @@
-import { rect, poly, line, shade, hash, px } from './pixel.js';
+import { rect, poly, line, shade, hash, px, tone, selOut, CAST } from './pixel.js';
 import { windowAt, tree, bush, bench, lamp } from './buildings.js';
 import { text } from './font.js';
 import { MAP_W, MAP_H, STREETS, LOWER_LOT_TOP, POCKET_PARK, PARKING } from './campus-layout.js';
@@ -28,6 +28,7 @@ export const STREET_LAMPS = [
   ...[610, 734, 858].map(x => [x, 129]),
   ...[324, 412, 650, 738, 836, 930].map(x => [x, 537]),
 ];
+const ASPHALT = '#737c7b';
 const green = season => ['#8fb76b', '#79a75d', '#a5a36b', '#e1e7de'][season];
 const stone = season => season === 3 ? '#e5e6df' : '#d4c9b1';
 function walk(g, x, y, w, h, season) {
@@ -57,12 +58,21 @@ export function drawStreetNetwork(g, season) {
   for (const r of CITY_ROADS) {
     const [x, y, w, h] = roadRect(r);
     rect(g, x - 1, y - 1, w + 2, h + 2, '#b7b5a8');
-    rect(g, x, y, w, h, '#737c7b');
-    for (let i = 0; i < w * h / 18; i++) px(g, x + hash(i * 3 + x) * (w-1), y + hash(i * 7 + y) * (h-1), i%3?'#6a7473':'#828a85');
+    rect(g, x - 1, y + h, w + 2, 1, tone('#b7b5a8', .2));
+    rect(g, x, y, w, h, ASPHALT);
+    // The north and west kerbs shade a strip of road, as the light comes from the upper left.
+    if (horizontal(r)) rect(g, x, y, w, 2, tone(ASPHALT, -.16)); else rect(g, x, y, 2, h, tone(ASPHALT, -.16));
+    // Wear in clusters, not speckle: sealed cracks and patched, sun-bleached tarmac.
+    for (let i = 0; i < w * h / 220; i++) {
+      const px0 = x + 3 + Math.floor(hash(i * 3 + x) * (w - 8)), py0 = y + 3 + Math.floor(hash(i * 7 + y) * (h - 6)), n = hash(i * 11 + x + y);
+      if (n < .4) rect(g, px0, py0, 4, 1, tone(ASPHALT, -.14));
+      else if (n < .75) {rect(g, px0, py0, 3, 2, tone(ASPHALT, .07));px(g, px0, py0, tone(ASPHALT, .14));}
+      else rect(g, px0, py0, 2, 1, tone(ASPHALT, -.08));
+    }
   }
   // Remove kerbs inside the crossing streets, including the approach's T-junction.
   for (const j of JUNCTIONS) {
-    rect(g, j.x - j.v.width / 2, j.y - j.h.width / 2, j.v.width, j.h.width, '#737c7b');
+    rect(g, j.x - j.v.width / 2, j.y - j.h.width / 2, j.v.width, j.h.width, ASPHALT);
   }
   for (const r of CITY_ROADS) {
     const isH = horizontal(r), start = isH ? r.x1 : r.y1, end = isH ? r.x2 : r.y2;
@@ -118,7 +128,7 @@ export function drawResidentialLots(g,season,items) {
       for(const block of large?[home,garage]:[home]) {
         const f=projectedFootprint(block);
         surface(g,f.x-2,f.y-2,f.w+4,f.h+5,stone(season),'paving',seed);
-        poly(g,[[f.x,base],[f.x+f.w+9,base+4],[f.x+f.w+13,f.y+3],[f.x+7,f.y]],'rgba(30,43,31,.19)');
+        poly(g,[[f.x,base],[f.x+f.w+9,base+4],[f.x+f.w+13,f.y+3],[f.x+7,f.y]],CAST);
       }
       walk(g,doorX,base,5,front-base,season);
       if(lot.kind!=='bakery') {
@@ -166,12 +176,18 @@ export function drawResidentialLots(g,season,items) {
     }});
   }
 }
+const HEDGE = ['#5f8f4a', '#4d8445', '#8a7a40', '#9aa898'];
 export function drawClubParcel(g,x,top,w,front,open,season,index) {
-  const color=open?green(season):shade(green(season),-.08);
-  withinGround(g,{x:x+1,y:top+8,w:w-2,h:front-top-8},()=>surface(g,x+1,top+8,w-2,front-top-8,color,'lawn',index));
-  rect(g,x+1,top+8,w-2,1,open?'#c4c3a7':'#a9ad94');
-  rect(g,x+1,top+8,1,front-top-8,'#a2ac90');
-  rect(g,x+w-1,top+8,1,front-top-8,'#a2ac90');
+  const color=open?green(season):shade(green(season),-.08),y=top+8,h=front-y;
+  withinGround(g,{x:x+1,y,w:w-2,h},()=>surface(g,x+1,y,w-2,h,color,'lawn',index));
+  // A clipped hedge closes the back of each plot: sunlit along its top, a cool shadow on the
+  // lawn below, and leaf clusters rather than a hard line.
+  const hc=open?HEDGE[season]:tone(HEDGE[season],-.12);
+  rect(g,x+1,y,w-2,4,hc);rect(g,x+1,y,w-2,1,tone(hc,.24));rect(g,x+1,y+4,w-2,1,CAST);
+  for(let xx=x+3;xx<x+w-3;xx+=6) {rect(g,xx,y+1,2,1,tone(hc,.12));px(g,xx+3,y+3,tone(hc,-.24));}
+  // Plot edges: lit on the left, shaded on the right.
+  rect(g,x+1,y+4,1,h-4,tone(color,.16));
+  rect(g,x+w-2,y+4,1,h-4,tone(color,-.2));
 }
 export function drawClubFront(g,x,w,front,open,index) {
   const c=open?'#bfc1a7':'#a7ae95';

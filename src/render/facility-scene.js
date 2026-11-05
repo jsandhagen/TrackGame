@@ -1,6 +1,6 @@
-import { rect, poly, line, ellipse, shade, hash, px } from './pixel.js';
+import { rect, poly, line, ellipse, shade, hash, px, tone, selOut, CAST } from './pixel.js';
 import { text, measure } from './font.js';
-import { windowAt, tree, bench, bush } from './buildings.js';
+import { windowAt, tree, bench, bush, lamp } from './buildings.js';
 import { figure } from './sprites.js';
 import { LOTS, baseOf, streetOf, parcelBounds } from './campus-layout.js';
 import { withinGround, surface } from './terrain.js';
@@ -40,51 +40,86 @@ export function projectedFootprint(block) {
 function clippedPolygon(g,points,paint) {
   g.save();g.beginPath();g.moveTo(...points[0]);for(const p of points.slice(1))g.lineTo(...p);g.closePath();g.clip();paint();g.restore();
 }
+// Walls are textured in clusters, never single-pixel noise: brick courses, stone blocks, timber
+// boards or metal ribs, each shaded on the same upper-left light as the volume.
 function facade(g,b) {
-  const {x,y,w,h,wall,material}=b;
-  rect(g,x,y-h,w,h,wall);
-  for(let yy=y-h+3;yy<y-2;yy+=material==='brick'?4:5) {
-    const c=shade(wall,material==='timber'?-.2:-.12);
-    rect(g,x,yy,w,1,c);
-    if(material==='brick') for(let xx=x+((yy-y)%8?3:0);xx<x+w;xx+=8) rect(g,xx,yy-3,1,3,c);
-  }
-  if(material==='metal') for(let xx=x+3;xx<x+w;xx+=5) {rect(g,xx,y-h+2,1,h-3,shade(wall,-.18));rect(g,xx+1,y-h+2,1,h-3,shade(wall,.1));}
-  for(let n=0;n<w*h/30;n++) {
-    const xx=x+1+hash(n*17+x)*Math.max(1,w-2),yy=y-h+2+hash(n*23+y)*Math.max(1,h-5);
-    px(g,xx,yy,shade(wall,n%2?-.09:.12));
-  }
-  rect(g,x,y-3,w,2,shade(wall,-.25));rect(g,x,y-1,w,1,'#646457');
-  rect(g,x,y-h,2,h-3,shade(wall,.16));
+  const {x,y,w,h,wall,material}=b,top=y-h,joint=tone(wall,-.16);
+  rect(g,x,top,w,h,wall);
+  g.save();g.beginPath();g.rect(x,top,w,h-3);g.clip();
+  if(material==='brick') for(let yy=top+2,row=0;yy<y-3;yy+=3,row++) {
+    rect(g,x,yy,w,1,joint);
+    for(let xx=x+(row%2?3:0);xx<x+w;xx+=6) {
+      rect(g,xx,yy+1,1,2,joint);
+      // A few bricks a shade off their neighbours read as fired clay, in two-pixel clusters.
+      const n=hash(xx*7+yy*13+x);
+      if(n<.16) rect(g,xx+1,yy+1,5,2,tone(wall,-.08));
+      else if(n>.9) rect(g,xx+1,yy+1,5,1,tone(wall,.1));
+    }
+  } else if(material==='stone') for(let yy=top+3,row=0;yy<y-3;yy+=5,row++) {
+    rect(g,x,yy,w,1,joint);
+    for(let xx=x+(row%2?5:1);xx<x+w;xx+=10) {
+      rect(g,xx,yy+1,1,4,joint);
+      rect(g,xx+1,yy+1,3,1,tone(wall,.12));
+    }
+  } else if(material==='timber') {
+    for(let xx=x+3;xx<x+w;xx+=4) {rect(g,xx,top,1,h,tone(wall,-.22));rect(g,xx+1,top,1,h,tone(wall,.07));}
+    rect(g,x,top+2,w,1,tone(wall,-.3));
+  } else if(material==='metal') for(let xx=x+3;xx<x+w;xx+=5) {rect(g,xx,top+2,1,h-3,tone(wall,-.2));rect(g,xx+1,top+2,1,h-3,tone(wall,.12));}
+  g.restore();
+  // A darker plinth and a contact line where the wall meets the ground (ambient occlusion).
+  rect(g,x,y-3,w,2,tone(wall,-.28));rect(g,x,y-1,w,1,selOut(wall,.7));
+  rect(g,x+1,top,1,h-3,tone(wall,.2));
+}
+// Selective outline: each edge takes a dark from the surface beside it, darkest on the shadow
+// side (right and bottom) and softest on the lit left, so buildings stand off grass and paving.
+function outline(g,edges) {
+  for(const [x0,y0,x1,y1,c] of edges) line(g,x0,y0,x1,y1,c);
 }
 export function drawBuildingVolume(g,b,season) {
   const {x,y,w,h,d,wall,roof,gable=0}=b,dx=Math.round(d*DX),dy=Math.round(d*DY);
-  const side=[[x+w,y],[x+w,y-h],[x+w+dx,y-h-dy],[x+w+dx,y-dy]];
-  poly(g,side,shade(wall,-.27));
+  const side=[[x+w,y],[x+w,y-h],[x+w+dx,y-h-dy],[x+w+dx,y-dy]],sideC=tone(wall,-.32);
+  poly(g,side,sideC);
   clippedPolygon(g,side,()=>{
-    for(let yy=y-h-dy;yy<y;yy+=4) line(g,x+w,yy,x+w+dx,yy-dy,shade(wall,-.37));
-    for(let xx=x+w+3;xx<x+w+dx;xx+=4) line(g,xx,y-h-dy,xx,y,shade(wall,-.22));
+    for(let yy=y-h-dy;yy<y;yy+=4) line(g,x+w,yy,x+w+dx,yy-dy,tone(wall,-.4));
+    // The shadow side darkens toward the ground.
+    line(g,x+w,y-2,x+w+dx,y-dy-2,tone(wall,-.44));
   });
   facade(g,b);
-  const cap=season===3?'#edf2ed':roof;
+  const cap=season===3?'#edf2ed':roof,capEdge=selOut(cap,.55),wallEdge=selOut(wall,.66);
   if(gable) {
     const ridgeY=y-h-dy/2-gable,ridgeX=dx/2;
-    poly(g,[[x+dx,y-h-dy],[x+w+dx,y-h-dy],[x+w+ridgeX,ridgeY],[x+ridgeX,ridgeY]],shade(cap,-.2));
-    poly(g,[[x+w,y-h],[x+w+ridgeX,ridgeY],[x+w+dx,y-h-dy]],shade(wall,-.2));
+    poly(g,[[x+dx,y-h-dy],[x+w+dx,y-h-dy],[x+w+ridgeX,ridgeY],[x+ridgeX,ridgeY]],tone(cap,-.26));
+    poly(g,[[x+w,y-h],[x+w+ridgeX,ridgeY],[x+w+dx,y-h-dy]],tone(wall,-.24));
     const near=[[x-2,y-h+1],[x+w+2,y-h+1],[x+w+ridgeX+2,ridgeY],[x+ridgeX-2,ridgeY]];
     poly(g,near,cap);
     clippedPolygon(g,near,()=>{
-      for(let yy=ridgeY+3;yy<y-h;yy+=3) {rect(g,x-2,yy,w+dx+4,1,shade(cap,-.19));for(let xx=x-3+((Math.floor(yy/3)%2)*4);xx<x+w+dx;xx+=8)rect(g,xx,yy-2,1,2,shade(cap,-.12));}
+      for(let yy=ridgeY+3;yy<y-h;yy+=3) {rect(g,x-2,yy,w+dx+4,1,tone(cap,-.2));for(let xx=x-3+((Math.floor(yy/3)%2)*4);xx<x+w+dx;xx+=8)rect(g,xx,yy-2,1,2,tone(cap,-.13));}
+      // Sunlit upper courses, nearest the ridge.
+      rect(g,x-2,ridgeY+1,w+dx+4,1,tone(cap,.16));
     });
-    line(g,x+ridgeX-2,ridgeY,x+w+ridgeX+2,ridgeY,shade(cap,.22));
-    rect(g,x-2,y-h+1,w+4,2,shade(roof,-.4));
+    line(g,x+ridgeX-2,ridgeY,x+w+ridgeX+2,ridgeY,tone(cap,.3));
+    rect(g,x-2,y-h+1,w+4,2,tone(roof,-.48));
+    outline(g,[
+      [x-2,y-h+2,x+ridgeX-2,ridgeY,capEdge],
+      [x+w+ridgeX+2,ridgeY,x+w+dx,y-h-dy,capEdge],
+      [x+w+dx,y-h-dy,x+w+dx,y-dy,wallEdge],
+      [x+w+dx,y-dy,x+w,y,wallEdge],
+      [x,y-h+3,x,y-1,selOut(wall,.42)],
+    ]);
   } else {
     const top=[[x,y-h],[x+w,y-h],[x+w+dx,y-h-dy],[x+dx,y-h-dy]];
     poly(g,top,cap);
     clippedPolygon(g,top,()=>{
-      for(let xx=x+4;xx<x+w+dx;xx+=7) line(g,xx,y-h,xx+dx,y-h-dy,shade(cap,-.2));
-      for(let n=0;n<w;n+=5)px(g,x+n+4,y-h-dy/2+hash(n)*2,shade(cap,.12));
+      for(let xx=x+4;xx<x+w+dx;xx+=7) line(g,xx,y-h,xx+dx,y-h-dy,tone(cap,-.18));
     });
-    line(g,x,y-h,x+w,y-h,shade(cap,.25));
+    line(g,x,y-h,x+w,y-h,tone(cap,.3));
+    line(g,x,y-h,x+dx,y-h-dy,tone(cap,.2));
+    outline(g,[
+      [x+dx,y-h-dy,x+w+dx,y-h-dy,capEdge],
+      [x+w+dx,y-h-dy,x+w+dx,y-dy,wallEdge],
+      [x+w+dx,y-dy,x+w,y,wallEdge],
+      [x,y-h+1,x,y-1,selOut(wall,.42)],
+    ]);
   }
 }
 export function drawFacilityGround(g,m,season) {
@@ -93,9 +128,11 @@ export function drawFacilityGround(g,m,season) {
     for(const b of m.blocks) {
       const f=projectedFootprint(b);
       surface(g,f.x-3,f.y-2,f.w+6,f.h+6,paving,'paving',m.index);
+      // The top level lays a kerbed apron: a cool edge on the far side, a sunlit one in front.
+      if(m.L>=3) {rect(g,f.x-3,f.y-2,f.w+6,1,tone(paving,-.28));rect(g,f.x-3,f.y+f.h+3,f.w+6,1,tone(paving,.22));}
       const reach=8+Math.round(b.h*.35),dx=Math.round(b.d*DX),dy=Math.round(b.d*DY);
-      poly(g,[[b.x+2,b.y+3],[b.x+b.w+reach,b.y+3],[b.x+b.w+dx+reach,b.y-dy+4],[b.x+dx,b.y-dy]],'rgba(30,43,31,.2)');
-      rect(g,b.x-1,b.y-1,b.w+2,3,'rgba(30,43,31,.2)');
+      poly(g,[[b.x+2,b.y+3],[b.x+b.w+reach,b.y+3],[b.x+b.w+dx+reach,b.y-dy+4],[b.x+dx,b.y-dy]],CAST);
+      rect(g,b.x-1,b.y-1,b.w+2,3,CAST);
     }
     // A connected path bends from the actual door to the parcel's gate.
     const [ex,ey]=m.entry,[gx,gy]=m.gate,joint=gy-5;
@@ -105,6 +142,64 @@ export function drawFacilityGround(g,m,season) {
     if(m.type==='cafe') surface(g,m.x+71,m.b-12,29,19,paving,'paving',m.index);
     if(m.type==='garden'||m.type==='fountain'||m.type==='statue') surface(g,m.x+12,m.b-26,86,30,paving,'paving',m.index);
   });
+}
+// Text on a coloured plate: dark ink on light club colours, cream on dark ones.
+const ink=c=>{const n=parseInt(c.slice(1,7),16);return .3*(n>>16&255)+.59*(n>>8&255)+.11*(n&255)>150?'#2a2420':'#f7edcf';};
+// Upgrades read on the building itself, not only in the menu. Level 2 adds a canopy over the
+// door, planters and roof plant; level 3 adds the club's banners, solar panels or roof lights,
+// a plated nameboard in club colours and a lamp on the path. Every addition keeps the map's
+// upper-left light: lit tops and left edges, cool shadows below and to the right.
+function upgrades(g,m,main,doorX,colors,season) {
+  const {type,L}=m,{x,y,w,h,d,wall,gable=0}=main,dx=Math.round(d*DX),dy=Math.round(d*DY),primary=colors.primary;
+  if(L>=2) {
+    if(type!=='cafe'&&type!=='shop') {
+      rect(g,doorX-3,y-16,14,1,tone(wall,-.34));
+      rect(g,doorX-4,y-19,16,3,primary);rect(g,doorX-4,y-19,16,1,tone(primary,.3));
+      rect(g,doorX-4,y-17,16,1,selOut(primary,.5));px(g,doorX-4,y-18,tone(primary,.18));
+    }
+    const leaves=['#6a9a50','#4e8a48','#c07a3a','#e8ece6'][season];
+    for(const px0 of [doorX-9,doorX+12]) {
+      if(px0<x+2||px0+5>x+w-1||(px0<x+24&&['gym','workshop','indoor'].includes(type))) continue;
+      rect(g,px0,y-4,5,4,'#8a6a4a');rect(g,px0,y-4,5,1,tone('#8a6a4a',.25));rect(g,px0+4,y-3,1,3,selOut('#8a6a4a',.4));
+      rect(g,px0,y-7,5,3,leaves);rect(g,px0+1,y-7,2,1,tone(leaves,.25));px(g,px0+4,y-5,tone(leaves,-.35));
+    }
+    if(gable) {
+      // A chimney stack on the near roof slope.
+      const cx=x+Math.round(w*.72),ridgeY=y-h-dy/2-gable,cy=Math.round(ridgeY+3);
+      rect(g,cx,cy-6,4,8,tone(wall,-.05));rect(g,cx,cy-6,1,8,tone(wall,.2));rect(g,cx+3,cy-6,1,8,selOut(wall,.5));
+      rect(g,cx-1,cy-7,6,1,selOut(wall,.55));
+    } else {
+      // Rooftop plant set back toward the far parapet, clear of roof lights.
+      const bx=x+w-13+Math.round(dx/2),by=y-h-Math.round(dy/2)+2;
+      rect(g,bx,by-4,8,4,'#9aa3a4');rect(g,bx,by-4,8,1,tone('#9aa3a4',.3));rect(g,bx+7,by-3,1,3,selOut('#9aa3a4',.5));
+      rect(g,bx+2,by-3,3,1,'#5d6669');rect(g,bx,by,9,1,'rgba(26,32,66,.3)');
+    }
+  }
+  if(L>=3) {
+    if(gable) {
+      // Roof lights set into the near slope.
+      for(const rx of [x+6,x+Math.round(w*.42)]) {
+        const ry=y-h-3;
+        poly(g,[[rx,ry],[rx+7,ry],[rx+9,ry-3],[rx+2,ry-3]],'#3d6680');line(g,rx+3,ry-1,rx+6,ry-1,'#a9cfd8');
+        line(g,rx,ry,rx+7,ry,selOut('#3d6680',.4));
+      }
+    } else if(!['institute','testing','indoor'].includes(type)) {
+      // Solar panels across the flat roof, angled to the light.
+      for(let n=0;n<3;n++) {
+        const sx=x+5+n*11,sy=y-h-3;
+        poly(g,[[sx,sy],[sx+8,sy],[sx+10,sy-4],[sx+2,sy-4]],'#2f4a6e');
+        line(g,sx+2,sy-4,sx+10,sy-4,'#8fb3d0');line(g,sx+5,sy,sx+6,sy-4,'#486a8c');
+      }
+    }
+    // The club's banners hang from the eave at both corners.
+    for(const bx of [x+3,x+w-6]) {
+      const by=y-h+(gable?3:2);
+      rect(g,bx,by,3,10,primary);rect(g,bx,by,1,10,tone(primary,.25));rect(g,bx+2,by,1,10,selOut(primary,.4));
+      rect(g,bx,by+4,3,2,colors.secondary);px(g,bx+1,by+10,primary);
+    }
+    // A lamp at the garden gate.
+    lamp(g,m.gate[0]-10,m.gate[1]-2);
+  }
 }
 function entrance(g,b,colors) {
   const x=b.x+Math.floor(b.w/2)-4,y=b.y;
@@ -123,10 +218,13 @@ export function drawFacilityStructure(g,m,season,colors,now=0) {
       if(row===0&&Math.abs(xx-doorX)<11)continue;
       windowAt(g,xx,main.y-12-row*9,glass?8:6,6,type==='cafe'||type==='library'||type==='lodge');
     }
-    // Architectural nameplate sits on the wall, below the eave.
-    const label=main.label,signW=measure(label)+4,sy=main.y-main.h+2;
-    rect(g,main.x+3,sy,signW,9,shade(main.roof,-.2));
-    text(g,label,main.x+5,sy+1,{color:'#f7edcf',outline:null});
+    upgrades(g,m,main,doorX,colors,season);
+    // Architectural nameplate on the wall below the eave: a timber board, framed once upgraded,
+    // and plated in club colours at the top level.
+    const label=main.label,signW=measure(label)+4,sx=main.x+(L>=3?7:3),sy=main.y-main.h+2,plate=L>=3?colors.primary:tone(main.roof,-.25);
+    rect(g,sx,sy,signW,9,plate);
+    if(L>=2) {rect(g,sx,sy,signW,1,tone(plate,.28));rect(g,sx,sy+8,signW,1,selOut(plate,.45));}
+    text(g,label,sx+2,sy+1,{color:ink(plate),outline:null});
     if(type==='cafe'||type==='shop') {
       for(let xx=main.x+2;xx<main.x+main.w-1;xx+=4) rect(g,xx,main.y-17,4,4,Math.floor((xx-main.x)/4)%2?colors.primary:'#f2e5c6');
       line(g,main.x+2,main.y-13,main.x+main.w-2,main.y-13,'#7a7059');
