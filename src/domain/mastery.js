@@ -2,7 +2,7 @@ import { EVENT_IDS, EVENTS } from '../game-content.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const PROFILES={
  consistent:{name:'Steady competitor',desc:'A tighter performance spread in every event.',variance:0.78},
- explosive:{name:'Explosive competitor',desc:'Gets more distance from aggressive attempts.',attackBoost:0.012},
+ explosive:{name:'Explosive competitor',desc:'Gets more distance from aggressive attempts.',attackBoost:0.006},
  durable:{name:'Efficient mover',desc:'Uses less stamina in training and competition.',stamina:0.85},
  adaptable:{name:'Quick adapter',desc:'Learns secondary-event technique faster.'},
 };

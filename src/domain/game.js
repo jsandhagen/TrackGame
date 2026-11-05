@@ -249,7 +249,9 @@ function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
       if (league >= 4 && star) a.skills.push({ shot: "meteor", discus: "cyclone", hammer: "tempest", jav: "skyspear" }[event]);
       if(league>=1) {
         const style=identity === "power" || identity === "hammer" ?["opener","clutch",star?"highroller":"icevein"]:identity === "control"?["metronome","icevein","clutch"]:["hunter","clutch","highroller"];
-        a.skills=style.slice(0,Math.min(3,league+1));
+        // A club's style in a few skills: stars carry one more. Kept short so rivals don't stack
+        // bonuses by default; a coach who builds a stack on purpose can out-throw them.
+        a.skills=style.slice(0,Math.min(3,(league>=3?2:1)+(star?1:0)));
         if(league>=3&&i===0)a.skills.push("captain");
         if(league>=4&&star)a.skills.push({shot:"meteor",discus:"cyclone",hammer:"tempest",jav:"skyspear"}[event]);
         a.gear.implement=league>=3&&star?"carbon":star?"competition":"precision";

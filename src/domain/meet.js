@@ -459,7 +459,8 @@ function riskModel(s, c, side, tactic, quality, sig) {
     fx = effects(s, a, side === "home"),
     T = TACTICS[tactic],
     first = c.k === 0,
-    last = c.left === 1,
+    // A championship's final attempt is the sixth; the end of the preliminary round is not.
+    last = c.left === 1 && !(c.m.prelimFinals && !c.m.finalRound),
     afterFoul = c.k > 0 && c.own[c.k - 1] == null,
     // Behind the other club's best in this event (field meets), or the head-to-head rival.
     rivalBest = c.m.rotation ? best(c.m.fields[c.i][side === "home" ? "away" : "home"].flatMap((e) => e.marks)) : c.oppBest,

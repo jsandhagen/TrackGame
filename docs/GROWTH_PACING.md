@@ -45,36 +45,53 @@ With growth paced, the scripted club still hit a wall in the late championship f
 
 ### Changes
 
-- **Seasoned signings** (`src/domain/signings.js`). A prospect arrives from the division the club has reached, placed in it exactly as rival throwers are: at a spot in the division's distance band (`RARITY[].signing.band`) on the kit an ordinary rival carries there (`divisionKit`). Common 0.1 (the bottom of the band), Rare 0.45, **Epic 0.8** (the upper band, where a championship's mid-table points are), **Legend 1.1** (with the rival clubs' stars). They arrive without that kit, so equipping them from the shop is what puts them there. They come with the level, rank and skill points of that division (a level of 1.8 a division, at least the rank their stats need, never above Star), rival-level event mastery (more where the rating scale runs out at the top), meet skills like rivals (Common 1, Rare 1, Epic 2, Legend 3, no rarer than Epic, paid from their skill points) and a **circuit PB** at 98% of their forecast, so lineups seed them. Championship entry still needs a mark made in the league duels. Seasoning only ever improves a prospect: opening-division recruits and the fence tryout's teenager stay raw. It applies to scouting reports, the scout's tip and secret characters, and uses no random draws.
+- **Seasoned signings** (`src/domain/signings.js`). A prospect arrives from the division the club has reached, placed in it exactly as rival throwers are: at a spot in the division's distance band (`RARITY[].signing.band`) on the kit an ordinary rival carries there (`divisionKit`). Common 0 (the bottom of the band), Rare 0.3, **Epic 0.6** (just above the middle: a championship's mid-table points), **Legend 0.95** (the top of the band, with the rival clubs' stars). They arrive without that kit, so equipping them from the shop is what puts them there. They come with the level, rank and skill points of that division (a level of 1.8 a division, at least the rank their stats need, never above Star), rival-level event mastery (more where the rating scale runs out at the top), meet skills like rivals (Common 1, Rare 1, Epic 2, Legend 3, no rarer than Epic, paid from their skill points) and a **circuit PB** at 98% of their forecast, so lineups seed them. Championship entry still needs a mark made in the league duels. Seasoning only ever improves a prospect: opening-division recruits and the fence tryout's teenager stay raw. It applies to scouting reports, the scout's tip and secret characters, and uses no random draws.
 - **Headhunter's report.** A first title from National Division 3 upward (`HEADHUNTER_DIVISION`) makes the next free scouting report lead with a Legend.
 - **No banking a banked mark.** In field meets, automatic tactics choose only Controlled or All out once the athlete has a valid mark (`autoTactic`, `src/domain/meet.js`).
 - The rival tuning's maths is shared (`ratingForMark`, `markMultiplier` in `src/domain/competition.js`); rival forecasts are unchanged (`node scripts/division-audit.mjs 10`: 100% inside the bands).
 
 ### Results
 
-`node scripts/depth-experiment.mjs <division> [seeds] [replays]` plays scripted careers to a division's final and replays it with the squad as played, then rebuilt as three specialists an event (keeping the club's own qualified athletes who are at least Epic standard and filling the rest with kitted-out Epic signings, with or without one Legend). Win rates over 60 replays per squad, three careers:
+`node scripts/depth-experiment.mjs <division> [seeds] [replays]` plays scripted careers to a division's final and replays it with the squad as played, then rebuilt as three specialists an event (keeping the club's own qualified athletes who are at least Epic standard and filling the rest with kitted-out Epic signings, with or without one Legend). It also prints the median winning mark in each event. Win rates over 40 replays per squad, three careers, with the meet-day bonuses below:
 
 | Final | As played | Deep squad of Epics | One Legend and Epics |
 | --- | ---: | ---: | ---: |
-| National 3 | 13–82% | 95–100% | 95–100% |
-| National 1 | 0–27% | 40–85% | 55–95% |
-| International | 3–57% | 20–87% | 38–93% |
-| Diamond | 3–70% | 10–85% | 10–85% |
+| National 1 | 3–100% | 63–100% | 78–100% |
+| International | 3–45% | 65–100% | 73–100% |
 
-At Diamond the rating scale saturates for everyone: Epic and Legend signings both arrive at 100 OVR, level with the median rival, and kit and skills decide the rest.
+The audit bot now builds depth as a coach would: it fills the dormitories with the best prospects, swaps its weakest athlete for a clearly better prospect, and buys meet-skill books from the shelf for its best athletes. It signs whatever its reports offer, mostly Commons, so a coach who hunts for Epics and the headhunter's Legends should do better than the bot.
 
-The audit bot now builds depth as a coach would: it fills the dormitories with the best prospects, swaps its weakest athlete for a clearly better prospect, and buys meet-skill books from the shelf for its best athletes. Engaged bot, six seeds, 30-season cap, finals won (`node scripts/rating-audit.mjs engaged 6 30`):
+## Meet-day bonuses
 
-| Division | Growth pacing only | With depth changes |
+Replayed finals showed winning marks 9.5–12% past the top of the division's band, and world-record marks in 62% of International and 97% of Diamond event finals. Winners' forecasts sat at the band's top; the excess came from bonuses stacked on one throw, mostly by rivals, who carried three meet skills each from National 1 (every club style includes Clutch Gene) and a signature move on every star at the top.
+
+Stacking stays, so a coach who builds a stack on purpose (skills, loadouts, the signature's timing, All out with High Roller, a home crowd, a captain) still gets it. Each bonus is smaller, and rivals no longer stack by default:
+
+| Bonus | Before | Now |
 | --- | ---: | ---: |
-| National 3 | 75% | 86% |
-| National 1 | 29% | 35% |
-| Continental | 24% | 25% |
-| International | 28% | 20% |
-| World Tour | 18% | 31% |
-| Diamond | 0% | 17% |
-| Diamond titles within 30 seasons | 0 / 6 | 2 / 6 (seasons 25, 28) |
+| Opening Salvo · Front Runner | +3% · +1.5% | +1.5% · +1% |
+| Clutch Gene | +4%, twice in a championship | +2%, on the sixth throw only |
+| Second Wind · Rival Hunter | +5% · +3% | +2.5% · +1.5% |
+| Momentum | +1.5% a valid mark | +0.75% |
+| Big Stage · Old Medal · Anchor | +3% · +3% · +2.5% | +1.5% · +1.5% · +1.5% |
+| Showtime · High Roller | +4% · +2.5% | +2% · +1.5% |
+| Signature moves (once a meet, no foul) | +8% | +3% |
+| Showboat · Explosive competitor | +2% · +1.2% on All out | +1% · +0.6% |
+| TIMBER! · Wind Reader · Avalanche | +4% · +5% · +7% | +2% · +2.5% · +3.5% |
 
-The growth curve is unchanged: no 90+ OVR athletes entering National 3, and 99–100 OVR waits for the World Tour and Diamond. The bot signs whatever its reports offer, mostly Commons, so a coach who hunts for Epics and the headhunter's Legends should do better than these figures.
+Rival throwers carry their club style in one skill through the National tier and two from National 1; stars carry one more (at most three), plus their signature at the top. The draws that made those skills are unchanged, so seeded campaigns keep their other rolls.
 
-Still open: rivals' meet-skill stacking makes finals swingy. The club can now match it through books and signings, but a human playtest should judge whether late finals feel fair. These are scripted bots, not people: they show the shape of the curve, not human campaign length.
+Median winning mark in replayed finals (as-played squads), against the band and the world record:
+
+| Final | Shot | Discus | Hammer | Javelin | Winner vs band top | Event finals over the WR |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| National 3 (band 15–17 · 49–55 · 60–68 · 62–72) | 18.89 | 56.92 | 70.90 | 77.84 | +6.8% (was +10.9%) | 0% |
+| National 1 (17–19 · 55–61 · 68–75 · 70–79) | 20.48 | 65.01 | 79.91 | 84.61 | +7% (was +12%) | 0% |
+| International (19–21 · 61–67 · 74–81 · 79–88) | 22.34 | 70.14 | 85.84 | 93.06 | +6–7% (was +11.3%) | 9% (was 62%) |
+| Diamond (20–22 · 65–71 · 78–85 · 85–94) | 23.16 | 73.33 | 89.20 | 97.25 | +4.4% (was +9.5%) | 40% (was 97%) |
+
+What remains is mostly not bonuses: the best of about fifteen throwers and six attempts lands about 3% over its forecast, and the club's own stars forecast a little above the band. At Diamond the bands sit just under the world record (hammer tops out at 85 m against 86.74), so a winner barely above the band breaks it.
+
+Engaged bot over full careers (`node scripts/rating-audit.mjs engaged 6 30`), finals won: National 3 100%, National 1 55%, Continental 50%, International 29%, World Tour 13%, Diamond 36%. Four of six careers win the Diamond title within 30 seasons (median season 26); before the depth changes none did. The growth curve is unchanged: no 90+ OVR athletes entering National 3.
+
+Still open: whether Diamond finals should break the world record as often as they do (lower the Diamond bands, or narrow throw spread), and whether late finals feel fair to a human. These are scripted bots, not people: they show the shape of the curve, not human campaign length.

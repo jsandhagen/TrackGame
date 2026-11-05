@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as G from './helpers/developed-club.js';
 import { validateCampaign, exportCampaign } from '../src/domain/campaign-save.js';
 import * as P from '../src/ui/pages.js';
-import { EVENT_IDS } from "../src/game-content.js";
+import { EVENT_IDS, SKILLS } from "../src/game-content.js";
 
 function finishMeet(s, win = true) {
   for (let guard = 0; s.day < s.matchDay && guard < 50; guard++) {
@@ -133,7 +133,7 @@ test('saved skill setups affect their own context without silently changing the 
   assert(G.saveLoadout(s, a.id, 'meet'));
   assert(G.enableLoadouts(s, a.id, true));
   assert.equal(G.effects(s, a, true, 'training').train[0], 1.15 * 1.25);
-  assert.equal(G.effects(s, a, true, 'meet').first, 1.03);
+  assert.equal(G.effects(s, a, true, 'meet').first, SKILLS.opener.first);
   assert.equal(G.effects(s, a, true, 'meet').train[0], 1.15);
   assert.deepEqual(a.equipped, ['opener']);
   const copy = validateCampaign(exportCampaign(s));
