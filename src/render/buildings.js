@@ -150,11 +150,15 @@ export function pine(g, x, y, s = 1, season = 1) {
     if (season === 3) rect(g, x - Math.round(w * 0.4), top + 1, Math.round(w * 0.8), 2, "#f4f6f8");
   }
 }
+// A heritage lantern on a dark green post: a stepped base, a crossbar for ladders and bunting,
+// and a warm glass head under a little cap.
 export function lamp(g, x, y) {
-  rect(g, x, y - 16, 1, 16, "#4a4e52");
-  rect(g, x - 1, y - 1, 3, 1, "#4a4e52");
-  rect(g, x - 1, y - 18, 3, 3, "#4a4e52");
-  rect(g, x, y - 17, 1, 1, "#fff0b0");
+  const post = "#2f4a40";
+  rect(g, x - 1, y - 2, 3, 2, post); rect(g, x - 1, y, 3, 1, "rgba(26,32,66,0.25)");
+  rect(g, x, y - 16, 1, 15, post); px(g, x, y - 16, "#4a6a5c");
+  rect(g, x - 2, y - 15, 5, 1, post);
+  rect(g, x - 1, y - 21, 3, 5, "#f6dc90"); px(g, x - 1, y - 21, "#fff4c8"); rect(g, x + 1, y - 20, 1, 4, "#d8b060");
+  rect(g, x - 2, y - 22, 5, 1, post); px(g, x, y - 23, post); rect(g, x - 2, y - 16, 5, 1, post);
 }
 export function bush(g, x, y, season = 1) {
   const c = ["#6a9a50", "#4e8a48", "#c07a3a", "#8a9a8a"][season];

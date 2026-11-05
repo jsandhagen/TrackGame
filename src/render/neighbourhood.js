@@ -18,9 +18,9 @@ export const CITY_ROADS = [
   { x1: 976, y1: 146, x2: 976, y2: BOULEVARD+18, width: 20, kind: 'secondary' }, // eastern connection
   { x1: 280, y1: 518, x2: 280, y2: MAP_H, width: 24, kind: 'main' }, // station approach
 ];
-// Road hierarchy: main roads carry a double yellow centre line and signals at their busiest
-// junctions; secondary roads a dashed white line; the residential lane no markings at all, with
-// cars parked at the kerb. Lower-ranked arms stop and give way at every other junction.
+// Road hierarchy, kept gentle: main roads carry a faded cream centre line, secondary roads a
+// fainter one, and the residential lane none at all, with cars parked at the kerb. There are no
+// signals or stop signs: the lower-ranked arm gives way at a dashed line painted on the road.
 const RANK = { main: 3, secondary: 2, residential: 1 };
 // Zebra crossings, aligned with the walking routes: [x, y, 'h' if it crosses a horizontal road
 // or 'v' a vertical one, width of the road crossed].
@@ -30,7 +30,7 @@ export const CROSSINGS = [
   [280,536,'v',24], [280,BOULEVARD,'v',24], [976,250,'v',20], [976,500,'v',20], [976,BOULEVARD,'v',20],
 ];
 // Signalised junctions where the station approach and Club Avenue meet the main roads.
-export const SIGNALS = [[562,518],[280,518],[280,BOULEVARD+18]];
+export const SIGNALS = [];
 export const RESIDENTIAL_LOTS = [
   ...Array.from({ length: 6 }, (_, i) => ({ x: 584 + i * 62, y: 58, w: 58, h: 64, kind: i === 2 ? 'bakery' : 'home', seed: i })),
   { x: 736, y: LOWER_LOT_TOP, w: 94, h: BOULEVARD-12-LOWER_LOT_TOP, kind: 'home', seed: 7 },
@@ -43,9 +43,10 @@ export const STREET_LAMPS = [
   ...[610, 734, 858].map(x => [x, 129]),
   ...[324, 412, 650, 738, 836, 930].map(x => [x, 537]),
 ];
-const ASPHALT = '#737c7b';
+// Warm, dark tarmac rather than a cool engineering grey.
+const ASPHALT = '#6e6a66';
 const green = season => ['#8fb76b', '#79a75d', '#a5a36b', '#e1e7de'][season];
-const stone = season => season === 3 ? '#e5e6df' : '#d4c9b1';
+const stone = season => season === 3 ? '#e5e6df' : '#d8c8aa';
 function walk(g, x, y, w, h, season) {
   const c = stone(season);
   rect(g, x, y, w, h, c);
@@ -75,8 +76,13 @@ export function drawStreetNetwork(g, season) {
     rect(g, x - 1, y - 1, w + 2, h + 2, '#b7b5a8');
     rect(g, x - 1, y + h, w + 2, 1, tone('#b7b5a8', .2));
     rect(g, x, y, w, h, ASPHALT);
-    // The north and west kerbs shade a strip of road, as the light comes from the upper left.
-    if (horizontal(r)) rect(g, x, y, w, 2, tone(ASPHALT, -.16)); else rect(g, x, y, 2, h, tone(ASPHALT, -.16));
+    // Cobbled gutters line both kerbs, so the tarmac reads narrower and warmer; the north and
+    // west gutters sit in the kerb's shadow.
+    const setts = '#8e8174';
+    for (const [gx, gy, gw, gh, dark] of horizontal(r) ? [[x, y, w, 2, true], [x, y + h - 2, w, 2, false]] : [[x, y, 2, h, true], [x + w - 2, y, 2, h, false]]) {
+      rect(g, gx, gy, gw, gh, dark ? tone(setts, -.12) : setts);
+      for (let k = 0; k < (horizontal(r) ? gw : gh); k += 3) rect(g, horizontal(r) ? gx + k : gx, horizontal(r) ? gy : gy + k, horizontal(r) ? 1 : 2, horizontal(r) ? 2 : 1, tone(setts, -.22));
+    }
     // Wear in clusters, not speckle: sealed cracks and patched, sun-bleached tarmac.
     for (let i = 0; i < w * h / 220; i++) {
       const px0 = x + 3 + Math.floor(hash(i * 3 + x) * (w - 8)), py0 = y + 3 + Math.floor(hash(i * 7 + y) * (h - 6)), n = hash(i * 11 + x + y);
@@ -97,12 +103,11 @@ export function drawStreetNetwork(g, season) {
       ...CROSSINGS.filter(([x, y, axis]) => (axis === 'h') === isH && Math.abs((isH ? y : x) - c) < 2).map(([x, y]) => { const p = isH ? x : y; return [p - 9, p + 9]; }),
     ];
     const clear = p => !gaps.some(([a, b]) => p >= a && p <= b);
-    if (r.kind === 'main') {
-      for (let p = start; p < end; p++) if (clear(p)) for (const o of [-2, 1]) rect(g, isH ? p : c + o, isH ? c + o : p, 1, 1, '#e8c04a');
-    } else if (r.kind === 'secondary') {
-      for (let p = start + 7; p < end - 3; p += 17) if (clear(p) && clear(p + 7)) {
+    if (r.kind !== 'residential') {
+      const dash = r.kind === 'main' ? 8 : 5, step = r.kind === 'main' ? 14 : 16, paint = r.kind === 'main' ? '#d8ccaa' : '#bdb49c';
+      for (let p = start + 7; p < end - 3; p += step) if (clear(p) && clear(p + dash)) {
         const x = isH ? p : r.x1, y = isH ? r.y1 : p;
-        rect(g, x - (isH ? 0 : 1), y - (isH ? 1 : 0), isH ? 7 : 2, isH ? 2 : 7, '#d9d5bb');
+        rect(g, x - (isH ? 0 : 1), y - (isH ? 1 : 0), isH ? dash : 2, isH ? 2 : dash, paint);
       }
     }
     // Manhole covers in the lanes and gully grates against the kerb, a few to a street.
@@ -159,13 +164,14 @@ export function drawRoadMarkings(g, season) {
   for (const { j, dir } of STOP_ARMS) {
     const hh = j.h.width / 2, vh = j.v.width / 2, near = CROSSINGS.filter(([x, y, axis]) => dir === 'w' || dir === 'e' ? axis === 'h' && y === j.y && Math.abs(x - j.x) < 26 && (dir === 'w') === (x < j.x) : axis === 'v' && x === j.x && Math.abs(y - j.y) < 26 && (dir === 'n') === (y < j.y));
     const off = near.length ? Math.abs((dir === 'w' || dir === 'e' ? near[0][0] - j.x : near[0][1] - j.y)) + 9 : (dir === 'w' || dir === 'e' ? vh : hh) + 2;
-    if (dir === 'w') rect(g, j.x - off - 1, j.y, 2, hh, '#f2eee0');
-    if (dir === 'e') rect(g, j.x + off, j.y - hh, 2, hh, '#f2eee0');
-    if (dir === 'n') rect(g, j.x - vh, j.y - off - 1, vh, 2, '#f2eee0');
-    if (dir === 's') rect(g, j.x, j.y + off, vh, 2, '#f2eee0');
+    const paint = '#ddd2b4', dashes = (x, y, w, h) => { for (let k = 0; k < Math.max(w, h); k += 3) rect(g, w > h ? x + k : x, w > h ? y : y + k, w > h ? 2 : w, w > h ? h : 2, paint); };
+    if (dir === 'w') dashes(j.x - off - 1, j.y, 2, hh);
+    if (dir === 'e') dashes(j.x + off, j.y - hh, 2, hh);
+    if (dir === 'n') dashes(j.x - vh, j.y - off - 1, vh, 2);
+    if (dir === 's') dashes(j.x, j.y + off, vh, 2);
   }
   // Tactile paving where every crossing meets the kerb.
-  const tactile = season === 3 ? '#e0c870' : '#d6b66b';
+  const tactile = season === 3 ? '#e0d4a8' : '#cdb684';
   for (const [x, y, axis, width] of CROSSINGS) {
     const pads = axis === 'h' ? [[x - 4, y - width / 2 - 4], [x - 4, y + width / 2 + 1]] : [[x - width / 2 - 4, y - 4], [x + width / 2 + 1, y - 4]];
     for (const [px0, py0] of pads) {
@@ -175,38 +181,27 @@ export function drawRoadMarkings(g, season) {
     }
   }
 }
-function trafficLight(g, x, y, now, phase) {
-  rect(g, x, y - 20, 1, 20, '#4a5054'); rect(g, x - 1, y, 3, 1, '#3a3e42');
-  rect(g, x - 2, y - 27, 5, 9, '#2a2e32'); rect(g, x - 2, y - 27, 5, 1, '#4a5054');
-  const t = ((now / 4000 + phase) % 1), lit = t < .45 ? 2 : t < .55 ? 1 : 0;
-  ['#e04a3a', '#f0b030', '#4ac060'].forEach((c, k) => px(g, x, y - 26 + k * 3, k === lit ? c : tone(c, -.6)));
-  rect(g, x - 2, y - 18, 5, 1, 'rgba(26,32,66,.3)');
-}
-function stopSign(g, x, y) {
-  rect(g, x, y - 12, 1, 12, '#7a8084'); rect(g, x - 1, y, 3, 1, '#5a5e60');
-  rect(g, x - 2, y - 16, 5, 5, '#d43a32'); px(g, x - 2, y - 16, 'rgba(0,0,0,0)');
-  px(g, x - 2, y - 16, '#e8e6e0'); px(g, x + 2, y - 16, '#e8e6e0'); px(g, x - 2, y - 12, '#e8e6e0'); px(g, x + 2, y - 12, '#e8e6e0');
-  rect(g, x - 1, y - 14, 3, 1, '#f4f0e8'); px(g, x - 1, y - 16, tone('#d43a32', .3));
-}
 const hydrant = (g, x, y) => { rect(g, x, y - 4, 3, 4, '#d0402e'); rect(g, x - 1, y - 3, 5, 1, '#a8302a'); rect(g, x, y - 5, 3, 1, '#e86a50'); px(g, x, y - 4, '#f08a70'); rect(g, x, y + 1, 3, 1, SHADOW); };
 const bin = (g, x, y, c = '#4a6a5a') => { rect(g, x, y - 5, 4, 5, c); rect(g, x, y - 5, 4, 1, tone(c, .3)); rect(g, x + 3, y - 4, 1, 4, selOut(c, .4)); rect(g, x - 1, y - 6, 6, 1, tone(c, -.2)); rect(g, x, y + 1, 4, 1, SHADOW); };
 const mailbox = (g, x, y) => { rect(g, x + 1, y - 3, 1, 3, '#4a5054'); rect(g, x, y - 8, 4, 5, '#3a5a9a'); rect(g, x, y - 8, 4, 1, '#6a8ac8'); rect(g, x + 1, y - 6, 2, 1, '#1e2e50'); rect(g, x + 3, y - 7, 1, 4, selOut('#3a5a9a', .4)); };
-const cabinet = (g, x, y) => { rect(g, x, y - 7, 6, 7, '#8a948e'); rect(g, x, y - 7, 6, 1, '#b4bcb6'); rect(g, x + 5, y - 6, 1, 6, selOut('#8a948e', .4)); rect(g, x + 2, y - 5, 2, 1, '#5a625e'); rect(g, x, y + 1, 6, 1, SHADOW); };
-// Street furniture where each piece belongs: signals and stop signs at junctions, hydrants by
-// the kerb along the main roads, bins by benches and the bus stop, mailboxes on the residential
-// lane and Club Row, a signal cabinet at each signalised corner.
+// A half-barrel tub spilling over with flowers.
+function flowerTub(g, x, y, season) {
+  rect(g, x, y - 4, 7, 4, '#8a5e3c'); rect(g, x, y - 4, 7, 1, tone('#8a5e3c', .25)); rect(g, x, y - 2, 7, 1, '#5a5450'); rect(g, x + 6, y - 3, 1, 3, selOut('#8a5e3c', .4)); rect(g, x, y + 1, 7, 1, SHADOW);
+  if (season === 3) { rect(g, x, y - 5, 7, 1, '#f4f6f8'); return; }
+  const leaf = ['#5e9a4a', '#4e8a44', '#8a8a40'][Math.min(season, 2)];
+  rect(g, x - 1, y - 7, 9, 3, leaf); rect(g, x, y - 8, 7, 1, tone(leaf, .2));
+  for (let k = 0; k < 9; k += 2) px(g, x - 1 + k, y - 7 - (k % 4 ? 1 : 0), ['#e86a6a', '#f6d04c', '#f4f0e6', '#e88aa0', '#c890e0'][(k + x) % 5]);
+  px(g, x - 1, y - 4, leaf); px(g, x + 7, y - 5, leaf);
+}
+// Street furniture where each piece belongs: flower tubs between the lanterns on Club Row,
+// hydrants by the kerb along the main roads, bins by the benches, mailboxes on the residential
+// lane and Club Row.
 export const FURNITURE = [
-  ...SIGNALS.flatMap(([x, y], k) => [['signal', x - 17, y - 14, k * .5], ['signal', x + 15, y + 17, k * .5 + .5], ['cabinet', x - 26, y - 13]]),
+  ...[90, 186, 404, 600, 698, 794, 890].map(x => ['planter', x, 506]),
   ['hydrant', 92, 506], ['hydrant', 402, 506], ['hydrant', 700, 506], ['hydrant', 880, 541], ['hydrant', 520, 665], ['hydrant', 800, 665], ['hydrant', 700, 135],
   ['bin', 360, 399], ['bin', 640, 399], ['bin', 940, 399], ['bin', 130, 665],
   ['mailbox', 676, 135], ['mailbox', 470, 506],
 ];
-function stopSigns() {
-  return STOP_ARMS.filter(a => !a.signal).map(({ j, dir }) => {
-    const hh = j.h.width / 2, vh = j.v.width / 2;
-    return dir === 'e' ? [j.x + vh + 6, j.y - hh - 4] : dir === 'w' ? [j.x - vh - 7, j.y + hh + 6] : dir === 'n' ? [j.x - vh - 4, j.y - hh - 7] : [j.x + vh + 4, j.y + hh + 7];
-  });
-}
 // Cars parked along the residential lane's north kerb, clear of driveways and crossings, all
 // facing the way traffic runs on that side.
 export const KERB_CARS = [[646, 'sedan'], [734, 'suv'], [842, 'hatch'], [902, 'van']].map(([x, kind], k) => ({ x, y: 145, kind, dir: -1, color: CAR_COLOURS[(k * 3 + 1) % CAR_COLOURS.length] }));
@@ -222,6 +217,17 @@ function fence(g, x, y, w, color) {
   rect(g,x,y-3,w,1,shade(color,-0.1));
   rect(g,x,y-1,w,1,color);
   for(let xx=x;xx<=x+w;xx+=5) rect(g,xx,y-5,1,6,shade(color,0.18));
+}
+// Climbing roses scrambling along a stretch of fence, in clusters with gaps between.
+function roses(g, x, y, w, season, seed) {
+  if (season === 3) return;
+  const leaf = ['#5a8a46', '#4a7e40', '#8a7a3a'][season], bloom = season === 2 ? ['#c86a3a', '#a8502e'] : seed % 2 ? ['#e86a8a', '#f4a8b8'] : ['#d84a4a', '#f08a7a'];
+  for (let k = 0; k < w - 6; k += 9) {
+    if (hash(seed * 7 + k) < .35) continue;
+    const cx = x + k + Math.round(hash(seed + k) * 4);
+    rect(g, cx, y - 6, 6, 3, leaf); rect(g, cx + 1, y - 7, 4, 1, leaf); px(g, cx + 1, y - 7, tone(leaf, .25)); px(g, cx + 5, y - 4, tone(leaf, -.3));
+    if (season < 2 || hash(k + seed) > .5) { px(g, cx + 1, y - 6, bloom[0]); px(g, cx + 4, y - 5, bloom[0]); px(g, cx + 2, y - 7, bloom[1]); }
+  }
 }
 function uprightCar(g,x,y,color) {
   rect(g,x+1,y+2,9,19,'rgba(25,35,28,0.2)');
@@ -270,7 +276,7 @@ export function drawResidentialLots(g,season,items) {
     const gate=doorX-x-1;
     const edges=lot.kind==='bakery'?[[0,gate],[gate+8,w]]:[[0,gate],[gate+8,driveX-x],[driveX-x+(large?14:10),w]];
     items.push({y:front,draw:g=>{
-      for(const [left,right] of edges) if(right>left) fence(g,x+left,front,right-left,fenceColor);
+      for(const [left,right] of edges) if(right>left) {fence(g,x+left,front,right-left,fenceColor);roses(g,x+left,front,right-left,season,seed+left);}
       rect(g,doorX-3,front-6,2,7,shade(fenceColor,-0.12));rect(g,doorX+7,front-6,2,7,fenceColor);
       rect(g,x+7,front-8,1,7,'#7d725c');rect(g,x+5,front-9,6,3,'#6a8c84');
     }});
@@ -347,9 +353,10 @@ export function drawClubParcel(g,x,top,w,front,open,season,index) {
   rect(g,x+1,y+4,1,h-4,tone(color,.16));
   rect(g,x+w-2,y+4,1,h-4,tone(color,-.2));
 }
+export const ROSE_SEASON = { v: 1 };
 export function drawClubFront(g,x,w,front,open,index) {
   const c=open?'#bfc1a7':'#a7ae95';
-  for(const [a,b] of [[2,24],[39,w-2]]) fence(g,x+a,front,b-a,c);
+  for(const [a,b] of [[2,24],[39,w-2]]) {fence(g,x+a,front,b-a,c);if(open&&index%3!==1)roses(g,x+a,front,b-a,ROSE_SEASON.v,index*5+a);}
   for(const dx of [23,38]) {rect(g,x+dx,front-6,2,8,open?'#b5ad96':'#9b9e87');rect(g,x+dx-1,front-7,4,1,'#e0d8c0');}
   if(open) {
     rect(g,x+7,front-5,10,4,'#6c8178');text(g,String(index+1),x+8,front-5,{scale:.6,color:'#f3ebd6',outline:null});
@@ -382,10 +389,9 @@ export function drawPocketPark(g,season,items) {
     rect(g,x+16,y+35,11,2,'#ac6e51');
   }});
 }
-export function drawStreetFurniture(g,items,colors={primary:'#2f6b52',secondary:'#f2c94c'}) {
+export function drawStreetFurniture(g,items,colors={primary:'#2f6b52',secondary:'#f2c94c'},season=1) {
   for(const [x,y] of STREET_LAMPS)items.push({y,draw:g=>lamp(g,x,y)});
-  for(const [kind,x,y,phase] of FURNITURE) items.push({y,draw:(g,now=0)=>kind==='signal'?trafficLight(g,x,y,now,phase):kind==='hydrant'?hydrant(g,x,y):kind==='bin'?bin(g,x,y):kind==='mailbox'?mailbox(g,x,y):cabinet(g,x,y)});
-  for(const [x,y] of stopSigns()) items.push({y,draw:g=>stopSign(g,x,y)});
+  for(const [kind,x,y] of FURNITURE) items.push({y,draw:g=>kind==='planter'?flowerTub(g,x,y,season):kind==='hydrant'?hydrant(g,x,y):kind==='bin'?bin(g,x,y):mailbox(g,x,y)});
   for(const c of KERB_CARS) items.push({y:c.y,draw:g=>vehicle(g,c.kind,c.x,c.y,c.color,c.dir)});
   items.push({y:LOADING.y,draw:g=>{vehicle(g,'delivery',LOADING.x+3,LOADING.y,colors.primary,-1);}});
 }

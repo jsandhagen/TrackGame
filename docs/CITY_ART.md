@@ -115,21 +115,40 @@ Each design has its own lived-in details: washing, a woodpile, a porch chair, bi
 
 ## The town (`src/render/neighbourhood.js`, `src/render/world.js`)
 
-This section follows the project's *Modern Pixel-Art Town Design* guide. The street grid and plot layout are unchanged, because walking routes and the parcel tests depend on them. Everything drawn on and around the streets follows the guide.
+The town follows the project's *Modern Pixel-Art Town Design* guide, tuned to feel **cosy** rather than traffic-engineered. The street grid and plot layout are unchanged, because walking routes and the parcel tests depend on them.
+
+### What makes it cosy
+
+- **Warm palette:**
+  - softer, yellower meadow greens instead of a saturated golf-course green
+  - warm dark tarmac and warm stone footpaths
+  - a gentle warm grade over the daytime scene
+- **Town-centre brick:** the forecourt and both sides of Club Row are laid in brick, with a few weathered bricks and moss in the joints.
+- **Heritage lanterns:** dark green posts with warm glass heads replace the modern poles, and bunting in the club's colours sags between them along Club Row, lifting now and then in a breeze.
+- **Flowers everywhere it makes sense:**
+  - half-barrel tubs along Club Row
+  - climbing roses scrambling along most picket fences, in rose, red or autumn colours
+  - wildflowers under the woodland clumps
+- **Trees in groups:**
+  - clumps of two to four trees from one family, with shrubs at their feet
+  - an avenue of trees on both verges of Club Avenue
+  - columnar trees screening the practice field
+  - street trees along the boulevard
+- **Village car parks:** rolled gravel with bays marked in stone setts, and a tree in each.
 
 ### Road hierarchy
 
-| Rank | Roads | Markings and treatment |
+| Rank | Roads | Treatment |
 | --- | --- | --- |
-| Main | Club Row, Stadium Boulevard, station approach | Double yellow centre line; traffic lights where the approach and Club Avenue meet them; a marked loading bay with a delivery van |
-| Secondary | Club Avenue, North Lane, eastern road | Dashed white centre line; stop lines and stop signs where they meet a main road |
-| Residential | Town Lane | No centre line; cars parked along the kerb, clear of driveways and the crossing; stop lines and stop signs at both ends |
+| Main | Club Row, Stadium Boulevard, station approach | A faded cream dashed centre line; a marked loading bay with a delivery van on the boulevard |
+| Secondary | Club Avenue, North Lane, eastern road | A fainter, shorter dash |
+| Residential | Town Lane | No markings; cars parked along the kerb, clear of driveways and the crossing |
 
-### Junctions and kerbs
+Every road has cobbled gutters along both kerbs, so the tarmac reads narrower and warmer. There are no traffic lights or stop signs: at each junction the lower-ranked arm gives way at a dashed line across its inbound lane (traffic keeps right), placed outside any zebra on that arm.
 
-- **Junction control varies:** the three busiest junctions have signals on two corners, cycling red, amber and green, plus a signal cabinet. Elsewhere the lower-ranked road stops and gives way.
-- **Stop lines:** each stop line spans the inbound lane (traffic keeps right) and sits outside any zebra on that arm.
-- **Crossings:** every crossing ends in tactile paving at both kerbs. All crossings come from one list (`CROSSINGS`), so markings and stop lines always agree.
+### Kerbs and crossings
+
+- **Crossings:** every crossing ends in soft tactile paving at both kerbs. All crossings come from one list (`CROSSINGS`), so markings always agree.
 - **Road surface details:**
   - manhole covers in the lanes, at a steady interval and kept clear of junctions and crossings
   - gully grates against the kerb
@@ -139,10 +158,10 @@ This section follows the project's *Modern Pixel-Art Town Design* guide. The str
 
 The car parks are laid out like real ones:
 
-- a two-way aisle from the entrance, marked with arrows
-- bays on both sides with wheel stops
+- a two-way gravel aisle from the entrance
+- bays on both sides, marked in setts, with timber-toned wheel stops
 - an accessible bay by the entrance
-- in the larger park, a kerbed planting island with a tree and a light
+- a kerbed planting island with a tree in each park, plus a light in the larger one
 
 Cars face the aisle and are a mix of sedans, hatchbacks, SUVs, pickups and vans (`src/render/vehicles.js`), in varied colours, with some bays empty.
 
@@ -179,9 +198,9 @@ Each piece stands where it would in a real town, and never in the carriageway:
 - hydrants by the kerb along the main roads
 - bins by the benches
 - mailboxes on Town Lane and Club Row
-- signals and their cabinets at the signalised corners
+- flower tubs between the lanterns on Club Row
 
-At night the car-park light and the signals glow as well as the street lamps.
+At night the lanterns and the car-park light glow warm, and the rest of the night stays dark.
 
 ## Reviewing
 
@@ -199,7 +218,7 @@ Run `npm run dev` and open `/scripts/city-study.html`. It renders the whole prod
 `tests/town.test.js` checks:
 
 - that every road has a rank
-- that every junction has a stop line, with signals only on main roads
+- that every junction has a give-way line on its minor arm, with no signals
 - that no furniture stands in the carriageway
 - that kerb parking stays in the residential lane, clear of driveways and the crossing
 

@@ -12,12 +12,12 @@ test('every road has a rank, and the main roads are the through routes', () => {
   assert.equal(CITY_ROADS.filter(r => r.kind === 'residential').length, 1, 'one quiet residential lane');
 });
 
-test('junctions are controlled, and not all the same way', () => {
+test('every junction has a give-way line on its minor arm, and no signal clutter', () => {
   const at = new Set(STOP_ARMS.map(a => `${a.j.x},${a.j.y}`));
   for (const r of CITY_ROADS) for (const s of CITY_ROADS) if (r !== s && r.y1 === r.y2 && s.x1 === s.x2 && s.x1 >= r.x1 && s.x1 <= r.x2 && r.y1 >= s.y1 && r.y1 <= s.y2)
     assert(at.has(`${s.x1},${r.y1}`), `junction ${s.x1},${r.y1} has a stop line`);
-  assert(STOP_ARMS.some(a => a.signal) && STOP_ARMS.some(a => !a.signal), 'signals at the busiest junctions, stop signs elsewhere');
-  for (const [x, y] of SIGNALS) assert(CITY_ROADS.some(r => r.kind === 'main' && (r.y1 === r.y2 ? r.y1 === y : r.x1 === x)), 'signals sit on a main road');
+  assert.equal(SIGNALS.length, 0, 'a cosy town gives way rather than queueing at lights');
+  assert(STOP_ARMS.every(a => !a.signal));
 });
 
 test('street furniture stands on the pavement, never in the carriageway', () => {

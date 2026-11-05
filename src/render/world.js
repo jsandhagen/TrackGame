@@ -1,7 +1,7 @@
 import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
-import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, CROSSINGS, FURNITURE, drawRoadMarkings, drawLoadingBay, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
+import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, CROSSINGS, FURNITURE, drawRoadMarkings, drawLoadingBay, ROSE_SEASON, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
 import { MAP_W, MAP_H, LOTS, LOT_W, STREETS, LOWER_LOT_TOP, streetOf, baseOf, front, parcelBounds, PARKING, POCKET_PARK, BUS_BAY, BUS_STOP } from "./campus-layout.js";
 export { MAP_W, MAP_H, LOTS } from "./campus-layout.js";
 import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
@@ -144,8 +144,9 @@ export function route(from, to) {
 
 // ── The static map ──────────────────────────────────────────────────────
 // Bright, fresh greens in spring and summer, a gold autumn and a snowy winter.
-const GRASS = ["#86c05c", "#74b650", "#a8aa52", "#dfe6e0"],
-  GRASS2 = ["#96cc6a", "#84c25e", "#b8b862", "#eef2f0"];
+// Soft, warm greens: a meadow, not a golf course.
+const GRASS = ["#8cbc62", "#7cae58", "#a8a658", "#dfe6e0"],
+  GRASS2 = ["#9cc870", "#8cbc66", "#b8b468", "#eef2f0"];
 function paving(g, x, y, w, h, season, edge = true) {
   const c = season === 3 ? "#e6e4de" : "#d8cdb2";
   rect(g, x, y, w, h, c);
@@ -160,6 +161,23 @@ function paving(g, x, y, w, h, season, edge = true) {
     rect(g, x, y + h - 1, w, 1, shade(c, -0.22));
   }
 }
+// Warm brick for the heart of town: the forecourt and both sides of Club Row, laid in
+// stretcher bond with a few weathered bricks and moss in the joints.
+function brick(g, x, y, w, h, season) {
+  const c = season === 3 ? "#d8cccc" : "#c4957a", joint = shade(c, 0.18);
+  rect(g, x, y, w, h, c);
+  for (let yy = y + 2, r = 0; yy < y + h; yy += 3, r++) {
+    rect(g, x, yy, w, 1, joint);
+    for (let xx = x + (r % 2 ? 3 : 0); xx < x + w; xx += 6) {
+      rect(g, xx, yy - 2, 1, 2, joint);
+      const n = hash(xx * 13 + yy * 7);
+      if (n < 0.1) rect(g, xx + 1, yy - 2, 5, 2, shade(c, -0.08));
+      else if (n > 0.95 && season !== 3) px(g, xx, yy, "#8aa060");
+    }
+  }
+  rect(g, x, y, w, 1, shade(c, 0.25));
+  rect(g, x, y + h - 1, w, 1, shade(c, -0.22));
+}
 function vpaving(g, x, y, w, h, season) {
   paving(g, x, y, w, h, season, false);
   const c = season === 3 ? "#e6e4de" : "#d8cdb2";
@@ -173,20 +191,19 @@ function vpaving(g, x, y, w, h, season) {
 export const LOT_LIGHTS = [];
 function carPark(g, x, y, w, h, seed, season, items) {
   const A = 18, bay = Math.floor((w - A) / 2), ax = x + bay, pitch = 12, rows = Math.floor(h / pitch), big = rows >= 4;
-  rect(g, x - 1, y - 1, w + 2, h + 2, "#b8b4a8");
-  rect(g, x, y, w, h, "#808486");
-  for (let k = 0; k < (w * h) / 120; k++) rect(g, x + 2 + hash(seed + k * 3) * (w - 6), y + 2 + hash(seed + k * 7) * (h - 4), 2, 1, k % 3 ? "#767a7c" : "#8a8e90");
-  rect(g, ax, y, A, h, "#86898b");
-  // Aisle arrows: in on the left, out on the right.
-  const arrow = (cx, cy, up) => { rect(g, cx, cy - 3, 1, 7, "#e8e4d8"); const t = up ? cy - 3 : cy + 3, d = up ? 1 : -1; px(g, cx - 1, t + d, "#e8e4d8"); px(g, cx + 1, t + d, "#e8e4d8"); px(g, cx - 2, t + 2 * d, "#e8e4d8"); px(g, cx + 2, t + 2 * d, "#e8e4d8"); };
-  arrow(ax + 5, y + Math.round(h / 2), false); arrow(ax + A - 6, y + Math.round(h / 2), true);
+  // A village car park: rolled gravel, bays marked with lines of stone setts.
+  const grit = season === 3 ? "#d4d2cc" : "#b9ab90", sett = season === 3 ? "#a8a49c" : "#8c7c66";
+  rect(g, x - 1, y - 1, w + 2, h + 2, "#a89880");
+  surface(g, x, y, w, h, grit, "gravel", seed);
+  rect(g, ax, y, A, h, shade(grit, -0.05));
+  for (let yy = y + 3; yy < y + h; yy += 7) { px(g, ax + 4, yy, shade(grit, -0.15)); px(g, ax + A - 5, yy + 3, shade(grit, -0.15)); }
   const island = big ? rows - 1 : -1;
   for (const side of [0, 1]) {
     const bx = side ? ax + A : x;
-    for (let k = 0; k <= rows; k++) rect(g, bx, y + k * pitch, bay, 1, "#e8e4d8");
+    for (let k = 0; k <= rows; k++) for (let xx = bx; xx < bx + bay; xx += 3) rect(g, xx, y + k * pitch, 2, 1, sett);
     for (let k = 0; k < rows; k++) {
       const by = y + k * pitch + 1;
-      if (side === 1 && k === island) {
+      if (side === 1 && (k === island || (!big && k === rows - 1))) {
         // A kerbed planting island with a tree and a lamp.
         rect(g, bx + 1, by, bay - 2, pitch - 1, "#b8b4a8"); rect(g, bx + 2, by + 1, bay - 4, pitch - 3, ["#86b860", "#6ea850", "#a8a052", "#dfe6e0"][season]);
         const tx = bx + Math.round(bay / 2) + 4, ty = by + pitch - 3;
@@ -197,9 +214,9 @@ function carPark(g, x, y, w, h, seed, season, items) {
         continue;
       }
       // Wheel stops at the outer end of each bay.
-      rect(g, side ? bx + bay - 4 : bx + 2, by + 3, 2, pitch - 6, "#c8c4b8");
+      rect(g, side ? bx + bay - 4 : bx + 2, by + 3, 2, pitch - 6, "#9a8a70");
       if (side === 0 && k === 0) {
-        rect(g, bx + 1, by, bay - 1, pitch - 1, "#3a6ab0");
+        rect(g, bx + 1, by, bay - 1, pitch - 1, "#5a7aa8");
         const cx = bx + Math.round(bay / 2), cy = by + 5;
         px(g, cx, cy - 3, "#f4f4f0"); rect(g, cx, cy - 1, 1, 3, "#f4f4f0"); rect(g, cx, cy + 1, 3, 1, "#f4f4f0"); rect(g, cx - 2, cy, 1, 3, "#f4f4f0"); rect(g, cx - 1, cy + 3, 2, 1, "#f4f4f0");
         continue;
@@ -281,11 +298,18 @@ function grove(items, x0, y0, x1, y1, n, seed, season, avoid = [], pines = 0.3) 
     const x = Math.round(x0 + hash(seed + i * 3) * (x1 - x0)),
       y = Math.round(y0 + hash(seed + i * 7 + 1) * (y1 - y0));
     if (avoid.some(([ax, ay, aw, ah]) => x > ax - 8 && x < ax + aw + 8 && y > ay && y < ay + ah + 24)) continue;
-    // Mixed silhouettes and sizes from one family, never a field of identical blobs.
-    const sc = 0.7 + hash(seed + i * 11) * 0.55,
-      isPine = hash(seed + i * 13) < pines,
-      kind = ["round", "round", "wide", "column", "flower"][Math.floor(hash(seed + i * 17) * 5)];
-    items.push({ y, draw: (g) => (isPine ? pine(g, x, y, sc, season) : tree(g, x, y, kind === "wide" ? sc * .85 : sc, season, seed + i, kind)) });
+    // Trees grow in clumps of two to four from one family, with shrubs and flowers at their feet:
+    // a copse rather than lone trees dotted across the lawn.
+    const n2 = 2 + Math.floor(hash(seed + i * 19) * 3);
+    for (let k = 0; k < n2; k++) {
+      const tx = x + Math.round((hash(seed + i * 23 + k) - 0.5) * 26), ty = y + Math.round((hash(seed + i * 29 + k) - 0.5) * 12);
+      if (avoid.some(([ax, ay, aw, ah]) => tx > ax - 8 && tx < ax + aw + 8 && ty > ay && ty < ay + ah + 24)) continue;
+      const sc = 0.7 + hash(seed + i * 11 + k) * 0.5,
+        isPine = hash(seed + i * 13 + k) < pines,
+        kind = ["round", "round", "wide", "column", "flower"][Math.floor(hash(seed + i * 17 + k) * 5)];
+      items.push({ y: ty, draw: (g) => (isPine ? pine(g, tx, ty, sc, season) : tree(g, tx, ty, kind === "wide" ? sc * .85 : sc, season, seed + i + k, kind)) });
+    }
+    items.push({ y: y + 7, draw: (g) => { bush(g, x - 9, y + 7, season); bush(g, x + 10, y + 6, season); if (season < 2) for (let f = 0; f < 6; f++) px(g, x - 12 + Math.round(hash(seed + i + f * 5) * 24), y + 8 + (f % 2), ["#f4f0e6", "#f6d04c", "#e88aa0"][f % 3]); } });
   }
 }
 
@@ -293,6 +317,12 @@ function streetSign(g,x,y,label) {
   rect(g,x,y-17,1,17,"#626c67");
   rect(g,x-2,y-18,label.length*6+6,7,"#3f655e");
   text(g,label,x+1,y-17,{color:"#f2ecd7",outline:null});
+}
+// A string of pennants sagging between two lamp heads; it lifts a little in a breeze.
+function bunting(g, x0, x1, y, colors, now) {
+  const sag = 7 + (Math.sin(now / 1300 + x0) > 0.8 ? -1 : 0), at = (x) => y + Math.round(sag * Math.sin(Math.PI * (x - x0) / (x1 - x0)));
+  for (let x = x0 + 1; x < x1; x++) px(g, x, at(x), "#5a5450");
+  for (let x = x0 + 4, k = 0; x < x1 - 3; x += 6, k++) { const yy = at(x) + 1, c = colors[k % colors.length]; rect(g, x, yy, 3, 1, c); rect(g, x, yy + 1, 2, 1, c); px(g, x, yy + 2, shade(c, -0.2)); }
 }
 function bikeRack(g,x,y) {
   for(let n=0;n<3;n++) {
@@ -323,23 +353,24 @@ function baseWorld(s) {
     }
     if (season === 2 && i % 19 === 0) px(g, x, y, ["#d8843a", "#b0602e", "#f0b050"][i % 3]);
   }
+  ROSE_SEASON.v = season;
   drawStreetNetwork(g,season);
   const items = [];
   drawResidentialLots(g,season,items);
   drawPocketPark(g,season,items);
   // Forecourt, walks and streets.
-  paving(g, BOWL.x - 16, PLAZA - 18, BOWL.w + 32, 34, season);
+  brick(g, BOWL.x - 16, PLAZA - 18, BOWL.w + 32, 34, season);
   vpaving(g, ROAD - 10, PLAZA + 14, 20, ROW - PLAZA - 20, season);
-  paving(g, 0, ROW - 6, MAP_W, 13, season);
+  brick(g, 0, ROW - 6, MAP_W, 13, season);
   // Continuous sidewalks join the club's gates to the connected road network.
   vpaving(g, AVENUE - 5, 128, 10, ROW - 128, season);
   paving(g, AVENUE - 5, NORTH - 6, 419, 13, season);
   paving(g, AVENUE - 5, 388, 419, 12, season);
   paving(g, 0, BLVD - 6, MAP_W, 13, season);
-  paving(g, 0, 530, MAP_W, 13, season);
+  brick(g, 0, 530, MAP_W, 13, season);
   // Preserve the crossings wherever these walks meet the Avenue and approach.
   for(const [cx,cy,,width] of CROSSINGS.filter(c=>c[2]==='v')) {
-    rect(g,cx-width/2,cy-7,width,14,"#737c7b");
+    rect(g,cx-width/2,cy-7,width,14,"#6e6a66");
     for(let xx=cx-width/2+2;xx<cx+width/2-1;xx+=4) rect(g,xx,cy-4,2,9,"#eee9d8");
   }
   drawRoadMarkings(g,season);
@@ -359,6 +390,11 @@ function baseWorld(s) {
   practiceField(g, 592, 296, 348, 88, season);
   // A row of columnar trees screens the field from North Lane.
   for (let tx = 606, k = 0; tx < 940; tx += 48, k++) items.push({ y: 293, draw: (g) => tree(g, tx, 293, .7 + (k % 3) * .06, season, tx, "column") });
+  // An avenue in fact: trees on both verges of Club Avenue, broken only where the footpaths cross.
+  for (let ty = 172, k = 0; ty < 490; ty += 40, k++) {
+    if ((ty > 236 && ty < 268) || (ty > 380 && ty < 412)) continue;
+    for (const tx of [534, 590]) items.push({ y: ty, draw: (g) => tree(g, tx, ty, .72 + (k % 2) * .08, season, tx + ty, k % 3 === 2 ? "flower" : "round") });
+  }
   // Street trees in pits along the boulevard's south verge, at a steady rhythm, with gaps at
   // the approach and the eastern road.
   for (let tx = 36; tx < MAP_W - 10; tx += 68) if (Math.abs(tx - 280) > 30 && Math.abs(tx - 976) > 22) items.push({ y: 672, draw: (g) => tree(g, tx, 672, .8, season, tx * 3, "street") });
@@ -401,7 +437,9 @@ function baseWorld(s) {
   items.push({y:130,draw:g=>streetSign(g,568,130,"TOWN LANE")});
   items.push({y:BLVD,draw:g=>streetSign(g,ROAD-84,BLVD,"STADIUM")});
   // Street furniture: lamps along the near side of each street, benches on the forecourt.
-  drawStreetFurniture(g,items,s.colors);
+  drawStreetFurniture(g,items,s.colors,season);
+  // Bunting in the club's colours strung between the lamps along Club Row.
+  for (const [a, b] of [[42, 138], [356, 448], [650, 746], [842, 936]]) items.push({ y: ROW + 1, draw: (g, now = 0) => bunting(g, a, b, ROW - 14, [s.colors.primary, s.colors.secondary, "#f4efe2", "#e86a4a"], now) });
   // Forecourt: ticket kiosks by the gate, trees in planters and benches along the front.
   for (const x of [ROAD - 52, ROAD + 32]) items.push({ y: PLAZA - 2, draw: (g) => kiosk(g, x, PLAZA - 2, s.colors) });
   for (let x = BOWL.x + 10; x < BOWL.x + BOWL.w; x += 64) if (Math.abs(x - ROAD) > 40) items.push({ y: PLAZA + 14, draw: (g) => planter(g, x, PLAZA + 14, season, x) });
@@ -681,7 +719,12 @@ export function createWorld(cv) {
     if (h < 8.5) {
       sg.fillStyle = `rgba(255,214,160,${((8.5 - h) / 2.5) * 0.22})`;
       sg.fillRect(0, 0, cam.vw, cam.vh);
-    } else if (h > 16.5) {
+    } else if (h <= 16.5) {
+      // A gentle warm grade through the day keeps the town cosy rather than clinical.
+      sg.fillStyle = "rgba(255,226,180,0.07)";
+      sg.fillRect(0, 0, cam.vw, cam.vh);
+    }
+    if (h > 16.5) {
       sg.fillStyle = `rgba(255,140,70,${Math.min(1, (h - 16.5) / 2.5) * 0.22 * (1 - dark)})`;
       sg.fillRect(0, 0, cam.vw, cam.vh);
     }
@@ -712,10 +755,9 @@ export function createWorld(cv) {
       if (s.plots[i]) glow(x + 56, top + 56, 34, dark * 0.22, "255,210,140");
     });
     for (const lot of RESIDENTIAL_LOTS) glow(lot.x + lot.w / 2, lot.y + (lot.w > 60 ? 56 : 38), 22, dark * 0.18, "255,210,140");
-    for (const [x, y] of STREET_LAMPS) glow(x, y - 16, 14, dark * 0.45);
-    // Car park lights and the signals glow too; the rest of the night stays dark.
+    for (const [x, y] of STREET_LAMPS) glow(x, y - 19, 14, dark * 0.45);
+    // The car park light glows too; the rest of the night stays dark.
     for (const [x, y] of LOT_LIGHTS) { glow(x, y - 8, 22, dark * 0.18); glow(x, y - 17, 10, dark * 0.45); }
-    for (const [kind, x, y] of FURNITURE) if (kind === "signal") glow(x, y - 23, 8, dark * 0.35, "255,190,150");
     sg.globalCompositeOperation = "source-over";
   }
   function draw(s, now, o = {}) {
