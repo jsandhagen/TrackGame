@@ -1,12 +1,13 @@
-import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
+import { canvas, rect, ellipse, shade, hash, px, line, poly } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
-import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
+import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, CROSSINGS, FURNITURE, drawRoadMarkings, drawLoadingBay, ROSE_SEASON, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
 import { MAP_W, MAP_H, LOTS, LOT_W, STREETS, LOWER_LOT_TOP, streetOf, baseOf, front, parcelBounds, PARKING, POCKET_PARK, BUS_BAY, BUS_STOP } from "./campus-layout.js";
 export { MAP_W, MAP_H, LOTS } from "./campus-layout.js";
 import { figure, shadow, athleteLook, runFrame, walkFrame, gripOf } from "./sprites.js";
 import { throwLoop, throwLoopMs, throwMotion, throwReleasePoint, recoveryStyle } from "./throw-motion.js";
-import { lockedPlot, emptyPlot, tree, pine, bush, bench, box } from "./buildings.js";
+import { lockedPlot, emptyPlot, tree, pine, bush, bench, box, TREE_KINDS } from "./buildings.js";
+import { vehicle, vehicleLength, CAR_COLOURS } from "./vehicles.js";
 import { facilityModel, drawFacilityGround, drawFacilityStructure } from "./facility-scene.js";
 import { surface } from "./terrain.js";
 import { drawArena, drawArenaFront, animateArena, loopPoint, loopLength, insideBowl, BOWL, TRACK, LANE, SPOTS, GATE, CENTER, TOWER, MASTS, masts } from "./arena.js";
@@ -143,8 +144,9 @@ export function route(from, to) {
 
 // ── The static map ──────────────────────────────────────────────────────
 // Bright, fresh greens in spring and summer, a gold autumn and a snowy winter.
-const GRASS = ["#86c05c", "#74b650", "#a8aa52", "#dfe6e0"],
-  GRASS2 = ["#96cc6a", "#84c25e", "#b8b862", "#eef2f0"];
+// Soft, warm greens: a meadow, not a golf course.
+const GRASS = ["#8cbc62", "#7cae58", "#a8a658", "#dfe6e0"],
+  GRASS2 = ["#9cc870", "#8cbc66", "#b8b468", "#eef2f0"];
 function paving(g, x, y, w, h, season, edge = true) {
   const c = season === 3 ? "#e6e4de" : "#d8cdb2";
   rect(g, x, y, w, h, c);
@@ -159,29 +161,73 @@ function paving(g, x, y, w, h, season, edge = true) {
     rect(g, x, y + h - 1, w, 1, shade(c, -0.22));
   }
 }
+// Warm brick for the heart of town: the forecourt and both sides of Club Row, laid in
+// stretcher bond with a few weathered bricks and moss in the joints.
+function brick(g, x, y, w, h, season) {
+  const c = season === 3 ? "#d8cccc" : "#c4957a", joint = shade(c, 0.18);
+  rect(g, x, y, w, h, c);
+  for (let yy = y + 2, r = 0; yy < y + h; yy += 3, r++) {
+    rect(g, x, yy, w, 1, joint);
+    for (let xx = x + (r % 2 ? 3 : 0); xx < x + w; xx += 6) {
+      rect(g, xx, yy - 2, 1, 2, joint);
+      const n = hash(xx * 13 + yy * 7);
+      if (n < 0.1) rect(g, xx + 1, yy - 2, 5, 2, shade(c, -0.08));
+      else if (n > 0.95 && season !== 3) px(g, xx, yy, "#8aa060");
+    }
+  }
+  rect(g, x, y, w, 1, shade(c, 0.25));
+  rect(g, x, y + h - 1, w, 1, shade(c, -0.22));
+}
 function vpaving(g, x, y, w, h, season) {
   paving(g, x, y, w, h, season, false);
   const c = season === 3 ? "#e6e4de" : "#d8cdb2";
   rect(g, x, y, 1, h, shade(c, 0.25));
   rect(g, x + w - 1, y, 1, h, shade(c, -0.22));
 }
-function carPark(g, x, y, w, h, seed) {
-  rect(g, x - 1, y - 1, w + 2, h + 2, "#b8b4a8");
-  rect(g, x, y, w, h, "#86888a");
-  for (let i = 0; i <= h; i += 16) rect(g, x, y + i, Math.floor(w / 2) - 2, 1, "#e8e4d8"), rect(g, x + Math.ceil(w / 2) + 2, y + i, Math.floor(w / 2) - 2, 1, "#e8e4d8");
-  const cols = ["#c84a40", "#4a7ac0", "#e8e4d8", "#5a9a5a", "#e8b040", "#7a7a80"];
-  for (let i = 0; i < Math.floor(h / 16); i++)
-    for (const side of [0, 1]) if (hash(seed + i * 2 + side) < 0.7) car(g, x + 3 + side * (Math.ceil(w / 2) + 1), y + 4 + i * 16, cols[Math.floor(hash(seed + i * 5 + side * 3) * cols.length)]);
-}
-function car(g, x, y, c) {
-  rect(g, x + 1, y + 8, 22, 2, "rgba(20,24,20,0.25)");
-  rect(g, x, y + 1, 22, 8, shade(c, -0.25));
-  rect(g, x, y, 22, 7, c);
-  rect(g, x + 5, y - 3, 12, 4, shade(c, 0.15));
-  rect(g, x + 6, y - 2, 4, 2, "#9cc8d8");
-  rect(g, x + 12, y - 2, 4, 2, "#9cc8d8");
-  rect(g, x + 2, y + 7, 3, 2, "#2a2a2a");
-  rect(g, x + 17, y + 7, 3, 2, "#2a2a2a");
+// A car park laid out like one: a two-way aisle down the middle from the entrance, bays either
+// side with wheel stops, an accessible bay by the entrance, arrows on the aisle, and in the
+// larger park a planted island with a tree and a light. Parked cars face the aisle and vary in
+// type and colour, with some bays left empty.
+export const LOT_LIGHTS = [];
+function carPark(g, x, y, w, h, seed, season, items) {
+  const A = 18, bay = Math.floor((w - A) / 2), ax = x + bay, pitch = 12, rows = Math.floor(h / pitch), big = rows >= 4;
+  // A village car park: rolled gravel, bays marked with lines of stone setts.
+  const grit = season === 3 ? "#d4d2cc" : "#b9ab90", sett = season === 3 ? "#a8a49c" : "#8c7c66";
+  rect(g, x - 1, y - 1, w + 2, h + 2, "#a89880");
+  surface(g, x, y, w, h, grit, "gravel", seed);
+  rect(g, ax, y, A, h, shade(grit, -0.05));
+  for (let yy = y + 3; yy < y + h; yy += 7) { px(g, ax + 4, yy, shade(grit, -0.15)); px(g, ax + A - 5, yy + 3, shade(grit, -0.15)); }
+  const island = big ? rows - 1 : -1;
+  for (const side of [0, 1]) {
+    const bx = side ? ax + A : x;
+    for (let k = 0; k <= rows; k++) for (let xx = bx; xx < bx + bay; xx += 3) rect(g, xx, y + k * pitch, 2, 1, sett);
+    for (let k = 0; k < rows; k++) {
+      const by = y + k * pitch + 1;
+      if (side === 1 && (k === island || (!big && k === rows - 1))) {
+        // A kerbed planting island with a tree and a lamp.
+        rect(g, bx + 1, by, bay - 2, pitch - 1, "#b8b4a8"); rect(g, bx + 2, by + 1, bay - 4, pitch - 3, ["#86b860", "#6ea850", "#a8a052", "#dfe6e0"][season]);
+        const tx = bx + Math.round(bay / 2) + 4, ty = by + pitch - 3;
+        items.push({ y: ty, draw: (g2) => tree(g2, tx, ty, .55, season, seed + 5, "round") });
+        const lx = bx + 5, ly = by + pitch - 3;
+        LOT_LIGHTS.push([lx, ly]);
+        items.push({ y: ly, draw: (g2) => { rect(g2, lx, ly - 18, 1, 18, "#5a6266"); rect(g2, lx - 2, ly - 19, 5, 2, "#4a5054"); rect(g2, lx - 1, ly - 17, 3, 1, "#fff0b0"); } });
+        continue;
+      }
+      // Wheel stops at the outer end of each bay.
+      rect(g, side ? bx + bay - 4 : bx + 2, by + 3, 2, pitch - 6, "#9a8a70");
+      if (side === 0 && k === 0) {
+        rect(g, bx + 1, by, bay - 1, pitch - 1, "#5a7aa8");
+        const cx = bx + Math.round(bay / 2), cy = by + 5;
+        px(g, cx, cy - 3, "#f4f4f0"); rect(g, cx, cy - 1, 1, 3, "#f4f4f0"); rect(g, cx, cy + 1, 3, 1, "#f4f4f0"); rect(g, cx - 2, cy, 1, 3, "#f4f4f0"); rect(g, cx - 1, cy + 3, 2, 1, "#f4f4f0");
+        continue;
+      }
+      if (hash(seed + k * 2 + side) > 0.68) continue;
+      const kinds = ["sedan", "hatch", "suv", "pickup", "van"].filter((v) => vehicleLength(v) <= bay - 4),
+        kind = kinds[Math.floor(hash(seed + k * 5 + side * 3) * kinds.length)], L = vehicleLength(kind);
+      const vx = side ? bx + bay - 3 - L : bx + 3;
+      items.push({ y: by + pitch - 2, draw: (g2) => vehicle(g2, kind, vx, by + pitch - 2, CAR_COLOURS[Math.floor(hash(seed + k * 9 + side) * CAR_COLOURS.length)], side ? -1 : 1) });
+    }
+  }
 }
 function bus(g, x, y, colors) {
   rect(g, x + 2, y + 2, 34, 3, "rgba(20,24,20,0.25)");
@@ -199,10 +245,14 @@ function hedge(g, x, y, w, season) {
   rect(g, x, y + 1, w, 1, shade(c, -0.35));
   for (let i = 2; i < w; i += 5) px(g, x + i, y - 3, shade(c, 0.12));
 }
-function flowerbed(g, x, y, w, seed) {
-  rect(g, x, y, w, 6, "#8a6040");
-  rect(g, x, y, w, 1, "#a07a50");
-  for (let i = 1; i < w - 1; i += 2) px(g, x + i, y + 2 + (i % 4 ? 0 : 2), ["#f06a6a", "#f6d04c", "#c890e0", "#f4f0f0"][Math.floor(hash(seed + i) * 4)]);
+// A raised brick planter brimming with leaves and flowers in clusters.
+function flowerbed(g, x, y, w, seed, season = 1) {
+  rect(g, x, y + 2, w, 4, "#b07a5e"); for (let xx = x + 2; xx < x + w; xx += 4) rect(g, xx, y + 3, 1, 3, "#8e5e48");
+  rect(g, x, y + 2, w, 1, "#c8957a"); rect(g, x + w - 1, y + 3, 1, 3, "#7a4e3a"); rect(g, x, y + 6, w, 1, "rgba(26,32,66,0.25)");
+  if (season === 3) { rect(g, x, y + 1, w, 1, "#f4f6f8"); return; }
+  const leaf = ["#5e9a4a", "#4e8a44", "#8a8a40"][season];
+  rect(g, x, y - 1, w, 3, leaf); rect(g, x + 1, y - 2, w - 2, 1, leaf);
+  for (let i = 1; i < w - 1; i += 3) { const c = ["#f06a6a", "#f6d04c", "#c890e0", "#f4f0f0", "#f0a050"][Math.floor(hash(seed + i) * 5)]; px(g, x + i, y - 2, c); px(g, x + i + 1, y - 1, c); px(g, x + i, y - 1, shade(c, -0.2)); }
 }
 function kiosk(g, x, y, colors) {
   box(g, x, y, 20, 12, 10, "#efe2c0", { shadow: false });
@@ -230,9 +280,16 @@ function practiceField(g, x, y, w, h, season) {
   g.fillRect(x + 4, y + h - 5, w - 8, 1);
   g.fillRect(x + 4, y + 4, 1, h - 8);
   g.fillRect(x + w - 5, y + 4, 1, h - 8);
-  // A practice throwing circle with its net, and a row of hurdles.
-  ellipse(g, x + 24, y + h / 2, 6, 3, "#c8c0b0");
-  ellipse(g, x + 24, y + h / 2, 4, 2, "#8a8a84");
+  // A practice throwing circle with its sector fanning down the field and distance flags.
+  const cx = x + 24, cy = y + h / 2;
+  for (const s of [-1, 1]) line(g, cx + 6, cy + s * 2, x + 220, cy + s * 30, c);
+  for (const [d, col] of [[80, "#e8c04a"], [140, "#e86a4a"], [196, "#4a8ac8"]]) {
+    const fx = cx + d, half = Math.round(2 + (d / 196) * 28);
+    for (let k = -half; k <= half; k += 3) px(g, fx + Math.round(Math.abs(k) * .05), cy + k, c);
+    rect(g, fx, cy - half - 6, 1, 6, "#6a6e72"); rect(g, fx + 1, cy - half - 6, 3, 2, col);
+  }
+  ellipse(g, cx, cy, 6, 3, "#c8c0b0");
+  ellipse(g, cx, cy, 4, 2, "#8a8a84");
   for (let i = 0; i < 4; i++) {
     rect(g, x + w - 70 + i * 14, y + h - 16, 9, 1, "#f4f0e0");
     rect(g, x + w - 70 + i * 14, y + h - 15, 1, 3, "#3a3e46");
@@ -245,9 +302,18 @@ function grove(items, x0, y0, x1, y1, n, seed, season, avoid = [], pines = 0.3) 
     const x = Math.round(x0 + hash(seed + i * 3) * (x1 - x0)),
       y = Math.round(y0 + hash(seed + i * 7 + 1) * (y1 - y0));
     if (avoid.some(([ax, ay, aw, ah]) => x > ax - 8 && x < ax + aw + 8 && y > ay && y < ay + ah + 24)) continue;
-    const sc = 0.75 + hash(seed + i * 11) * 0.5,
-      isPine = hash(seed + i * 13) < pines;
-    items.push({ y, draw: (g) => (isPine ? pine(g, x, y, sc, season) : tree(g, x, y, sc, season, seed + i)) });
+    // Trees grow in clumps of two to four from one family, with shrubs and flowers at their feet:
+    // a copse rather than lone trees dotted across the lawn.
+    const n2 = 2 + Math.floor(hash(seed + i * 19) * 3);
+    for (let k = 0; k < n2; k++) {
+      const tx = x + Math.round((hash(seed + i * 23 + k) - 0.5) * 26), ty = y + Math.round((hash(seed + i * 29 + k) - 0.5) * 12);
+      if (avoid.some(([ax, ay, aw, ah]) => tx > ax - 8 && tx < ax + aw + 8 && ty > ay && ty < ay + ah + 24)) continue;
+      const sc = 0.7 + hash(seed + i * 11 + k) * 0.5,
+        isPine = hash(seed + i * 13 + k) < pines,
+        kind = ["round", "round", "wide", "column", "flower"][Math.floor(hash(seed + i * 17 + k) * 5)];
+      items.push({ y: ty, draw: (g) => (isPine ? pine(g, tx, ty, sc, season) : tree(g, tx, ty, kind === "wide" ? sc * .85 : sc, season, seed + i + k, kind)) });
+    }
+    items.push({ y: y + 7, draw: (g) => { bush(g, x - 9, y + 7, season); bush(g, x + 10, y + 6, season); if (season < 2) for (let f = 0; f < 6; f++) px(g, x - 12 + Math.round(hash(seed + i + f * 5) * 24), y + 8 + (f % 2), ["#f4f0e6", "#f6d04c", "#e88aa0"][f % 3]); } });
   }
 }
 
@@ -255,6 +321,87 @@ function streetSign(g,x,y,label) {
   rect(g,x,y-17,1,17,"#626c67");
   rect(g,x-2,y-18,label.length*6+6,7,"#3f655e");
   text(g,label,x+1,y-17,{color:"#f2ecd7",outline:null});
+}
+// The walk from Club Row to the stadium gate: wider than any footpath, laid in brick between
+// stone kerbs, with a runner of the club's colour down the middle and low hedges either side.
+function processional(g, cx, y0, y1, season, colors) {
+  const x0 = cx - 15, w = 30, h = y1 - y0, hedgeC = ["#5f8f4a", "#4d8445", "#8a7a40", "#c8d4c8"][season];
+  stoneWalk(g, x0, y0, w, h, season, colors);
+  // Low flower borders run beside the kerbs, so the banners above them read clearly.
+  for (const hx of [x0 - 6, x0 + w + 1]) {
+    rect(g, hx, y0 + 4, 5, h - 12, "#7a5a3e"); rect(g, hx, y0 + 4, 5, 1, shade("#7a5a3e", 0.2));
+    if (season === 3) { rect(g, hx, y0 + 4, 5, h - 12, "#eef0ec"); continue; }
+    for (let yy = y0 + 5; yy < y0 + h - 9; yy += 2) { rect(g, hx, yy, 5, 1, hedgeC); px(g, hx + ((yy >> 1) % 4) + 1, yy, ["#e86a6a", "#f6d04c", "#f4f0e6", "#c890e0"][(yy >> 1) % 4]); }
+  }
+}
+// Pale limestone flags, set apart from the brick around them, with grey kerbs and a runner of the
+// club's colour edged in cream so it reads against the stone and leads the eye to the gate.
+function stoneWalk(g, x0, y0, w, h, season, colors) {
+  const flag = season === 3 ? "#d8cfbc" : "#e6dcc4", joint = shade(flag, -0.12), kerb = season === 3 ? "#8a8478" : "#9a9488", cx = x0 + Math.round(w / 2);
+  rect(g, x0, y0, w, h, flag);
+  for (let yy = y0 + 6, r = 0; yy < y0 + h; yy += 7, r++) {
+    rect(g, x0, yy, w, 1, joint);
+    for (let xx = x0 + (r % 2 ? 5 : 10); xx < x0 + w; xx += 10) rect(g, xx, yy - 6, 1, 6, joint);
+    if (hash(yy * 3 + x0) > 0.6) rect(g, x0 + 3 + Math.floor(hash(yy) * (w - 9)), yy - 5, 4, 1, shade(flag, 0.08));
+  }
+  for (const kx of [x0, x0 + w - 2]) { rect(g, kx, y0, 2, h, kerb); for (let yy = y0 + 4; yy < y0 + h; yy += 5) rect(g, kx, yy, 2, 1, shade(kerb, -0.18)); }
+  rect(g, x0 + 2, y0, 1, h, shade(flag, 0.12));
+  // The runner: club colour, cream edges, a secondary-colour diamond at intervals.
+  rect(g, cx - 5, y0, 10, h, "#f4ecd4");
+  rect(g, cx - 4, y0, 8, h, colors.primary);
+  for (let yy = y0 + 3; yy < y0 + h; yy += 9) { px(g, cx - 1, yy, colors.secondary); px(g, cx, yy, colors.secondary); rect(g, cx - 2, yy + 1, 4, 1, colors.secondary); px(g, cx - 1, yy + 2, colors.secondary); px(g, cx, yy + 2, colors.secondary); }
+  rect(g, cx - 4, y0, 1, h, shade(colors.primary, 0.25));
+}
+// A tall pole with a hanging banner in the club's colours that ripples now and then.
+function banner(g, x, y, colors, now, left) {
+  rect(g, x, y - 26, 1, 26, "#5a6266"); px(g, x, y - 27, "#c8b060"); rect(g, x - 1, y, 3, 1, "rgba(26,32,66,0.25)");
+  const ripple = Math.sin(now / 900 + x + y) > 0.6 ? 1 : 0, bx = left ? x + 1 : x - 5;
+  rect(g, bx, y - 25, 5, 11, colors.primary); rect(g, bx, y - 25, 5, 1, shade(colors.primary, 0.3)); rect(g, left ? bx + 4 : bx, y - 24, 1, 10, shade(colors.primary, -0.3));
+  rect(g, bx, y - 21, 5, 2, colors.secondary);
+  px(g, bx + (ripple ? 1 : 0), y - 14, colors.primary); px(g, bx + 3 + (ripple ? 1 : 0), y - 14, colors.primary);
+}
+// The gateway where the walk leaves Club Row is the walk's landmark: a pale limestone arch,
+// taller than anything near it, standing out against the brick and lawn by value. Two piers with
+// stone caps and lanterns carry a round arch with a keystone crest, and a framed plate in the
+// club's colours names the ground. It casts a shadow down and to the right like every building.
+function gateway(g, cx, y, season, colors, name) {
+  const lime = season === 3 ? "#e0d6c0" : "#ece2c8", lit = shade(lime, 0.18), dark = shade(lime, -0.3), edge = "#6a6254";
+  const L = cx - 27, R = cx + 19, pw = 8, top = y - 30;
+  poly(g, [[L + 2, y + 1], [R + pw + 14, y + 1], [R + pw + 18, y - 3], [L + 6, y - 3]], "rgba(26,32,66,0.24)");
+  for (const px0 of [L, R]) {
+    rect(g, px0 + pw, top + 2, 2, y - top - 2, dark); px(g, px0 + pw, top + 1, dark);
+    rect(g, px0, top, pw, y - top, lime);
+    for (let yy = top + 5; yy < y - 2; yy += 6) rect(g, px0, yy, pw, 1, shade(lime, -0.1));
+    rect(g, px0, top, 1, y - top, lit); rect(g, px0 + pw - 1, top, 1, y - top, shade(lime, -0.14));
+    rect(g, px0 - 1, y - 4, pw + 2, 4, shade(lime, -0.06)); rect(g, px0 - 1, y - 4, pw + 2, 1, lit);
+    rect(g, px0 - 1, top - 2, pw + 2, 2, lit); rect(g, px0 - 1, top - 1, pw + 2, 1, shade(lime, -0.08));
+    // Lanterns on the caps.
+    rect(g, px0 + 2, top - 7, 4, 5, "#f6dc90"); px(g, px0 + 2, top - 7, "#fff4c8"); rect(g, px0 + 1, top - 8, 6, 1, "#2f4a40"); rect(g, px0 + 1, top - 3, 6, 1, "#2f4a40");
+    // A crisp outline on the shadow side and at the foot.
+    rect(g, px0 + pw + 2, top + 2, 1, y - top - 2, edge); rect(g, px0 - 1, y, pw + 3, 1, edge);
+  }
+  // The arch: a thick band of voussoirs rising from the piers to a keystone at the crown.
+  const span = R - (L + pw), mid = L + pw + span / 2, rise = 9;
+  for (let xx = L + pw; xx < R; xx++) {
+    const t = (xx - mid) / (span / 2), yy = Math.round(top + 2 - rise * Math.sqrt(Math.max(0, 1 - t * t)));
+    rect(g, xx, yy, 1, 5, lime); px(g, xx, yy, lit); px(g, xx, yy + 5, dark); if (xx % 4 === 0) px(g, xx, yy + 2, shade(lime, -0.12));
+    px(g, xx, yy - 1, edge);
+  }
+  const ky = top + 2 - rise;
+  rect(g, Math.round(mid) - 3, ky - 3, 7, 7, lime); rect(g, Math.round(mid) - 3, ky - 3, 7, 1, lit); rect(g, Math.round(mid) + 3, ky - 2, 1, 6, dark);
+  ellipse(g, Math.round(mid), ky + 1, 2, 2, colors.primary); px(g, Math.round(mid), ky + 1, colors.secondary);
+  // The name plate hangs under the arch: club colour, cream frame, cream lettering.
+  const label = [name || "", "STADIUM", "GROUND"].map((t) => t.toUpperCase()).find((t) => t && measure(t) <= 40) || "GROUND";
+  const pwid = Math.max(measure(label) + 6, 30), plx = Math.round(mid - pwid / 2), ply = top + 6;
+  rect(g, plx - 1, ply - 1, pwid + 2, 11, "#f4ecd4"); rect(g, plx, ply, pwid, 9, colors.primary); rect(g, plx, ply, pwid, 1, shade(colors.primary, 0.3));
+  rect(g, plx, ply + 10, pwid + 1, 1, "rgba(26,32,66,0.3)");
+  text(g, label, Math.round(mid), ply + 1, { color: "#f8f0d8", outline: null, align: "center" });
+}
+// A string of pennants sagging between two lamp heads; it lifts a little in a breeze.
+function bunting(g, x0, x1, y, colors, now) {
+  const sag = 7 + (Math.sin(now / 1300 + x0) > 0.8 ? -1 : 0), at = (x) => y + Math.round(sag * Math.sin(Math.PI * (x - x0) / (x1 - x0)));
+  for (let x = x0 + 1; x < x1; x++) px(g, x, at(x), "#5a5450");
+  for (let x = x0 + 4, k = 0; x < x1 - 3; x += 6, k++) { const yy = at(x) + 1, c = colors[k % colors.length]; rect(g, x, yy, 3, 1, c); rect(g, x, yy + 1, 2, 1, c); px(g, x, yy + 2, shade(c, -0.2)); }
 }
 function bikeRack(g,x,y) {
   for(let n=0;n<3;n++) {
@@ -269,12 +416,18 @@ function baseWorld(s) {
     season = seasonOf(s);
   surface(g, 0, 0, MAP_W, MAP_H, GRASS[season], 'lawn');
   // Soft patches and tufts so the grass isn't flat.
-  for (let i = 0; i < 70; i++) ellipse(g, hash(i * 17) * MAP_W, hash(i * 23 + 5) * MAP_H, 18 + hash(i) * 30, 8 + hash(i + 1) * 12, shade(GRASS[season], i % 2 ? 0.05 : -0.04));
+  for (let i = 0; i < 110; i++) ellipse(g, hash(i * 17) * MAP_W, hash(i * 23 + 5) * MAP_H, 14 + hash(i) * 34, 6 + hash(i + 1) * 12, shade(GRASS[season], i % 3 === 0 ? 0.06 : i % 3 === 1 ? -0.045 : 0.025));
+  // Grass texture in clusters: tufts of two or three blades, a shaded root under a lit tip, and
+  // clover patches here and there. Clusters say "grass"; single specks only say "noise".
+  const blade = GRASS2[season], root = shade(GRASS[season], -0.16), clover = shade(GRASS[season], season === 3 ? -0.04 : 0.09);
+  for (let i = 0; i < 3200; i++) {
+    const x = Math.round(hash(i * 3 + 11) * MAP_W), y = Math.round(hash(i * 5 + 999) * MAP_H), n = hash(i * 7 + 3);
+    if (n < 0.62) { px(g, x, y, root); px(g, x + 1, y - 1, blade); if (n < 0.3) { px(g, x + 2, y, root); px(g, x + 2, y - 1, blade); } }
+    else if (n < 0.7) { rect(g, x, y, 3, 2, clover); px(g, x + 1, y - 1, clover); px(g, x + 3, y + 1, clover); }
+  }
   for (let i = 0; i < 1800; i++) {
     const x = Math.round(hash(i) * MAP_W),
       y = Math.round(hash(i + 999) * MAP_H);
-    px(g, x, y, i % 3 ? GRASS2[season] : shade(GRASS[season], -0.14));
-    if (i % 7 === 0) px(g, x + 1, y - 1, GRASS2[season]);
     if ((season === 0 && i % 17 === 0) || (season === 1 && i % 41 === 0)) {
       // Little three-pixel flowers: a coloured head over a stem.
       const c = ["#f6f0f4", "#f6d04c", "#f2a8c0", "#b8a0f0"][i % 4];
@@ -285,26 +438,30 @@ function baseWorld(s) {
     }
     if (season === 2 && i % 19 === 0) px(g, x, y, ["#d8843a", "#b0602e", "#f0b050"][i % 3]);
   }
+  ROSE_SEASON.v = season;
   drawStreetNetwork(g,season);
   const items = [];
   drawResidentialLots(g,season,items);
   drawPocketPark(g,season,items);
   // Forecourt, walks and streets.
-  paving(g, BOWL.x - 16, PLAZA - 18, BOWL.w + 32, 34, season);
-  vpaving(g, ROAD - 10, PLAZA + 14, 20, ROW - PLAZA - 20, season);
-  paving(g, 0, ROW - 6, MAP_W, 13, season);
+  brick(g, BOWL.x - 16, PLAZA - 18, BOWL.w + 32, 34, season);
+  processional(g, ROAD, PLAZA + 14, ROW - 6, season, s.colors);
+  brick(g, 0, ROW - 6, MAP_W, 13, season);
   // Continuous sidewalks join the club's gates to the connected road network.
   vpaving(g, AVENUE - 5, 128, 10, ROW - 128, season);
   paving(g, AVENUE - 5, NORTH - 6, 419, 13, season);
   paving(g, AVENUE - 5, 388, 419, 12, season);
   paving(g, 0, BLVD - 6, MAP_W, 13, season);
-  paving(g, 0, 530, MAP_W, 13, season);
+  brick(g, 0, 530, MAP_W, 13, season);
   // Preserve the crossings wherever these walks meet the Avenue and approach.
-  for(const [cx,cy,width] of [[562,250,20],[562,394,20],[562,500,20],[280,536,24],[280,BLVD,24],[976,250,20],[976,500,20],[976,BLVD,20]]) {
-    rect(g,cx-width/2,cy-7,width,14,"#737c7b");
+  for(const [cx,cy,,width] of CROSSINGS.filter(c=>c[2]==='v')) {
+    rect(g,cx-width/2,cy-7,width,14,"#6e6a66");
     for(let xx=cx-width/2+2;xx<cx+width/2-1;xx+=4) rect(g,xx,cy-4,2,9,"#eee9d8");
   }
-  for (const p of PARKING) carPark(g,p.x,p.y,p.w,p.h,p.seed);
+  drawRoadMarkings(g,season);
+  drawLoadingBay(g);
+  LOT_LIGHTS.length = 0;
+  for (const p of PARKING) carPark(g,p.x,p.y,p.w,p.h,p.seed,season,items);
   // Parking parcels have landscaped edges and an entrance at the centre aisle.
   for(const {x,y,w,h} of PARKING) {
     hedge(g,x,y-2,Math.floor(w/2)-7,season);
@@ -316,10 +473,43 @@ function baseWorld(s) {
   rect(g,BUS_BAY.x,BUS_BAY.y+BUS_BAY.h-2,BUS_BAY.w,2,"#c9bea1");
   bus(g,BUS_BAY.x+6,BUS_BAY.y+20,s.colors);
   practiceField(g, 592, 296, 348, 88, season);
-  pond(g, POCKET_PARK.x+76, POCKET_PARK.y+42, season);
+  // A row of columnar trees screens the field from North Lane.
+  for (let tx = 606, k = 0; tx < 940; tx += 48, k++) items.push({ y: 293, draw: (g) => tree(g, tx, 293, .7 + (k % 3) * .06, season, tx, "column") });
+  // Shrubs and flowers soften the foot of the stadium's outer wall, leaving the gate clear.
+  for (let x = BOWL.x + 26, k = 0; x < BOWL.x + BOWL.w - 26; x += 13, k++) {
+    if (Math.abs(x - ROAD) < 40) continue;
+    const r = BOWL.r, cx = Math.min(Math.max(x, BOWL.x + r), BOWL.x + BOWL.w - r), dy = Math.sqrt(Math.max(0, r * r - (x - cx) ** 2)), by = Math.round(BOWL.y + BOWL.h - r + dy) + 4;
+    if (by > PLAZA - 20) continue;
+    items.push({ y: by, draw: (g) => { bush(g, x, by, season); if (k % 3 === 1) bush(g, x + 6, by + 1, season); if (season < 2 && k % 2) for (let f = 0; f < 4; f++) px(g, x - 4 + f * 3, by - 3 - (f % 2), ["#f4f0e6", "#e88aa0", "#f6d04c"][(f + k) % 3]); } });
+  }
+  // An avenue in fact: trees on both verges of Club Avenue, broken only where the footpaths cross.
+  for (let ty = 172, k = 0; ty < 490; ty += 40, k++) {
+    if ((ty > 236 && ty < 268) || (ty > 380 && ty < 412)) continue;
+    for (const tx of [534, 590]) items.push({ y: ty, draw: (g) => tree(g, tx, ty, .72 + (k % 2) * .08, season, tx + ty, k % 3 === 2 ? "flower" : "round") });
+  }
+  // Street trees in pits along the boulevard's south verge, at a steady rhythm, with gaps at
+  // the approach and the eastern road.
+  for (let tx = 36; tx < MAP_W - 10; tx += 68) if (Math.abs(tx - 280) > 30 && Math.abs(tx - 976) > 22) items.push({ y: 672, draw: (g) => tree(g, tx, 672, .8, season, tx * 3, "street") });
   // Inlaid club colours and paired borders frame the stadium entrance.
-  for(let xx=BOWL.x+4;xx<BOWL.x+BOWL.w-4;xx+=12) rect(g,xx,PLAZA+9,8,2,s.colors.primary);
-  rect(g,BOWL.x,PLAZA-16,BOWL.w,2,"#ebe2cc");
+  // A course of bricks in the club's colour runs the length of the forecourt, and a soldier
+  // course (bricks on end, in a darker clay) edges it front and back.
+  {
+    const x0 = BOWL.x - 16, w = BOWL.w + 32, clay = season === 3 ? "#b8aaa8" : "#a8765c";
+    for (const yy of [PLAZA - 17, PLAZA + 13]) { rect(g, x0, yy, w, 3, clay); for (let xx = x0 + 2; xx < x0 + w; xx += 3) rect(g, xx, yy, 1, 3, shade(clay, 0.2)); }
+    rect(g, x0, PLAZA + 8, w, 3, shade(s.colors.primary, -0.05));
+    for (let xx = x0 + 1; xx < x0 + w; xx += 6) rect(g, xx, PLAZA + 8, 1, 3, shade(s.colors.primary, 0.3));
+    rect(g, x0, PLAZA + 8, w, 1, shade(s.colors.primary, 0.18));
+  }
+  // The stone walk and its runner carry on across the forecourt to the stadium gate, through the
+  // club crest set into the paving where the walk arrives.
+  stoneWalk(g, ROAD - 15, PLAZA - 18, 30, 34, season, s.colors);
+  {
+    const cx = ROAD, cy = PLAZA - 1;
+    ellipse(g, cx, cy + 1, 15, 7, "rgba(26,32,66,0.2)");
+    ellipse(g, cx, cy, 15, 7, "#9a9488"); ellipse(g, cx, cy, 14, 6, "#f4ecd4"); ellipse(g, cx, cy, 12, 5, s.colors.primary);
+    ellipse(g, cx, cy, 8, 3, s.colors.secondary); ellipse(g, cx, cy, 6, 2, s.colors.primary);
+    rect(g, cx - 1, cy - 1, 3, 2, s.colors.secondary); rect(g, cx - 11, cy - 3, 22, 1, shade(s.colors.primary, 0.3));
+  }
   // Lot grounds: front gardens with a path to the street, hedges between neighbours.
   LOTS.forEach(([x, top], i) => {
     const b = baseOf(i),
@@ -329,7 +519,18 @@ function baseWorld(s) {
     drawClubParcel(g,x,top,LOT_W,street-12,open,season,i);
     // Only the narrow gate connection enters public paving. All private ground
     // and cast shadows are clipped inside the parcel, before the sidewalk.
-    vpaving(g, x + 27, street - 12, 8, 7, season);
+    if (street === ROW) brick(g, x + 27, street - 12, 8, 7, season); else vpaving(g, x + 27, street - 12, 8, 7, season);
+    // Every open plot has a little planting tucked into its back corners: shrubs, now and then a
+    // small tree, and a scatter of wildflowers, so the lawns behind the buildings aren't bare.
+    if (open) for (const [k, cx] of [[0, x + 9], [1, x + LOT_W - 10]]) {
+      const n = hash(i * 13 + k * 5), cy = top + 22 + Math.round(hash(i * 7 + k) * 6);
+      if (n < 0.25) continue;
+      items.push({ y: cy, draw: (g) => {
+        if (n > 0.75) tree(g, cx, cy, 0.62, season, i * 9 + k, "round");
+        bush(g, cx + (k ? -4 : 4), cy + 3, season);
+        if (season < 2) for (let f = 0; f < 5; f++) px(g, cx - 6 + Math.round(hash(i + f * 3 + k) * 12), cy + 5 + (f % 2), ["#f4f0e6", "#f6d04c", "#e88aa0", "#c890e0"][(f + i) % 4]);
+      } });
+    }
     // Built plots plant their own grounds (facility-scene.js); open plots get a bush or two,
     // never the same pair on every lot.
     if (open && !p) for (const [k, bx] of [[0, x + 9], [1, x + LOT_W - 9]]) if (hash(i * 7 + k) > .35) items.push({ y: b + 8, draw: (g) => bush(g, bx + Math.round((hash(i * 3 + k) - .5) * 6), b + 8, season) });
@@ -355,13 +556,17 @@ function baseWorld(s) {
   items.push({y:130,draw:g=>streetSign(g,568,130,"TOWN LANE")});
   items.push({y:BLVD,draw:g=>streetSign(g,ROAD-84,BLVD,"STADIUM")});
   // Street furniture: lamps along the near side of each street, benches on the forecourt.
-  drawStreetFurniture(g,items);
+  drawStreetFurniture(g,items,s.colors,season);
+  // Bunting in the club's colours strung between the lamps along Club Row.
+  for (const [a, b] of [[42, 138], [356, 448], [650, 746], [842, 936]]) items.push({ y: ROW + 1, draw: (g, now = 0) => bunting(g, a, b, ROW - 14, [s.colors.primary, s.colors.secondary, "#f4efe2", "#e86a4a"], now) });
   // Forecourt: ticket kiosks by the gate, trees in planters and benches along the front.
   for (const x of [ROAD - 52, ROAD + 32]) items.push({ y: PLAZA - 2, draw: (g) => kiosk(g, x, PLAZA - 2, s.colors) });
   for (let x = BOWL.x + 10; x < BOWL.x + BOWL.w; x += 64) if (Math.abs(x - ROAD) > 40) items.push({ y: PLAZA + 14, draw: (g) => planter(g, x, PLAZA + 14, season, x) });
   for (const x of [ROAD - 120, ROAD + 100, ROAD + 200]) items.push({ y: PLAZA + 13, draw: (g) => bench(g, x, PLAZA + 13) });
-  flowerbed(g, ROAD - 40, ROW - 20, 20, 5);
-  flowerbed(g, ROAD + 20, ROW - 20, 20, 9);
+  // The stadium walk: a gateway on Club Row, flags in the club's colours down both sides over
+  // clipped hedges, and the crest set into the forecourt in front of the gate.
+  for (const fy of [432, 458]) for (const fx of [ROAD - 19, ROAD + 18]) items.push({ y: fy, draw: (g, now = 0) => banner(g, fx, fy, s.colors, now, fx < ROAD) });
+  items.push({ y: ROW - 5, draw: (g) => gateway(g, ROAD, ROW - 5, season, s.colors, s.clubName) });
   for (const x of [AVENUE + 40, AVENUE + 200, AVENUE + 360]) items.push({ y: 394, draw: (g) => bench(g, x, 394) });
   // Hedgerows along the map's south edge and the car parks.
   hedge(g, 0, MAP_H - 2, ROAD - 16, season);
@@ -370,10 +575,11 @@ function baseWorld(s) {
   const lotRects = LOTS.map(([x, top]) => [x - 6, top + 10, LOT_W + 12, 80]);
   const roadClear = CITY_ROADS.map(r => [Math.min(r.x1,r.x2)-22, Math.min(r.y1,r.y2)-14, Math.abs(r.x2-r.x1)+44, Math.abs(r.y2-r.y1)+28]);
   const clear = [...roadClear, ...RESIDENTIAL_LOTS.map(l => [l.x-4,l.y-14,l.w+8,l.h+24]), [BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [TOWER.x - 26, TOWER.y - 70, 52, 100], [584, 282, 364, 122], [0,ROW-12,MAP_W,58], [ROAD-114,ROW,210,BLVD-ROW-10], [POCKET_PARK.x,536,POCKET_PARK.w,POCKET_PARK.h+20], ...lotRects];
-  grove(items, 0, 8, MAP_W, 64, 46, 101, season, clear, 0.5);
-  grove(items, 0, 64, BOWL.x - 6, ROW - 40, 9, 211, season, clear, 0.4);
+  grove(items, 0, 8, MAP_W, 64, 62, 101, season, clear, 0.45);
+  grove(items, 0, 64, BOWL.x - 6, ROW - 40, 18, 211, season, clear, 0.35);
+  grove(items, 0, 340, BOWL.x + 30, PLAZA - 24, 6, 233, season, clear, 0.2);
   grove(items, BOWL.x + BOWL.w + 6, 60, AVENUE - 14, ROW - 40, 8, 307, season, clear, 0.3);
-  grove(items, AVENUE + 10, 40, MAP_W, NORTH - 70, 14, 401, season, clear, 0.5);
+  grove(items, AVENUE + 10, 40, MAP_W, NORTH - 70, 20, 401, season, clear, 0.45);
   grove(items, 0, ROW + 30, ROAD - 100, BLVD - 40, 8, 503, season, clear, 0.2);
   grove(items, 760, ROW + 30, MAP_W, MAP_H - 20, 16, 601, season, clear, 0.3);
   grove(items, 0, BLVD + 18, MAP_W, MAP_H - 14, 22, 701, season, clear, 0.25);
@@ -635,7 +841,12 @@ export function createWorld(cv) {
     if (h < 8.5) {
       sg.fillStyle = `rgba(255,214,160,${((8.5 - h) / 2.5) * 0.22})`;
       sg.fillRect(0, 0, cam.vw, cam.vh);
-    } else if (h > 16.5) {
+    } else if (h <= 16.5) {
+      // A gentle warm grade through the day keeps the town cosy rather than clinical.
+      sg.fillStyle = "rgba(255,226,180,0.07)";
+      sg.fillRect(0, 0, cam.vw, cam.vh);
+    }
+    if (h > 16.5) {
       sg.fillStyle = `rgba(255,140,70,${Math.min(1, (h - 16.5) / 2.5) * 0.22 * (1 - dark)})`;
       sg.fillRect(0, 0, cam.vw, cam.vh);
     }
@@ -666,7 +877,9 @@ export function createWorld(cv) {
       if (s.plots[i]) glow(x + 56, top + 56, 34, dark * 0.22, "255,210,140");
     });
     for (const lot of RESIDENTIAL_LOTS) glow(lot.x + lot.w / 2, lot.y + (lot.w > 60 ? 56 : 38), 22, dark * 0.18, "255,210,140");
-    for (const [x, y] of STREET_LAMPS) glow(x, y - 16, 14, dark * 0.45);
+    for (const [x, y] of STREET_LAMPS) glow(x, y - 19, 14, dark * 0.45);
+    // The car park light glows too; the rest of the night stays dark.
+    for (const [x, y] of LOT_LIGHTS) { glow(x, y - 8, 22, dark * 0.18); glow(x, y - 17, 10, dark * 0.45); }
     sg.globalCompositeOperation = "source-over";
   }
   function draw(s, now, o = {}) {

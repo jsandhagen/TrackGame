@@ -1,4 +1,4 @@
-import { rect, poly, ellipse, line, shade, hash, px } from "./pixel.js";
+import { rect, poly, ellipse, line, shade, hash, px, tone } from "./pixel.js";
 import { text } from "./font.js";
 import { figure } from "./sprites.js";
 
@@ -80,19 +80,59 @@ function awning(g, x, y, w, a, b) {
   for (let i = 0; i < w; i += 3) rect(g, x + i, y, Math.min(3, w - i), 4, (i / 3) % 2 ? b : a);
   for (let i = 0; i < w; i += 3) rect(g, x + i + 1, y + 4, 1, 1, (i / 3) % 2 ? b : a);
 }
-export function tree(g, x, y, s = 1, season = 1, seed = 0) {
-  const leaf = [
-    ["#5e8a4a", "#78a85a", "#a0c878", "#f2b8c8"],
-    ["#3e7a44", "#5a9a50", "#86bc68", null],
-    ["#b0602e", "#d8843a", "#f0b050", null],
-    ["#6a7a6a", "#8a9a8a", "#f4f6f8", null],
-  ][season];
-  ellipse(g, x + 2, y, Math.round(8 * s), Math.round(2 * s), "rgba(30,50,30,0.25)");
-  rect(g, x - 1, y - Math.round(9 * s), 3, Math.round(9 * s), "#7a5a3a");
-  ellipse(g, x, y - Math.round(14 * s), Math.round(8 * s), Math.round(8 * s), leaf[0]);
-  ellipse(g, x - 2, y - Math.round(16 * s), Math.round(6 * s), Math.round(6 * s), leaf[1]);
-  ellipse(g, x - 3, y - Math.round(19 * s), Math.round(3 * s), Math.round(2 * s), leaf[2]);
-  if (leaf[3]) for (let i = 0; i < 5; i++) px(g, x - 6 + Math.round(hash(seed + i) * 12), y - 20 + Math.round(hash(seed + i + 9) * 10), leaf[3]);
+// A family of trees with distinct silhouettes, built in layers: ground shadow, trunk, a dark
+// mass for the shaded underside, overlapping foliage clusters, then a few highlights on the
+// upper left where the light falls. Deciduous kinds go bare in winter and turn in autumn.
+//   round   the everyday park and garden tree
+//   wide    a broad, spreading canopy for landmarks and lawns
+//   column  tall and narrow, for edges, windbreaks and formal rows
+//   flower  a small ornamental that blossoms in spring
+//   street  a young street tree in a paved pit with a guard
+const LEAVES = [
+  ["#5e8f4a", "#78ac5a", "#a2cc78"],
+  ["#2f6a3e", "#4a8c4a", "#76b062"],
+  [["#b0602e", "#d8843a", "#f0b050"], ["#a8862e", "#d0b040", "#f0d870"], ["#9a3a2e", "#c8563a", "#e8864a"]],
+  null,
+];
+export const TREE_KINDS = ["round", "wide", "column", "flower", "street"];
+export function tree(g, x, y, s = 1, season = 1, seed = 0, kind = "round") {
+  const R = (v) => Math.max(1, Math.round(v * s)), autumn = season === 2;
+  const pal = autumn ? LEAVES[2][Math.floor(hash(seed * 3 + 1) * 3)] : LEAVES[season] || LEAVES[1];
+  const [lo, mid, hi] = kind === "flower" && season === 2 ? LEAVES[2][2] : pal;
+  const shape = { round: [8, 8, 9], wide: [12, 6, 8], column: [4, 11, 6], flower: [6, 6, 7], street: [5, 6, 8] }[kind] || [8, 8, 9];
+  const [rx, ry, trunkH] = shape.map(R), cy = y - trunkH - ry + R(2);
+  ellipse(g, x + R(3), y + 1, rx + R(1), Math.max(1, Math.round(ry / 4)), "rgba(26,32,66,0.24)");
+  if (kind === "street") {
+    // A square tree pit with a grate, and a guard either side of the young trunk.
+    rect(g, x - 4, y - 1, 9, 3, "#6a5a46"); for (let k = -3; k < 5; k += 2) px(g, x + k, y, "#4a4038");
+    rect(g, x - 3, y - 8, 1, 8, "#5a6266"); rect(g, x + 3, y - 8, 1, 8, "#5a6266");
+  }
+  rect(g, x - 1, y - trunkH, kind === "street" ? 2 : 3, trunkH, "#6e4f34"); px(g, x - 1, y - trunkH, "#8a6a48");
+  if (season === 3) {
+    // Bare in winter: limbs and twigs, a line of snow along the upper side.
+    const span = Math.max(rx, 4);
+    for (const [dx, dy] of [[-span, -ry], [span * .8, -ry * 1.1], [-span * .3, -ry * 1.6], [span * .35, -ry * 1.5]]) {
+      line(g, x, y - trunkH + 1, x + Math.round(dx), y - trunkH + Math.round(dy), "#6a5444");
+      px(g, x + Math.round(dx), y - trunkH + Math.round(dy) - 1, "#f4f6f8");
+    }
+    line(g, x, y - trunkH, x, cy - ry + 2, "#6a5444");
+    return;
+  }
+  ellipse(g, x + 1, cy + 1, rx + 1, ry + 1, tone(lo, -0.35));
+  ellipse(g, x, cy, rx, ry, lo);
+  // Overlapping clusters: the main colour on the upper left, highlights at the top.
+  ellipse(g, x - Math.round(rx * 0.25), cy - Math.round(ry * 0.2), Math.round(rx * 0.75), Math.round(ry * 0.72), mid);
+  if (kind !== "column") ellipse(g, x + Math.round(rx * 0.35), cy - Math.round(ry * 0.05), Math.round(rx * 0.45), Math.round(ry * 0.5), mid);
+  ellipse(g, x - Math.round(rx * 0.35), cy - Math.round(ry * 0.45), Math.max(1, Math.round(rx * 0.35)), Math.max(1, Math.round(ry * 0.28)), hi);
+  for (let i = 0; i < 3; i++) px(g, x - rx + 2 + Math.round(hash(seed + i * 7) * rx), cy - Math.round(ry * 0.6) + Math.round(hash(seed + i * 5) * ry * 0.5), tone(hi, 0.3));
+  if (kind === "wide") { line(g, x, y - trunkH + 1, x - R(5), cy + ry - 1, "#6e4f34"); line(g, x + 1, y - trunkH + 1, x + R(6), cy + ry - 1, "#5a3e28"); }
+  // Ornamentals blossom in spring only; in summer they are simply small, dense trees.
+  if (kind === "flower" && season === 0) {
+    const petal = ["#f4b8c8", "#fbe0e8"];
+    for (let i = 0; i < 9; i++) { const fx = x - rx + 1 + Math.round(hash(seed + i * 13) * (rx * 2 - 2)), fy = cy - ry + 1 + Math.round(hash(seed + i * 17) * (ry * 2 - 2)); px(g, fx, fy, petal[i % 2]); if (i % 3 === 0) px(g, fx + 1, fy, petal[0]); }
+    if (season === 0) for (let i = 0; i < 4; i++) px(g, x - 4 + Math.round(hash(seed + i) * 9), y + Math.round(hash(seed + i + 3) * 2), "#f4b8c8");
+  }
+  if (season === 0 && kind === "round" && hash(seed) > 0.6) for (let i = 0; i < 4; i++) px(g, x - 5 + Math.round(hash(seed + i) * 10), cy - 4 + Math.round(hash(seed + i + 9) * 8), "#f2b8c8");
 }
 export function pine(g, x, y, s = 1, season = 1) {
   const c = ["#3e6e48", "#2e6a40", "#4a6e40", "#5a7a66"][season],
@@ -111,11 +151,15 @@ export function pine(g, x, y, s = 1, season = 1) {
     if (season === 3) rect(g, x - Math.round(w * 0.4), top + 1, Math.round(w * 0.8), 2, "#f4f6f8");
   }
 }
+// A heritage lantern on a dark green post: a stepped base, a crossbar for ladders and bunting,
+// and a warm glass head under a little cap.
 export function lamp(g, x, y) {
-  rect(g, x, y - 16, 1, 16, "#4a4e52");
-  rect(g, x - 1, y - 1, 3, 1, "#4a4e52");
-  rect(g, x - 1, y - 18, 3, 3, "#4a4e52");
-  rect(g, x, y - 17, 1, 1, "#fff0b0");
+  const post = "#2f4a40";
+  rect(g, x - 1, y - 2, 3, 2, post); rect(g, x - 1, y, 3, 1, "rgba(26,32,66,0.25)");
+  rect(g, x, y - 16, 1, 15, post); px(g, x, y - 16, "#4a6a5c");
+  rect(g, x - 2, y - 15, 5, 1, post);
+  rect(g, x - 1, y - 21, 3, 5, "#f6dc90"); px(g, x - 1, y - 21, "#fff4c8"); rect(g, x + 1, y - 20, 1, 4, "#d8b060");
+  rect(g, x - 2, y - 22, 5, 1, post); px(g, x, y - 23, post); rect(g, x - 2, y - 16, 5, 1, post);
 }
 export function bush(g, x, y, season = 1) {
   const c = ["#6a9a50", "#4e8a48", "#c07a3a", "#8a9a8a"][season];
