@@ -415,7 +415,6 @@ function baseWorld(s) {
   // Street trees in pits along the boulevard's south verge, at a steady rhythm, with gaps at
   // the approach and the eastern road.
   for (let tx = 36; tx < MAP_W - 10; tx += 68) if (Math.abs(tx - 280) > 30 && Math.abs(tx - 976) > 22) items.push({ y: 672, draw: (g) => tree(g, tx, 672, .8, season, tx * 3, "street") });
-  pond(g, POCKET_PARK.x+76, POCKET_PARK.y+42, season);
   // Inlaid club colours and paired borders frame the stadium entrance.
   // A course of bricks in the club's colour runs the length of the forecourt, and a soldier
   // course (bricks on end, in a darker clay) edges it front and back.

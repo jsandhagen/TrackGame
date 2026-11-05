@@ -362,32 +362,95 @@ export function drawClubFront(g,x,w,front,open,index) {
     rect(g,x+7,front-5,10,4,'#6c8178');text(g,String(index+1),x+8,front-5,{scale:.6,color:'#f3ebd6',outline:null});
   }
 }
+// The pocket park, designed as a place rather than a lawn with things on it: a gravel path
+// loops round a natural pond from the gate on Club Row to the boulevard; the pond has a stone
+// bank, lily pads, reed clumps and a pair of ducks; a mulched play corner holds a swing and a
+// slide; shrubs and flowers line the fence, and a few trees of different kinds frame it all.
+const PARK_POND = [[76, 37, 27, 10], [58, 40, 12, 7], [94, 33, 13, 7]];
+function blob(g, ox, oy, grow, c) { for (const [cx, cy, rx, ry] of PARK_POND) ellipse(g, ox + cx, oy + cy, rx + grow, ry + Math.max(0, grow - 1), c); }
+function stampPath(g, pts, season) {
+  const edge = season === 3 ? '#cfd2cc' : '#b8a684', fill = season === 3 ? '#eceee8' : '#dccca8';
+  for (const [x, y] of pts) ellipse(g, x, y, 4, 3, edge);
+  for (const [x, y] of pts) ellipse(g, x, y, 3, 2, fill);
+  for (let k = 0; k < pts.length; k += 3) { const [x, y] = pts[k]; px(g, x - 1, y, tone(fill, -.12)); px(g, x + 1, y - 1, tone(fill, .1)); }
+}
 export function drawPocketPark(g,season,items) {
-  const {x,y,w,h}=POCKET_PARK;
-  withinGround(g,POCKET_PARK,()=>surface(g,x,y,w,h,green(season),'lawn'));
-  walk(g,x+6,y+7,w-12,h-14,season);rect(g,x+13,y+14,w-26,h-28,green(season));
-  walk(g,x+21,536,7,20,season);walk(g,x+112,y+h-9,7,27,season);
-  for(const [a,b] of [[0,20],[31,w]])fence(g,x+a,y,b-a,'#b8ba9c');
-  for(const [tx,ty] of [[x+10,y+23],[x+131,y+32],[x+19,y+h-15]])items.push({y:ty,draw:g=>tree(g,tx,ty,.75,season,tx)});
-  for(const [bx,by] of [[x+22,y+21],[x+103,y+h-16]])items.push({y:by,draw:g=>bench(g,bx,by)});
-  // The entrance: brick piers either side of the gate, a name board and flowers to greet you.
+  const {x,y,w,h}=POCKET_PARK, lawn=green(season);
+  withinGround(g,POCKET_PARK,()=>{
+    surface(g,x,y,w,h,lawn,'lawn');
+    // Mown stripes on the open lawn.
+    for(let xx=x+4;xx<x+w;xx+=14) rect(g,xx,y+4,7,h-8,tone(lawn,.04));
+    // The path: a loop round the pond, joined to the gate and to the boulevard exit.
+    const loop=[], cx=x+78, cy=y+37;
+    for(let t=0;t<Math.PI*2;t+=.045) loop.push([Math.round(cx+Math.cos(t)*50),Math.round(cy+Math.sin(t)*25)]);
+    const curve=(a,b,c2,n=24)=>Array.from({length:n+1},(_,k)=>{const u=k/n;return[Math.round((1-u)*(1-u)*a[0]+2*u*(1-u)*c2[0]+u*u*b[0]),Math.round((1-u)*(1-u)*a[1]+2*u*(1-u)*c2[1]+u*u*b[1])];});
+    stampPath(g,[...loop,...curve([x+24,y-1],[x+36,y+22],[x+24,y+16]),...curve([x+115,y+h+2],[x+112,y+57],[x+116,y+64])],season);
+    // The play corner on bark mulch, kerbed in timber.
+    const mulch=season===3?'#dcd4cc':'#b08458';
+    rect(g,x+3,y+23,23,30,'#6e4a30'); rect(g,x+4,y+24,21,28,mulch); rect(g,x+4,y+24,21,1,tone(mulch,.2));
+    for(const [cx2,cy2] of [[3,23],[25,23],[3,52],[25,52]]) px(g,x+cx2,y+cy2,lawn);
+    for(let k=0;k<46;k++){const mx=x+5+Math.round(hash(k*3+1)*18),my=y+26+Math.round(hash(k*7+2)*24);rect(g,mx,my,2,1,k%2?tone(mulch,-.16):tone(mulch,.12));}
+    // The pond: stone bank, earth lip on the near side, deep edge, open water, reflections.
+    if(season===3){blob(g,x,y,3,'#e4e6e2');blob(g,x,y,1,'#c8d8e0');blob(g,x,y,-1,'#dceaf2');for(const [dx,dy] of [[64,34],[84,38]])rect(g,x+dx,y+dy,9,1,'#f4f8fa');return;}
+    blob(g,x,y,3,'#b8a888'); for(let k=0;k<30;k++){const a=k/30*Math.PI*2;px(g,x+76+Math.round(Math.cos(a)*29),y+37+Math.round(Math.sin(a)*12),k%3?'#9a8a6c':'#d4c8a8');}
+    blob(g,x,y+1,1,'#6a5a44');
+    blob(g,x,y,1,'#3e6a88'); blob(g,x,y,0,'#4e82aa');
+    for(const [dx,dy,rx,ry] of [[72,35,18,5],[56,39,7,3],[92,32,8,3]]) ellipse(g,x+dx,y+dy,rx,ry,'#5e94bc');
+    for(const [dx,dy,l] of [[64,33,8],[80,36,6],[90,31,5],[56,40,4]]) rect(g,x+dx,y+dy,l,1,'#a8d0e4');
+    // Lily pads in a cluster by the far bank, two in flower.
+    for(const [dx,dy,f] of [[96,36,1],[100,38,0],[92,39,0],[60,43,1]]){ellipse(g,x+dx,y+dy,2,1,'#5a9a4a');px(g,x+dx+1,y+dy,'#3e7a3a');if(f)px(g,x+dx,y+dy-1,season===2?'#e8b040':'#f4b8c8');}
+    if(season===2) for(let k=0;k<6;k++) px(g,x+60+Math.round(hash(k*5)*36),y+32+Math.round(hash(k*9)*10),['#d8843a','#e8b040'][k%2]);
+  });
+  // A loose border of shrubs inside the fence: groups of different sizes with gaps, and flowers
+  // in clusters between them, rather than one bush repeated in a row.
+  items.push({y:y+9,draw:g=>{
+    for(const [bx,sz] of [[44,2],[50,1],[62,0],[80,2],[86,1],[108,1],[115,2],[121,0],[132,1]]) {
+      const by=y+8+(sz===0?1:0);
+      if(sz===2){bush(g,x+bx,by,season);bush(g,x+bx+3,by-2,season);}
+      else if(sz===1) bush(g,x+bx,by,season);
+      else if(season<2) for(let f=0;f<6;f++) {px(g,x+bx-3+f,by-(f%2),'#4e8a44');px(g,x+bx-3+f,by-1-(f%2),['#e86a6a','#f6d04c','#f4f0e6','#c890e0'][(f+bx)%4]);}
+    }
+    bush(g,x+7,y+8,season);
+  }});
+  // Reed clumps at the pond's ends, cattails topped in brown.
+  if(season!==3) for(const [rx,ry] of [[48,40],[51,43],[104,30],[107,33]]) items.push({y:y+ry+1,draw:g=>{
+    for(let k=0;k<4;k++){const hh=5+((k*7+rx)%4);rect(g,x+rx+k,y+ry-hh,1,hh,k%2?'#4e8a44':'#6aa050');if(k%2===0)rect(g,x+rx+k,y+ry-hh-2,1,2,'#7a5434');}
+  }});
+  // A pair of ducks paddling slowly about the open water.
+  if(season!==3) items.push({y:y+38,draw:(g,now=0)=>{
+    for(let k=0;k<2;k++){
+      const t=now/5200+k*2.1, dx=Math.round(76+Math.sin(t)*14)+k*5, dy=Math.round(37+Math.sin(t*1.7+k)*2);
+      const c=k?'#8a6a4a':'#f4f0e6', bx=x+dx, by=y+dy, dir=Math.cos(t)>0?1:-1;
+      rect(g,bx-2,by,5,2,c); rect(g,bx-2,by+2,5,1,'#3e6a88'); rect(g,bx+dir*2,by-2,2,2,k?'#3e6a3a':c); px(g,bx+dir*(dir>0?4:3)-(dir<0?1:0),by-1,'#f0a030'); px(g,bx-dir*2,by,tone(c,-.2));
+    }
+  }});
+  // The play corner: a painted swing frame with a seat moving gently, and a spring rider.
+  items.push({y:y+44,draw:(g,now=0)=>{
+    const frame='#3f6a5a', lit=tone(frame,.3);
+    for(const dx of [6,20]) {line(g,x+dx,y+44,x+dx+2,y+28,frame);line(g,x+dx+4,y+44,x+dx+2,y+28,tone(frame,-.25));rect(g,x+dx-1,y+45,7,1,SHADOW);}
+    rect(g,x+8,y+27,15,2,frame); rect(g,x+8,y+27,15,1,lit);
+    const sw=Math.round(Math.sin(now/700)*1.5);
+    for(const sx of [12,17]) line(g,x+sx,y+29,x+sx+sw,y+38,'#9aa0a4');
+    rect(g,x+11+sw,y+38,8,2,'#d0603a'); rect(g,x+11+sw,y+38,8,1,'#e88060'); rect(g,x+12,y+42,7,1,SHADOW);
+  }});
+  items.push({y:y+51,draw:(g,now=0)=>{
+    const rock=Math.round(Math.sin(now/900));
+    rect(g,x+14,y+48,1,3,'#9aa0a4'); rect(g,x+10,y+51,9,1,SHADOW);
+    rect(g,x+10+rock,y+44,8,4,'#e8b040'); rect(g,x+10+rock,y+44,8,1,'#f4d070'); rect(g,x+16+rock,y+42,3,3,'#e8b040'); px(g,x+18+rock,y+43,'#2a2420'); rect(g,x+11+rock,y+43,2,1,'#c84a3a');
+  }});
+  // Trees of different kinds frame the park without crowding the water.
+  for(const [tx,ty,kind,sc] of [[x+139,y+16,'column',.75],[x+8,y+66,'round',.7],[x+138,y+60,'wide',.6],[x+66,y+68,'flower',.55]]) items.push({y:ty,draw:g=>tree(g,tx,ty,sc,season,tx+ty,kind)});
+  // A bench facing the water, a bin beside it, and a drinking fountain by the gate path.
+  items.push({y:y+15,draw:g=>{bench(g,x+92,y+15);rect(g,x+104,y+10,4,5,'#4a6a5a');rect(g,x+104,y+10,4,1,'#6a8a7a');rect(g,x+104,y+15,4,1,SHADOW);
+    rect(g,x+40,y+11,3,6,'#8a948e');rect(g,x+39,y+10,5,2,'#b4bcb6');px(g,x+41,y+9,'#8ac8e0');rect(g,x+39,y+17,5,1,SHADOW);}});
+  // The entrance: brick piers either side of the gate and a name board.
   items.push({y:y+3,draw:g=>{
     for(const px0 of [x+17,x+29]) {rect(g,px0,y-6,4,8,'#a8604a');rect(g,px0,y-6,4,1,tone('#a8604a',.3));rect(g,px0+3,y-5,1,7,selOut('#a8604a',.4));rect(g,px0-1,y-7,6,1,'#d8cdb2');}
     rect(g,x+36,y-2,1,9,'#6a5a44');rect(g,x+43,y-2,1,9,'#6a5a44');rect(g,x+34,y-8,12,7,'#3f655e');rect(g,x+34,y-8,12,1,tone('#3f655e',.3));
     rect(g,x+36,y-6,8,1,'#f2ecd7');rect(g,x+36,y-4,6,1,'#c8d8c8');
   }});
-  items.push({y:y+12,draw:g=>{
-    // Flowers flank the gate path; a drinking fountain and a bin stand by the loop.
-    for(const fx of [x+9,x+31]) {rect(g,fx,y+9,8,3,'#7a5a3e');if(season!==3)for(let k=0;k<8;k+=2)px(g,fx+k,y+8,['#e86a6a','#f6d04c','#f4f0e6','#c890e0'][(k+fx)%4]);}
-  }});
-  items.push({y:y+h-10,draw:g=>{rect(g,x+64,y+h-17,3,7,'#8a948e');rect(g,x+63,y+h-18,5,2,'#b4bcb6');px(g,x+65,y+h-19,'#8ac8e0');rect(g,x+88,y+h-15,4,5,'#4a6a5a');rect(g,x+88,y+h-15,4,1,'#6a8a7a');}});
-  // A little community play corner leaves the pond and walking loop clear.
-  items.push({y:y+43,draw:g=>{
-    for(const dx of [10,30])line(g,x+dx,y+42,x+dx+3,y+19,'#9d7b51',2);
-    line(g,x+13,y+19,x+33,y+19,'#bc9465',2);
-    for(const dx of [17,25])line(g,x+dx,y+21,x+dx,y+35,'#7e8680');
-    rect(g,x+16,y+35,11,2,'#ac6e51');
-  }});
+  for(const [a,b] of [[0,20],[31,w]])fence(g,x+a,y,b-a,'#b8ba9c');
+  walk(g,x+21,536,7,13,season); walk(g,x+112,y+h-1,7,8,season);
 }
 export function drawStreetFurniture(g,items,colors={primary:'#2f6b52',secondary:'#f2c94c'},season=1) {
   for(const [x,y] of STREET_LAMPS)items.push({y,draw:g=>lamp(g,x,y)});
