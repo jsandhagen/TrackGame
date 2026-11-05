@@ -387,7 +387,10 @@ export function drawPocketPark(g,season,items) {
     stampPath(g,[...loop,...curve([x+24,y-1],[x+36,y+22],[x+24,y+16]),...curve([x+115,y+h+2],[x+112,y+57],[x+116,y+64])],season);
     // The play corner on bark mulch, kerbed in timber.
     const mulch=season===3?'#dcd4cc':'#b08458';
+    // A timber kerb seen from the front: its top runs round the mulch, the far kerb's inner face
+    // catches the light, and the near kerb shows its front face above a soft shadow.
     rect(g,x+3,y+23,23,30,'#6e4a30'); rect(g,x+4,y+24,21,28,mulch); rect(g,x+4,y+24,21,1,tone(mulch,.2));
+    rect(g,x+3,y+53,23,1,'#5a3c26'); rect(g,x+4,y+54,23,1,SHADOW);
     for(const [cx2,cy2] of [[3,23],[25,23],[3,52],[25,52]]) px(g,x+cx2,y+cy2,lawn);
     for(let k=0;k<46;k++){const mx=x+5+Math.round(hash(k*3+1)*18),my=y+26+Math.round(hash(k*7+2)*24);rect(g,mx,my,2,1,k%2?tone(mulch,-.16):tone(mulch,.12));}
     // The pond: stone bank, earth lip on the near side, deep edge, open water, reflections.
@@ -425,18 +428,24 @@ export function drawPocketPark(g,season,items) {
     }
   }});
   // The play corner: a painted swing frame with a seat moving gently, and a spring rider.
-  items.push({y:y+44,draw:(g,now=0)=>{
-    const frame='#3f6a5a', lit=tone(frame,.3);
-    for(const dx of [6,20]) {line(g,x+dx,y+44,x+dx+2,y+28,frame);line(g,x+dx+4,y+44,x+dx+2,y+28,tone(frame,-.25));rect(g,x+dx-1,y+45,7,1,SHADOW);}
-    rect(g,x+8,y+27,15,2,frame); rect(g,x+8,y+27,15,1,lit);
-    const sw=Math.round(Math.sin(now/700)*1.5);
-    for(const sx of [12,17]) line(g,x+sx,y+29,x+sx+sw,y+38,'#9aa0a4');
-    rect(g,x+11+sw,y+38,8,2,'#d0603a'); rect(g,x+11+sw,y+38,8,1,'#e88060'); rect(g,x+12,y+42,7,1,SHADOW);
+  // The top bar runs left to right, so each end's A-frame splays front to back: in the map's
+  // oblique view the back foot sits up and to the right of the front foot (depth DX .4, DY .5),
+  // and both legs meet under the bar. Back legs are drawn first and darker, front legs last.
+  items.push({y:y+46,draw:(g,now=0)=>{
+    const frame='#3f6a5a', lit=tone(frame,.3), back=tone(frame,-.3), gy=y+46, depth=[4,-5], top=gy-17;
+    const ends=[x+6,x+21], mid=e=>[e+depth[0]/2,top];
+    for(const e of ends) { rect(g,e+depth[0]-1,gy+depth[1]+1,3,1,SHADOW); line(g,e+depth[0],gy+depth[1],...mid(e),back); }
+    rect(g,ends[0]+2,top-1,ends[1]-ends[0]+1,2,frame); rect(g,ends[0]+2,top-1,ends[1]-ends[0]+1,1,lit);
+    // The seat hangs at mid-depth on two chains, rocking a little toward and away from you.
+    const sw=Math.round(Math.sin(now/700)*1.5), seatY=gy-6+(sw>0?1:0);
+    for(const cx2 of [x+11,x+17]) line(g,cx2,top+1,cx2,seatY,'#9aa0a4');
+    rect(g,x+10,seatY,8,2,'#d0603a'); rect(g,x+10,seatY,8,1,'#e88060'); rect(g,x+10,gy-2,9,1,SHADOW);
+    for(const e of ends) { rect(g,e-1,gy+1,3,1,SHADOW); line(g,e,gy,...mid(e),frame); px(g,e,gy,lit); }
   }});
   items.push({y:y+51,draw:(g,now=0)=>{
     const rock=Math.round(Math.sin(now/900));
-    rect(g,x+14,y+48,1,3,'#9aa0a4'); rect(g,x+10,y+51,9,1,SHADOW);
-    rect(g,x+10+rock,y+44,8,4,'#e8b040'); rect(g,x+10+rock,y+44,8,1,'#f4d070'); rect(g,x+16+rock,y+42,3,3,'#e8b040'); px(g,x+18+rock,y+43,'#2a2420'); rect(g,x+11+rock,y+43,2,1,'#c84a3a');
+    rect(g,x+9,y+48,1,3,'#9aa0a4'); rect(g,x+5,y+51,9,1,SHADOW);
+    rect(g,x+5+rock,y+44,8,4,'#e8b040'); rect(g,x+5+rock,y+44,8,1,'#f4d070'); rect(g,x+11+rock,y+42,3,3,'#e8b040'); px(g,x+13+rock,y+43,'#2a2420'); rect(g,x+6+rock,y+43,2,1,'#c84a3a');
   }});
   // Trees of different kinds frame the park without crowding the water.
   for(const [tx,ty,kind,sc] of [[x+139,y+16,'column',.75],[x+8,y+66,'round',.7],[x+138,y+60,'wide',.6],[x+66,y+68,'flower',.55]]) items.push({y:ty,draw:g=>tree(g,tx,ty,sc,season,tx+ty,kind)});
