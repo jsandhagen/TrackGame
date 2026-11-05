@@ -330,7 +330,9 @@ function baseWorld(s) {
     // Only the narrow gate connection enters public paving. All private ground
     // and cast shadows are clipped inside the parcel, before the sidewalk.
     vpaving(g, x + 27, street - 12, 8, 7, season);
-    if (open) for (const bx of [x + 9, x + LOT_W - 9]) items.push({ y: b + 8, draw: (g) => bush(g, bx, b + 8, season) });
+    // Built plots plant their own grounds (facility-scene.js); open plots get a bush or two,
+    // never the same pair on every lot.
+    if (open && !p) for (const [k, bx] of [[0, x + 9], [1, x + LOT_W - 9]]) if (hash(i * 7 + k) > .35) items.push({ y: b + 8, draw: (g) => bush(g, bx + Math.round((hash(i * 3 + k) - .5) * 6), b + 8, season) });
     if (!open) items.push({ y: b, draw: (g) => lockedPlot(g, x + 2, top + 14, LEAGUES[leagueForPlot(i)].name.split(" ")[0].toUpperCase(), season) });
     else if (!p) items.push({ y: b, draw: (g) => emptyPlot(g, x + 2, top + 14) });
     else {

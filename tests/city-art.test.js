@@ -32,3 +32,13 @@ test('every facility shows its upgrade level on the building itself', () => {
     assert(two > one && three > two, `${type}: ${one} → ${two} → ${three}`);
   }
 });
+
+test('facility types and houses differ in form, not only colour', async () => {
+  const types = ['club', 'library', 'cafe', 'shop', 'gym', 'workshop', 'indoor', 'testing', 'lab', 'institute', 'dorm', 'scout', 'lodge', 'spa'];
+  const mains = types.map(t => facilityModel(t, 1, 10).main);
+  const kinds = new Set(mains.map(m => m.roofKind)), looks = new Set(mains.map(m => [m.roofKind, m.material, m.roofMat, m.w, m.h].join()));
+  assert(kinds.size >= 5, `roof forms: ${[...kinds]}`);
+  assert.equal(looks.size, types.length, 'no two building types share a silhouette and material');
+  for (const t of types) assert(facilityModel(t, 3, 10).blocks.length >= facilityModel(t, 1, 10).blocks.length, `${t} never loses a wing when upgraded`);
+  assert(types.filter(t => facilityModel(t, 3, 10).blocks.length > facilityModel(t, 1, 10).blocks.length).length >= 8, 'most types grow a wing, tower or pavilion');
+});
