@@ -117,11 +117,13 @@ export function drawResidentialLots(g,season,items) {
   const colors=['#d7cab3','#c2d1c8','#dfc3a3','#c4b8a5','#d9d4bc','#b4c8ce','#d1b49a','#c4caba','#e1c8ae'];
   for(const lot of RESIDENTIAL_LOTS) {
     const {x,y,w,h,seed}=lot, large=w>60, base=large?y+69:y+48, front=y+h;
-    const doorX=x+(large?27:21), driveX=large?x+62:x+w-14;
     // No two neighbours share a design: each lot has its own form, materials, roof and the
     // things its household leaves outside.
     const form=HOUSE_FORMS[seed%HOUSE_FORMS.length], bakery=lot.kind==='bakery';
-    const lx=x+(large?12:4),buildingW=large?43:form.w||34,buildingH=bakery?25:form.h;
+    const lx=x+(large?12:4),buildingW=large?44:form.w||34,buildingH=bakery?25:form.h;
+    // The front door sits on the facade's centre line (the bakery's beside its shop window), and
+    // the windows pair up either side of it.
+    const doorX=bakery?lx+buildingW-10:lx+Math.round(buildingW/2)-3, driveX=large?x+62:x+w-14;
     const home={x:lx,y:base,w:buildingW,h:buildingH,d:18,wall:colors[seed],roof:form.roof,material:bakery?'plaster':form.material,roofKind:form.roofKind,gable:form.gable,roofMat:form.roofMat,seed:seed*13+5};
     const garage={x:lx+48,y:base+3,w:20,h:13,d:17,wall:'#c0b9a3',roof:'#6b7879',material:'stone',gable:4};
     withinGround(g,lot,()=>{
@@ -164,9 +166,9 @@ export function drawResidentialLots(g,season,items) {
     items.push({y:base,draw:(g,now=0)=>{
       if(form.woodpile) woodpile(g,lx-3,base-1,2);
       drawBuildingVolume(g,home,season);
-      const rows=buildingH>=27?2:1, kind=large?'shutter':'sash', slots=large?[lx+5,lx+34]:[lx+4,lx+27];
-      for(let row=0;row<rows;row++) for(const wx of slots) {
-        if(row===0&&wx+6>doorX-2&&wx<doorX+8) continue;
+      const rows=buildingH>=27?2:1, kind=large?'shutter':'sash', inset=large?6:4, slots=[lx+inset,lx+buildingW-inset-6];
+      for(let row=0;row<rows;row++) for(const wx of row&&!bakery?[...slots,doorX]:bakery?[lx+buildingW-inset-6]:slots) {
+        if(bakery&&row===0) continue;
         houseWindow(g,kind,wx,base-14-row*12,{lit:hash(wx*3+row+seed)<.3,shutter:form.shutter,box:row===0&&form.boxes?(seed%2?'#d99a8b':'#e4cb75'):null,season});
       }
       if(bakery) {

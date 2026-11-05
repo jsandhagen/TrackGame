@@ -193,7 +193,7 @@ export function drawBuildingVolume(g, b, season) {
 // industrial lights), shop (display window with goods). Glass reads dark with a reflection
 // cluster; a lit window glows warm with curtains. Every window has a frame, a recess shadow
 // under its head and a sill that shades the wall below it.
-export const WINDOW = { sash: [6, 7], shutter: [6, 7], tall: [5, 11], small: [4, 3], shop: [14, 8] };
+export const WINDOW = { sash: [6, 7], shutter: [6, 7], tall: [5, 11], small: [4, 3], shop: [14, 8], works: [9, 5] };
 export function windowAt(g, kind, x, y, { lit = false, trim = '#efe6cf', shutter = '#5f7a66', curtain = '#c8705a', box = null, goods = null, season = 1 } = {}) {
   const [w, h] = WINDOW[kind] || WINDOW.sash, glass = lit ? '#f0c06a' : '#3f5a68';
   rect(g, x - 1, y - 1, w + 2, h + 2, trim);
@@ -203,6 +203,7 @@ export function windowAt(g, kind, x, y, { lit = false, trim = '#efe6cf', shutter
   else { px(g, x + w - 2, y + 2, '#a9cfd8'); px(g, x + w - 3, y + 3, '#a9cfd8'); if (h > 4) px(g, x + w - 2, y + 3, '#6f97a6'); }
   if (kind === 'shop' && goods) for (let k = 0; k < 3; k++) { rect(g, x + 2 + k * 4, y + h - 4, 3, 3, goods[k % goods.length]); px(g, x + 3 + k * 4, y + h - 5, tone(goods[k % goods.length], .3)); }
   if (kind === 'tall') { px(g, x, y, trim); px(g, x + w - 1, y, trim); rect(g, x + 2, y - 2, 1, 1, tone(trim, -.2)); rect(g, x, y + 5, w, 1, trim); }
+  else if (kind === 'works') { for (let k = 2; k < w; k += 3) rect(g, x + k, y, 1, h, trim); rect(g, x, y + 2, w, 1, trim); }
   else if (kind !== 'small') { rect(g, x + Math.floor(w / 2), y, 1, h, trim); if (h > 5) rect(g, x, y + Math.floor(h / 2), w, 1, trim); }
   rect(g, x - 2, y + h + 1, w + 4, 1, tone(trim, .12)); rect(g, x - 1, y + h + 2, w + 2, 1, SHADOW);
   if (kind === 'shutter') for (const sx of [x - 4, x + w + 2]) { rect(g, sx, y - 1, 2, h + 2, shutter); for (let yy = y; yy < y + h; yy += 2) rect(g, sx, yy, 2, 1, tone(shutter, -.22)); rect(g, sx, y - 1, 1, h + 2, tone(shutter, .15)); }
@@ -266,9 +267,13 @@ export function bike(g, x, y, c = '#4a7ab0') {
   for (const wx of [x + 2, x + 8]) { ellipse(g, wx, y - 2, 2, 2, '#3a3e42'); px(g, wx, y - 2, '#9aa0a4'); }
   line(g, x + 2, y - 2, x + 5, y - 5, c); line(g, x + 5, y - 5, x + 8, y - 2, c); line(g, x + 4, y - 5, x + 8, y - 5, c); rect(g, x + 4, y - 6, 2, 1, '#2f2f2f');
 }
+// A sandwich board: a framed chalkboard, wider at the foot, with the menu chalked on it.
 export function aboard(g, x, y) {
-  foot(g, x, y + 1, 6); line(g, x, y, x + 2, y - 7, '#6a5040'); line(g, x + 5, y, x + 3, y - 7, '#4e3a2e');
-  rect(g, x + 1, y - 6, 4, 5, '#2f3a34'); rect(g, x + 2, y - 5, 2, 1, '#f4ecd0'); rect(g, x + 2, y - 3, 1, 1, '#f2c94c');
+  foot(g, x, y + 1, 7);
+  poly(g, [[x + 1, y - 8], [x + 5, y - 8], [x + 6, y + 1], [x, y + 1]], '#8a6a4a');
+  rect(g, x + 1, y - 7, 4, 7, '#2f3a34');
+  rect(g, x + 2, y - 6, 2, 1, '#f4ecd0'); rect(g, x + 2, y - 4, 2, 1, '#d8d0b8'); px(g, x + 2, y - 2, '#f2c94c');
+  rect(g, x + 1, y - 8, 4, 1, tone('#8a6a4a', .25));
 }
 export function noticeboard(g, x, y, c = '#6a8c84') {
   rect(g, x + 1, y - 8, 1, 8, '#6a5a44'); rect(g, x + 7, y - 8, 1, 8, '#6a5a44'); foot(g, x, y + 1, 9);
@@ -288,8 +293,17 @@ export function kettlebells(g, x, y) {
   foot(g, x, y + 1, 12);
   for (let k = 0; k < 3; k++) { const kx = x + k * 4; ellipse(g, kx + 1, y - 1, 2, 2, '#3a3e42'); px(g, kx, y - 2, '#7a8084'); rect(g, kx, y - 4, 3, 1, '#3a3e42'); }
 }
+// A chair seen from the front: backrest behind, seat, and two legs.
 export function chair(g, x, y, c = '#c8a064') {
-  foot(g, x, y + 1, 5); rect(g, x, y - 3, 4, 1, c); rect(g, x, y - 7, 1, 7, tone(c, -.15)); rect(g, x + 3, y - 2, 1, 2, tone(c, -.3)); rect(g, x, y - 7, 1, 1, tone(c, .2));
+  foot(g, x, y + 1, 5);
+  rect(g, x, y - 6, 4, 3, tone(c, -.12)); rect(g, x, y - 6, 4, 1, tone(c, .2));
+  rect(g, x, y - 3, 4, 1, c); rect(g, x, y - 2, 4, 1, selOut(c, .4));
+  rect(g, x, y - 1, 1, 2, tone(c, -.3)); rect(g, x + 3, y - 1, 1, 2, tone(c, -.3));
+}
+// A wall lantern on a bracket beside a door.
+export function lantern(g, x, y) {
+  rect(g, x, y, 2, 1, '#3a3e42'); rect(g, x + 1, y + 1, 3, 1, '#3a3e42');
+  rect(g, x + 1, y + 2, 3, 3, '#ffe6a0'); px(g, x + 1, y + 2, '#fff8d8'); rect(g, x + 1, y + 5, 3, 1, '#3a3e42');
 }
 export function wateringCan(g, x, y) { rect(g, x, y - 3, 3, 3, '#5a8ab0'); px(g, x + 3, y - 3, '#5a8ab0'); px(g, x + 4, y - 4, '#5a8ab0'); px(g, x, y - 3, '#8ab4d0'); }
 export function cylinders(g, x, y) {
@@ -307,7 +321,7 @@ export function antenna(g, x, y, h = 18, now = 0) {
 export function vine(g, x, top, bottom, season, seed = 0) {
   const leaf = ['#5f9a4a', '#4a8a42', '#b0703a', '#8a9a8a'][season], hi = tone(leaf, .22), lo = tone(leaf, -.3);
   for (let yy = bottom - 2, k = 0; yy > top; yy -= 2, k++) {
-    const sway = Math.round(Math.sin(k * 1.3 + seed) * 2), wdt = 2 + (hash(k * 7 + seed) > .6 ? 1 : 0);
+    const sway = Math.round(Math.sin(k * 1.3 + seed)), wdt = 2;
     rect(g, x + sway, yy, wdt, 2, leaf); px(g, x + sway, yy, hi); if (k % 3 === 2) px(g, x + sway + wdt, yy + 1, lo);
   }
 }

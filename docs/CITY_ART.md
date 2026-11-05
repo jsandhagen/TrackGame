@@ -51,33 +51,42 @@ Each type belongs to a family, so it reads before its sign does.
 
 No two types share a silhouette and material. Nameboards take the family's form and upgrade from plain, to framed, to club colours. Planting differs per type instead of the same two bushes on every plot.
 
+### Facade layout
+
+Details are placed from each facade's own geometry, never from fixed offsets:
+
+- **Bands:** every facade has a sign band under the eave and an openings band below it. Wall heights leave room for both.
+- **Symmetric buildings:** civic, science and home buildings put the door on the centre line, centre the nameboard over it and pair windows at equal distances either side. A second floor adds a window over the door.
+- **Shops:** the door sits at one end under a full-width awning, with the display window beside it and the nameboard centred above.
+- **Works buildings:** a roller door, a side door and a row of works windows run from the left, with the nameboard over the roller door.
+- **Clearances:** a window is dropped only where its frame would touch the nameboard. Door lanterns, porch posts and ivy keep clear of windows.
+- **Houses:** the same rule applies, so each front door lines up with its path and windows.
+
 ### Upgrades change the building
 
 | Type | Level 2 | Level 3 |
 | --- | --- | --- |
-| Clubhouse | Hipped side wing | Clock in the gable, second wing, double portico, flowerbeds |
+| Clubhouse | Hipped side wing; the flag moves beside the noticeboard | Clock turret astride the ridge over the door, double portico, flowerbeds |
 | Library | Side wing, more ivy | Reading garden, tree |
 | Café | Second terrace table | Pergola with twinkling string lights |
-| Kit shop | Merch rail in club colours | Rooftop sign |
-| Strength room | Equipment shed, rubber mats | Pull-up rig, antenna |
+| Kit shop | Merch rail in club colours | A giant club shirt mounted on the roof |
+| Strength room | Equipment shed, rubber mats | Plyo boxes in club colours |
 | Kit works | Lean-to, lumber | Second smoking chimney, workbench |
 | Throws hall | More roof lights | Club banners, more roof lights |
-| Testing centre | Annex, dish | Red-and-white launch-measuring rig |
+| Testing centre | Annex, dish | A speed gun on a tripod aimed down a row of cones |
 | Lab | Annex, gas cylinders | Observatory dome |
 | Institute | Tower wing, second bike | Satellite dish, more skylights |
 | Dorms | Dormers, second bike | Extra height, porch chair |
 | Scout office | Radio antenna, watering can | Lookout tower |
 | Coaching lodge | Porch chairs | Tree by the woodpile |
-| Spa | Towels on the line | Glass pool pavilion |
-
-Every level-3 building also gets a lamp at its gate.
+| Spa | Sun loungers by the pool | A timber sauna hut with a stovepipe and steam |
 
 ### Ambient animation
 
 Movement is spread unevenly:
 
 - Always moving: flags and the fountain.
-- Some of the time: smoke and pool steam.
+- Some of the time: smoke, pool steam and sauna steam.
 - Now and then: washing in a gust.
 - Occasional twinkles: string lights and an antenna beacon.
 
