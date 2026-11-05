@@ -199,7 +199,7 @@ Autumn mixes three palettes. Deciduous trees go bare in winter, with snow on the
 - **Pocket park:** designed as a place rather than a lawn with objects on it.
   - A gravel path, drawn with a soft darker edge, loops round the pond and joins the gate on Club Row to the boulevard.
   - The pond is a natural shape built from three lobes: a stone bank, an earth lip on the near side, a deep edge, open water and clustered reflections. It has lily pads (two in flower), reed clumps with cattails at either end and a pair of ducks paddling slowly about. In autumn leaves float on it; in winter it freezes and the ducks leave.
-  - The play corner sits on timber-kerbed bark mulch, with a painted swing frame (its seat moving gently) and a spring rider.
+  - The play corner sits on a soft patch of bark mulch, flattened by depth like the pond, with a darker trodden rim and grass creeping over its edge. It holds a painted swing frame (its A-frames splay along the map's depth, and the seat moves gently) and a spring rider.
   - Shrubs and flowers line the fence in groups of different sizes with gaps, never one bush repeated in a row.
   - Four different trees frame the park without crowding the water.
   - A bench and bin overlook the pond, and a drinking fountain stands by the gate path. Brick piers and a name board mark the entrance.
