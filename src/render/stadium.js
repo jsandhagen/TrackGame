@@ -3,10 +3,10 @@ import { text, fit } from "./font.js";
 import { figure, sprite, shadow, athleteLook, gripOf, OX, OY } from "./sprites.js";
 import { EVENTS, EVENT_IDS, LEAGUES, trackColorOf, styleOf, roofColorOf } from "../game-content.js";
 import { homeAthlete, rivalAthlete, best, meetVenue, stadiumCrowd, fieldLeaderboard, scoreboard, worldRecord, rawMark, matchClub, rivalClubFor, championshipClubs, formOf, divisionOf } from "../domain/game.js";
-import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward } from "./throw-motion.js";
-import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
+import { throwMotion, throwReleasePoint, recoveryStyle, flopsForward, approachSpeed } from "./throw-motion.js";
+import { beatDuration, CUTIN_MS, SETUP_MS, hasCutIn, throwOffset, throwTiming, throwPhase, flightPoint, throwResult, celebrates, usesRunway, LANDING_HOLD_MS, CELEBRATION_MS } from "./meet-presentation.js";
 import { SCENE_HEIGHT, THROW_ORIGIN, GROUND_SLOPE, AIRSPACE, METRE_PX, throwingSector, meetCamera } from "./meet-geometry.js";
-import { frameShot, clampCamera, throwShot, eventShot, createBroadcastCamera, FLIGHT_LEAD_MS } from "./meet-camera.js";
+import { frameShot, clampCamera, throwShot, eventShot, createBroadcastCamera, FLIGHT_LEAD_MS, RUN_LEAD_MS } from "./meet-camera.js";
 export { beatDuration, CUTIN_MS } from "./meet-presentation.js";
 import { line as voiceLine, throwSituation } from "../domain/voice.js";
 import { measure } from "./font.js";
@@ -813,7 +813,8 @@ export function createStadium(cv) {
     const preparing = (view.pace || 1) < 2 && (beat?.type === "decide" || (beat?.type === "throw" && tt < timing.releaseAt)),
       crowdHalf = preparing ? view2.width / 2 + 180 : cam ? view2.width / (2 * cam.z) + 180 : W,
       crowdX = preparing ? O.x : cam?.x ?? W / 2;
-    drawCrowd(g, s, m, now, cheer, venue, crowdX - crowdHalf, crowdX + crowdHalf);
+    // A javelin preparation opens at the top of the runway, well behind the arc.
+    drawCrowd(g, s, m, now, cheer, venue, preparing && ev === "jav" ? 0 : crowdX - crowdHalf, crowdX + crowdHalf);
     homeBanners(g, s, venue);
     // Flashbulbs pop in the stands after a big throw.
     if (big && !view.reduced && sinceLand >= 0 && sinceLand < (celebrates(beat) ? LANDING_HOLD_MS + CELEBRATION_MS : 1600))
@@ -910,7 +911,9 @@ export function createStadium(cv) {
     };
     const party = celebrates(beat), partyEnd = LANDING_HOLD_MS + (party ? CELEBRATION_MS : 200);
     const celebrate = big && sinceLand >= 0 && sinceLand < partyEnd ? beat.side : null;
-    for (const [side, x0, colors] of [["home", 6, s.colors], ["away", 128, rivalColors]]) {
+    // Benches sit beside the circle, or beside the javelin arc at the far end of its runway.
+    const benchX = O.x - (ev === "jav" ? 122 : 90);
+    for (const [side, x0, colors] of [["home", benchX, s.colors], ["away", benchX + 122, rivalColors]]) {
       if (m.leagueChampionship && side === "away") continue;
       const by = H - 10;
       // A plain bench seat on legs, with the team's pennant planted at the end.
@@ -928,7 +931,7 @@ export function createStadium(cv) {
     // A championship is a gathering of clubs. Every division has its own
     // pennant and a bench/standing area, even while another club is throwing.
     if (m.leagueChampionship) championshipClubs(s).forEach((club,i) => {
-      const x=150+(i%3)*Math.min(130,(W-175)/3), y=H-12-Math.floor(i/3)*52;
+      const x=benchX+144+(i%3)*Math.min(130,(W-175)/3), y=H-12-Math.floor(i/3)*52;
       const colors={primary:club.color,secondary:"#f4efe2"};
       rect(g,x,y-2,80,3,"#a07850");
       rect(g,x+4,y+1,2,5,"#6a5038");rect(g,x+72,y+1,2,5,"#6a5038");
@@ -950,7 +953,10 @@ export function createStadium(cv) {
         flop = beat?.type === "throw" && flopsForward(active, ev, level, beat),
         // Throws saved before forms were recorded keep the event's full window.
         trim = beat?.type !== "throw" || beat.form != null,
-        motionAt = (t) => throwMotion(ev, level, ...throwPhase(timing, t), { foul: !!beat?.foul, style, flop, trim });
+        // A meet javelin runs the full runway at the athlete's own approach speed; throws saved
+        // without a form keep the compact approach they were timed with.
+        runup = ev === "jav" && (beat?.type !== "throw" || usesRunway(beat)) ? approachSpeed(active, level) : null,
+        motionAt = (t) => throwMotion(ev, level, ...throwPhase(timing, t), { foul: !!beat?.foul, style, flop, trim, runup });
       let pose = "idle",
         frame = Math.floor(now / 500) % 2,
         flip = false,
@@ -967,12 +973,12 @@ export function createStadium(cv) {
         const good = beat.mark != null && (beat.newPb || beat.leading);
         pose = beat.mark == null ? "sad" : good ? "cheer" : "idle";
         frame = Math.floor(now / 220) % 2;
-        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style, flop, trim });
+        const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style, flop, trim, runup });
         x = O.x + end.dx;
         y = O.y + end.dy;
       } else {
         // Waiting to throw: standing ready where their technique starts.
-        mo = throwMotion(ev, level, "ready", 0);
+        mo = throwMotion(ev, level, "ready", 0, { runup });
         pose = "throw";
         ({ frame, flip } = mo);
         x = O.x + mo.dx;
@@ -980,6 +986,15 @@ export function createStadium(cv) {
         mo = { ...mo, ball: ev === "hammer" ? mo.ball : null };
       }
       focus.thrower = [x, y];
+      if (ev === "jav") {
+        // Where the approach starts, and where the runner will be a moment from now: the camera
+        // runs alongside with room ahead instead of trailing a fast approach.
+        focus.start = [O.x + throwMotion(ev, level, "ready", 0, { runup }).dx, O.y];
+        if (beat?.type === "throw" && tt >= 0 && tt < timing.releaseAt) {
+          const ahead = motionAt(Math.min(timing.releaseAt, tt + RUN_LEAD_MS));
+          focus.ahead = [O.x + ahead.dx, O.y + ahead.dy];
+        }
+      }
       if (beat?.type === "throw" && tt < timing.releaseAt && tt >= timing.releaseAt - FLIGHT_LEAD_MS) {
         const [rx, ry] = throwReleasePoint(ev, level);
         focus.anticipate = flightPoint([O.x + rx, O.y + ry], sector.point(timing.distance),
@@ -989,7 +1004,7 @@ export function createStadium(cv) {
       // The best throwers leave a blur of afterimages through the turns.
       if (mo?.ghost && !view.reduced)
         [[0.07, 0.28], [0.14, 0.14]].forEach(([back, alpha]) => {
-          const g2 = motionAt(Math.max(timing.readyMs, tt - back * (timing.releaseAt - timing.readyMs)));
+          const g2 = motionAt(Math.max(timing.readyMs, tt - back * (timing.releaseAt - timing.readyMs - timing.runupMs)));
           g.globalAlpha = alpha;
           figure(g, { ...look, pose: g2.pose || (g2.run ? "carry" : "throw"), frame: g2.frame, flip: g2.flip, blend: g2.blend, event: ev }, O.x + g2.dx, O.y + g2.dy, 2);
           g.globalAlpha = 1;
@@ -1174,15 +1189,17 @@ export function createStadium(cv) {
     // Fast and very fast hold one steady frame per event (the whole sector from the circle); the
     // close-ups, the chase and the celebrations are for watch speed.
     const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 2;
-    if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.origin, sector.point(SPAN)[0], upperY);
+    // The javelin's overview starts from the top of the runway so the approach is in the frame.
+    if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.start || focus.origin, sector.point(SPAN)[0], upperY);
     else if (thrown && focus.thrower && tt < timing.releaseAt)
-      shot = view.reduced ? throwShot("thrower", { thrower: [O.x - (ev === "jav" ? 50 : 0), O.y] }) : throwShot("thrower", focus);
+      // Reduced motion holds one frame: the whole runway for a javelin, the circle otherwise.
+      shot = !view.reduced ? throwShot("thrower", focus) : ev === "jav" ? throwShot("runway", focus) : throwShot("thrower", { thrower: [O.x, O.y] });
     else if (thrown && !landed && focus.implement) shot = view.reduced ? eventShot(focus.origin, sector.point(SPAN)[0], upperY) : throwShot("flight", focus);
     else if (thrown && focus.landing && sinceLand < LANDING_HOLD_MS) shot = throwShot("landing", focus);
     else if (thrown && party && focus.thrower && sinceLand < partyEnd)
       shot = { ...throwShot(focus.landing && focus.landing[0] - O.x > view2.width ? "result" : "thrower", focus), rate: 3 };
     else if (thrown && el < 1e8) shot = throwShot("result", focus);
-    else if (beat?.type === "decide" && focus.thrower) shot = { ...throwShot("thrower", { thrower: [O.x, O.y] }), cap: 2.1 };
+    else if (beat?.type === "decide" && focus.thrower) shot = { ...throwShot("thrower", { thrower: ev === "jav" ? focus.thrower : [O.x, O.y] }), cap: 2.1 };
     const target = shot.rect ? frameShot(shot.rect, view2, shot.cap) : clampCamera({ x: W / 2, y: H / 2, z: 1 }, view2),
       size = [cw, ch, W].join(),
       preparation = !fast && focus.thrower && (beat?.type === "decide" || (thrown && tt < timing.releaseAt))

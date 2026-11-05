@@ -78,10 +78,21 @@ const reach = (origin, x, y, upperAt, ground = origin[1]) => [origin[0] - SPACE.
 export const CHASE_WIDTH = 240;
 export const FLIGHT_LEAD_MS = 300;
 const chase = (rect, f) => (f.chase && rect[2] - rect[0] > CHASE_WIDTH ? [rect[2] - CHASE_WIDTH, rect[1], rect[2], rect[3]] : rect);
+// A javelin approach is framed where the runner will be this far ahead, so the camera leaves room
+// in front of them rather than trailing, and it may pan fast enough to keep pace with an 8 m/s
+// run-up on a narrow portrait screen. The lead runs out as the thrower stops at the block.
+export const RUN_LEAD_MS = 350;
+const RUN_PAN = 1.6;
 export function throwShot(phase, f) {
   if (phase === "thrower") {
-    const [x, y] = f.thrower;
-    return { rect: [x - SPACE.back, Math.min(y - SPACE.above, f.anticipate ? f.anticipate[1] - 30 : Infinity), x + SPACE.ahead, y + SPACE.below], rate: 4 };
+    const [x, y] = f.thrower, ahead = Math.max(x, f.ahead?.[0] ?? x);
+    return { rect: [ahead - SPACE.back, Math.min(y - SPACE.above, f.anticipate ? f.anticipate[1] - 30 : Infinity), ahead + SPACE.ahead, y + SPACE.below],
+      rate: 4, pan: f.ahead ? RUN_PAN : undefined };
+  }
+  // The whole javelin runway in one frame, from the top of the approach to past the arc.
+  if (phase === "runway") {
+    const [x, y] = f.start || f.thrower;
+    return { rect: [x - SPACE.back / 2, y - SPACE.above, f.origin[0] + SPACE.ahead, y + SPACE.below], rate: 4 };
   }
   if (phase === "flight") {
     const [ix, iy] = f.implement, [gx, gy] = f.ground, [ax, ay] = f.anticipate || f.implement;

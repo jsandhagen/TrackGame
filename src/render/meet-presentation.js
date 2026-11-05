@@ -33,13 +33,24 @@ export const throwOffset = beat => SETUP_MS + (hasCutIn(beat) ? CUTIN_MS : 0);
 // gets going within a moment of stepping up. Ms trimmed, by form.
 const TECHNIQUE_TRIM = { shot: [400, 250, 200, 0], jav: [1000, 75, 165, 235], discus: [800, 500, 0, 0] };
 export const techniqueTrim = (event, form) => TECHNIQUE_TRIM[event]?.[form] ?? 0;
+// The meet's javelin runway is long enough for a real approach, and the camera runs with it. A
+// full approach adds carry strides ahead of the compact technique's three, more as form improves
+// (13–17 contacts is typical at elite level): the ms each extra stride takes, slowest from the
+// standing start. Club practice keeps the compact run-up that fits its short runway.
+const RUNUP_STRIDES = { jav: [[], [265, 250], [275, 262, 252, 245], [285, 272, 262, 252, 245, 240]] };
+export const runupStrides = (event, form) => RUNUP_STRIDES[event]?.[form] ?? [];
+export const runupMs = (event, form) => runupStrides(event, form).reduce((a, b) => a + b, 0);
+// Meet throws that recorded the thrower's form run the full runway; older saved throws keep the
+// compact window they were timed with.
+export const usesRunway = beat => beat?.type === "throw" && beat.form != null;
 // Give the delivery time to build speed. Flight depends on the actual mark,
 // rather than stretching a short put across the same time as a long javelin.
 export function throwTiming(beat = {}) {
   const event = EVENTS[beat?.event] ? beat.event : EVENT_IDS[beat?.eventIndex] || "shot";
   const measured = Number.isFinite(beat?.mark) && beat.mark > 0 ? beat.mark : beat?.flightDistance;
   const distance = Number.isFinite(measured) && measured > 0 ? measured : EVENTS[event].min;
-  const releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event] - techniqueTrim(event, beat?.form);
+  const runup = usesRunway(beat) ? runupMs(event, beat.form) : 0,
+    releaseAt = { shot: 2000, discus: 2400, hammer: 3000, jav: 2600 }[event] - techniqueTrim(event, beat?.form) + runup;
   // A ballistic flight from about shoulder height, at a typical release angle for each event.
   // This is presentation only: the measured mark still comes from the meet simulation.
   // About 1.3 s for a 9 m put, 3.2 s for a 70 m javelin, 3.7 s for a 70 m hammer.
@@ -47,7 +58,7 @@ export function throwTiming(beat = {}) {
     flightSeconds = Math.sqrt(2 * (2 + distance * Math.tan(angle)) / 9.81),
     flightMs = Math.round(flightSeconds * 1000);
   return {
-    readyMs: 300, releaseAt, releaseMs: event === "hammer" || event === "jav" ? 120 : 180,
+    readyMs: 300, releaseAt, runupMs: runup, releaseMs: event === "hammer" || event === "jav" ? 120 : 180,
     recoveryMs: 900, flightMs, landAt: releaseAt + flightMs, distance,
     arcHeight: 9.81 * flightSeconds * flightSeconds / 8 * METRE_PX,
   };

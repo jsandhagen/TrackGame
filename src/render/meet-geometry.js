@@ -10,7 +10,9 @@ export const GROUND_SLOPE = 0;
 // Height change along that direction, in whole pixels (never -0).
 export const groundRise = dx => Math.round(-dx * GROUND_SLOPE) || 0;
 export const THROW_ORIGIN = { x: 96, y: 214 };
-const JAVELIN_ORIGIN = { x: 128, y: 214 }; // room for the withdrawn run and long penultimate
+// The javelin arc sits far enough along the field for the longest meet run-up (about 23 m for the
+// fastest elite approach, see approachSpeed in throw-motion.js) with the camera's room behind it.
+export const JAVELIN_ORIGIN = { x: 560, y: 214 };
 
 // An oblique view of the ground plane. Angles and distances are measured on
 // that plane first; the same projection draws sectors, arcs and landing marks.
