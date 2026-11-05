@@ -142,11 +142,11 @@ The town follows the project's *Modern Pixel-Art Town Design* guide, tuned to fe
   - an avenue of trees on both verges of Club Avenue
   - columnar trees screening the practice field
   - street trees along the boulevard
-- **The stadium walk:** the path from Club Row to the stadium gate is the town's ceremonial route.
-  - A brick gateway with stone caps and lanterns stands on Club Row, its beam carrying the club's name (or STADIUM when the name is too long).
-  - The walk is wider than any footpath, laid in brick between stone kerbs, with a runner of the club's colour down the middle.
-  - Low flower borders line both sides, under poles flying banners in the club's colours.
-  - The club crest is set into the forecourt where the walk meets the gate.
+- **The stadium walk:** the path from Club Row to the stadium gate is the town's ceremonial route, built with a clear order of emphasis:
+  1. **The gateway is the landmark.** It's a pale limestone arch on Club Row, taller than anything near it, so it stands out against the brick and lawn by value. Its piers have stone caps and lanterns, the arch has a keystone crest, and a plate in the club's colour, framed in cream, carries the club's name (or STADIUM when the name is too long). It has a crisp outline and casts a shadow like every building.
+  2. **The walk is a distinct surface.** It's wider than any footpath, laid in pale stone flags between grey kerbs, so it separates from the brick pavements. In winter the stone stays warmer than the snow.
+  3. **The runner leads the eye.** A strip of the club's colour, edged in cream with secondary-colour diamonds, runs up the walk, on across the forecourt and through the club crest set into the paving, right to the stadium gate.
+  4. **Banners and flowers are accents.** Poles fly club banners over low flower borders on both sides.
 - **Village car parks:** rolled gravel with bays marked in stone setts, and a tree in each.
 
 ### Road hierarchy
@@ -240,6 +240,8 @@ Run `npm run dev` and open `/scripts/city-study.html`. It renders the whole prod
 - that every junction has a give-way line on its minor arm, with no signals
 - that no furniture stands in the carriageway
 - that kerb parking stays in the residential lane, clear of driveways and the crossing
+
+`tests/world-render.test.js` draws the whole map at levels 1 and 3, in every season, by day and by night, so a broken import or a bad draw call fails the tests rather than leaving the map blank.
 
 ## Sources
 

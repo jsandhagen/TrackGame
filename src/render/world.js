@@ -1,4 +1,4 @@
-import { canvas, rect, ellipse, shade, hash, px, line } from "./pixel.js";
+import { canvas, rect, ellipse, shade, hash, px, line, poly } from "./pixel.js";
 import { text, measure } from "./font.js";
 import { line as voiceLine, idleSituation, emoteFor, CROWD_LINES, COACH_LINES } from "../domain/voice.js";
 import { CITY_ROADS, RESIDENTIAL_LOTS, STREET_LAMPS, CROSSINGS, FURNITURE, drawRoadMarkings, drawLoadingBay, ROSE_SEASON, drawStreetNetwork, drawResidentialLots, drawClubParcel, drawClubFront, drawPocketPark, drawStreetFurniture } from "./neighbourhood.js";
@@ -326,18 +326,31 @@ function streetSign(g,x,y,label) {
 // stone kerbs, with a runner of the club's colour down the middle and low hedges either side.
 function processional(g, cx, y0, y1, season, colors) {
   const x0 = cx - 15, w = 30, h = y1 - y0, hedgeC = ["#5f8f4a", "#4d8445", "#8a7a40", "#c8d4c8"][season];
-  brick(g, x0, y0, w, h, season);
-  const kerb = season === 3 ? "#e6e4de" : "#e0d4b8";
-  for (const kx of [x0, x0 + w - 2]) { rect(g, kx, y0, 2, h, kerb); for (let yy = y0 + 3; yy < y1; yy += 5) rect(g, kx, yy, 2, 1, shade(kerb, -0.15)); }
-  rect(g, cx - 3, y0, 6, h, shade(colors.primary, -0.05)); rect(g, cx - 3, y0, 1, h, shade(colors.primary, 0.25));
-  for (let yy = y0 + 2; yy < y1; yy += 6) rect(g, cx - 3, yy, 6, 1, shade(colors.primary, 0.3));
-  for (let yy = y0 + 4; yy < y1; yy += 12) { px(g, cx, yy, colors.secondary); px(g, cx - 1, yy + 1, colors.secondary); px(g, cx + 1, yy + 1, colors.secondary); }
+  stoneWalk(g, x0, y0, w, h, season, colors);
   // Low flower borders run beside the kerbs, so the banners above them read clearly.
   for (const hx of [x0 - 6, x0 + w + 1]) {
     rect(g, hx, y0 + 4, 5, h - 12, "#7a5a3e"); rect(g, hx, y0 + 4, 5, 1, shade("#7a5a3e", 0.2));
     if (season === 3) { rect(g, hx, y0 + 4, 5, h - 12, "#eef0ec"); continue; }
     for (let yy = y0 + 5; yy < y0 + h - 9; yy += 2) { rect(g, hx, yy, 5, 1, hedgeC); px(g, hx + ((yy >> 1) % 4) + 1, yy, ["#e86a6a", "#f6d04c", "#f4f0e6", "#c890e0"][(yy >> 1) % 4]); }
   }
+}
+// Pale limestone flags, set apart from the brick around them, with grey kerbs and a runner of the
+// club's colour edged in cream so it reads against the stone and leads the eye to the gate.
+function stoneWalk(g, x0, y0, w, h, season, colors) {
+  const flag = season === 3 ? "#d8cfbc" : "#e6dcc4", joint = shade(flag, -0.12), kerb = season === 3 ? "#8a8478" : "#9a9488", cx = x0 + Math.round(w / 2);
+  rect(g, x0, y0, w, h, flag);
+  for (let yy = y0 + 6, r = 0; yy < y0 + h; yy += 7, r++) {
+    rect(g, x0, yy, w, 1, joint);
+    for (let xx = x0 + (r % 2 ? 5 : 10); xx < x0 + w; xx += 10) rect(g, xx, yy - 6, 1, 6, joint);
+    if (hash(yy * 3 + x0) > 0.6) rect(g, x0 + 3 + Math.floor(hash(yy) * (w - 9)), yy - 5, 4, 1, shade(flag, 0.08));
+  }
+  for (const kx of [x0, x0 + w - 2]) { rect(g, kx, y0, 2, h, kerb); for (let yy = y0 + 4; yy < y0 + h; yy += 5) rect(g, kx, yy, 2, 1, shade(kerb, -0.18)); }
+  rect(g, x0 + 2, y0, 1, h, shade(flag, 0.12));
+  // The runner: club colour, cream edges, a secondary-colour diamond at intervals.
+  rect(g, cx - 5, y0, 10, h, "#f4ecd4");
+  rect(g, cx - 4, y0, 8, h, colors.primary);
+  for (let yy = y0 + 3; yy < y0 + h; yy += 9) { px(g, cx - 1, yy, colors.secondary); px(g, cx, yy, colors.secondary); rect(g, cx - 2, yy + 1, 4, 1, colors.secondary); px(g, cx - 1, yy + 2, colors.secondary); px(g, cx, yy + 2, colors.secondary); }
+  rect(g, cx - 4, y0, 1, h, shade(colors.primary, 0.25));
 }
 // A tall pole with a hanging banner in the club's colours that ripples now and then.
 function banner(g, x, y, colors, now, left) {
@@ -347,24 +360,42 @@ function banner(g, x, y, colors, now, left) {
   rect(g, bx, y - 21, 5, 2, colors.secondary);
   px(g, bx + (ripple ? 1 : 0), y - 14, colors.primary); px(g, bx + 3 + (ripple ? 1 : 0), y - 14, colors.primary);
 }
-// A gateway over the walk where it leaves Club Row: two brick piers with stone caps and lanterns,
-// a beam carrying the club's name, and flower tubs at the piers' feet.
+// The gateway where the walk leaves Club Row is the walk's landmark: a pale limestone arch,
+// taller than anything near it, standing out against the brick and lawn by value. Two piers with
+// stone caps and lanterns carry a round arch with a keystone crest, and a framed plate in the
+// club's colours names the ground. It casts a shadow down and to the right like every building.
 function gateway(g, cx, y, season, colors, name) {
-  const brickC = season === 3 ? "#c8b8b4" : "#b47a5e", stone = "#e0d4b8";
-  for (const px0 of [cx - 26, cx + 20]) {
-    rect(g, px0 + 6, y - 24, 2, 24, shade(brickC, -0.32)); px(g, px0 + 6, y - 25, shade(brickC, -0.32));
-    rect(g, px0, y - 24, 6, 24, brickC);
-    for (let yy = y - 22; yy < y; yy += 3) { rect(g, px0, yy, 6, 1, shade(brickC, 0.16)); rect(g, px0 + ((yy - y) % 6 ? 2 : 4), yy - 2, 1, 2, shade(brickC, 0.16)); }
-    rect(g, px0, y - 24, 1, 24, shade(brickC, 0.2)); rect(g, px0 + 5, y - 24, 1, 24, shade(brickC, -0.2));
-    rect(g, px0 - 1, y - 26, 9, 2, stone); rect(g, px0 - 1, y - 26, 9, 1, shade(stone, 0.2));
-    rect(g, px0 + 2, y - 31, 3, 4, "#f6dc90"); px(g, px0 + 2, y - 31, "#fff4c8"); rect(g, px0 + 1, y - 32, 5, 1, "#2f4a40"); rect(g, px0 + 1, y - 27, 5, 1, "#2f4a40");
-    rect(g, px0 - 1, y, 10, 1, "rgba(26,32,66,0.28)");
+  const lime = season === 3 ? "#e0d6c0" : "#ece2c8", lit = shade(lime, 0.18), dark = shade(lime, -0.3), edge = "#6a6254";
+  const L = cx - 27, R = cx + 19, pw = 8, top = y - 30;
+  poly(g, [[L + 2, y + 1], [R + pw + 14, y + 1], [R + pw + 18, y - 3], [L + 6, y - 3]], "rgba(26,32,66,0.24)");
+  for (const px0 of [L, R]) {
+    rect(g, px0 + pw, top + 2, 2, y - top - 2, dark); px(g, px0 + pw, top + 1, dark);
+    rect(g, px0, top, pw, y - top, lime);
+    for (let yy = top + 5; yy < y - 2; yy += 6) rect(g, px0, yy, pw, 1, shade(lime, -0.1));
+    rect(g, px0, top, 1, y - top, lit); rect(g, px0 + pw - 1, top, 1, y - top, shade(lime, -0.14));
+    rect(g, px0 - 1, y - 4, pw + 2, 4, shade(lime, -0.06)); rect(g, px0 - 1, y - 4, pw + 2, 1, lit);
+    rect(g, px0 - 1, top - 2, pw + 2, 2, lit); rect(g, px0 - 1, top - 1, pw + 2, 1, shade(lime, -0.08));
+    // Lanterns on the caps.
+    rect(g, px0 + 2, top - 7, 4, 5, "#f6dc90"); px(g, px0 + 2, top - 7, "#fff4c8"); rect(g, px0 + 1, top - 8, 6, 1, "#2f4a40"); rect(g, px0 + 1, top - 3, 6, 1, "#2f4a40");
+    // A crisp outline on the shadow side and at the foot.
+    rect(g, px0 + pw + 2, top + 2, 1, y - top - 2, edge); rect(g, px0 - 1, y, pw + 3, 1, edge);
   }
-  // The beam spans the walk below the cap lanterns, with the club's name on a plate.
-  rect(g, cx - 20, y - 21, 40, 7, colors.primary); rect(g, cx - 20, y - 21, 40, 1, shade(colors.primary, 0.3)); rect(g, cx - 20, y - 15, 40, 1, shade(colors.primary, -0.4));
-  rect(g, cx - 19, y - 14, 38, 1, "rgba(26,32,66,0.3)");
-  const label = [name || "", "STADIUM", "GROUND"].map((t) => t.toUpperCase()).find((t) => t && measure(t) <= 39) || "GROUND";
-  text(g, label, cx, y - 20, { color: shade(colors.secondary, 0.2), outline: null, align: "center" });
+  // The arch: a thick band of voussoirs rising from the piers to a keystone at the crown.
+  const span = R - (L + pw), mid = L + pw + span / 2, rise = 9;
+  for (let xx = L + pw; xx < R; xx++) {
+    const t = (xx - mid) / (span / 2), yy = Math.round(top + 2 - rise * Math.sqrt(Math.max(0, 1 - t * t)));
+    rect(g, xx, yy, 1, 5, lime); px(g, xx, yy, lit); px(g, xx, yy + 5, dark); if (xx % 4 === 0) px(g, xx, yy + 2, shade(lime, -0.12));
+    px(g, xx, yy - 1, edge);
+  }
+  const ky = top + 2 - rise;
+  rect(g, Math.round(mid) - 3, ky - 3, 7, 7, lime); rect(g, Math.round(mid) - 3, ky - 3, 7, 1, lit); rect(g, Math.round(mid) + 3, ky - 2, 1, 6, dark);
+  ellipse(g, Math.round(mid), ky + 1, 2, 2, colors.primary); px(g, Math.round(mid), ky + 1, colors.secondary);
+  // The name plate hangs under the arch: club colour, cream frame, cream lettering.
+  const label = [name || "", "STADIUM", "GROUND"].map((t) => t.toUpperCase()).find((t) => t && measure(t) <= 40) || "GROUND";
+  const pwid = Math.max(measure(label) + 6, 30), plx = Math.round(mid - pwid / 2), ply = top + 6;
+  rect(g, plx - 1, ply - 1, pwid + 2, 11, "#f4ecd4"); rect(g, plx, ply, pwid, 9, colors.primary); rect(g, plx, ply, pwid, 1, shade(colors.primary, 0.3));
+  rect(g, plx, ply + 10, pwid + 1, 1, "rgba(26,32,66,0.3)");
+  text(g, label, Math.round(mid), ply + 1, { color: "#f8f0d8", outline: null, align: "center" });
 }
 // A string of pennants sagging between two lamp heads; it lifts a little in a breeze.
 function bunting(g, x0, x1, y, colors, now) {
@@ -460,12 +491,6 @@ function baseWorld(s) {
   // the approach and the eastern road.
   for (let tx = 36; tx < MAP_W - 10; tx += 68) if (Math.abs(tx - 280) > 30 && Math.abs(tx - 976) > 22) items.push({ y: 672, draw: (g) => tree(g, tx, 672, .8, season, tx * 3, "street") });
   // Inlaid club colours and paired borders frame the stadium entrance.
-  // The club crest set into the forecourt in front of the gate, where the walk arrives.
-  {
-    const cx = ROAD, cy = PLAZA - 2;
-    ellipse(g, cx, cy, 13, 6, "#e0d4b8"); ellipse(g, cx, cy, 12, 5, s.colors.primary); ellipse(g, cx, cy, 8, 3, s.colors.secondary); ellipse(g, cx, cy, 5, 2, s.colors.primary);
-    rect(g, cx - 1, cy - 1, 3, 2, s.colors.secondary); rect(g, cx - 12, cy - 1, 24, 1, shade(s.colors.primary, 0.25));
-  }
   // A course of bricks in the club's colour runs the length of the forecourt, and a soldier
   // course (bricks on end, in a darker clay) edges it front and back.
   {
@@ -474,6 +499,16 @@ function baseWorld(s) {
     rect(g, x0, PLAZA + 8, w, 3, shade(s.colors.primary, -0.05));
     for (let xx = x0 + 1; xx < x0 + w; xx += 6) rect(g, xx, PLAZA + 8, 1, 3, shade(s.colors.primary, 0.3));
     rect(g, x0, PLAZA + 8, w, 1, shade(s.colors.primary, 0.18));
+  }
+  // The stone walk and its runner carry on across the forecourt to the stadium gate, through the
+  // club crest set into the paving where the walk arrives.
+  stoneWalk(g, ROAD - 15, PLAZA - 18, 30, 34, season, s.colors);
+  {
+    const cx = ROAD, cy = PLAZA - 1;
+    ellipse(g, cx, cy + 1, 15, 7, "rgba(26,32,66,0.2)");
+    ellipse(g, cx, cy, 15, 7, "#9a9488"); ellipse(g, cx, cy, 14, 6, "#f4ecd4"); ellipse(g, cx, cy, 12, 5, s.colors.primary);
+    ellipse(g, cx, cy, 8, 3, s.colors.secondary); ellipse(g, cx, cy, 6, 2, s.colors.primary);
+    rect(g, cx - 1, cy - 1, 3, 2, s.colors.secondary); rect(g, cx - 11, cy - 3, 22, 1, shade(s.colors.primary, 0.3));
   }
   // Lot grounds: front gardens with a path to the street, hedges between neighbours.
   LOTS.forEach(([x, top], i) => {
