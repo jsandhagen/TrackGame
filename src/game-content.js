@@ -28,11 +28,15 @@ export const RANKS = [
   { name: "Legend", level: 26, cost: 6500, cap: 28, limit: 100, slots: 3, wage: 340, title: true },
 ];
 
+// signing: where a signing scouted for a division sits in its field (see src/domain/signings.js).
+// band is their place in the division's distance band on the kit rivals carry (0 its low end, 1 its
+// high end); mastery is added to rival event mastery; skills is how many meet skills they arrive
+// knowing (no rarer than their own rarity, Epic at most).
 export const RARITY = {
-  common: { name: "Common", color: "#8e9a84", potential: [52, 64], bonus: 0, fee: 0, wage: 0, weight: 70 },
-  rare: { name: "Rare", color: "#4f8fd6", potential: [60, 70], bonus: 2, fee: 300, wage: 10, weight: 22 },
-  epic: { name: "Epic", color: "#a465d6", potential: [66, 76], bonus: 4, fee: 900, wage: 25, weight: 7 },
-  legend: { name: "Legend", color: "#e2a43a", potential: [72, 80], bonus: 6, fee: 2400, wage: 45, weight: 1 },
+  common: { name: "Common", color: "#8e9a84", potential: [52, 64], bonus: 0, fee: 0, wage: 0, weight: 70, signing: { band: 0.1, mastery: -10, skills: 1 } },
+  rare: { name: "Rare", color: "#4f8fd6", potential: [60, 70], bonus: 2, fee: 300, wage: 10, weight: 22, signing: { band: 0.45, mastery: -5, skills: 1 } },
+  epic: { name: "Epic", color: "#a465d6", potential: [66, 76], bonus: 4, fee: 900, wage: 25, weight: 7, signing: { band: 0.8, mastery: 0, skills: 2 } },
+  legend: { name: "Legend", color: "#e2a43a", potential: [72, 80], bonus: 6, fee: 2400, wage: 45, weight: 1, signing: { band: 1.1, mastery: 5, skills: 3 } },
 };
 export const RARITY_IDS = ["common", "rare", "epic", "legend"];
 

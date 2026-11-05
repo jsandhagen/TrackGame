@@ -1,4 +1,4 @@
-# Growth pacing across the ladder
+# Growth pacing and squad depth across the ladder
 
 A playtest reached National Division 3 (division 8 of 15) with several 99 OVR athletes throwing world records. The scripted careers in `scripts/rating-audit.mjs` showed the same pattern. The player's growth was still paced for the old five-tier ladder, so a club peaked with seven divisions left to play.
 
@@ -34,6 +34,47 @@ Engaged bot, six seeds, 30-season cap, medians on entering each division:
 
 Before, the bot won every fixture and final for the first ten divisions, and its leader was rated 100 by National 1. Now the leader stays a few points above the division's best rival all the way up, 90+ OVR arrives around National 1, and 100 OVR and world-record forecasts wait for Legend rank and the World Tour. The `shopper` policy follows the same curve: stat items deepen the squad but cannot pass the rank limits.
 
-## Known issue: the top finals
+## Squad depth and the top finals
 
-From International upwards, championship finals are a wall **in both versions**: International finals 18% → 3%, World Tour 2% → 0%, and no engaged bot wins the Diamond title within 30 seasons. Fixtures are still won 76–89% of the time. The cause is depth, not the leader. A championship scores every qualified thrower from all the division clubs (10-8-6-5-4-3-2-1), the club enters at most three per event with each athlete in at most two events, and the late rival squads are deep and carry developed secondary events. A small roster has to double up in secondary events at low mastery. This needs its own change (championship entry rules, roster size, or secondary-event development) and a re-run of this audit. These are scripted bots, not people: they show the shape of the curve, not human campaign length.
+With growth paced, the scripted club still hit a wall in the late championship finals: International finals were won 3% of the time, World Tour 0%, and no career won the Diamond title. Replaying finals showed it was not the leader. The squad's forecasts led every event, yet it scored half the winner's points. Four causes:
+
+1. **Signings were useless past the County leagues.** Prospects came from a fixed base per league at Rookie, level 1 and mastery 30. A Legend scouted in the International Division rated about 54 OVR against rivals at 93–97, so a club's depth was its starting six and the secret characters.
+2. **New signings never entered.** Automatic lineups seed by recorded PB, and a signing has none, so they never threw in a league duel, never set a championship standard and never reached the final. The originals doubled up in second events instead.
+3. **Rivals carry meet skills; the club barely can.** From County up, every rival thrower has up to three meet skills, Rare and Epic included (Clutch Gene, Big Stage, Rival Hunter, Momentum). Players learn those only from skill books, three a week. In a final, stacked skills put rivals' best throws 9–14% past their forecasts.
+4. **Automatic tactics banked when nothing could be lost.** In field meets, Watch mode chose Bank it on later attempts with a mark already on the board, giving up distance for no gain.
+
+### Changes
+
+- **Seasoned signings** (`src/domain/signings.js`). A prospect arrives from the division the club has reached, placed in it exactly as rival throwers are: at a spot in the division's distance band (`RARITY[].signing.band`) on the kit an ordinary rival carries there (`divisionKit`). Common 0.1 (the bottom of the band), Rare 0.45, **Epic 0.8** (the upper band, where a championship's mid-table points are), **Legend 1.1** (with the rival clubs' stars). They arrive without that kit, so equipping them from the shop is what puts them there. They come with the level, rank and skill points of that division (a level of 1.8 a division, at least the rank their stats need, never above Star), rival-level event mastery (more where the rating scale runs out at the top), meet skills like rivals (Common 1, Rare 1, Epic 2, Legend 3, no rarer than Epic, paid from their skill points) and a **circuit PB** at 98% of their forecast, so lineups seed them. Championship entry still needs a mark made in the league duels. Seasoning only ever improves a prospect: opening-division recruits and the fence tryout's teenager stay raw. It applies to scouting reports, the scout's tip and secret characters, and uses no random draws.
+- **Headhunter's report.** A first title from National Division 3 upward (`HEADHUNTER_DIVISION`) makes the next free scouting report lead with a Legend.
+- **No banking a banked mark.** In field meets, automatic tactics choose only Controlled or All out once the athlete has a valid mark (`autoTactic`, `src/domain/meet.js`).
+- The rival tuning's maths is shared (`ratingForMark`, `markMultiplier` in `src/domain/competition.js`); rival forecasts are unchanged (`node scripts/division-audit.mjs 10`: 100% inside the bands).
+
+### Results
+
+`node scripts/depth-experiment.mjs <division> [seeds] [replays]` plays scripted careers to a division's final and replays it with the squad as played, then rebuilt as three specialists an event (keeping the club's own qualified athletes who are at least Epic standard and filling the rest with kitted-out Epic signings, with or without one Legend). Win rates over 60 replays per squad, three careers:
+
+| Final | As played | Deep squad of Epics | One Legend and Epics |
+| --- | ---: | ---: | ---: |
+| National 3 | 13–82% | 95–100% | 95–100% |
+| National 1 | 0–27% | 40–85% | 55–95% |
+| International | 3–57% | 20–87% | 38–93% |
+| Diamond | 3–70% | 10–85% | 10–85% |
+
+At Diamond the rating scale saturates for everyone: Epic and Legend signings both arrive at 100 OVR, level with the median rival, and kit and skills decide the rest.
+
+The audit bot now builds depth as a coach would: it fills the dormitories with the best prospects, swaps its weakest athlete for a clearly better prospect, and buys meet-skill books from the shelf for its best athletes. Engaged bot, six seeds, 30-season cap, finals won (`node scripts/rating-audit.mjs engaged 6 30`):
+
+| Division | Growth pacing only | With depth changes |
+| --- | ---: | ---: |
+| National 3 | 75% | 86% |
+| National 1 | 29% | 35% |
+| Continental | 24% | 25% |
+| International | 28% | 20% |
+| World Tour | 18% | 31% |
+| Diamond | 0% | 17% |
+| Diamond titles within 30 seasons | 0 / 6 | 2 / 6 (seasons 25, 28) |
+
+The growth curve is unchanged: no 90+ OVR athletes entering National 3, and 99–100 OVR waits for the World Tour and Diamond. The bot signs whatever its reports offer, mostly Commons, so a coach who hunts for Epics and the headhunter's Legends should do better than these figures.
+
+Still open: rivals' meet-skill stacking makes finals swingy. The club can now match it through books and signings, but a human playtest should judge whether late finals feel fair. These are scripted bots, not people: they show the shape of the curve, not human campaign length.

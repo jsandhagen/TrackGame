@@ -69,11 +69,8 @@ function spend(s) {
   }
   for (const k of STAND) if (!G.stadiumProblem(s, k) && s.money > 900) G.upgradeStadium(s, k);
   for (let i = 0; i < s.plots.length; i++) if (s.plots[i] && s.plots[i].level < 3 && s.money > G.upgradeCost(s.plots[i].type, s.plots[i].level) + 800) G.upgrade(s, i);
-  if (s.roster.length < Math.min(6, G.rosterCap(s)) && s.money > 2500) {
-    if (!s.prospects.length) G.scout(s);
-    const best = [...s.prospects].sort((a, b) => G.eventRating(b, b.event) - G.eventRating(a, a.event))[0];
-    if (best && s.money > G.signCost(s, best) + 1500) G.recruit(s, best.id);
-  }
+  depth(s);
+  books(s);
   for (const id of ["competition", "spikes", "chalk", "carbon", "thunder", "clover"])
     if (G.shopStock(s).includes(id) && G.ownedCount(s,id)<s.roster.length && s.money > 2500) G.buyItem(s, id);
   for (const id of Object.keys(s.bag)) {
@@ -89,6 +86,32 @@ function spend(s) {
     const meet = a.skills.filter((k) => ["meet", "team", "unique"].includes(SKILLS[k].cat)).slice(0, G.slotsOf(a));
     a.loadouts = { enabled: true, training, meet };
   }
+}
+// Buy meet-skill books from the weekly shelf and teach them to the best athletes who can use them,
+// as a coach would. Training-skill books are left on the shelf.
+function books(s) {
+  if (!G.systemUnlocked(s, "skills") || s.match) return;
+  const ovr = (a) => G.eventRating(a, a.event);
+  for (const id of G.bookShelf(s)) {
+    const k = SKILLS[ITEMS[id].skill];
+    if (!["meet", "team"].includes(k.cat) || G.bookSold(s, id) || s.money < G.itemPrice(s, id) + 2500) continue;
+    const reader = [...s.roster].sort((a, b) => ovr(b) - ovr(a)).find((a) => !G.bookProblem(s, a, id) || (G.bookProblem(s, a, id) === "None in the kit bag"));
+    if (reader && G.buyBook(s, id)) G.readBook(s, reader.id, id);
+  }
+}
+// Build a deep squad: fill the dormitories with the best prospects, and once full, swap the weakest
+// athlete for a prospect who is clearly better. Pays for at most one search a week.
+function depth(s) {
+  if (!G.systemUnlocked(s, "recruit") || s.match || s.money < 2500) return;
+  const ovr = (a) => G.eventRating(a, a.event),
+    weakest = () => [...s.roster].filter((a) => !a.secret).sort((a, b) => ovr(a) - ovr(b))[0],
+    best = () => [...s.prospects].sort((a, b) => ovr(b) - ovr(a))[0],
+    worth = (p) => p && (s.roster.length < G.rosterCap(s) || (weakest() && ovr(p) > ovr(weakest()) + 6));
+  if (!worth(best()) && !G.weeklySearches(s) && s.money > 3000) G.scout(s);
+  const p = best();
+  if (!worth(p) || s.money < G.signCost(s, p) + 1500) return;
+  if (s.roster.length >= G.rosterCap(s) && !G.releaseAthlete(s, weakest().id)) return;
+  G.recruit(s, p.id);
 }
 export function fullyManaged(s) {
   engaged(s);

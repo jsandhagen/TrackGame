@@ -408,7 +408,8 @@ export function autoTactic(s,side="home") {
     const margin=rows=>rows.reduce((n,r)=>n+((c.m.leagueChampionship && side==="away" ? r.side==="away" && r.clubId===clubId : r.side===side)?1:-1)*r.points,0);
     const base=margin(scoreField(field,true,c.m.prelimFinals ? CHAMPIONSHIP_POINTS : undefined));
     let winner="balanced",bestValue=-Infinity;
-    for(const tactic of ["balanced","safe","attack"]) {
+    // Only the best mark counts: once one is banked, a foul costs no points, so never bank again.
+    for(const tactic of c.ownBest!=null ? ["balanced","attack"] : ["balanced","safe","attack"]) {
       const risk=riskModel(s,c,side,tactic,"good",false);
       let expected=base*risk.foul;
       for(const [z,w] of samples) {

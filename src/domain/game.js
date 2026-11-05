@@ -73,7 +73,9 @@ import { firstMeet, systemUnlocked, systemProblem } from "./progression.js";
 export * from "./development.js";
 export * from "./coaching.js";
 export * from "./mastery.js";
+export * from "./signings.js";
 import { practiceMastery, masteryOf } from "./mastery.js";
+import { seasonSigning } from "./signings.js";
 export * from "./facility-duties.js";
 export * from "./customize.js";
 export * from "./calendar.js";
@@ -906,7 +908,8 @@ export const scoutingWeek = (s) => Math.floor((s.day - 1) / 7);
 export const weeklySearches = (s) => s.scouting?.week === scoutingWeek(s) ? s.scouting.searches : 0;
 export const scoutBaseCost = (s) => Math.round((60 + 25 * s.league) * (1 - 0.15 * facilityLevel(s, "scout")));
 export const scoutCost = (s) => scoutBaseCost(s) * (1 + weeklySearches(s));
-export function scout(s, free = false) {
+// legend: a headhunter's report, whose first prospect is a Legend.
+export function scout(s, free = false, { legend = false } = {}) {
   if (!systemUnlocked(s, "recruit") || s.match) return false;
   const cost = free ? 0 : scoutCost(s);
   if (s.money < cost && !free) return false;
@@ -916,9 +919,10 @@ export function scout(s, free = false) {
     s.scouting = { week: scoutingWeek(s), searches: weeklySearches(s) + 1 };
   }
   const luck = 0.25 * facilityLevel(s, "scout") + (hasCombo(s, "network") ? 0.3 : 0) + 0.05 * s.league;
-  s.prospects = Array.from({ length: 3 }, () =>
-    createAthlete(s, pick(s, EVENT_IDS), { base: Math.max(22, LEAGUES[s.league].rating - 4 + random(s) * 4), rarity: rollRarity(s, luck) }),
-  );
+  s.prospects = Array.from({ length: 3 }, (_, i) => {
+    const event = pick(s, EVENT_IDS), base = Math.max(22, LEAGUES[s.league].rating - 4 + random(s) * 4), rolled = rollRarity(s, luck);
+    return seasonSigning(s, createAthlete(s, event, { base, rarity: legend && i === 0 ? "legend" : rolled }));
+  });
   count(s, "scouted");
   return true;
 }
@@ -1060,6 +1064,8 @@ export function leaveMatch(s) {
   checkGoals(s);
   return true;
 }
+// The first division whose first title brings a Legend prospect: National Division 3.
+export const HEADHUNTER_DIVISION = 7;
 export function nextSeason(s) {
   if (s.phase !== "seasonEnd") return false;
   const wasChampion = s.champion, tier = competitionTier(s), stage = s.competition?.stage ?? 2;
@@ -1089,7 +1095,10 @@ export function nextSeason(s) {
     a.seasonPoints = 0;
     a.seasonPbs = 0;
   }
-  scout(s, true);
+  // A first title from the National divisions up brings a headhunter's report with a Legend in it.
+  const headhunter = wasChampion && !!s.lastTitleGift && tier * 3 + stage >= HEADHUNTER_DIVISION;
+  scout(s, true, { legend: headhunter });
+  if (headhunter) note(s, "A headhunter's report: " + s.prospects[0].name + ", a Legend " + EVENTS[s.prospects[0].event].name.toLowerCase() + " thrower, wants to join a champion club. See Scouting.", "sign");
   note(s, wasChampion && s.lastTitleGift && !(tier === 4 && stage === 2) ? "Promoted to " + divisionName(s) + "! Choose the next division on the Meets board."
     : wasChampion ? "Division title secured! Defend the title or revisit an earlier division."
     : "Rebuild camp: key stats improved. Try a duel, keep developing, or enter again.", "story");

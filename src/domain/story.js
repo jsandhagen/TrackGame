@@ -18,6 +18,7 @@ import {
   reconcileLedger,
 } from "./core.js";
 import { weatherToday, dateOf } from "./calendar.js";
+import { seasonSigning } from "./signings.js";
 import { clubVersusWorld } from "./world.js";
 
 // ── Club goals: a steady stream of short- and long-term targets ───────────
@@ -124,6 +125,7 @@ export function signSecret(s, key) {
     secret: key,
     skill: d.skill,
   });
+  seasonSigning(s, a);
   s.roster.push(a);
   (s.secretsSigned ??= []).push(key);
   count(s, "secretsSigned");
@@ -300,7 +302,7 @@ export const STORY = {
     weight: 1,
     setup: (s) => {
       const a = createAthlete(s, pick(s, EVENT_IDS), { base: LEAGUES[s.league].rating - 2, rarity: random(s) < 0.25 ? "epic" : "rare" });
-      return { athlete: a };
+      return { athlete: seasonSigning(s, a) };
     },
     title: () => "A scout's tip",
     text: (s, d) => "An old scout says a " + RARITY[d.athlete.rarity].name.toLowerCase() + " " + EVENTS[d.athlete.event].name.toLowerCase() + " thrower is looking for a club.",
