@@ -45,11 +45,19 @@ export const divisionKit = (tier, event) => ({
   shoes: tier >= 2 ? "spikes" : null,
   charm: tier >= 3 ? "chalk" : null,
 });
+// Forecasts fill a division's band up to this share of its top. The rest is left to meet-day
+// winners, so a final's best throws reach the top of the band and a big day goes slightly past it.
+export const FORECAST_TOP = 0.95;
+// The mark at a place in the band's forecast range: 0 is the band's floor, 1 its forecast ceiling.
+export const bandMark = (division, event, place) => {
+  const [low, high] = division.marks[event];
+  return low + (high * FORECAST_TOP - low) * place;
+};
 export function tuneDivisionRival(s, a, tier, stage, clubId = 0) {
   const d = divisionOf(tier,stage), event = a.event, e = EVENTS[event],
     bias = (CLUB_EVENT_BIASES[CLUBS[tier][clubId].identity] || CLUB_BIASES[clubId%3])[EVENT_IDS.indexOf(event)],
-    [low,high] = d.marks[event], fraction = clamp(0.2 + ((Math.imul(a.id,2654435761) >>> 0) / 4294967296) * 0.6 + bias*0.025,0.1,0.9),
-    target = low + (high-low)*fraction;
+    fraction = clamp(0.2 + ((Math.imul(a.id,2654435761) >>> 0) / 4294967296) * 0.6 + bias*0.025,0.1,0.9),
+    target = bandMark(d, event, fraction);
   a.mastery[event] = Math.min(100,rivalMastery(tier,stage)+(a.profile === "explosive" ? 5 : 0));
   const rating = ratingForMark(event, target, markMultiplier(s,a,event)),
     weighted = rating/(0.6+0.004*a.mastery[event]), stats = [...a.stats];

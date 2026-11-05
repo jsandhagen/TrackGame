@@ -1,5 +1,5 @@
 // How strong the player's squad is when it enters each division, against the rivals it meets
-// and the world record. Run: node scripts/rating-audit.mjs <engaged|managed> [seeds=6] [seasons=40]
+// and the world record. Run: node scripts/rating-audit.mjs <engaged|managed|shopper> [seeds=6] [seasons=40] [first seed=1]
 import * as G from "../src/domain/game.js";
 import { EVENT_IDS, EVENTS } from "../src/game-content.js";
 import { engaged, fullyManaged, book } from "./balance-audit.mjs";
@@ -21,12 +21,12 @@ function shopper(s) {
   }
 }
 const POLICIES = { engaged, managed: fullyManaged, shopper };
-const [name = "engaged", seedArg = "6", seasonArg = "40"] = process.argv.slice(2);
+const [name = "engaged", seedArg = "6", seasonArg = "40", firstArg = "1"] = process.argv.slice(2);
 const policy = POLICIES[name], seeds = +seedArg, seasons = +seasonArg;
 const median = (a) => (a.length ? [...a].sort((x, y) => x - y)[(a.length - 1) >> 1] : NaN);
 const rows = Array.from({ length: 15 }, () => ({ day: [], top: [], third: [], elite: [], rival: [], rec: [], stat: [], mast: [], level: [], rank: [], cap: [], rivalOvr: [], seasons: [], fixtures: [0, 0], finals: [0, 0] }))
 const titles = [];;
-for (let seed = 1; seed <= seeds; seed++) {
+for (let seed = +firstArg; seed < +firstArg + seeds; seed++) {
   const s = G.newGame(seed), seen = new Set(), per = Array(15).fill(0);
   let title = null;
   for (let season = 1; season <= seasons && title == null; season++) {

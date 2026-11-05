@@ -7,7 +7,7 @@
 // Nothing here draws on the club's random stream, so every seeded campaign keeps its other rolls.
 import { EVENTS, RANKS, RARITY, RARITY_IDS, SKILLS } from "../game-content.js";
 import { clamp, eventRating, statTotal, learnFree, forecast } from "./core.js";
-import { rivalMastery, unlockedDivision, ratingForMark, markMultiplier, divisionKit } from "./competition.js";
+import { rivalMastery, unlockedDivision, ratingForMark, markMultiplier, divisionKit, bandMark } from "./competition.js";
 import { MASTERY_PER_MEET } from "./mastery.js";
 
 // Levels a signing has earned by each division: about the pace of a well-run club's own squad.
@@ -28,11 +28,9 @@ export const skillPointsAt = (level) => {
   for (let l = 2; l <= level; l++) sp += l % 5 === 0 ? 2 : 1;
   return sp;
 };
-// The mark a signing of this rarity forecasts in a division on its kit: their place in the band.
-export function signingMark(division, rarity, event) {
-  const [low, high] = division.marks[event];
-  return low + (high - low) * RARITY[rarity].signing.band;
-}
+// The mark a signing of this rarity forecasts in a division on its kit: their place in the band's
+// forecast range, the same range rival throwers fill.
+export const signingMark = (division, rarity, event) => bandMark(division, event, RARITY[rarity].signing.band);
 
 // The meet skills a signing has picked up on the circuit, as rival athletes have. Chosen from the
 // athlete's id, so the same prospect always arrives with the same skills.

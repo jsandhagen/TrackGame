@@ -32,8 +32,10 @@ test("signings scouted for a later division arrive at that level, placed in its 
     }
     const [low, high] = d.marks.jav;
     assert(mark.common >= low - 0.5 && mark.common < mark.rare && mark.rare < mark.epic && mark.epic <= mark.legend);
-    // Epics throw in the upper band, where a championship's mid-table points are; Legends with its stars.
-    assert(mark.epic >= low + 0.6 * (high - low) || ovr.epic >= 99, "Epic " + mark.epic);
+    // Epics throw in the upper half of the rivals' forecast range, where a championship's mid-table
+    // points are; Legends with its stars, just under the winners' marks at the top of the band.
+    assert(mark.epic >= G.bandMark(d, "jav", 0.5) || ovr.epic >= 99, "Epic " + mark.epic);
+    assert(mark.legend <= high * G.FORECAST_TOP + 0.5);
   }
 });
 

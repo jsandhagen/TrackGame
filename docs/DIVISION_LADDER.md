@@ -12,23 +12,23 @@ These are tunable game ranges, not official athletics classifications. Each even
 
 | Division | Shot | Discus | Hammer | Javelin |
 | --- | ---: | ---: | ---: | ---: |
-| Community | 8–10 | 20–28 | 22–32 | 24–34 |
-| Local | 9–11 | 25–33 | 28–38 | 30–40 |
-| District | 10–12 | 30–38 | 34–44 | 36–46 |
-| County | 11–13 | 35–42 | 42–51 | 44–54 |
-| County Premier | 12–14 | 39–46 | 47–56 | 49–59 |
-| Regional | 13–15 | 43–49 | 52–60 | 54–64 |
-| Regional Premier | 14–16 | 46–52 | 56–64 | 58–68 |
-| National 3 | 15–17 | 49–55 | 60–68 | 62–72 |
-| National 2 | 16–18 | 52–58 | 64–72 | 66–76 |
-| National 1 | 17–19 | 55–61 | 68–75 | 70–79 |
-| National Premier | 18–20 | 57–63 | 70–77 | 73–82 |
-| Continental | 18.5–20.5 | 59–65 | 72–79 | 76–85 |
-| International | 19–21 | 61–67 | 74–81 | 79–88 |
-| World Tour | 19.5–21.5 | 63–69 | 76–83 | 82–91 |
-| Diamond | 20–22 | 65–71 | 78–85 | 85–94 |
+| Community | 7.6–10 | 19–28 | 21–32 | 23–34 |
+| Local | 8.5–11 | 24–33 | 26.5–38 | 28.5–40 |
+| District | 9.5–12 | 28.5–38 | 32.5–44 | 34–46 |
+| County | 10.4–13 | 33–42 | 40–51 | 42–54 |
+| County Premier | 11.4–14 | 37–46 | 44.5–56 | 46.5–59 |
+| Regional | 12.3–15 | 41–49 | 49.5–60 | 51.5–64 |
+| Regional Premier | 13.3–16 | 43.5–52 | 53–64 | 55–68 |
+| National 3 | 14.2–17 | 46.5–55 | 57–68 | 59–72 |
+| National 2 | 15.2–18 | 49.5–58 | 61–72 | 62.5–76 |
+| National 1 | 16.1–19 | 52–61 | 64.5–75 | 66.5–79 |
+| National Premier | 17.1–20 | 54–63 | 66.5–77 | 69.5–82 |
+| Continental | 17.6–20.5 | 56–65 | 68.5–79 | 72–85 |
+| International | 18.1–21 | 58–67 | 70.5–81 | 75–88 |
+| World Tour | 18.5–21.5 | 60–69 | 72–83 | 78–91 |
+| Diamond | 19–22 | 62–71 | 74–85 | 81–94 |
 
-All values are metres. Rival attributes are calibrated against their actual equipment, mastery and condition so forecasts fit the booked division. Attribute strengths, club identities and named athletes remain. Replaying an earlier division uses that division's distances. These ranges describe typical forecasts: tactics, fouls, weather, skills and throw variation still affect a measured series, and marks are never clamped to the table.
+All values are metres. A band runs from an ordinary thrower's forecast up to a typical winning mark: rival forecasts fill it up to 95% of its top (`FORECAST_TOP`, `bandMark` in `src/domain/competition.js`), and the rest is left to meet-day winners, so a final's best throws reach the top and a big day goes slightly past it (see [growth pacing](GROWTH_PACING.md)). Rival attributes are calibrated against their actual equipment, mastery and condition so forecasts fit the booked division. Attribute strengths, club identities and named athletes remain. Replaying an earlier division uses that division's distances. These ranges describe typical forecasts: tactics, fouls, weather, skills and throw variation still affect a measured series, and marks are never clamped to the table.
 
 The former single rating curve remains solely for legacy-save migration and the standards of already-booked legacy seasons. New bookings snapshot the four standards from the chosen division. Tuning a future standard therefore does not revoke qualifications earned in an ongoing season.
 

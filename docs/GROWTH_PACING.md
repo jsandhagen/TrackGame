@@ -81,17 +81,29 @@ Stacking stays, so a coach who builds a stack on purpose (skills, loadouts, the 
 
 Rival throwers carry their club style in one skill through the National tier and two from National 1; stars carry one more (at most three), plus their signature at the top. The draws that made those skills are unchanged, so seeded campaigns keep their other rolls.
 
+### Lower distances, winners at the top of the band
+
+With the bonuses trimmed, winners still landed 4–7% past the top of the band, and 40% of Diamond event finals beat the world record, because the bands described ordinary forecasts and a final's best throw (the best of about fifteen throwers and six attempts, with meet-day skills) lands well above those. Now:
+
+- **Every thrower's mark curve is 5% lower** (`EVENTS` min and max: shot 6.65–19.48 m, discus 17.1–62.7, hammer 19–75.05, javelin 20.9–81.7), so the club, rivals and signings all come down together and the balance between them holds.
+- **Each band's floor and entry standard come down 5%; its top stays.** A band now runs from an ordinary thrower's forecast to a typical winning mark.
+- **Forecasts fill the band up to 95% of its top** (`FORECAST_TOP`, `bandMark`): rivals keep their old placement within that range, and signings are placed on it too (Common 0, Rare 0.3, Epic 0.6, Legend 0.95). The top 5% is left to meet-day winners.
+
 Median winning mark in replayed finals (as-played squads), against the band and the world record:
 
 | Final | Shot | Discus | Hammer | Javelin | Winner vs band top | Event finals over the WR |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| National 3 (band 15–17 · 49–55 · 60–68 · 62–72) | 18.89 | 56.92 | 70.90 | 77.84 | +6.8% (was +10.9%) | 0% |
-| National 1 (17–19 · 55–61 · 68–75 · 70–79) | 20.48 | 65.01 | 79.91 | 84.61 | +7% (was +12%) | 0% |
-| International (19–21 · 61–67 · 74–81 · 79–88) | 22.34 | 70.14 | 85.84 | 93.06 | +6–7% (was +11.3%) | 9% (was 62%) |
-| Diamond (20–22 · 65–71 · 78–85 · 85–94) | 23.16 | 73.33 | 89.20 | 97.25 | +4.4% (was +9.5%) | 40% (was 97%) |
+| National 3 (band 14.2–17 · 46.5–55 · 57–68 · 59–72) | 18.41 | 54.17 | 66.69 | 75.86 | +2.7% (was +6.8%) | 0% |
+| National 1 (16.1–19 · 52–61 · 64.5–75 · 66.5–79) | 19.28 | 61.79 | 74.97 | 80.31 | +1.2% (was +7%) | 0% |
+| International (18.1–21 · 58–67 · 70.5–81 · 75–88) | 21.29 | 67.25 | 82.18 | 88.31 | +1.0% (was +6–7%) | 0% (was 9%) |
+| Diamond (19–22 · 62–71 · 74–85 · 81–94) | 22.00 | 70.25 | 85.90 | 93.10 | −0.2% (was +4.4%) | 6% (was 40%) |
 
-What remains is mostly not bonuses: the best of about fifteen throwers and six attempts lands about 3% over its forecast, and the club's own stars forecast a little above the band. At Diamond the bands sit just under the world record (hammer tops out at 85 m against 86.74), so a winner barely above the band breaks it.
+The world record is now an endgame feat again: a club's own stars past Legend rank, kitted out, on a big day.
 
-Engaged bot over full careers (`node scripts/rating-audit.mjs engaged 6 30`), finals won: National 3 100%, National 1 55%, Continental 50%, International 29%, World Tour 13%, Diamond 36%. Four of six careers win the Diamond title within 30 seasons (median season 26); before the depth changes none did. The growth curve is unchanged: no 90+ OVR athletes entering National 3.
+Existing careers keep their personal bests, club records and world records: nothing is scaled down, so marks set on the old curve take longer to beat. Rivals retune at the next booking.
 
-Still open: whether Diamond finals should break the world record as often as they do (lower the Diamond bands, or narrow throw spread), and whether late finals feel fair to a human. These are scripted bots, not people: they show the shape of the curve, not human campaign length.
+**Side effect at the top.** The club's forecasts stay level with the rivals' at every division, but the top finals got harder for the scripted coach. Over twelve careers (seeds 1–12, 30-season cap), Diamond titles fell from 9 to 3 and Diamond finals from about 30% to about 7%. The likely cause is the record curve: marks above 92% of the world record are compressed, and Diamond forecasts used to sit there, which flattened rivals' meet-day spikes. At 5% lower they land below it at full size. A coach who builds the deep squad the depth experiment uses still wins International finals 68–100% of the time; the bot does not build one.
+
+Before the lower distances, the engaged bot over full careers (`node scripts/rating-audit.mjs engaged 6 30`) won finals: National 3 100%, National 1 55%, Continental 50%, International 29%, World Tour 13%, Diamond 36%. Four of six careers win the Diamond title within 30 seasons (median season 26); before the depth changes none did. The growth curve is unchanged: no 90+ OVR athletes entering National 3.
+
+Still open: whether the top finals are now too hard (see the side effect above), and whether late finals feel fair to a human. These are scripted bots, not people: they show the shape of the curve, not human campaign length.
