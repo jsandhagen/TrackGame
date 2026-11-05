@@ -383,11 +383,11 @@ export function drawPocketPark(g,season,items) {
     // The play corner on bark mulch: a soft, wide patch flattened by depth like the pond, in two
     // overlapping lobes with a darker trodden rim and grass creeping over its edge.
     const mulch=season===3?'#dcd4cc':'#b08458', rim=season===3?'#c8c0b8':'#86603e';
-    const lobes=[[15,44,13,8],[7,48,7,4],[8,40,6,4]];
+    const lobes=[[12,46,10,7],[6,51,6,3],[7,40,5,3]];
     for(const [cx2,cy2,rx,ry] of lobes) ellipse(g,x+cx2,y+cy2+1,rx+1,ry+1,rim);
     for(const [cx2,cy2,rx,ry] of lobes) ellipse(g,x+cx2,y+cy2,rx,ry,mulch);
-    for(let k=0;k<40;k++){const a=hash(k*3+1)*Math.PI*2,r=Math.sqrt(hash(k*7+2)),mx=x+15+Math.round(Math.cos(a)*r*11),my=y+44+Math.round(Math.sin(a)*r*6);rect(g,mx,my,2,1,k%2?tone(mulch,-.16):tone(mulch,.12));}
-    for(let k=0;k<10;k++){const a=k/10*Math.PI*2,gx=x+15+Math.round(Math.cos(a)*13),gy=y+44+Math.round(Math.sin(a)*8);px(g,gx,gy,tone(lawn,-.12));px(g,gx+1,gy-1,tone(lawn,.1));}
+    for(let k=0;k<36;k++){const a=hash(k*3+1)*Math.PI*2,r=Math.sqrt(hash(k*7+2)),mx=x+12+Math.round(Math.cos(a)*r*9),my=y+46+Math.round(Math.sin(a)*r*5);rect(g,mx,my,2,1,k%2?tone(mulch,-.16):tone(mulch,.12));}
+    for(let k=0;k<10;k++){const a=k/10*Math.PI*2,gx=x+12+Math.round(Math.cos(a)*11),gy=y+46+Math.round(Math.sin(a)*7);px(g,gx,gy,tone(lawn,-.12));px(g,gx+1,gy-1,tone(lawn,.1));}
     // The path: a loop round the pond, joined to the gate and to the boulevard exit.
     const loop=[], cx=x+78, cy=y+37;
     for(let t=0;t<Math.PI*2;t+=.045) loop.push([Math.round(cx+Math.cos(t)*50),Math.round(cy+Math.sin(t)*25)]);
@@ -427,25 +427,20 @@ export function drawPocketPark(g,season,items) {
       rect(g,bx-2,by,5,2,c); rect(g,bx-2,by+2,5,1,'#3e6a88'); rect(g,bx+dir*2,by-2,2,2,k?'#3e6a3a':c); px(g,bx+dir*(dir>0?4:3)-(dir<0?1:0),by-1,'#f0a030'); px(g,bx-dir*2,by,tone(c,-.2));
     }
   }});
-  // The play corner: a painted swing frame with a seat moving gently, and a spring rider.
+  // The play corner: a painted swing frame with a seat moving gently.
   // The top bar runs left to right, so each end's A-frame splays front to back: in the map's
   // oblique view the back foot sits up and to the right of the front foot (depth DX .4, DY .5),
   // and both legs meet under the bar. Back legs are drawn first and darker, front legs last.
-  items.push({y:y+46,draw:(g,now=0)=>{
-    const frame='#3f6a5a', lit=tone(frame,.3), back=tone(frame,-.3), gy=y+46, depth=[4,-5], top=gy-17;
-    const ends=[x+6,x+21], mid=e=>[e+depth[0]/2,top];
+  items.push({y:y+48,draw:(g,now=0)=>{
+    const frame='#3f6a5a', lit=tone(frame,.3), back=tone(frame,-.3), gy=y+48, depth=[4,-5], top=gy-17;
+    const ends=[x+3,x+16], mid=e=>[e+depth[0]/2,top];
     for(const e of ends) { rect(g,e+depth[0]-1,gy+depth[1]+1,3,1,SHADOW); line(g,e+depth[0],gy+depth[1],...mid(e),back); }
     rect(g,ends[0]+2,top-1,ends[1]-ends[0]+1,2,frame); rect(g,ends[0]+2,top-1,ends[1]-ends[0]+1,1,lit);
     // The seat hangs at mid-depth on two chains, rocking a little toward and away from you.
     const sw=Math.round(Math.sin(now/700)*1.5), seatY=gy-6+(sw>0?1:0);
-    for(const cx2 of [x+11,x+17]) line(g,cx2,top+1,cx2,seatY,'#9aa0a4');
-    rect(g,x+10,seatY,8,2,'#d0603a'); rect(g,x+10,seatY,8,1,'#e88060'); rect(g,x+10,gy-2,9,1,SHADOW);
+    for(const cx2 of [x+8,x+13]) line(g,cx2,top+1,cx2,seatY,'#9aa0a4');
+    rect(g,x+7,seatY,8,2,'#d0603a'); rect(g,x+7,seatY,8,1,'#e88060'); rect(g,x+7,gy-2,9,1,SHADOW);
     for(const e of ends) { rect(g,e-1,gy+1,3,1,SHADOW); line(g,e,gy,...mid(e),frame); px(g,e,gy,lit); }
-  }});
-  items.push({y:y+51,draw:(g,now=0)=>{
-    const rock=Math.round(Math.sin(now/900));
-    rect(g,x+9,y+48,1,3,'#9aa0a4'); rect(g,x+5,y+51,9,1,SHADOW);
-    rect(g,x+5+rock,y+44,8,4,'#e8b040'); rect(g,x+5+rock,y+44,8,1,'#f4d070'); rect(g,x+11+rock,y+42,3,3,'#e8b040'); px(g,x+13+rock,y+43,'#2a2420'); rect(g,x+6+rock,y+43,2,1,'#c84a3a');
   }});
   // Trees of different kinds frame the park without crowding the water.
   for(const [tx,ty,kind,sc] of [[x+139,y+16,'column',.75],[x+36,y+69,'round',.62],[x+138,y+60,'wide',.6],[x+66,y+68,'flower',.55]]) items.push({y:ty,draw:g=>tree(g,tx,ty,sc,season,tx+ty,kind)});

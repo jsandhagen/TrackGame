@@ -322,6 +322,50 @@ function streetSign(g,x,y,label) {
   rect(g,x-2,y-18,label.length*6+6,7,"#3f655e");
   text(g,label,x+1,y-17,{color:"#f2ecd7",outline:null});
 }
+// The walk from Club Row to the stadium gate: wider than any footpath, laid in brick between
+// stone kerbs, with a runner of the club's colour down the middle and low hedges either side.
+function processional(g, cx, y0, y1, season, colors) {
+  const x0 = cx - 15, w = 30, h = y1 - y0, hedgeC = ["#5f8f4a", "#4d8445", "#8a7a40", "#c8d4c8"][season];
+  brick(g, x0, y0, w, h, season);
+  const kerb = season === 3 ? "#e6e4de" : "#e0d4b8";
+  for (const kx of [x0, x0 + w - 2]) { rect(g, kx, y0, 2, h, kerb); for (let yy = y0 + 3; yy < y1; yy += 5) rect(g, kx, yy, 2, 1, shade(kerb, -0.15)); }
+  rect(g, cx - 3, y0, 6, h, shade(colors.primary, -0.05)); rect(g, cx - 3, y0, 1, h, shade(colors.primary, 0.25));
+  for (let yy = y0 + 2; yy < y1; yy += 6) rect(g, cx - 3, yy, 6, 1, shade(colors.primary, 0.3));
+  for (let yy = y0 + 4; yy < y1; yy += 12) { px(g, cx, yy, colors.secondary); px(g, cx - 1, yy + 1, colors.secondary); px(g, cx + 1, yy + 1, colors.secondary); }
+  // Low flower borders run beside the kerbs, so the banners above them read clearly.
+  for (const hx of [x0 - 6, x0 + w + 1]) {
+    rect(g, hx, y0 + 4, 5, h - 12, "#7a5a3e"); rect(g, hx, y0 + 4, 5, 1, shade("#7a5a3e", 0.2));
+    if (season === 3) { rect(g, hx, y0 + 4, 5, h - 12, "#eef0ec"); continue; }
+    for (let yy = y0 + 5; yy < y0 + h - 9; yy += 2) { rect(g, hx, yy, 5, 1, hedgeC); px(g, hx + ((yy >> 1) % 4) + 1, yy, ["#e86a6a", "#f6d04c", "#f4f0e6", "#c890e0"][(yy >> 1) % 4]); }
+  }
+}
+// A tall pole with a hanging banner in the club's colours that ripples now and then.
+function banner(g, x, y, colors, now, left) {
+  rect(g, x, y - 26, 1, 26, "#5a6266"); px(g, x, y - 27, "#c8b060"); rect(g, x - 1, y, 3, 1, "rgba(26,32,66,0.25)");
+  const ripple = Math.sin(now / 900 + x + y) > 0.6 ? 1 : 0, bx = left ? x + 1 : x - 5;
+  rect(g, bx, y - 25, 5, 11, colors.primary); rect(g, bx, y - 25, 5, 1, shade(colors.primary, 0.3)); rect(g, left ? bx + 4 : bx, y - 24, 1, 10, shade(colors.primary, -0.3));
+  rect(g, bx, y - 21, 5, 2, colors.secondary);
+  px(g, bx + (ripple ? 1 : 0), y - 14, colors.primary); px(g, bx + 3 + (ripple ? 1 : 0), y - 14, colors.primary);
+}
+// A gateway over the walk where it leaves Club Row: two brick piers with stone caps and lanterns,
+// a beam carrying the club's name, and flower tubs at the piers' feet.
+function gateway(g, cx, y, season, colors, name) {
+  const brickC = season === 3 ? "#c8b8b4" : "#b47a5e", stone = "#e0d4b8";
+  for (const px0 of [cx - 26, cx + 20]) {
+    rect(g, px0 + 6, y - 24, 2, 24, shade(brickC, -0.32)); px(g, px0 + 6, y - 25, shade(brickC, -0.32));
+    rect(g, px0, y - 24, 6, 24, brickC);
+    for (let yy = y - 22; yy < y; yy += 3) { rect(g, px0, yy, 6, 1, shade(brickC, 0.16)); rect(g, px0 + ((yy - y) % 6 ? 2 : 4), yy - 2, 1, 2, shade(brickC, 0.16)); }
+    rect(g, px0, y - 24, 1, 24, shade(brickC, 0.2)); rect(g, px0 + 5, y - 24, 1, 24, shade(brickC, -0.2));
+    rect(g, px0 - 1, y - 26, 9, 2, stone); rect(g, px0 - 1, y - 26, 9, 1, shade(stone, 0.2));
+    rect(g, px0 + 2, y - 31, 3, 4, "#f6dc90"); px(g, px0 + 2, y - 31, "#fff4c8"); rect(g, px0 + 1, y - 32, 5, 1, "#2f4a40"); rect(g, px0 + 1, y - 27, 5, 1, "#2f4a40");
+    rect(g, px0 - 1, y, 10, 1, "rgba(26,32,66,0.28)");
+  }
+  // The beam spans the walk below the cap lanterns, with the club's name on a plate.
+  rect(g, cx - 20, y - 21, 40, 7, colors.primary); rect(g, cx - 20, y - 21, 40, 1, shade(colors.primary, 0.3)); rect(g, cx - 20, y - 15, 40, 1, shade(colors.primary, -0.4));
+  rect(g, cx - 19, y - 14, 38, 1, "rgba(26,32,66,0.3)");
+  const label = [name || "", "STADIUM", "GROUND"].map((t) => t.toUpperCase()).find((t) => t && measure(t) <= 39) || "GROUND";
+  text(g, label, cx, y - 20, { color: shade(colors.secondary, 0.2), outline: null, align: "center" });
+}
 // A string of pennants sagging between two lamp heads; it lifts a little in a breeze.
 function bunting(g, x0, x1, y, colors, now) {
   const sag = 7 + (Math.sin(now / 1300 + x0) > 0.8 ? -1 : 0), at = (x) => y + Math.round(sag * Math.sin(Math.PI * (x - x0) / (x1 - x0)));
@@ -370,7 +414,7 @@ function baseWorld(s) {
   drawPocketPark(g,season,items);
   // Forecourt, walks and streets.
   brick(g, BOWL.x - 16, PLAZA - 18, BOWL.w + 32, 34, season);
-  brick(g, ROAD - 10, PLAZA + 14, 20, ROW - PLAZA - 20, season);
+  processional(g, ROAD, PLAZA + 14, ROW - 6, season, s.colors);
   brick(g, 0, ROW - 6, MAP_W, 13, season);
   // Continuous sidewalks join the club's gates to the connected road network.
   vpaving(g, AVENUE - 5, 128, 10, ROW - 128, season);
@@ -416,6 +460,12 @@ function baseWorld(s) {
   // the approach and the eastern road.
   for (let tx = 36; tx < MAP_W - 10; tx += 68) if (Math.abs(tx - 280) > 30 && Math.abs(tx - 976) > 22) items.push({ y: 672, draw: (g) => tree(g, tx, 672, .8, season, tx * 3, "street") });
   // Inlaid club colours and paired borders frame the stadium entrance.
+  // The club crest set into the forecourt in front of the gate, where the walk arrives.
+  {
+    const cx = ROAD, cy = PLAZA - 2;
+    ellipse(g, cx, cy, 13, 6, "#e0d4b8"); ellipse(g, cx, cy, 12, 5, s.colors.primary); ellipse(g, cx, cy, 8, 3, s.colors.secondary); ellipse(g, cx, cy, 5, 2, s.colors.primary);
+    rect(g, cx - 1, cy - 1, 3, 2, s.colors.secondary); rect(g, cx - 12, cy - 1, 24, 1, shade(s.colors.primary, 0.25));
+  }
   // A course of bricks in the club's colour runs the length of the forecourt, and a soldier
   // course (bricks on end, in a darker clay) edges it front and back.
   {
@@ -478,8 +528,10 @@ function baseWorld(s) {
   for (const x of [ROAD - 52, ROAD + 32]) items.push({ y: PLAZA - 2, draw: (g) => kiosk(g, x, PLAZA - 2, s.colors) });
   for (let x = BOWL.x + 10; x < BOWL.x + BOWL.w; x += 64) if (Math.abs(x - ROAD) > 40) items.push({ y: PLAZA + 14, draw: (g) => planter(g, x, PLAZA + 14, season, x) });
   for (const x of [ROAD - 120, ROAD + 100, ROAD + 200]) items.push({ y: PLAZA + 13, draw: (g) => bench(g, x, PLAZA + 13) });
-  flowerbed(g, ROAD - 40, ROW - 20, 20, 5, season);
-  flowerbed(g, ROAD + 20, ROW - 20, 20, 9, season);
+  // The stadium walk: a gateway on Club Row, flags in the club's colours down both sides over
+  // clipped hedges, and the crest set into the forecourt in front of the gate.
+  for (const fy of [432, 458]) for (const fx of [ROAD - 19, ROAD + 18]) items.push({ y: fy, draw: (g, now = 0) => banner(g, fx, fy, s.colors, now, fx < ROAD) });
+  items.push({ y: ROW - 5, draw: (g) => gateway(g, ROAD, ROW - 5, season, s.colors, s.clubName) });
   for (const x of [AVENUE + 40, AVENUE + 200, AVENUE + 360]) items.push({ y: 394, draw: (g) => bench(g, x, 394) });
   // Hedgerows along the map's south edge and the car parks.
   hedge(g, 0, MAP_H - 2, ROAD - 16, season);

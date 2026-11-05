@@ -142,6 +142,11 @@ The town follows the project's *Modern Pixel-Art Town Design* guide, tuned to fe
   - an avenue of trees on both verges of Club Avenue
   - columnar trees screening the practice field
   - street trees along the boulevard
+- **The stadium walk:** the path from Club Row to the stadium gate is the town's ceremonial route.
+  - A brick gateway with stone caps and lanterns stands on Club Row, its beam carrying the club's name (or STADIUM when the name is too long).
+  - The walk is wider than any footpath, laid in brick between stone kerbs, with a runner of the club's colour down the middle.
+  - Low flower borders line both sides, under poles flying banners in the club's colours.
+  - The club crest is set into the forecourt where the walk meets the gate.
 - **Village car parks:** rolled gravel with bays marked in stone setts, and a tree in each.
 
 ### Road hierarchy
@@ -199,7 +204,7 @@ Autumn mixes three palettes. Deciduous trees go bare in winter, with snow on the
 - **Pocket park:** designed as a place rather than a lawn with objects on it.
   - A gravel path, drawn with a soft darker edge, loops round the pond and joins the gate on Club Row to the boulevard.
   - The pond is a natural shape built from three lobes: a stone bank, an earth lip on the near side, a deep edge, open water and clustered reflections. It has lily pads (two in flower), reed clumps with cattails at either end and a pair of ducks paddling slowly about. In autumn leaves float on it; in winter it freezes and the ducks leave.
-  - The play corner sits on a soft patch of bark mulch, flattened by depth like the pond, with a darker trodden rim and grass creeping over its edge. It holds a painted swing frame (its A-frames splay along the map's depth, and the seat moves gently) and a spring rider.
+  - The play corner sits on a soft patch of bark mulch, flattened by depth like the pond, with a darker trodden rim and grass creeping over its edge. It sits clear of the path and holds a painted swing frame; its A-frames splay along the map's depth, and the seat moves gently.
   - Shrubs and flowers line the fence in groups of different sizes with gaps, never one bush repeated in a row.
   - Four different trees frame the park without crowding the water.
   - A bench and bin overlook the pond, and a drinking fountain stands by the gate path. Brick piers and a name board mark the entrance.
