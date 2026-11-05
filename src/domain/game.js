@@ -32,6 +32,8 @@ import {
   note,
   count,
   capOf,
+  rankCap,
+  raiseStat,
   moodOf,
   MOOD_TRAIN,
   effects,
@@ -735,7 +737,7 @@ export function useItem(s, id, athleteId) {
     if (d.stamina) a.stamina = clamp(a.stamina + d.stamina, 0, 100);
     if (d.heal) a.injury = 0;
     if (d.cond) a.condition = clamp(a.condition + d.cond, 0, 100);
-    if (d.stat) a.stats[d.stat[0]] = Math.min(capOf(a), a.stats[d.stat[0]] + d.stat[1]);
+    if (d.stat) raiseStat(a, d.stat[0], d.stat[1]);
     if (d.xp) grantXp(s, a, d.xp, out);
     if (d.sp) a.sp += d.sp;
     if (d.buff) a.buff = d.buff;
@@ -889,7 +891,7 @@ export function promote(s, athleteId) {
   const star = a.rank >= 4;
   if (star) a.stars = (a.stars || 0) + 1;
   else a.rank++;
-  a.stats = a.stats.map((v) => Math.min(capOf(a), v + 1));
+  a.stats.forEach((_, i) => raiseStat(a, i, 1));
   a.condition = 100;
   a.sp += 1;
   a.career.unshift({ season: s.season, label: "Promoted to " + rankName(a) });
@@ -1078,7 +1080,7 @@ export function nextSeason(s) {
   for (const a of s.roster) {
     if (!wasChampion) {
       const weakest = a.stats.indexOf(Math.min(...a.stats));
-      for (const i of new Set([EVENTS[a.event].weights.indexOf(Math.max(...EVENTS[a.event].weights)), weakest])) a.stats[i] = Math.min(capOf(a), a.stats[i] + boost);
+      for (const i of new Set([EVENTS[a.event].weights.indexOf(Math.max(...EVENTS[a.event].weights)), weakest])) raiseStat(a, i, boost);
     }
     a.stamina = 100;
     a.condition = clamp(a.condition + 15, 0, 100);

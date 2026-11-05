@@ -1,5 +1,5 @@
 import { systemUnlocked } from "./progression.js";
-import { clamp, capOf, count, note } from "./core.js";
+import { clamp, raiseStat, count, note } from "./core.js";
 
 // Sporting milestones are automatic and finite. No claim buttons or daily chores.
 export const DEVELOPMENT = [
@@ -22,7 +22,7 @@ export function checkDevelopment(s, a) {
     a.development.claimed.push(d.id);
     a.sp += d.sp || 0;
     a.potential = clamp(a.potential + (d.potential || 0), 1, 100);
-    if (d.stat != null) a.stats[d.stat] = Math.min(capOf(a), a.stats[d.stat] + 2);
+    if (d.stat != null) raiseStat(a, d.stat, 2);
     a.career.unshift({ season: s.season, label: d.name + " · " + d.reward });
     a.career = a.career.slice(0, 40);
     count(s, "development");

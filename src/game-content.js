@@ -18,12 +18,14 @@ export const EVENTS = {
 export const EVENT_IDS = ["shot", "discus", "hammer", "jav"];
 
 // Rank-ups are the long-term character arc: higher caps, more skill slots, a new look.
+// cap: added to the athlete's potential. limit: the most any stat can be trained to at that rank,
+// however high the potential, so a 100 needs a Legend (and Legend stars go past it).
 export const RANKS = [
-  { name: "Rookie", level: 1, cost: 0, cap: 0, slots: 1, wage: 40 },
-  { name: "Pro", level: 6, cost: 400, cap: 6, slots: 2, wage: 75 },
-  { name: "Ace", level: 12, cost: 1200, cap: 12, slots: 2, wage: 130 },
-  { name: "Star", level: 20, cost: 3000, cap: 20, slots: 3, wage: 220 },
-  { name: "Legend", level: 26, cost: 6500, cap: 28, slots: 3, wage: 340, title: true },
+  { name: "Rookie", level: 1, cost: 0, cap: 0, limit: 70, slots: 1, wage: 40 },
+  { name: "Pro", level: 6, cost: 400, cap: 6, limit: 80, slots: 2, wage: 75 },
+  { name: "Ace", level: 12, cost: 1200, cap: 12, limit: 90, slots: 2, wage: 130 },
+  { name: "Star", level: 20, cost: 3000, cap: 20, limit: 96, slots: 3, wage: 220 },
+  { name: "Legend", level: 26, cost: 6500, cap: 28, limit: 100, slots: 3, wage: 340, title: true },
 ];
 
 export const RARITY = {

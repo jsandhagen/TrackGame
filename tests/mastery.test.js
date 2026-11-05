@@ -7,7 +7,7 @@ function ready(seed=1){const s=G.newGame(seed);G.enterCompetition(s,{kind:'duel'
 test('practice has an event-specific ceiling which competition raises even without a winning mark',()=>{
  const s=G.newGame(60),a=s.roster[0];a.trainingEvent='discus';
  G.practiceMastery(a,1000);assert.equal(a.mastery.discus,35);assert.equal(a.mastery.shot,30);
- const before=a.mastery.discus;G.competeMastery(a,'discus',0);assert(a.mastery.discus>before);assert.equal(a.eventMeets.discus,1);assert.equal(G.masteryCap(a,'discus'),40);
+ const before=a.mastery.discus;G.competeMastery(a,'discus',0);assert(a.mastery.discus>before);assert.equal(a.eventMeets.discus,1);assert.equal(G.masteryCap(a,'discus'),35+G.MASTERY_PER_MEET);
 });
 test('high general attributes do not replace mastery, while trained secondary events become genuinely useful',()=>{
  const s=G.newGame(61),a=s.roster[0];a.stats=[90,90,90,90];a.mastery.shot=90;a.mastery.jav=8;
