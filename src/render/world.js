@@ -245,10 +245,14 @@ function hedge(g, x, y, w, season) {
   rect(g, x, y + 1, w, 1, shade(c, -0.35));
   for (let i = 2; i < w; i += 5) px(g, x + i, y - 3, shade(c, 0.12));
 }
-function flowerbed(g, x, y, w, seed) {
-  rect(g, x, y, w, 6, "#8a6040");
-  rect(g, x, y, w, 1, "#a07a50");
-  for (let i = 1; i < w - 1; i += 2) px(g, x + i, y + 2 + (i % 4 ? 0 : 2), ["#f06a6a", "#f6d04c", "#c890e0", "#f4f0f0"][Math.floor(hash(seed + i) * 4)]);
+// A raised brick planter brimming with leaves and flowers in clusters.
+function flowerbed(g, x, y, w, seed, season = 1) {
+  rect(g, x, y + 2, w, 4, "#b07a5e"); for (let xx = x + 2; xx < x + w; xx += 4) rect(g, xx, y + 3, 1, 3, "#8e5e48");
+  rect(g, x, y + 2, w, 1, "#c8957a"); rect(g, x + w - 1, y + 3, 1, 3, "#7a4e3a"); rect(g, x, y + 6, w, 1, "rgba(26,32,66,0.25)");
+  if (season === 3) { rect(g, x, y + 1, w, 1, "#f4f6f8"); return; }
+  const leaf = ["#5e9a4a", "#4e8a44", "#8a8a40"][season];
+  rect(g, x, y - 1, w, 3, leaf); rect(g, x + 1, y - 2, w - 2, 1, leaf);
+  for (let i = 1; i < w - 1; i += 3) { const c = ["#f06a6a", "#f6d04c", "#c890e0", "#f4f0f0", "#f0a050"][Math.floor(hash(seed + i) * 5)]; px(g, x + i, y - 2, c); px(g, x + i + 1, y - 1, c); px(g, x + i, y - 1, shade(c, -0.2)); }
 }
 function kiosk(g, x, y, colors) {
   box(g, x, y, 20, 12, 10, "#efe2c0", { shadow: false });
@@ -337,12 +341,18 @@ function baseWorld(s) {
     season = seasonOf(s);
   surface(g, 0, 0, MAP_W, MAP_H, GRASS[season], 'lawn');
   // Soft patches and tufts so the grass isn't flat.
-  for (let i = 0; i < 70; i++) ellipse(g, hash(i * 17) * MAP_W, hash(i * 23 + 5) * MAP_H, 18 + hash(i) * 30, 8 + hash(i + 1) * 12, shade(GRASS[season], i % 2 ? 0.05 : -0.04));
+  for (let i = 0; i < 110; i++) ellipse(g, hash(i * 17) * MAP_W, hash(i * 23 + 5) * MAP_H, 14 + hash(i) * 34, 6 + hash(i + 1) * 12, shade(GRASS[season], i % 3 === 0 ? 0.06 : i % 3 === 1 ? -0.045 : 0.025));
+  // Grass texture in clusters: tufts of two or three blades, a shaded root under a lit tip, and
+  // clover patches here and there. Clusters say "grass"; single specks only say "noise".
+  const blade = GRASS2[season], root = shade(GRASS[season], -0.16), clover = shade(GRASS[season], season === 3 ? -0.04 : 0.09);
+  for (let i = 0; i < 3200; i++) {
+    const x = Math.round(hash(i * 3 + 11) * MAP_W), y = Math.round(hash(i * 5 + 999) * MAP_H), n = hash(i * 7 + 3);
+    if (n < 0.62) { px(g, x, y, root); px(g, x + 1, y - 1, blade); if (n < 0.3) { px(g, x + 2, y, root); px(g, x + 2, y - 1, blade); } }
+    else if (n < 0.7) { rect(g, x, y, 3, 2, clover); px(g, x + 1, y - 1, clover); px(g, x + 3, y + 1, clover); }
+  }
   for (let i = 0; i < 1800; i++) {
     const x = Math.round(hash(i) * MAP_W),
       y = Math.round(hash(i + 999) * MAP_H);
-    px(g, x, y, i % 3 ? GRASS2[season] : shade(GRASS[season], -0.14));
-    if (i % 7 === 0) px(g, x + 1, y - 1, GRASS2[season]);
     if ((season === 0 && i % 17 === 0) || (season === 1 && i % 41 === 0)) {
       // Little three-pixel flowers: a coloured head over a stem.
       const c = ["#f6f0f4", "#f6d04c", "#f2a8c0", "#b8a0f0"][i % 4];
@@ -360,7 +370,7 @@ function baseWorld(s) {
   drawPocketPark(g,season,items);
   // Forecourt, walks and streets.
   brick(g, BOWL.x - 16, PLAZA - 18, BOWL.w + 32, 34, season);
-  vpaving(g, ROAD - 10, PLAZA + 14, 20, ROW - PLAZA - 20, season);
+  brick(g, ROAD - 10, PLAZA + 14, 20, ROW - PLAZA - 20, season);
   brick(g, 0, ROW - 6, MAP_W, 13, season);
   // Continuous sidewalks join the club's gates to the connected road network.
   vpaving(g, AVENUE - 5, 128, 10, ROW - 128, season);
@@ -390,6 +400,13 @@ function baseWorld(s) {
   practiceField(g, 592, 296, 348, 88, season);
   // A row of columnar trees screens the field from North Lane.
   for (let tx = 606, k = 0; tx < 940; tx += 48, k++) items.push({ y: 293, draw: (g) => tree(g, tx, 293, .7 + (k % 3) * .06, season, tx, "column") });
+  // Shrubs and flowers soften the foot of the stadium's outer wall, leaving the gate clear.
+  for (let x = BOWL.x + 26, k = 0; x < BOWL.x + BOWL.w - 26; x += 13, k++) {
+    if (Math.abs(x - ROAD) < 40) continue;
+    const r = BOWL.r, cx = Math.min(Math.max(x, BOWL.x + r), BOWL.x + BOWL.w - r), dy = Math.sqrt(Math.max(0, r * r - (x - cx) ** 2)), by = Math.round(BOWL.y + BOWL.h - r + dy) + 4;
+    if (by > PLAZA - 20) continue;
+    items.push({ y: by, draw: (g) => { bush(g, x, by, season); if (k % 3 === 1) bush(g, x + 6, by + 1, season); if (season < 2 && k % 2) for (let f = 0; f < 4; f++) px(g, x - 4 + f * 3, by - 3 - (f % 2), ["#f4f0e6", "#e88aa0", "#f6d04c"][(f + k) % 3]); } });
+  }
   // An avenue in fact: trees on both verges of Club Avenue, broken only where the footpaths cross.
   for (let ty = 172, k = 0; ty < 490; ty += 40, k++) {
     if ((ty > 236 && ty < 268) || (ty > 380 && ty < 412)) continue;
@@ -400,8 +417,15 @@ function baseWorld(s) {
   for (let tx = 36; tx < MAP_W - 10; tx += 68) if (Math.abs(tx - 280) > 30 && Math.abs(tx - 976) > 22) items.push({ y: 672, draw: (g) => tree(g, tx, 672, .8, season, tx * 3, "street") });
   pond(g, POCKET_PARK.x+76, POCKET_PARK.y+42, season);
   // Inlaid club colours and paired borders frame the stadium entrance.
-  for(let xx=BOWL.x+4;xx<BOWL.x+BOWL.w-4;xx+=12) rect(g,xx,PLAZA+9,8,2,s.colors.primary);
-  rect(g,BOWL.x,PLAZA-16,BOWL.w,2,"#ebe2cc");
+  // A course of bricks in the club's colour runs the length of the forecourt, and a soldier
+  // course (bricks on end, in a darker clay) edges it front and back.
+  {
+    const x0 = BOWL.x - 16, w = BOWL.w + 32, clay = season === 3 ? "#b8aaa8" : "#a8765c";
+    for (const yy of [PLAZA - 17, PLAZA + 13]) { rect(g, x0, yy, w, 3, clay); for (let xx = x0 + 2; xx < x0 + w; xx += 3) rect(g, xx, yy, 1, 3, shade(clay, 0.2)); }
+    rect(g, x0, PLAZA + 8, w, 3, shade(s.colors.primary, -0.05));
+    for (let xx = x0 + 1; xx < x0 + w; xx += 6) rect(g, xx, PLAZA + 8, 1, 3, shade(s.colors.primary, 0.3));
+    rect(g, x0, PLAZA + 8, w, 1, shade(s.colors.primary, 0.18));
+  }
   // Lot grounds: front gardens with a path to the street, hedges between neighbours.
   LOTS.forEach(([x, top], i) => {
     const b = baseOf(i),
@@ -411,7 +435,18 @@ function baseWorld(s) {
     drawClubParcel(g,x,top,LOT_W,street-12,open,season,i);
     // Only the narrow gate connection enters public paving. All private ground
     // and cast shadows are clipped inside the parcel, before the sidewalk.
-    vpaving(g, x + 27, street - 12, 8, 7, season);
+    if (street === ROW) brick(g, x + 27, street - 12, 8, 7, season); else vpaving(g, x + 27, street - 12, 8, 7, season);
+    // Every open plot has a little planting tucked into its back corners: shrubs, now and then a
+    // small tree, and a scatter of wildflowers, so the lawns behind the buildings aren't bare.
+    if (open) for (const [k, cx] of [[0, x + 9], [1, x + LOT_W - 10]]) {
+      const n = hash(i * 13 + k * 5), cy = top + 22 + Math.round(hash(i * 7 + k) * 6);
+      if (n < 0.25) continue;
+      items.push({ y: cy, draw: (g) => {
+        if (n > 0.75) tree(g, cx, cy, 0.62, season, i * 9 + k, "round");
+        bush(g, cx + (k ? -4 : 4), cy + 3, season);
+        if (season < 2) for (let f = 0; f < 5; f++) px(g, cx - 6 + Math.round(hash(i + f * 3 + k) * 12), cy + 5 + (f % 2), ["#f4f0e6", "#f6d04c", "#e88aa0", "#c890e0"][(f + i) % 4]);
+      } });
+    }
     // Built plots plant their own grounds (facility-scene.js); open plots get a bush or two,
     // never the same pair on every lot.
     if (open && !p) for (const [k, bx] of [[0, x + 9], [1, x + LOT_W - 9]]) if (hash(i * 7 + k) > .35) items.push({ y: b + 8, draw: (g) => bush(g, bx + Math.round((hash(i * 3 + k) - .5) * 6), b + 8, season) });
@@ -444,8 +479,8 @@ function baseWorld(s) {
   for (const x of [ROAD - 52, ROAD + 32]) items.push({ y: PLAZA - 2, draw: (g) => kiosk(g, x, PLAZA - 2, s.colors) });
   for (let x = BOWL.x + 10; x < BOWL.x + BOWL.w; x += 64) if (Math.abs(x - ROAD) > 40) items.push({ y: PLAZA + 14, draw: (g) => planter(g, x, PLAZA + 14, season, x) });
   for (const x of [ROAD - 120, ROAD + 100, ROAD + 200]) items.push({ y: PLAZA + 13, draw: (g) => bench(g, x, PLAZA + 13) });
-  flowerbed(g, ROAD - 40, ROW - 20, 20, 5);
-  flowerbed(g, ROAD + 20, ROW - 20, 20, 9);
+  flowerbed(g, ROAD - 40, ROW - 20, 20, 5, season);
+  flowerbed(g, ROAD + 20, ROW - 20, 20, 9, season);
   for (const x of [AVENUE + 40, AVENUE + 200, AVENUE + 360]) items.push({ y: 394, draw: (g) => bench(g, x, 394) });
   // Hedgerows along the map's south edge and the car parks.
   hedge(g, 0, MAP_H - 2, ROAD - 16, season);
@@ -454,10 +489,11 @@ function baseWorld(s) {
   const lotRects = LOTS.map(([x, top]) => [x - 6, top + 10, LOT_W + 12, 80]);
   const roadClear = CITY_ROADS.map(r => [Math.min(r.x1,r.x2)-22, Math.min(r.y1,r.y2)-14, Math.abs(r.x2-r.x1)+44, Math.abs(r.y2-r.y1)+28]);
   const clear = [...roadClear, ...RESIDENTIAL_LOTS.map(l => [l.x-4,l.y-14,l.w+8,l.h+24]), [BOWL.x - 12, BOWL.y - 20, BOWL.w + 24, BOWL.h + 40], [TOWER.x - 26, TOWER.y - 70, 52, 100], [584, 282, 364, 122], [0,ROW-12,MAP_W,58], [ROAD-114,ROW,210,BLVD-ROW-10], [POCKET_PARK.x,536,POCKET_PARK.w,POCKET_PARK.h+20], ...lotRects];
-  grove(items, 0, 8, MAP_W, 64, 46, 101, season, clear, 0.5);
-  grove(items, 0, 64, BOWL.x - 6, ROW - 40, 9, 211, season, clear, 0.4);
+  grove(items, 0, 8, MAP_W, 64, 62, 101, season, clear, 0.45);
+  grove(items, 0, 64, BOWL.x - 6, ROW - 40, 18, 211, season, clear, 0.35);
+  grove(items, 0, 340, BOWL.x + 30, PLAZA - 24, 6, 233, season, clear, 0.2);
   grove(items, BOWL.x + BOWL.w + 6, 60, AVENUE - 14, ROW - 40, 8, 307, season, clear, 0.3);
-  grove(items, AVENUE + 10, 40, MAP_W, NORTH - 70, 14, 401, season, clear, 0.5);
+  grove(items, AVENUE + 10, 40, MAP_W, NORTH - 70, 20, 401, season, clear, 0.45);
   grove(items, 0, ROW + 30, ROAD - 100, BLVD - 40, 8, 503, season, clear, 0.2);
   grove(items, 760, ROW + 30, MAP_W, MAP_H - 20, 16, 601, season, clear, 0.3);
   grove(items, 0, BLVD + 18, MAP_W, MAP_H - 14, 22, 701, season, clear, 0.25);

@@ -126,8 +126,9 @@ export function tree(g, x, y, s = 1, season = 1, seed = 0, kind = "round") {
   ellipse(g, x - Math.round(rx * 0.35), cy - Math.round(ry * 0.45), Math.max(1, Math.round(rx * 0.35)), Math.max(1, Math.round(ry * 0.28)), hi);
   for (let i = 0; i < 3; i++) px(g, x - rx + 2 + Math.round(hash(seed + i * 7) * rx), cy - Math.round(ry * 0.6) + Math.round(hash(seed + i * 5) * ry * 0.5), tone(hi, 0.3));
   if (kind === "wide") { line(g, x, y - trunkH + 1, x - R(5), cy + ry - 1, "#6e4f34"); line(g, x + 1, y - trunkH + 1, x + R(6), cy + ry - 1, "#5a3e28"); }
-  if (kind === "flower" && season < 2) {
-    const petal = season === 0 ? ["#f4b8c8", "#fbe0e8"] : ["#f4f0f4", "#f8d8e4"];
+  // Ornamentals blossom in spring only; in summer they are simply small, dense trees.
+  if (kind === "flower" && season === 0) {
+    const petal = ["#f4b8c8", "#fbe0e8"];
     for (let i = 0; i < 9; i++) { const fx = x - rx + 1 + Math.round(hash(seed + i * 13) * (rx * 2 - 2)), fy = cy - ry + 1 + Math.round(hash(seed + i * 17) * (ry * 2 - 2)); px(g, fx, fy, petal[i % 2]); if (i % 3 === 0) px(g, fx + 1, fy, petal[0]); }
     if (season === 0) for (let i = 0; i < 4; i++) px(g, x - 4 + Math.round(hash(seed + i) * 9), y + Math.round(hash(seed + i + 3) * 2), "#f4b8c8");
   }

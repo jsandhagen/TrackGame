@@ -27,7 +27,7 @@ const RANK = { main: 3, secondary: 2, residential: 1 };
 export const CROSSINGS = [
   [610,146,'h',20], [610,268,'h',20], [548,518,'h',22],
   [562,250,'v',20], [562,394,'v',20], [562,500,'v',20],
-  [280,536,'v',24], [280,BOULEVARD,'v',24], [976,250,'v',20], [976,500,'v',20], [976,BOULEVARD,'v',20],
+  [280,536,'v',24], [280,BOULEVARD,'v',24], [976,250,'v',20], [976,500,'v',20], [976,536,'v',20], [976,BOULEVARD,'v',20],
 ];
 // Signalised junctions where the station approach and Club Avenue meet the main roads.
 export const SIGNALS = [];
@@ -197,8 +197,8 @@ function flowerTub(g, x, y, season) {
 // hydrants by the kerb along the main roads, bins by the benches, mailboxes on the residential
 // lane and Club Row.
 export const FURNITURE = [
-  ...[90, 186, 404, 600, 698, 794, 890].map(x => ['planter', x, 506]),
-  ['hydrant', 92, 506], ['hydrant', 402, 506], ['hydrant', 700, 506], ['hydrant', 880, 541], ['hydrant', 520, 665], ['hydrant', 800, 665], ['hydrant', 700, 135],
+  ...[90, 250, 402, 600, 698, 890].map(x => ['planter', x, 506]),
+  ['hydrant', 170, 506], ['hydrant', 520, 506], ['hydrant', 790, 506], ['hydrant', 880, 541], ['hydrant', 520, 665], ['hydrant', 800, 665], ['hydrant', 700, 135],
   ['bin', 360, 399], ['bin', 640, 399], ['bin', 940, 399], ['bin', 130, 665],
   ['mailbox', 676, 135], ['mailbox', 470, 506],
 ];

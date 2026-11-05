@@ -123,12 +123,20 @@ The town follows the project's *Modern Pixel-Art Town Design* guide, tuned to fe
   - softer, yellower meadow greens instead of a saturated golf-course green
   - warm dark tarmac and warm stone footpaths
   - a gentle warm grade over the daytime scene
-- **Town-centre brick:** the forecourt and both sides of Club Row are laid in brick, with a few weathered bricks and moss in the joints.
+- **Town-centre brick:** the forecourt, the walk down to Club Row, both sides of Club Row and the plot gateways onto it are laid in brick, with a few weathered bricks and moss in the joints.
+  - The forecourt is edged front and back with a soldier course in darker clay and crossed by a course of bricks in the club's colour.
+  - Every footpath that crosses a road does so at a zebra; `tests/town.test.js` checks this, so a pavement can never run across a carriageway.
 - **Heritage lanterns:** dark green posts with warm glass heads replace the modern poles, and bunting in the club's colours sags between them along Club Row, lifting now and then in a breeze.
 - **Flowers everywhere it makes sense:**
   - half-barrel tubs along Club Row
   - climbing roses scrambling along most picket fences, in rose, red or autumn colours
   - wildflowers under the woodland clumps
+- **Texture and foliage:**
+  - Grass is textured with two- and three-blade tufts and clover patches rather than single specks.
+  - Raised brick planters brim with flowers.
+  - Shrubs and flowers soften the foot of the stadium wall.
+  - Every open plot has shrubs, and sometimes a small tree, tucked into its back corners.
+  - The woods are denser at the edges of the map.
 - **Trees in groups:**
   - clumps of two to four trees from one family, with shrubs at their feet
   - an avenue of trees on both verges of Club Avenue

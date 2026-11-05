@@ -33,3 +33,22 @@ test('kerb parking lines the residential lane, clear of driveways and crossings'
     for (const [x, y] of CROSSINGS) if (y === lane.y1) assert(c.x + L <= x - 8 || c.x >= x + 8, 'clear of the crossing');
   }
 });
+
+test('street furniture pieces never stand on top of each other or a lamp', async () => {
+  const { STREET_LAMPS } = await import('../src/render/neighbourhood.js');
+  const spots = [...FURNITURE.map(([kind, x, y]) => [kind, x, y]), ...STREET_LAMPS.map(([x, y]) => ['lamp', x, y])];
+  for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) {
+    const [a, ax, ay] = spots[i], [b, bx, by] = spots[j];
+    assert(Math.abs(ax - bx) >= 9 || Math.abs(ay - by) >= 6, `${a} at ${ax},${ay} overlaps ${b} at ${bx},${by}`);
+  }
+});
+
+test('every footpath strip that crosses a road does so at a zebra', () => {
+  // The shared footpaths drawn across the map in world.js: [x0, x1, y0, y1].
+  const strips = [[0, 1000, 494, 507], [0, 1000, 530, 543], [543, 962, 244, 257], [543, 962, 388, 400], [0, 1000, 624, 637]];
+  for (const [x0, x1, y0, y1] of strips) for (const r of CITY_ROADS.filter(r => r.x1 === r.x2)) {
+    const half = r.width / 2;
+    if (r.x1 + half <= x0 || r.x1 - half >= x1 || r.y2 <= y0 || r.y1 >= y1) continue;
+    assert(CROSSINGS.some(([x, y, axis]) => axis === 'v' && x === r.x1 && y >= y0 && y <= y1), `footpath ${y0}-${y1} crosses the road at x ${r.x1} without a crossing`);
+  }
+});
