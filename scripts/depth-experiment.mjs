@@ -3,7 +3,7 @@
 // filling the gaps with seasoned signings (Epics, optionally one Legend).
 // Run: node scripts/depth-experiment.mjs [division=9] [seeds=4] [replays=200]
 import * as G from "../src/domain/game.js";
-import { EVENT_IDS } from "../src/game-content.js";
+import { EVENT_IDS, EVENTS } from "../src/game-content.js";
 import { engaged, book } from "./balance-audit.mjs";
 
 const [division = 9, seeds = 4, replays = 200] = process.argv.slice(2).map(Number);
@@ -48,8 +48,12 @@ function deepen(s, rarities) {
   s.roster = [...keep, ...fresh];
   return fresh.length;
 }
-function winRate(s) {
+// Winning marks per event, by squad, gathered across careers: [squad][event] = { win: [], ours: [] }.
+const marks = {};
+const median = (a) => [...a].sort((x, y) => x - y)[(a.length - 1) >> 1];
+function winRate(s, squad) {
   let wins = 0, points = 0;
+  const m = (marks[squad] ??= Object.fromEntries(EVENT_IDS.map((ev) => [ev, { win: [], ours: [] }])));
   for (let r = 0; r < replays; r++) {
     const t = clone(s);
     t.rng = (Math.imul(r + 1, 2654435761) ^ 0x5bd1e995) >>> 0;
@@ -57,6 +61,12 @@ function winRate(s) {
     if (!G.startMatch(t)) continue;
     G.simulateMatch(t);
     wins += G.meetOutcome(t.match) > 0 ? 1 : 0;
+    for (const e of G.eventScores(t.match)) {
+      const legal = e.placings.filter((r) => r.mark != null);
+      if (legal[0]) m[e.event].win.push(legal[0].mark);
+      const ours = legal.find((r) => r.side === "home");
+      if (ours) m[e.event].ours.push(ours.mark);
+    }
     points += t.match.teamScores.find((x) => x.id === "us").points;
   }
   return { win: Math.round((100 * wins) / replays) + "%", points: (points / replays).toFixed(1) };
@@ -65,10 +75,19 @@ console.log(`${G.DIVISIONS[division].name} final, ${replays} replays per squad`)
 for (let seed = 1; seed <= seeds; seed++) {
   const s = reachFinal(seed);
   if (!s) { console.log("seed", seed, "never reached the final"); continue; }
-  const rows = { "as played": winRate(s) };
+  const rows = { "as played": winRate(s, "as played") };
   const epics = clone(s), signed = deepen(epics, []);
-  rows[`+${signed} Epics`] = winRate(epics);
+  rows[`+${signed} Epics`] = winRate(epics, "Epics");
   const legend = clone(s), n = deepen(legend, ["legend"]);
-  rows[`+1 Legend, ${n - 1} Epics`] = winRate(legend);
+  rows[`+1 Legend, ${n - 1} Epics`] = winRate(legend, "Legend + Epics");
   console.log(`seed ${seed} (season ${s.season}, squad ${s.roster.length}):`, Object.entries(rows).map(([k, v]) => `${k} ${v.win} (${v.points} pts)`).join(" · "));
+}
+// Median winning mark in each event (and the club's best placed mark), against the division's band.
+const d = G.DIVISIONS[division], fmt = (v) => (v == null ? "-" : v.toFixed(2));
+console.log("\nmedian marks (m)     " + EVENT_IDS.map((ev) => ev.padStart(14)).join(""));
+console.log("division band        " + EVENT_IDS.map((ev) => (d.marks[ev].join("-")).padStart(14)).join(""));
+console.log("world record         " + EVENT_IDS.map((ev) => fmt(EVENTS[ev].record).padStart(14)).join(""));
+for (const [squad, m] of Object.entries(marks)) {
+  console.log(("winner · " + squad).padEnd(21) + EVENT_IDS.map((ev) => fmt(median(m[ev].win)).padStart(14)).join(""));
+  console.log(("our best · " + squad).padEnd(21) + EVENT_IDS.map((ev) => fmt(median(m[ev].ours)).padStart(14)).join(""));
 }
