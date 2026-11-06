@@ -589,6 +589,152 @@ function baseWorld(s) {
   return {image:c,scenery:items.filter(it=>it.y>=BOWL.y+30)};
 }
 
+// Scenery that people walk behind is depth-sorted with them every frame. Redrawing it from its
+// pixel primitives each frame was most of the map's cost, so each piece is drawn once into its
+// own small sprite and a frame only blits it. A piece that changes with time (a flag, smoke, a
+// lit window) is found by tracing its drawing at several moments: its paints up to the first
+// operation that differs are baked, and the rest is drawn live each frame, skipping the baked
+// paints. Some details change only now and then (a gust, a twinkle), hence many moments.
+const TRACE_AT = [1000, 2171.3, 3637.9, 4987.7, 6409.1, 8123.3, 9711.9, 12007.1, 14413.7, 17299.3, 21011.9, 26003.3, 31337.1, 38021.7, 45503.9, 57719.3];
+const PATH_OPS = ["beginPath", "closePath", "rect", "moveTo", "lineTo", "clip"];
+const STYLE = ["fillStyle", "globalAlpha", "globalCompositeOperation", "imageSmoothingEnabled"];
+const DIVERGED = new Error("diverged");
+// A stand-in context that only records, as a flat list of OP fields per operation: every paint
+// with the state that colours it, and every change to clips (marked "@"). Drawing that it doesn't
+// support (a path fill, a transform) throws, and the piece stays fully live.
+const OP = 9;
+export function tracer() {
+  const images = new Map(),
+    imageId = (img) => images.get(img) ?? (images.set(img, images.size), images.size - 1);
+  let stack = [],
+    log = [],
+    n = 0,
+    against = null;
+  const t = { canvas: { width: MAP_W, height: MAP_H }, rects: [] };
+  // While checking a trace against an earlier one, stop at the first difference.
+  const put = (v) => {
+    if (against === null) log[n] = v;
+    else if (against[n] !== v) throw DIVERGED;
+    n++;
+  };
+  const op = (a, b, c, d, e, f, g, h, i) => {
+    if (against !== null && n >= against.length) throw DIVERGED;
+    put(a), put(b), put(c), put(d), put(e), put(f), put(g), put(h), put(i);
+  };
+  const paint = (what, x, y, w, h) => {
+    op(what, t.fillStyle, t.globalAlpha, t.globalCompositeOperation, t.imageSmoothingEnabled, x, y, w, h);
+    t.rects.push(x, y, w, h);
+  };
+  t.fillRect = (x, y, w, h) => paint(-1, x, y, w, h);
+  t.drawImage = (img, ...a) => {
+    const [dx, dy, dw = img.width, dh = img.height] = a.length > 4 ? a.slice(4) : a;
+    paint(imageId(img) + (a.length > 4 ? "|" + a.slice(0, 4).join() : ""), dx, dy, dw, dh);
+  };
+  for (const m of PATH_OPS) t[m] = (...a) => op("@" + m, a.join(), 0, 0, 0, 0, 0, 0, 0);
+  t.save = () => (op("@save", 0, 0, 0, 0, 0, 0, 0, 0), stack.push(STYLE.map((p) => t[p])));
+  t.restore = () => {
+    op("@restore", 0, 0, 0, 0, 0, 0, 0, 0);
+    const prev = stack.pop();
+    if (prev) STYLE.forEach((p, i) => (t[p] = prev[i]));
+  };
+  for (const m of ["fill", "stroke", "fillText", "strokeText", "strokeRect", "putImageData", "getImageData", "createImageData", "translate", "scale", "rotate", "transform", "setTransform", "resetTransform", "ellipse", "arc", "arcTo", "bezierCurveTo", "quadraticCurveTo", "createLinearGradient", "createRadialGradient", "createPattern"])
+    t[m] = () => {
+      throw new Error("untraceable");
+    };
+  // Runs a piece's drawing at `now` and returns its log; with `check` (an earlier log), stops
+  // where the two part and returns how many operations matched.
+  t.run = (draw, now, check = null) => {
+    Object.assign(t, { fillStyle: "#000000", globalAlpha: 1, globalCompositeOperation: "source-over", imageSmoothingEnabled: false });
+    t.rects = [];
+    stack = [];
+    log = check ? null : [];
+    n = 0;
+    against = check;
+    try {
+      draw(t, now);
+      if (check && n !== check.length) throw DIVERGED;
+    } catch (e) {
+      if (e !== DIVERGED) throw e;
+      return Math.floor(n / OP);
+    } finally {
+      against = null;
+    }
+    return check ? check.length / OP : log;
+  };
+  return t;
+}
+// Bakes one piece of scenery: a sprite of its fixed part plus, if it moves, the live remainder.
+export function bakePiece(it, t) {
+  let first, rects, fixed;
+  try {
+    first = t.run(it.draw, TRACE_AT[0]);
+    rects = t.rects;
+    // Everything up to the first operation that differs between moments is fixed. Clips count
+    // too, since they change where the paints after them land.
+    fixed = first.length / OP;
+    for (const now of TRACE_AT.slice(1)) fixed = Math.min(fixed, t.run(it.draw, now, first));
+  } catch {
+    return { y: it.y, live: it.draw };
+  }
+  const animated = fixed < first.length / OP;
+  let same = 0;
+  for (let i = 0; i < fixed; i++) if (!String(first[i * OP]).startsWith("@")) same++;
+  if (!same) return animated ? { y: it.y, live: it.draw } : null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < same * 4; i += 4) {
+    const [x, y, w, h] = rects.slice(i, i + 4);
+    x0 = Math.min(x0, x, x + w);
+    y0 = Math.min(y0, y, y + h);
+    x1 = Math.max(x1, x, x + w);
+    y1 = Math.max(y1, y, y + h);
+  }
+  const x = Math.floor(x0) - 1,
+    y = Math.floor(y0) - 1,
+    sprite = canvas(Math.ceil(x1) - x + 1, Math.ceil(y1) - y + 1),
+    sg = sprite.getContext("2d");
+  sg.imageSmoothingEnabled = false;
+  sg.setTransform(1, 0, 0, 1, -x, -y);
+  it.draw(skipping(sg, 0, same), TRACE_AT[0]);
+  return { y: it.y, sprite, x, y0: y, x1: x + sprite.width, y1: y + sprite.height, live: animated ? it.draw : null, skip: animated ? same : 0 };
+}
+// A context that forwards to `g` but drops the paints outside [from, to). Clips still happen, so
+// the paints that are kept land the same. Colour and alpha only reach `g` when a kept paint needs
+// them: setting a fill colour on a real context parses it, which adds up over hundreds of skips.
+export function skipping(g, from, to = Infinity) {
+  let n = 0,
+    style = {},
+    pending = false;
+  const flush = () => {
+    if (!pending) return;
+    for (const p of STYLE) if (p in style) g[p] = style[p];
+    style = {};
+    pending = false;
+  };
+  const keep = () => {
+    const i = n++;
+    if (i < from || i >= to) return false;
+    flush();
+    return true;
+  };
+  const ctx = {
+    get canvas() { return g.canvas; },
+    fillRect(...a) { if (keep()) g.fillRect(...a); },
+    drawImage(...a) { if (keep()) g.drawImage(...a); },
+    // Reused every frame: start counting paints again.
+    restart: () => ((n = 0), (style = {}), (pending = false), ctx),
+  };
+  for (const m of PATH_OPS) ctx[m] = (...a) => g[m](...a);
+  // A saved state includes held changes; a restore undoes any made since.
+  ctx.save = () => (flush(), g.save());
+  ctx.restore = () => ((style = {}), (pending = false), g.restore());
+  for (const p of STYLE)
+    Object.defineProperty(ctx, p, {
+      get: () => (p in style ? style[p] : g[p]),
+      set: (v) => ((style[p] = v), (pending = true)),
+    });
+  return ctx;
+}
+
 // Where an athlete stands for today's activity, in map coordinates.
 let dayClock = 0.25,
   lastDraw = 0;
@@ -669,6 +815,9 @@ function targetFor(s, a, index, now, activity, counts) {
   return { x: x + 18 + n * 12, y, pose: "sit" };
 }
 
+// Each frame spends up to this long baking scenery, until all of it is baked.
+const BAKE_MS = 4;
+let trace = null;
 export function createWorld(cv) {
   const world = canvas(MAP_W, MAP_H),
     g = world.getContext("2d");
@@ -890,10 +1039,22 @@ export function createWorld(cv) {
     const k = s.plots.map((p) => (p ? p.type + p.level : "-")).join("|") + JSON.stringify(s.stadium) + JSON.stringify(s.stadiumStyle) + plotsOpen(s) + seasonOf(s) + s.colors.primary + s.colors.secondary + s.clubName;
     if (k !== key) {
       base = baseWorld(s);
+      // Scenery draws live until it is baked, a few pieces each frame (see bakePiece).
+      base.scenery = base.scenery.map((it) => ({ y: it.y, live: it.draw, raw: it }));
+      // The cages' nets and the near floodlights overlap everyone, so they come last.
+      const front = (g) => drawArenaFront(g, s);
+      base.front = { y: Infinity, live: front, raw: { y: Infinity, draw: front } };
+      base.baked = 0;
       key = k;
     }
+    // Only the part of the map on screen is drawn and composed; the rest of `world` goes stale.
+    const [ox, oy] = origin(),
+      vx0 = Math.max(0, ox),
+      vy0 = Math.max(0, oy),
+      vw = Math.min(MAP_W, ox + cam.vw) - vx0,
+      vh = Math.min(MAP_H, oy + cam.vh) - vy0;
     g.imageSmoothingEnabled = false;
-    g.drawImage(base.image, 0, 0);
+    if (vw > 0 && vh > 0) g.drawImage(base.image, vx0, vy0, vw, vh, vx0, vy0, vw, vh);
     // The stands fill with the fans, up to their capacity; a home meet day draws the most.
     animateArena(g, s, now, Math.min(0.97, stadiumCrowd(s, { meet: s.matchDay === s.day && !!meetVenue(s)?.home }).fill));
     // Selection highlight.
@@ -917,7 +1078,13 @@ export function createWorld(cv) {
     // behind a wall is hidden; a person in front of its door stays visible.
     const want = Math.min(28, visitorsPerDay(s));
     if (visitors.length !== want) visitors = makeVisitors(s, want);
-    const list = base.scenery.map(it=>({y:it.y,draw:()=>it.draw(g,now)}));
+    const list = [];
+    for (const it of base.scenery) {
+      // Baked scenery off screen is skipped. Animated pieces get a margin for smoke and flags.
+      const pad = it.live ? 48 : 0;
+      if (it.empty || (it.sprite && (it.x1 + pad < vx0 || it.x - pad > vx0 + vw || it.y1 + pad < vy0 || it.y0 - pad > vy0 + vh))) continue;
+      list.push({ y: it.y, draw: () => drawPiece(it, now) });
+    }
     for (const v of visitors) {
       const moving = stepVisitor(v, s, now);
       list.push({ y: v.y, draw: () => (shadow(g, v.x, v.y, 4), figure(g, { look: v.look, shirt: v.shirt, collar: "#f4efe2", pose: moving ? "walk" : "idle", frame: moving ? walkFrame(v.walked || 0) : Math.floor(now / 600 + v.seed) % 2, flip: v.flip }, v.x, v.y)) });
@@ -999,7 +1166,7 @@ export function createWorld(cv) {
     coachPos = [coachX, coachY];
     list.push({ y: coachY, draw: () => (shadow(g, coachX, coachY, 5), figure(g, { look: { skin: "#e2b08a", hair: "#4a3a2a", style: 0, special: "kid" }, shirt: s.colors.secondary, collar: s.colors.primary, shorts: "#3a3e46", pose: "study", frame: Math.floor(now / 900) % 2 }, coachX, coachY)) });
     list.sort((a, b) => a.y - b.y).forEach((d) => d.draw());
-    drawArenaFront(g, s);
+    drawPiece(base.front, now);
     // Particles and floating text.
     for (let i = sparks.length - 1; i >= 0; i--) {
       const q = sparks[i],
@@ -1016,11 +1183,10 @@ export function createWorld(cv) {
       }
     }
     // Compose the visible part of the map on a screen-sized layer.
-    const [ox, oy] = origin();
     sg.imageSmoothingEnabled = false;
     sg.fillStyle = "#4e7a40";
     sg.fillRect(0, 0, cam.vw, cam.vh);
-    sg.drawImage(world, -ox, -oy);
+    if (vw > 0 && vh > 0) sg.drawImage(world, vx0, vy0, vw, vh, vx0 - ox, vy0 - oy, vw, vh);
     sky(s, ox, oy, now, o.calm);
     light(s, ox, oy, o.dayProgress ?? 0.25, o.nightScale ?? 1);
     // Popups go on the screen layer after the lighting, so evening and night never dim the numbers.
@@ -1068,6 +1234,25 @@ export function createWorld(cv) {
     }
     out.imageSmoothingEnabled = false;
     out.drawImage(screen, 0, 0, cam.vw * cam.scale, cam.vh * cam.scale);
+    bakeSome(performance.now() + BAKE_MS);
+  }
+  function drawPiece(it, now) {
+    if (it.sprite) g.drawImage(it.sprite, it.x, it.y0);
+    if (it.live) it.live(it.ctx ? it.ctx.restart() : g, now);
+  }
+  // Bakes scenery until this frame's share of time is used up.
+  function bakeSome(deadline) {
+    if (base.front.raw) base.front = bake(base.front.raw) || { empty: true };
+    const list = base.scenery;
+    while (base.baked < list.length && performance.now() < deadline) {
+      const i = base.baked++;
+      list[i] = bake(list[i].raw) || { y: list[i].y, empty: true };
+    }
+  }
+  function bake(raw) {
+    const it = bakePiece(raw, (trace ||= tracer()));
+    if (it?.skip) it.ctx = skipping(g, it.skip);
+    return it;
   }
 
   // An implement in flight from a thrower towards the infield, with a puff where it lands.

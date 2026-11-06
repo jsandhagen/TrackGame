@@ -77,7 +77,9 @@ function save() {
     return false;
   }
 }
-const reduced = () => state.settings.reducedMotion || matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Asked several times a frame: keep the one query, whose answer follows the system setting.
+const reduceMotionQuery = matchMedia("(prefers-reduced-motion: reduce)");
+const reduced = () => state.settings.reducedMotion || reduceMotionQuery.matches;
 
 // ── Toasts ──────────────────────────────────────────────────────────────
 function toast(text, kind = "info", icon = null) {
