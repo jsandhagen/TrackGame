@@ -107,7 +107,7 @@ export function throwResult(beat) {
   if (beat.madeStandard) detail.push("Qualified for the championship");
   if (beat.newPb && beat.previousPb > 0) detail.push(`PB +${beat.pbDelta.toFixed(2)} m`);
   else if (beat.improvement > 0) detail.push(`Improved by ${beat.improvement.toFixed(2)} m`);
-  if (beat.handsOn) detail.push(beat.scratch ? "Ran the needle past the line" : { perfect: "Perfect release", good: "Clean release", poor: "Rushed release" }[beat.quality] || "Clean release");
+  if (beat.handsOn) detail.push(beat.scratch ? "Crossed the foul line" : { perfect: "Perfect release", good: "Clean release", poor: "Rushed release" }[beat.quality] || "Clean release");
   if (!detail.length) detail.push(beat.foul ? (beat.ownBest == null ? "Still needs a legal mark" : `${beat.ownBest.toFixed(2)} m still counts`) : `${beat.ownBest.toFixed(2)} m still counts`);
   return { headline, detail: detail.join(" · ") };
 }

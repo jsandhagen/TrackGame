@@ -174,6 +174,7 @@ function windowHTML() {
   const m = state.match;
   if (m) {
     if (m.phase === "complete") return ["Full time", P.meetComplete(state, view)];
+    if (m.phase === "decide" && view.handsOn) return null;
     if (m.phase === "decide") return [m.last?.clutch ? "Clutch moment" : "Your call, coach", P.decide(state, view)];
     return null;
   }
@@ -812,6 +813,11 @@ function startBeat(beat) {
       render();
     });
     if (celebrates(beat)) cue(offset + timing.landAt + LANDING_HOLD_MS, () => sfx("goal"));
+    // Thrown by hand: the player already ran the approach, so the throw picks up at release.
+    if (beat.handsOn) {
+      presenter.el = Math.max(0, offset + timing.releaseAt - 100);
+      for (const c of presenter.cues) if (c.at < presenter.el) c.done = true;
+    }
   } else if (beat.type === "eventEnd") sfx(beat.h > beat.a ? "cheer" : "event"), meetTip("eventEnd");
   else if (beat.type === "eventStart") sfx("event"), (view.lastMark = null);
   else if (beat.type === "meetStart") sfx("cheer"), meetTip(state.match.prelimFinals ? "champs" : "start");
@@ -874,7 +880,7 @@ function decide(tactic, quality = "good", handsOn = false) {
   view.throwSpeed = null;
   if (beat && speed && speed !== view.meetSpeed) view.beatSpeed = { beat, speed };
   view.sig = false;
-  view.handsOn = null;
+  if (view.handsOn) stopHandsOn();
   view.meetPaused = false;
   if (beat) {
     save();
@@ -882,71 +888,143 @@ function decide(tactic, quality = "good", handsOn = false) {
   }
 }
 // ── Hands-on throws ─────────────────────────────────────────────────────
-// A run-up of lit pads, then a release needle (see domain/handson.js for the rules).
-const HO_LEAD_MS = 600;
+// After Playman: tap the lit pad to run, then press and hold to charge, and let go on the gold.
+// The rules live in domain/handson.js; this drives them from the clock, pads and keys.
+const HO_LEAD_MS = 700, HO_LOCKOUT_MS = 180;
+const HO_RESULT = { perfect: "PERFECT!", good: "CLEAN", poor: "RUSHED", scratch: "OVER THE LINE!" };
 function startHandsOn(tactic) {
   const a = G.homeAthlete(state), m = state.match;
   const pattern = G.buildPattern(EVENT_IDS[m.eventIndex], tactic, { stats: a.stats, stamina: a.stamina, clutch: !!m.last?.clutch, perfectSkill: !!G.effects(state, a).perfect });
-  const now = performance.now();
-  view.handsOn = { pattern, tactic, step: 0, scores: [], phase: pattern.steps.length ? "runup" : "release", litAt: now + HO_LEAD_MS, releaseAt: now + (pattern.steps.length ? 0 : HO_LEAD_MS) };
+  const startAt = performance.now() + HO_LEAD_MS;
+  view.handsOn = { pattern, tactic, startAt, st: G.startAttempt(pattern, startAt), held: null, shown: {} };
+  hideTip();
   render();
+  $("#handsOn").innerHTML = P.handsOnOverlay(state, pattern);
+  $("#handsOn").hidden = false;
+  placeHandsOn();
+  paintHandsOn(performance.now());
+}
+function stopHandsOn() {
+  view.handsOn = null;
+  $("#handsOn").hidden = true;
+  $("#handsOn").innerHTML = "";
 }
 function buzz(pattern) {
   if (state.settings.sound && !reduced()) try { navigator.vibrate?.(pattern); } catch {}
 }
-function handsOnStep(side, now) {
+// A pad (or key) goes down: a stride during the run-up, the start of the throw at the line.
+function handsOnDown(side, now, holder) {
   const h = view.handsOn;
-  if (!h || h.phase !== "runup" || now < h.litAt) return;
-  const step = h.pattern.steps[h.step], correct = side === step.side;
-  h.scores.push(G.stepScore(h.pattern.windows[h.step], now - h.litAt, correct));
-  if (correct) sfx("step"), buzz(8);
-  else sfx("stumble"), buzz(40);
-  nextHandsOnStep(now);
+  if (!h || now < h.startAt || h.st.phase === "done") return;
+  const { pattern, st } = h;
+  if (st.phase === "runup") {
+    if (!side) return;
+    const result = G.tapPad(pattern, st, side, now);
+    if (result === "step") sfx("step"), buzz(8);
+    else if (result === "stumble") sfx("stumble"), buzz(40);
+  } else if (st.phase === "line" && !h.held && now - st.lineAt >= HO_LOCKOUT_MS) {
+    if (G.pressThrow(pattern, st, now)) (h.held = { side, holder }), sfx("tap"), buzz(10);
+  }
+  paintHandsOn(now);
 }
-function nextHandsOnStep(now) {
+// The holding pad (or key) comes up: let go of the throw.
+function handsOnUp(holder, now) {
   const h = view.handsOn;
-  if (++h.step >= h.pattern.steps.length) (h.phase = "release"), (h.releaseAt = now + 250);
-  else h.litAt = now + 60;
-  render();
+  if (!h?.held || h.held.holder !== holder) return;
+  G.releaseThrow(h.pattern, h.st, now);
+  finishHandsOn();
 }
-function handsOnRelease(now) {
-  const h = view.handsOn;
-  if (!h || h.phase !== "release" || now < h.releaseAt) return;
-  finishHandsOn(G.needleAt(h.pattern.release, now - h.releaseAt));
+// The verdict stamps over the field for a moment as the throw goes.
+function stampHandsOn(text, quality) {
+  const box = $("#handsOn").getBoundingClientRect(), el = document.createElement("div");
+  el.className = "ho-stamp q-" + quality;
+  el.textContent = text;
+  el.style.left = box.left + box.width / 2 + "px";
+  el.style.top = box.top + box.height * 0.42 + "px";
+  $("#app").append(el);
+  setTimeout(() => el.remove(), 1300);
 }
-function finishHandsOn(needle) {
-  const h = view.handsOn, { quality } = G.gradeThrow(h.pattern, h.scores, needle);
-  sfx(quality === "perfect" ? "perfect" : quality === "scratch" ? "foul" : quality === "poor" ? "stumble" : "tap");
+function finishHandsOn() {
+  const h = view.handsOn, result = h?.st.result;
+  if (!result) return;
+  const { quality } = result;
+  sfx(quality === "perfect" ? "perfect" : quality === "scratch" ? "foul" : quality === "poor" ? "stumble" : "coin");
   buzz(quality === "perfect" ? [20, 40, 20] : quality === "scratch" ? 80 : 12);
-  toast({ perfect: "Perfect release!", good: "Clean release", poor: "Rushed release", scratch: "Over the line!" }[quality], quality === "scratch" ? "warn" : quality === "perfect" ? "goal" : "info");
+  stampHandsOn(result.late ? "Ran through!" : HO_RESULT[quality], quality);
+  stopHandsOn();
   decide(h.tactic, quality, true);
 }
-// Called every frame: steps time out, a sweeping needle crosses the line, and the needle moves.
+// Called every frame: speed drains, the thrower covers ground, time runs out at the line.
 function tickHandsOn(now) {
   const h = view.handsOn;
-  if (!h) return;
-  if (h.phase === "runup" && now >= h.litAt && now - h.litAt > h.pattern.windows[h.step]) {
-    h.scores.push(0);
-    sfx("stumble");
-    buzz(40);
-    return nextHandsOnStep(now);
-  }
-  if (h.phase !== "release") return;
-  const pos = G.needleAt(h.pattern.release, now - h.releaseAt);
-  if (!h.pattern.release.bounce && pos >= 1.04) return finishHandsOn(pos);
-  const n = $("#needle");
-  if (n) n.style.left = Math.min(1, pos) * 100 + "%";
+  if (!h || now < h.startAt) return paintHandsOn(now);
+  G.advanceAttempt(h.pattern, h.st, now);
+  if (h.st.phase === "done") return finishHandsOn();
+  paintHandsOn(now);
 }
-// Pads react on press, not on the click after release, so quick taps register.
+// The overlay fills the arena between the scoreboard and the meet panel.
+function placeHandsOn() {
+  const el = $("#handsOn");
+  if (!view.handsOn || el.hidden) return;
+  const arena = $("#stadium").getBoundingClientRect(), hudBottom = $("#hud").hidden ? arena.top : $("#hud").getBoundingClientRect().bottom,
+    bar = $("#meetbar"), barRect = bar.hidden ? null : bar.getBoundingClientRect(),
+    below = barRect && barRect.left < arena.right - 20 && barRect.top > arena.top + arena.height / 2;
+  const top = Math.max(arena.top, Math.min(hudBottom, arena.top + arena.height / 3)) + 6, bottom = (below ? barRect.top : arena.bottom) - 6;
+  Object.assign(el.style, { left: arena.left + 6 + "px", width: arena.width - 12 + "px", top: top + "px", height: Math.max(220, bottom - top) + "px" });
+}
+// The camera frames the thrower between the card and the pads.
+function handsOnCardBottom() {
+  const card = $("#handsOn .ho-card");
+  return card ? card.getBoundingClientRect().bottom : 0;
+}
+function handsOnPadTop() {
+  const pad = $("#handsOn .ho-pad");
+  return pad ? pad.getBoundingClientRect().top : Infinity;
+}
+// Move the bars and light the pads without re-rendering, so taps never land on fresh buttons.
+function paintHandsOn(now) {
+  const h = view.handsOn, root = $("#handsOn .ho");
+  if (!h || !root) return;
+  const { pattern, st } = h, ready = now < h.startAt;
+  const phase = ready ? "ready" : st.phase, shown = h.shown;
+  const set = (key, value, fn) => { if (shown[key] !== value) (shown[key] = value), fn(value); };
+  set("phase", phase, (v) => (root.dataset.phase = v));
+  const pad = (side) => {
+    const lit = phase === "runup" && st.lit === side,
+      state2 = lit ? "lit" : phase === "line" ? "hold" : phase === "charge" ? (h.held?.side === side ? "held" : "") : "",
+      word = lit ? pattern.step : phase === "line" ? "HOLD" : phase === "charge" && h.held?.side === side ? "LET GO" : "";
+    set("pad" + side, state2 + word, () => {
+      const b = root.querySelector(".ho-" + side);
+      b.className = "ho-pad ho-" + side + (state2 ? " " + state2 : "");
+      b.querySelector("b").textContent = word;
+    });
+  };
+  pad("L"), pad("R");
+  if (pattern.runup) {
+    const fill = root.querySelector(".ho-fill");
+    fill.style.width = (st.v * 100).toFixed(1) + "%";
+    set("zone", st.v >= pattern.runup.perfectAt ? "top" : st.v >= pattern.runup.goodAt ? "good" : "low", (v) => (fill.dataset.zone = v));
+    root.querySelector(".ho-runner").style.left = (st.d * 100).toFixed(1) + "%";
+  }
+  const needle = phase === "charge" ? G.needleOf(pattern, st, now) : 0;
+  root.querySelector(".ho-needle").style.left = Math.min(1, needle) * 100 + "%";
+  const call = ready ? "Ready…" : phase === "runup" ? (st.taps ? "Keep tapping!" : "GO! Tap the lit pad") : phase === "line" ? (pattern.runup ? "At the line: press and hold!" : "Press and hold to throw") : phase === "charge" ? "Let go on the gold!" : "";
+  set("call", call, (v) => (root.querySelector(".ho-call").textContent = v));
+  // The line's countdown: the call turns red as time runs out.
+  if (phase === "line" && pattern.runup) root.style.setProperty("--late", Math.min(1, (now - st.lineAt) / pattern.release.line).toFixed(2));
+}
+// Pads react on press, not on the click after release, so quick taps register; holding uses
+// the pointer that pressed, wherever it is when it lifts.
 $("#app").addEventListener("pointerdown", (e) => {
   const pad = e.target.closest("[data-ho]");
   if (!pad || !view.handsOn) return;
   e.preventDefault();
   unlockAudio();
-  const now = performance.now();
-  if (pad.dataset.ho === "release") handsOnRelease(now);
-  else handsOnStep(pad.dataset.ho, now);
+  handsOnDown(pad.dataset.ho, performance.now(), "p" + e.pointerId);
 });
+for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, (e) => handsOnUp("p" + e.pointerId, performance.now()));
+// A long press on a pad must not open the browser's context menu or select text.
+$("#handsOn").addEventListener("contextmenu", (e) => e.preventDefault());
 
 // ── Input ───────────────────────────────────────────────────────────────
 // A tap on the map that opens a window must not also press whatever appears under the finger
@@ -1039,14 +1117,14 @@ $("#app").addEventListener("click", async (e) => {
       presenter = null;
       view.hide = null;
       view.lastMark = null;
-      view.handsOn = null;
+      stopHandsOn();
       view.meetPaused = false;
       break;
     case "meet-skip":
       return skipMeet(b.dataset.to);
     case "meet-pause":
       view.meetPaused = !view.meetPaused;
-      view.handsOn = null;
+      stopHandsOn();
       break;
     case "meet-guide":
       return meetGuide();
@@ -1805,27 +1883,25 @@ document.addEventListener("keydown", (e) => {
   if ($("#dialog").open || ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
   if (e.code === "Space") {
     e.preventDefault();
-    if (view.handsOn) handsOnRelease(performance.now());
+    if (view.handsOn) !e.repeat && handsOnDown(null, performance.now(), "Space");
     else if (!state.match) view.playing ? (stopPlaying(), render()) : play();
   }
   if (view.handsOn && !e.repeat) {
     const side = { ArrowLeft: "L", KeyF: "L", ArrowRight: "R", KeyJ: "R" }[e.code];
-    if (side) {
-      e.preventDefault();
-      const now = performance.now();
-      if (view.handsOn.phase === "release") handsOnRelease(now);
-      else handsOnStep(side, now);
-    }
+    if (side) e.preventDefault(), handsOnDown(side, performance.now(), e.code);
   }
   if (e.key === "Escape" && view.window && !state.match) closeWindow();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     view.playing = false;
-    view.handsOn = null;
+    stopHandsOn();
     save();
     render();
   }
+});
+document.addEventListener("keyup", (e) => {
+  if (view.handsOn) handsOnUp(e.code, performance.now());
 });
 window.addEventListener("save-error", () => toast("Save failed. Export your club before leaving.", "warn"));
 window.addEventListener("pagehide", save);
@@ -1833,7 +1909,7 @@ initNative({
   orientation: state.settings.orientation || "auto",
   pause: () => {
     view.playing = false;
-    view.handsOn = null;
+    stopHandsOn();
     save();
     render();
   },
@@ -1926,8 +2002,8 @@ function frame(now) {
       // which includes the safe-area gap above the bar on phones with a notch or status bar.
       const barSpace = (bar.hidden || sidePanel ? 0 : bar.offsetHeight) + "px";
       if (view.barSpace !== barSpace) $("#app").style.setProperty("--meetbar", (view.barSpace = barSpace));
-      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(meetSpeedNow() || state.settings.meetSpeed), insetTop: sidePanel ? 0 : Math.max(0, $("#hud").getBoundingClientRect().bottom - arena.top + 8), insetBottom: bar.hidden || sidePanel ? 0 : Math.max(0, arena.bottom - bar.getBoundingClientRect().top + 8) });
-      tickHandsOn(now);
+      stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, windup: view.handsOn ? G.windupOf(view.handsOn.pattern, view.handsOn.st, now) : null, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(meetSpeedNow() || state.settings.meetSpeed), insetTop: Math.max(sidePanel ? 0 : Math.max(0, $("#hud").getBoundingClientRect().bottom - arena.top + 8), view.handsOn ? handsOnCardBottom() - arena.top + 8 : 0), insetBottom: Math.max(bar.hidden || sidePanel ? 0 : Math.max(0, arena.bottom - bar.getBoundingClientRect().top + 8), view.handsOn ? arena.bottom - handsOnPadTop() + 6 : 0) });
+      if (view.handsOn) placeHandsOn(), tickHandsOn(now);
     } else {
       if (view.playing && now - lastDayAt >= DAY_MS[state.settings.speed]) doDay(now);
       // The clock runs from 06:00 to 22:00 across each day and holds while paused.

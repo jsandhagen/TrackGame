@@ -976,6 +976,20 @@ export function createStadium(cv) {
         const end = throwMotion(ev, level, "follow", 1, { foul: !!beat.foul, style, flop, trim, runup });
         x = O.x + end.dx;
         y = O.y + end.dy;
+      } else if (beat?.type === "decide" && Number.isFinite(view.windup)) {
+        // Throwing by hand: the delivery follows the player's run-up and charge, up to the
+        // moment before release. The throw itself then picks up from there.
+        const own = throwTiming({ type: "throw", event: ev, form: level, mark: EVENTS[ev].min }),
+          t = own.readyMs + Math.min(0.99, Math.max(0, view.windup)) * (own.releaseAt - own.readyMs);
+        mo = throwMotion(ev, level, ...throwPhase(own, t), { style, trim, runup });
+        pose = mo.pose || (mo.run ? "carry" : "throw");
+        ({ frame, flip } = mo);
+        x = O.x + mo.dx;
+        y = O.y + mo.dy;
+        if (ev === "jav") {
+          const ahead = throwMotion(ev, level, ...throwPhase(own, Math.min(own.releaseAt - 1, t + RUN_LEAD_MS * 0.5)), { style, trim, runup });
+          focus.ahead = [O.x + ahead.dx, O.y + ahead.dy];
+        }
       } else {
         // Waiting to throw: standing ready where their technique starts.
         mo = throwMotion(ev, level, "ready", 0, { runup });
@@ -1025,7 +1039,7 @@ export function createStadium(cv) {
         const a = 1 - Math.max(0, tt - timing.releaseAt + 60) / 280;
         for (let k = 0; k < 3; k++) line(g, x + 14 + k * 2, y - 50 + k * 9, x + 28 + k * 3, y - 54 + k * 9, `rgba(255,255,255,${(0.75 * a).toFixed(2)})`);
       }
-      if (beat?.type === "decide" && Math.floor(now / 400) % 2) text(g, "?", x + 18, y - 76, { color: "#f2c94c", scale: 2 });
+      if (beat?.type === "decide" && !Number.isFinite(view.windup) && Math.floor(now / 400) % 2) text(g, "?", x + 18, y - 76, { color: "#f2c94c", scale: 2 });
       // A celebration: confetti in the club's colours falls over the thrower.
       if (party && !view.reduced && sinceLand >= LANDING_HOLD_MS - 300 && sinceLand < partyEnd) {
         const t = sinceLand - LANDING_HOLD_MS + 300, colors = [s.colors.primary, s.colors.secondary, "#f2c94c", "#fff6dc", MARK.pb];
@@ -1190,7 +1204,10 @@ export function createStadium(cv) {
     // close-ups, the chase and the celebrations are for watch speed.
     const thrown = beat?.type === "throw", fast = (view.pace || 1) >= 2;
     // The javelin's overview starts from the top of the runway so the approach is in the frame.
-    if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.start || focus.origin, sector.point(SPAN)[0], upperY);
+    // Throwing by hand, the camera stays on the thrower whatever the playback speed.
+    const byHand = beat?.type === "decide" && Number.isFinite(view.windup) && focus.thrower;
+    if (byHand) shot = { ...throwShot("thrower", ev === "jav" ? focus : { thrower: [O.x, O.y] }), cap: 2.1 };
+    else if (fast && (thrown || beat?.type === "decide")) shot = eventShot(focus.start || focus.origin, sector.point(SPAN)[0], upperY);
     else if (thrown && focus.thrower && tt < timing.releaseAt)
       // Reduced motion holds one frame: the whole runway for a javelin, the circle otherwise.
       shot = !view.reduced ? throwShot("thrower", focus) : ev === "jav" ? throwShot("runway", focus) : throwShot("thrower", { thrower: [O.x, O.y] });
