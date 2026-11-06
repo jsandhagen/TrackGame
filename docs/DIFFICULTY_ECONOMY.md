@@ -8,10 +8,12 @@ Each event has three anchors in `EVENTS` (`src/game-content.js`):
 
 | Event | `min` (raw beginner) | `max` (top rating, before bonuses) | `record` (senior men's world record) |
 | --- | ---: | ---: | ---: |
-| Shot put | 7 m | 20.5 m | 23.56 m |
-| Discus | 18 m | 66 m | 74.35 m |
-| Hammer | 20 m | 79 m | 86.74 m |
-| Javelin | 22 m | 86 m | 98.48 m |
+| Shot put | 6.65 m | 19.48 m | 23.56 m |
+| Discus | 17.1 m | 62.7 m | 74.35 m |
+| Hammer | 19 m | 75.05 m | 86.74 m |
+| Javelin | 20.9 m | 81.7 m | 98.48 m |
+
+These anchors are 5% under the originals (7/20.5, 18/66, 20/79, 22/86 m), so that winning marks rather than ordinary forecasts reach the top of a division's band; see [growth pacing](GROWTH_PACING.md).
 
 Gear, skills, wind and conditions multiply on top of `max`. `realMark` (`src/domain/core.js`) then turns that raw performance into metres. Marks are unchanged up to 92% of the record. Above that the curve flattens to a square root: each extra metre costs more ability than the last, but growth never stops. Thrown marks, throw previews, forecasts, lineup edges and scouting all use the same conversion. The stadium sector stretches to just past the longest mark the event has seen.
 

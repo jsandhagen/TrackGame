@@ -6,31 +6,38 @@ export const STAT_COLORS = ["#e07a4f", "#5aa4c8", "#8cc152", "#b48ad8"];
 // Stats are stored as fractions; the player sees whole points from 1 to 100.
 export const showStat = (v) => Math.floor(v + 1e-6);
 
-// min: a raw beginner. max: a top-rated thrower before gear, skills and approach bonuses, which
-// carry the best Diamond League throwers to real world-class marks. record: the senior men's world
+// min: a raw beginner. max: a top-rated thrower before gear, skills and approach bonuses. Both sit
+// 5% under the original anchors (7/20.5, 18/66, 20/79, 22/86) so that meet-day winners, not ordinary
+// forecasts, reach the top of a division's band and the world record stays an endgame feat. record: the senior men's world
 // record, which marks approach but never pass (see realMark).
 export const EVENTS = {
-  shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.56, 0.29, 0.07, 0.08], min: 7, max: 20.5, record: 23.56, hint: "Drive through the ring. Power first, technique close behind." },
-  discus: { name: "Discus", short: "DISC", color: "#8ac4d0", weights: [0.22, 0.49, 0.18, 0.11], min: 18, max: 66, record: 74.35, hint: "Rhythm and release. Technicians shine here." },
-  hammer: { name: "Hammer", short: "HAM", color: "#d8a1ae", weights: [0.34, 0.36, 0.24, 0.06], min: 20, max: 79, record: 86.74, hint: "Build speed through the turns. Everything matters." },
-  jav: { name: "Javelin", short: "JAV", color: "#aac57d", weights: [0.16, 0.38, 0.38, 0.08], min: 22, max: 86, record: 98.48, hint: "Turn approach speed into a clean release." },
+  shot: { name: "Shot put", short: "SHOT", color: "#e5b65b", weights: [0.56, 0.29, 0.07, 0.08], min: 6.65, max: 19.48, record: 23.56, hint: "Drive through the ring. Power first, technique close behind." },
+  discus: { name: "Discus", short: "DISC", color: "#8ac4d0", weights: [0.22, 0.49, 0.18, 0.11], min: 17.1, max: 62.7, record: 74.35, hint: "Rhythm and release. Technicians shine here." },
+  hammer: { name: "Hammer", short: "HAM", color: "#d8a1ae", weights: [0.34, 0.36, 0.24, 0.06], min: 19, max: 75.05, record: 86.74, hint: "Build speed through the turns. Everything matters." },
+  jav: { name: "Javelin", short: "JAV", color: "#aac57d", weights: [0.16, 0.38, 0.38, 0.08], min: 20.9, max: 81.7, record: 98.48, hint: "Turn approach speed into a clean release." },
 };
 export const EVENT_IDS = ["shot", "discus", "hammer", "jav"];
 
 // Rank-ups are the long-term character arc: higher caps, more skill slots, a new look.
+// cap: added to the athlete's potential. limit: the most any stat can be trained to at that rank,
+// however high the potential, so a 100 needs a Legend (and Legend stars go past it).
 export const RANKS = [
-  { name: "Rookie", level: 1, cost: 0, cap: 0, slots: 1, wage: 40 },
-  { name: "Pro", level: 6, cost: 400, cap: 6, slots: 2, wage: 75 },
-  { name: "Ace", level: 12, cost: 1200, cap: 12, slots: 2, wage: 130 },
-  { name: "Star", level: 20, cost: 3000, cap: 20, slots: 3, wage: 220 },
-  { name: "Legend", level: 26, cost: 6500, cap: 28, slots: 3, wage: 340, title: true },
+  { name: "Rookie", level: 1, cost: 0, cap: 0, limit: 70, slots: 1, wage: 40 },
+  { name: "Pro", level: 6, cost: 400, cap: 6, limit: 80, slots: 2, wage: 75 },
+  { name: "Ace", level: 12, cost: 1200, cap: 12, limit: 90, slots: 2, wage: 130 },
+  { name: "Star", level: 20, cost: 3000, cap: 20, limit: 96, slots: 3, wage: 220 },
+  { name: "Legend", level: 26, cost: 6500, cap: 28, limit: 100, slots: 3, wage: 340, title: true },
 ];
 
+// signing: where a signing scouted for a division sits in its field (see src/domain/signings.js).
+// band is their place in the division's forecast range on the kit rivals carry (0 the band's floor,
+// 1 the forecast ceiling just under its top, which meet-day winners reach); mastery is added to rival event mastery; skills is how many meet skills they arrive
+// knowing (no rarer than their own rarity, Epic at most).
 export const RARITY = {
-  common: { name: "Common", color: "#8e9a84", potential: [52, 64], bonus: 0, fee: 0, wage: 0, weight: 70 },
-  rare: { name: "Rare", color: "#4f8fd6", potential: [60, 70], bonus: 2, fee: 300, wage: 10, weight: 22 },
-  epic: { name: "Epic", color: "#a465d6", potential: [66, 76], bonus: 4, fee: 900, wage: 25, weight: 7 },
-  legend: { name: "Legend", color: "#e2a43a", potential: [72, 80], bonus: 6, fee: 2400, wage: 45, weight: 1 },
+  common: { name: "Common", color: "#8e9a84", potential: [52, 64], bonus: 0, fee: 0, wage: 0, weight: 70, signing: { band: 0, mastery: -10, skills: 1 } },
+  rare: { name: "Rare", color: "#4f8fd6", potential: [60, 70], bonus: 2, fee: 300, wage: 10, weight: 22, signing: { band: 0.3, mastery: -5, skills: 1 } },
+  epic: { name: "Epic", color: "#a465d6", potential: [66, 76], bonus: 4, fee: 900, wage: 25, weight: 7, signing: { band: 0.6, mastery: 0, skills: 2 } },
+  legend: { name: "Legend", color: "#e2a43a", potential: [72, 80], bonus: 6, fee: 2400, wage: 45, weight: 1, signing: { band: 0.95, mastery: 5, skills: 3 } },
 };
 export const RARITY_IDS = ["common", "rare", "epic", "legend"];
 
@@ -47,7 +54,7 @@ export const BACKGROUNDS = {
   marathon: { name: "Marathoner", story: "Never seems to get tired.", desc: "Rest recovers +50%, stamina use −10%", restMult: 1.5, stamina: 0.9 },
   clown: { name: "Class Clown", story: "Keeps the dressing room laughing.", desc: "Teammates' condition +1 each day", teamCond: 1, condFloor: 20 },
   bloomer: { name: "Late Bloomer", story: "Better every single year.", desc: "XP +30%", xp: 1.3 },
-  showboat: { name: "Showboat", story: "Lives for the big night.", desc: "+2% distance in finals", final: 1.02 },
+  showboat: { name: "Showboat", story: "Lives for the big night.", desc: "+1% distance in finals", final: 1.01 },
   prodigy: { name: "Prodigy", story: "Born to throw.", desc: "All training +10%, XP +10%", gain: 1.1, xp: 1.1, rare: true },
 };
 
@@ -105,31 +112,31 @@ export const SKILLS = {
   ironlungs: { name: "Iron Lungs", cat: "train", rarity: "rare", sp: 2, rank: 1, desc: "Training uses 30% less stamina.", stamina: 0.7 },
   workhorse: { name: "Workhorse", cat: "train", rarity: "epic", sp: 3, rank: 2, desc: "All training +15%.", gain: 1.15 },
   mentor: { name: "Mentor", cat: "team", rarity: "epic", sp: 2, rank: 2, desc: "Lower-level teammates earn +15% XP.", mentor: 1.15 },
-  opener: { name: "Opening Salvo", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "First attempt +3%.", first: 1.03 },
-  frontrunner: { name: "Front Runner", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "When ahead: +1.5% and half the foul risk.", leading: 1.015 },
+  opener: { name: "Opening Salvo", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "First attempt +1.5%.", first: 1.015 },
+  frontrunner: { name: "Front Runner", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "When ahead: +1% and half the foul risk.", leading: 1.01 },
   metronome: { name: "Metronome", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "Halves the spread of every throw.", variance: 0.5 },
   perfectionist: { name: "Perfectionist", cat: "meet", rarity: "common", sp: 1, rank: 0, desc: "Wider perfect-release window; assisted throws are sometimes perfect.", perfect: true },
-  clutch: { name: "Clutch Gene", cat: "meet", rarity: "rare", sp: 2, rank: 0, desc: "Final attempt +4%.", last: 1.04 },
+  clutch: { name: "Clutch Gene", cat: "meet", rarity: "rare", sp: 2, rank: 0, desc: "Final attempt +2%.", last: 1.02 },
   icevein: { name: "Ice Veins", cat: "meet", rarity: "rare", sp: 2, rank: 0, desc: "Foul risk −40%.", foul: 0.6 },
-  secondwind: { name: "Second Wind", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "After a foul: +5% and safer.", afterFoul: 1.05 },
-  hunter: { name: "Rival Hunter", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "While trailing the rival: +3%.", trailing: 1.03 },
-  momentum: { name: "Momentum", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "Each valid mark adds +1.5% to the next attempt.", streak: 0.015 },
+  secondwind: { name: "Second Wind", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "After a foul: +2.5% and safer.", afterFoul: 1.025 },
+  hunter: { name: "Rival Hunter", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "While trailing the rival: +1.5%.", trailing: 1.015 },
+  momentum: { name: "Momentum", cat: "meet", rarity: "rare", sp: 2, rank: 1, desc: "Each valid mark adds +0.75% to the next attempt.", streak: 0.0075 },
   hype: { name: "Hype Engine", cat: "team", rarity: "rare", sp: 2, rank: 1, desc: "Winning an event lifts every teammate's condition.", hype: true },
-  showtime: { name: "Showtime", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "Home crowd boost up to +4% (more fans, more boost).", crowd: 0.04 },
-  bigstage: { name: "Big Stage", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "+3% in finals.", final: 1.03 },
-  highroller: { name: "High Roller", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "All out reaches 2.5% further.", attackBoost: 0.025 },
-  anchor: { name: "Anchor", cat: "team", rarity: "epic", sp: 2, rank: 2, desc: "+2.5% when the club is behind in the meet.", teamTrailing: 1.025 },
+  showtime: { name: "Showtime", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "Home crowd boost up to +2% (more fans, more boost).", crowd: 0.02 },
+  bigstage: { name: "Big Stage", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "+1.5% in finals.", final: 1.015 },
+  highroller: { name: "High Roller", cat: "meet", rarity: "epic", sp: 2, rank: 2, desc: "All out reaches 1.5% further.", attackBoost: 0.015 },
+  anchor: { name: "Anchor", cat: "team", rarity: "epic", sp: 2, rank: 2, desc: "+1.5% when the club is behind in the meet.", teamTrailing: 1.015 },
   captain: { name: "Captain", cat: "team", rarity: "legend", sp: 3, rank: 3, desc: "The whole team throws 1.5% further. One captain counts.", captain: 1.015 },
-  meteor: { name: "Meteor Put", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "shot", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
-  cyclone: { name: "Cyclone Disc", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "discus", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
-  tempest: { name: "Hammer Tempest", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "hammer", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
-  skyspear: { name: "Sky Spear", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "jav", desc: "Once per meet: +8% and cannot foul.", sig: 1.08 },
+  meteor: { name: "Meteor Put", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "shot", desc: "Once per meet: +3% and cannot foul.", sig: 1.03 },
+  cyclone: { name: "Cyclone Disc", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "discus", desc: "Once per meet: +3% and cannot foul.", sig: 1.03 },
+  tempest: { name: "Hammer Tempest", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "hammer", desc: "Once per meet: +3% and cannot foul.", sig: 1.03 },
+  skyspear: { name: "Sky Spear", cat: "signature", rarity: "legend", sp: 4, rank: 3, event: "jav", desc: "Once per meet: +3% and cannot foul.", sig: 1.03 },
   // Unique skills belong to secret characters.
   oldschool: { name: "Old School", cat: "unique", sp: 0, rank: 0, desc: "Condition never below Good. Every throw +2%.", condFloor: 60, mark: 1.02 },
-  timber: { name: "TIMBER!", cat: "unique", sp: 0, rank: 0, desc: "Double power training. First attempt +4%.", train: [0, 2], first: 1.04 },
+  timber: { name: "TIMBER!", cat: "unique", sp: 0, rank: 0, desc: "Double power training. First attempt +2%.", train: [0, 2], first: 1.02 },
   calibrated: { name: "Calibrated", cat: "unique", sp: 0, rank: 0, desc: "Almost no spread. Foul risk −60%.", variance: 0.25, foul: 0.4 },
-  windreader: { name: "Wind Reader", cat: "unique", sp: 0, rank: 0, desc: "First attempt +5% and can never foul.", first: 1.05, safeFirst: true },
-  avalanche: { name: "Avalanche", cat: "unique", sp: 0, rank: 0, desc: "+7% in finals. Rest recovers twice as fast.", final: 1.07, restMult: 2 },
+  windreader: { name: "Wind Reader", cat: "unique", sp: 0, rank: 0, desc: "First attempt +2.5% and can never foul.", first: 1.025, safeFirst: true },
+  avalanche: { name: "Avalanche", cat: "unique", sp: 0, rank: 0, desc: "+3.5% in finals. Rest recovers twice as fast.", final: 1.035, restMult: 2 },
   wonderkid: { name: "Wonderkid", cat: "unique", sp: 0, rank: 0, desc: "XP ×1.6 and all training +20%.", xp: 1.6, gain: 1.2 },
 };
 
@@ -170,7 +177,7 @@ export const ITEMS = {
   whistle: { name: "Coach's Whistle", kind: "gear", slot: "charm", rarity: "rare", price: 320, tier: 1, icon: "whistle", color: "#d8c050", desc: "XP +15%.", xp: 1.15 },
   clover: { name: "Four-Leaf Clover", kind: "gear", slot: "charm", rarity: "rare", price: 380, tier: 2, icon: "clover", color: "#5cb85c", desc: "Foul risk −25%.", foul: 0.75 },
   megaphone: { name: "Hype Megaphone", kind: "gear", slot: "charm", rarity: "rare", price: 420, tier: 2, icon: "megaphone", color: "#e08840", desc: "Teammates' condition +1 a day.", teamCond: 1 },
-  medal: { name: "Old Medal", kind: "gear", slot: "charm", rarity: "epic", price: 950, tier: 3, icon: "medal", color: "#e0b040", desc: "+3% in finals.", final: 1.03 },
+  medal: { name: "Old Medal", kind: "gear", slot: "charm", rarity: "epic", price: 950, tier: 3, icon: "medal", color: "#e0b040", desc: "+1.5% in finals.", final: 1.015 },
   compass: { name: "Star Compass", kind: "gear", slot: "charm", rarity: "epic", price: null, icon: "star", color: "#a0c8f0", desc: "Throw spread −30%, foul risk −10%.", variance: 0.7, foul: 0.9 },
   headband: { name: "Golden Headband", kind: "gear", slot: "charm", rarity: "legend", price: null, icon: "band", color: "#f0c840", desc: "All training +20%, distance +1%.", gain: 1.2, mark: 1.01 },
   drink: { name: "Energy Drink", kind: "use", rarity: "common", price: 40, tier: 0, icon: "bottle", color: "#5ad0a0", desc: "+40 stamina.", stamina: 40 },
@@ -278,24 +285,26 @@ export const GRADES = [
 ];
 export const gradeOf = (v) => GRADES.find(([, min]) => v >= min) || GRADES.at(-1);
 
-// One promotion ladder. Each row owns its event distance bands and entry standards in metres.
+// One promotion ladder. Each row owns its event distance bands and entry standards in metres. A band
+// runs from an ordinary thrower's forecast up to a typical winning mark; rivals sit in its lower
+// middle, and a big day in a final can go slightly past its top.
 // tier/stage are stable save coordinates; the five tiers also retain facility/venue milestones.
 export const DIVISIONS = [
-  ["Community Division",       [[8,10],[20,28],[22,32],[24,34]],       [8.2,21,24,26]],
-  ["Local Division",           [[9,11],[25,33],[28,38],[30,40]],       [8.5,23,26,28]],
-  ["District Division",        [[10,12],[30,38],[34,44],[36,46]],      [9.5,28,32,34]],
-  ["County Division",          [[11,13],[35,42],[42,51],[44,54]],      [10.5,32,38,40]],
-  ["County Premier Division",  [[12,14],[39,46],[47,56],[49,59]],      [11.5,36,43,45]],
-  ["Regional Division",        [[13,15],[43,49],[52,60],[54,64]],      [12.5,40,48,50]],
-  ["Regional Premier Division",[[14,16],[46,52],[56,64],[58,68]],      [13.5,43,52,54]],
-  ["National Division 3",      [[15,17],[49,55],[60,68],[62,72]],      [14.5,46,56,58]],
-  ["National Division 2",      [[16,18],[52,58],[64,72],[66,76]],      [15.5,49,60,62]],
-  ["National Division 1",      [[17,19],[55,61],[68,75],[70,79]],      [16.5,52,64,66]],
-  ["National Premier Division",[[18,20],[57,63],[70,77],[73,82]],      [17.5,54,66,69]],
-  ["Continental Division",     [[18.5,20.5],[59,65],[72,79],[76,85]],  [18,56,68,72]],
-  ["International Division",   [[19,21],[61,67],[74,81],[79,88]],      [18.5,58,70,75]],
-  ["World Tour Division",      [[19.5,21.5],[63,69],[76,83],[82,91]],  [19,60,72,78]],
-  ["Diamond Division",         [[20,22],[65,71],[78,85],[85,94]],      [19.5,62,74,81]],
+  ["Community Division",         [[7.6,10],[19,28],[21,32],[23,34]],       [7.8,20,23,24.5]],
+  ["Local Division",             [[8.5,11],[24,33],[26.5,38],[28.5,40]],   [8.1,22,24.5,26.5]],
+  ["District Division",          [[9.5,12],[28.5,38],[32.5,44],[34,46]],   [9,26.5,30.5,32.5]],
+  ["County Division",            [[10.4,13],[33,42],[40,51],[42,54]],      [10,30.5,36,38]],
+  ["County Premier Division",    [[11.4,14],[37,46],[44.5,56],[46.5,59]],  [10.9,34,41,43]],
+  ["Regional Division",          [[12.3,15],[41,49],[49.5,60],[51.5,64]],  [11.9,38,45.5,47.5]],
+  ["Regional Premier Division",  [[13.3,16],[43.5,52],[53,64],[55,68]],    [12.8,41,49.5,51.5]],
+  ["National Division 3",        [[14.2,17],[46.5,55],[57,68],[59,72]],    [13.8,43.5,53,55]],
+  ["National Division 2",        [[15.2,18],[49.5,58],[61,72],[62.5,76]],  [14.7,46.5,57,59]],
+  ["National Division 1",        [[16.1,19],[52,61],[64.5,75],[66.5,79]],  [15.7,49.5,61,62.5]],
+  ["National Premier Division",  [[17.1,20],[54,63],[66.5,77],[69.5,82]],  [16.6,51.5,62.5,65.5]],
+  ["Continental Division",       [[17.6,20.5],[56,65],[68.5,79],[72,85]],  [17.1,53,64.5,68.5]],
+  ["International Division",     [[18.1,21],[58,67],[70.5,81],[75,88]],    [17.6,55,66.5,71]],
+  ["World Tour Division",        [[18.5,21.5],[60,69],[72,83],[78,91]],    [18.1,57,68.5,74]],
+  ["Diamond Division",           [[19,22],[62,71],[74,85],[81,94]],        [18.5,59,70.5,77]],
 ].map(([name, bands, standards], index) => ({
   index, key: `${Math.floor(index/3)}:${index%3}`, name, tier: Math.floor(index/3), stage: index%3,
   marks: Object.fromEntries(EVENT_IDS.map((event,i) => [event,bands[i]])),

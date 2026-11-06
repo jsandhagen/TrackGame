@@ -2,7 +2,7 @@ import { EVENT_IDS, EVENTS } from '../game-content.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const PROFILES={
  consistent:{name:'Steady competitor',desc:'A tighter performance spread in every event.',variance:0.78},
- explosive:{name:'Explosive competitor',desc:'Gets more distance from aggressive attempts.',attackBoost:0.012},
+ explosive:{name:'Explosive competitor',desc:'Gets more distance from aggressive attempts.',attackBoost:0.006},
  durable:{name:'Efficient mover',desc:'Uses less stamina in training and competition.',stamina:0.85},
  adaptable:{name:'Quick adapter',desc:'Learns secondary-event technique faster.'},
 };
@@ -15,7 +15,10 @@ export function initMastery(a,legacy=false){
  return a;
 }
 export const masteryOf=(a,ev)=>a.mastery?.[ev]??(a.event===ev?30:8);
-export const masteryCap=(a,ev)=>Math.min(100,35+5*(a.eventMeets?.[ev]||0));
+// Each meet in an event lifts its practice ceiling. At four or so meets a division this keeps pace
+// with rival clubs' mastery (about 30 + 4.6 a division), reaching 100 after 52 meets.
+export const MASTERY_PER_MEET=1.25;
+export const masteryCap=(a,ev)=>Math.min(100,35+MASTERY_PER_MEET*(a.eventMeets?.[ev]||0));
 export function practiceMastery(a,amount,ev=a.trainingEvent||a.event){
  const old=masteryOf(a,ev),transfer=a.profile==='adaptable'&&ev!==a.event?1.35:1;
  a.mastery[ev]=Math.max(old,Math.min(masteryCap(a,ev),old+amount*transfer));
@@ -23,7 +26,7 @@ export function practiceMastery(a,amount,ev=a.trainingEvent||a.event){
 }
 export function competeMastery(a,ev,valid){
  a.eventMeets[ev]++;const old=masteryOf(a,ev);
- a.mastery[ev]=Math.min(masteryCap(a,ev),old+2+Math.min(3,valid)*0.35);
+ a.mastery[ev]=Math.max(old,Math.min(masteryCap(a,ev),old+2+Math.min(3,valid)*0.35));
  return a.mastery[ev]-old;
 }
 // How widely each event's marks scatter, and the discus's one wind effect: a headwind gives the

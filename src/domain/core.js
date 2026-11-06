@@ -97,7 +97,14 @@ export const primaryStat = (event) => {
 };
 // Legends keep climbing: each star past Legend lifts the ceiling, without limit.
 export const STAR_CAP = 4;
-export const capOf = (a) => Math.min(100, a.potential + RANKS[a.rank || 0].cap) + STAR_CAP * (a.stars || 0);
+// The training ceiling at a rank: potential plus the rank's lift, never past the rank's limit.
+// The limit only stops growth; a signing who arrives above it keeps their stats.
+export const rankCap = (a, rank = a.rank || 0) => Math.min(RANKS[rank].limit ?? 100, a.potential + RANKS[rank].cap);
+export const capOf = (a) => rankCap(a) + STAR_CAP * (a.stars || 0);
+// Raise a stat towards the ceiling. A stat already above it (an arrival, an older save) stays put.
+export function raiseStat(a, i, n) {
+  a.stats[i] = Math.max(a.stats[i], Math.min(capOf(a), a.stats[i] + n));
+}
 export const rankName = (a) => RANKS[a.rank || 0].name + (a.stars ? " ★" + a.stars : "");
 export const moodOf = (a) => clamp(Math.floor(a.condition / 20), 0, 4);
 export const MOODS = ["Awful", "Low", "Okay", "Good", "Great"];

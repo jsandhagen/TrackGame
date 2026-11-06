@@ -13,11 +13,12 @@ import {
   rosterCap,
   facilityLevel,
   statTotal,
-  capOf,
+  raiseStat,
   ledgerAdd,
   reconcileLedger,
 } from "./core.js";
 import { weatherToday, dateOf } from "./calendar.js";
+import { seasonSigning } from "./signings.js";
 import { clubVersusWorld } from "./world.js";
 
 // ── Club goals: a steady stream of short- and long-term targets ───────────
@@ -124,6 +125,7 @@ export function signSecret(s, key) {
     secret: key,
     skill: d.skill,
   });
+  seasonSigning(s, a);
   s.roster.push(a);
   (s.secretsSigned ??= []).push(key);
   count(s, "secretsSigned");
@@ -204,7 +206,7 @@ export const STORY = {
     title: () => "Rain, rain, rain",
     text: () => "A storm rolls over the grounds. How should the squad spend the afternoon?",
     choices: [
-      { label: () => "Gym circuit", run: (s) => { team(s, (a) => { a.stats[0] = Math.min(capOf(a), a.stats[0] + 1); stam(a, -10); }); return "Everyone lifts in the dry. +1 Power, −10 stamina."; } },
+      { label: () => "Gym circuit", run: (s) => { team(s, (a) => { raiseStat(a, 0, 1); stam(a, -10); }); return "Everyone lifts in the dry. +1 Power, −10 stamina."; } },
       { label: () => "Movie night", run: (s) => { team(s, (a) => cond(a, 12)); return "Popcorn and old championship tapes. Condition up!"; } },
     ],
   },
@@ -250,7 +252,7 @@ export const STORY = {
     title: () => "Dog on the field!",
     text: () => "A scruffy dog has run off with a javelin. The whole squad stops to watch.",
     choices: [
-      { label: (s, d) => "Send " + byId(s, d.id)?.name.split(" ")[0] + " after it", run: (s, d) => { const a = byId(s, d.id); if (a) a.stats[2] = Math.min(capOf(a), a.stats[2] + 1); s.fans += 8; return "A heroic sprint! +1 Speed. Someone filmed it: +8 fans."; } },
+      { label: (s, d) => "Send " + byId(s, d.id)?.name.split(" ")[0] + " after it", run: (s, d) => { const a = byId(s, d.id); if (a) raiseStat(a, 2, 1); s.fans += 8; return "A heroic sprint! +1 Speed. Someone filmed it: +8 fans."; } },
       { label: () => "Let it go", run: (s) => { s.fans += 20; return "The dog trots off proudly. The video goes viral: +20 fans."; } },
     ],
   },
@@ -300,7 +302,7 @@ export const STORY = {
     weight: 1,
     setup: (s) => {
       const a = createAthlete(s, pick(s, EVENT_IDS), { base: LEAGUES[s.league].rating - 2, rarity: random(s) < 0.25 ? "epic" : "rare" });
-      return { athlete: a };
+      return { athlete: seasonSigning(s, a) };
     },
     title: () => "A scout's tip",
     text: (s, d) => "An old scout says a " + RARITY[d.athlete.rarity].name.toLowerCase() + " " + EVENTS[d.athlete.event].name.toLowerCase() + " thrower is looking for a club.",
@@ -313,7 +315,7 @@ export const STORY = {
     title: () => "Altitude camp invitation",
     text: (s, d) => "A mountain camp has space for the whole squad this week. $" + d.price + ". Hard work, big gains.",
     choices: [
-      { label: (s, d) => "Go! ($" + d.price + ")", ok: (s, d) => s.money >= d.price, run: (s, d) => { s.money -= d.price; team(s, (a) => { a.stats = a.stats.map((v) => Math.min(capOf(a), v + 1)); stam(a, -25); }); return "+1 to every stat. Everyone sleeps for a week."; } },
+      { label: (s, d) => "Go! ($" + d.price + ")", ok: (s, d) => s.money >= d.price, run: (s, d) => { s.money -= d.price; team(s, (a) => { a.stats.forEach((_, i) => raiseStat(a, i, 1)); stam(a, -25); }); return "+1 to every stat. Everyone sleeps for a week."; } },
       { label: () => "Stay home", run: () => "Home cooking wins today." },
     ],
   },

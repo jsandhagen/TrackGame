@@ -32,6 +32,8 @@ import {
   note,
   count,
   capOf,
+  rankCap,
+  raiseStat,
   moodOf,
   MOOD_TRAIN,
   effects,
@@ -71,7 +73,9 @@ import { firstMeet, systemUnlocked, systemProblem } from "./progression.js";
 export * from "./development.js";
 export * from "./coaching.js";
 export * from "./mastery.js";
+export * from "./signings.js";
 import { practiceMastery, masteryOf } from "./mastery.js";
+import { seasonSigning } from "./signings.js";
 export * from "./facility-duties.js";
 export * from "./customize.js";
 export * from "./calendar.js";
@@ -245,7 +249,9 @@ function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
       if (league >= 4 && star) a.skills.push({ shot: "meteor", discus: "cyclone", hammer: "tempest", jav: "skyspear" }[event]);
       if(league>=1) {
         const style=identity === "power" || identity === "hammer" ?["opener","clutch",star?"highroller":"icevein"]:identity === "control"?["metronome","icevein","clutch"]:["hunter","clutch","highroller"];
-        a.skills=style.slice(0,Math.min(3,league+1));
+        // A club's style in a few skills: stars carry one more. Kept short so rivals don't stack
+        // bonuses by default; a coach who builds a stack on purpose can out-throw them.
+        a.skills=style.slice(0,Math.min(3,(league>=3?2:1)+(star?1:0)));
         if(league>=3&&i===0)a.skills.push("captain");
         if(league>=4&&star)a.skills.push({shot:"meteor",discus:"cyclone",hammer:"tempest",jav:"skyspear"}[event]);
         a.gear.implement=league>=3&&star?"carbon":star?"competition":"precision";
@@ -735,7 +741,7 @@ export function useItem(s, id, athleteId) {
     if (d.stamina) a.stamina = clamp(a.stamina + d.stamina, 0, 100);
     if (d.heal) a.injury = 0;
     if (d.cond) a.condition = clamp(a.condition + d.cond, 0, 100);
-    if (d.stat) a.stats[d.stat[0]] = Math.min(capOf(a), a.stats[d.stat[0]] + d.stat[1]);
+    if (d.stat) raiseStat(a, d.stat[0], d.stat[1]);
     if (d.xp) grantXp(s, a, d.xp, out);
     if (d.sp) a.sp += d.sp;
     if (d.buff) a.buff = d.buff;
@@ -889,7 +895,7 @@ export function promote(s, athleteId) {
   const star = a.rank >= 4;
   if (star) a.stars = (a.stars || 0) + 1;
   else a.rank++;
-  a.stats = a.stats.map((v) => Math.min(capOf(a), v + 1));
+  a.stats.forEach((_, i) => raiseStat(a, i, 1));
   a.condition = 100;
   a.sp += 1;
   a.career.unshift({ season: s.season, label: "Promoted to " + rankName(a) });
@@ -904,7 +910,8 @@ export const scoutingWeek = (s) => Math.floor((s.day - 1) / 7);
 export const weeklySearches = (s) => s.scouting?.week === scoutingWeek(s) ? s.scouting.searches : 0;
 export const scoutBaseCost = (s) => Math.round((60 + 25 * s.league) * (1 - 0.15 * facilityLevel(s, "scout")));
 export const scoutCost = (s) => scoutBaseCost(s) * (1 + weeklySearches(s));
-export function scout(s, free = false) {
+// legend: a headhunter's report, whose first prospect is a Legend.
+export function scout(s, free = false, { legend = false } = {}) {
   if (!systemUnlocked(s, "recruit") || s.match) return false;
   const cost = free ? 0 : scoutCost(s);
   if (s.money < cost && !free) return false;
@@ -914,9 +921,10 @@ export function scout(s, free = false) {
     s.scouting = { week: scoutingWeek(s), searches: weeklySearches(s) + 1 };
   }
   const luck = 0.25 * facilityLevel(s, "scout") + (hasCombo(s, "network") ? 0.3 : 0) + 0.05 * s.league;
-  s.prospects = Array.from({ length: 3 }, () =>
-    createAthlete(s, pick(s, EVENT_IDS), { base: Math.max(22, LEAGUES[s.league].rating - 4 + random(s) * 4), rarity: rollRarity(s, luck) }),
-  );
+  s.prospects = Array.from({ length: 3 }, (_, i) => {
+    const event = pick(s, EVENT_IDS), base = Math.max(22, LEAGUES[s.league].rating - 4 + random(s) * 4), rolled = rollRarity(s, luck);
+    return seasonSigning(s, createAthlete(s, event, { base, rarity: legend && i === 0 ? "legend" : rolled }));
+  });
   count(s, "scouted");
   return true;
 }
@@ -1058,6 +1066,8 @@ export function leaveMatch(s) {
   checkGoals(s);
   return true;
 }
+// The first division whose first title brings a Legend prospect: National Division 3.
+export const HEADHUNTER_DIVISION = 7;
 export function nextSeason(s) {
   if (s.phase !== "seasonEnd") return false;
   const wasChampion = s.champion, tier = competitionTier(s), stage = s.competition?.stage ?? 2;
@@ -1078,7 +1088,7 @@ export function nextSeason(s) {
   for (const a of s.roster) {
     if (!wasChampion) {
       const weakest = a.stats.indexOf(Math.min(...a.stats));
-      for (const i of new Set([EVENTS[a.event].weights.indexOf(Math.max(...EVENTS[a.event].weights)), weakest])) a.stats[i] = Math.min(capOf(a), a.stats[i] + boost);
+      for (const i of new Set([EVENTS[a.event].weights.indexOf(Math.max(...EVENTS[a.event].weights)), weakest])) raiseStat(a, i, boost);
     }
     a.stamina = 100;
     a.condition = clamp(a.condition + 15, 0, 100);
@@ -1087,7 +1097,10 @@ export function nextSeason(s) {
     a.seasonPoints = 0;
     a.seasonPbs = 0;
   }
-  scout(s, true);
+  // A first title from the National divisions up brings a headhunter's report with a Legend in it.
+  const headhunter = wasChampion && !!s.lastTitleGift && tier * 3 + stage >= HEADHUNTER_DIVISION;
+  scout(s, true, { legend: headhunter });
+  if (headhunter) note(s, "A headhunter's report: " + s.prospects[0].name + ", a Legend " + EVENTS[s.prospects[0].event].name.toLowerCase() + " thrower, wants to join a champion club. See Scouting.", "sign");
   note(s, wasChampion && s.lastTitleGift && !(tier === 4 && stage === 2) ? "Promoted to " + divisionName(s) + "! Choose the next division on the Meets board."
     : wasChampion ? "Division title secured! Defend the title or revisit an earlier division."
     : "Rebuild camp: key stats improved. Try a duel, keep developing, or enter again.", "story");

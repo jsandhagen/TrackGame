@@ -27,17 +27,39 @@ export function rivalMastery(tier, stage) {
 export function rivalBase(tier, stage) {
   return RIVAL_RATING[tier * 3 + stage] / (0.6 + 0.004 * rivalMastery(tier, stage)) - 2;
 }
+// The event rating whose throws forecast at `target` metres once `multiplier` (mood, stamina,
+// equipment) is applied: realMark and the rating curve in core.js, run backwards.
+export function ratingForMark(event, target, multiplier) {
+  const e = EVENTS[event], knee = e.record*0.92, room = e.record*0.13,
+    raw = target <= knee ? target : knee + room*((1+(target-knee)/(2*room))**2-1);
+  return 100*(Math.max(0,raw/multiplier-e.min)/(e.max-e.min))**(1/1.12);
+}
+// How much a thrower's equipment, mood and stamina add to their bare rating, as a multiplier.
+export function markMultiplier(s, a, event) {
+  const e = EVENTS[event], base = e.min + (e.max-e.min)*(Math.max(0,eventRating(a,event))/100)**1.12;
+  return forecastRaw(s,a,event,{club:false})/base;
+}
+// The kit an ordinary rival thrower carries in this tier, which the club can also buy.
+export const divisionKit = (tier, event) => ({
+  implement: {shot:"steelshot",discus:"lowrim",hammer:"steelhammer",jav:"precision"}[event],
+  shoes: tier >= 2 ? "spikes" : null,
+  charm: tier >= 3 ? "chalk" : null,
+});
+// Forecasts fill a division's band up to this share of its top. The rest is left to meet-day
+// winners, so a final's best throws reach the top of the band and a big day goes slightly past it.
+export const FORECAST_TOP = 0.95;
+// The mark at a place in the band's forecast range: 0 is the band's floor, 1 its forecast ceiling.
+export const bandMark = (division, event, place) => {
+  const [low, high] = division.marks[event];
+  return low + (high * FORECAST_TOP - low) * place;
+};
 export function tuneDivisionRival(s, a, tier, stage, clubId = 0) {
   const d = divisionOf(tier,stage), event = a.event, e = EVENTS[event],
     bias = (CLUB_EVENT_BIASES[CLUBS[tier][clubId].identity] || CLUB_BIASES[clubId%3])[EVENT_IDS.indexOf(event)],
-    [low,high] = d.marks[event], fraction = clamp(0.2 + ((Math.imul(a.id,2654435761) >>> 0) / 4294967296) * 0.6 + bias*0.025,0.1,0.9),
-    target = low + (high-low)*fraction;
+    fraction = clamp(0.2 + ((Math.imul(a.id,2654435761) >>> 0) / 4294967296) * 0.6 + bias*0.025,0.1,0.9),
+    target = bandMark(d, event, fraction);
   a.mastery[event] = Math.min(100,rivalMastery(tier,stage)+(a.profile === "explosive" ? 5 : 0));
-  const base = e.min + (e.max-e.min)*(Math.max(0,eventRating(a,event))/100)**1.12,
-    multiplier = forecastRaw(s,a,event,{club:false})/base,
-    knee = e.record*0.92, room = e.record*0.13,
-    raw = target <= knee ? target : knee + room*((1+(target-knee)/(2*room))**2-1),
-    rating = 100*(Math.max(0,raw/multiplier-e.min)/(e.max-e.min))**(1/1.12),
+  const rating = ratingForMark(event, target, markMultiplier(s,a,event)),
     weighted = rating/(0.6+0.004*a.mastery[event]), stats = [...a.stats];
   // Preserve the athlete's attribute shape, including club strengths, while accounting for
   // mastery, condition and their actual equipment. The seeded random stream is untouched.

@@ -137,7 +137,9 @@ test('changing one event band tunes that event without consuming randomness or c
   try {
     d.marks.shot=old.map(n=>n+0.5);
     G.tuneDivisionRival(s,a,d.tier,d.stage);
-    assert(Math.abs(G.forecast(s,a,'shot',{club:false})-before-0.5)<0.001);
+    // Forecasts fill the band up to FORECAST_TOP of its top, so a 0.5 m shift moves them 0.475-0.5 m.
+    const moved=G.forecast(s,a,'shot',{club:false})-before;
+    assert(moved>0.5*G.FORECAST_TOP-0.001 && moved<0.501, String(moved));
     assert.equal(s.rng,rng);
     assert.deepEqual(club.athletes.filter(a=>a.event!=='shot'),others);
   } finally {d.marks.shot=old;}
