@@ -5,7 +5,7 @@ import "@fontsource/oswald/latin-500.css";
 import "@fontsource/oswald/latin-700.css";
 import "./styles.css";
 import * as G from "./domain/game.js";
-import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, COMBOS, HELPER, HELPER_LOOK, SHOPKEEPER, ELITES, NATION_KITS } from "./game-content.js";
+import { STAT_NAMES, trackColorOf, styleOf, ITEMS, SKILLS, FACILITIES, STADIUM, LEAGUES, PLANS, RANKS, SECRETS, CLUB_PALETTES, CUSTOMISE, EVENTS, EVENT_IDS, COMBOS, HELPER, HELPER_LOOK, SHOPKEEPER, ELITES, NATION_KITS } from "./game-content.js";
 import * as P from "./ui/pages.js";
 import { createWorld } from "./render/world.js";
 import { createStadium } from "./render/stadium.js";
@@ -43,7 +43,7 @@ try {
 let saveEnabled = false,
   touchedAt = 0;
 // window: which pop-up is open (null = just the club). selected: what is highlighted on the map.
-const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, meter: null, hide: null, dayP: 0.25 };
+const view = { window: null, athlete: null, tab: "stats", selected: null, moving: null, shopTab: "shop", playing: false, rival: null, meetSpeed: state.settings.meetSpeed || 1, sig: false, handsOn: null, hide: null, dayP: 0.25 };
 // At 1× a day is long enough to walk between sessions; faster speeds make people hurry instead.
 // 1× is deliberately slow enough to watch a full training day.
 // Money and fans roll to their new value in the HUD, and every change floats out beside the counter.
@@ -260,7 +260,7 @@ function quickAction() {
   const shell = $("#quickAction");
   shell.innerHTML = "";
   const m = state.match;
-  const want = m ? (m.phase === "complete" ? [view.resultView === "progress" ? "leave" : "meet-progress"] : view.meter ? ["release"] : []) : view.window === "home" ? (state.phase === "seasonEnd" ? ["season"] : []) : view.window === "lobby" ? ["enter"] : [];
+  const want = m ? (m.phase === "complete" ? [view.resultView === "progress" ? "leave" : "meet-progress"] : []) : view.window === "home" ? (state.phase === "seasonEnd" ? ["season"] : []) : view.window === "lobby" ? ["enter"] : [];
   for (const act of want) {
     const el = $("#panel").querySelector(`[data-act="${act}"]`);
     if (el) shell.append(el);
@@ -868,24 +868,85 @@ function pumpMeet(dt) {
   save();
   if (beat) startBeat(beat);
 }
-function decide(tactic, quality = "good") {
-  const beat = G.decideThrow(state, tactic, quality, view.sig),
+function decide(tactic, quality = "good", handsOn = false) {
+  const beat = G.decideThrow(state, tactic, quality, view.sig, { handsOn }),
     speed = view.throwSpeed;
   view.throwSpeed = null;
   if (beat && speed && speed !== view.meetSpeed) view.beatSpeed = { beat, speed };
   view.sig = false;
-  view.meter = null;
+  view.handsOn = null;
   view.meetPaused = false;
   if (beat) {
     save();
     startBeat(beat);
   }
 }
-const meter = { start: 0 };
-const meterPos = (now) => {
-  const p = ((now - meter.start) / 2500) % 2;
-  return p <= 1 ? p : 2 - p;
-};
+// ── Hands-on throws ─────────────────────────────────────────────────────
+// A run-up of lit pads, then a release needle (see domain/handson.js for the rules).
+const HO_LEAD_MS = 600;
+function startHandsOn(tactic) {
+  const a = G.homeAthlete(state), m = state.match;
+  const pattern = G.buildPattern(EVENT_IDS[m.eventIndex], tactic, { stats: a.stats, stamina: a.stamina, clutch: !!m.last?.clutch, perfectSkill: !!G.effects(state, a).perfect });
+  const now = performance.now();
+  view.handsOn = { pattern, tactic, step: 0, scores: [], phase: pattern.steps.length ? "runup" : "release", litAt: now + HO_LEAD_MS, releaseAt: now + (pattern.steps.length ? 0 : HO_LEAD_MS) };
+  render();
+}
+function buzz(pattern) {
+  if (state.settings.sound && !reduced()) try { navigator.vibrate?.(pattern); } catch {}
+}
+function handsOnStep(side, now) {
+  const h = view.handsOn;
+  if (!h || h.phase !== "runup" || now < h.litAt) return;
+  const step = h.pattern.steps[h.step], correct = side === step.side;
+  h.scores.push(G.stepScore(h.pattern.windows[h.step], now - h.litAt, correct));
+  if (correct) sfx("step"), buzz(8);
+  else sfx("stumble"), buzz(40);
+  nextHandsOnStep(now);
+}
+function nextHandsOnStep(now) {
+  const h = view.handsOn;
+  if (++h.step >= h.pattern.steps.length) (h.phase = "release"), (h.releaseAt = now + 250);
+  else h.litAt = now + 60;
+  render();
+}
+function handsOnRelease(now) {
+  const h = view.handsOn;
+  if (!h || h.phase !== "release" || now < h.releaseAt) return;
+  finishHandsOn(G.needleAt(h.pattern.release, now - h.releaseAt));
+}
+function finishHandsOn(needle) {
+  const h = view.handsOn, { quality } = G.gradeThrow(h.pattern, h.scores, needle);
+  sfx(quality === "perfect" ? "perfect" : quality === "scratch" ? "foul" : quality === "poor" ? "stumble" : "tap");
+  buzz(quality === "perfect" ? [20, 40, 20] : quality === "scratch" ? 80 : 12);
+  toast({ perfect: "Perfect release!", good: "Clean release", poor: "Rushed release", scratch: "Over the line!" }[quality], quality === "scratch" ? "warn" : quality === "perfect" ? "goal" : "info");
+  decide(h.tactic, quality, true);
+}
+// Called every frame: steps time out, a sweeping needle crosses the line, and the needle moves.
+function tickHandsOn(now) {
+  const h = view.handsOn;
+  if (!h) return;
+  if (h.phase === "runup" && now >= h.litAt && now - h.litAt > h.pattern.windows[h.step]) {
+    h.scores.push(0);
+    sfx("stumble");
+    buzz(40);
+    return nextHandsOnStep(now);
+  }
+  if (h.phase !== "release") return;
+  const pos = G.needleAt(h.pattern.release, now - h.releaseAt);
+  if (!h.pattern.release.bounce && pos >= 1.04) return finishHandsOn(pos);
+  const n = $("#needle");
+  if (n) n.style.left = Math.min(1, pos) * 100 + "%";
+}
+// Pads react on press, not on the click after release, so quick taps register.
+$("#app").addEventListener("pointerdown", (e) => {
+  const pad = e.target.closest("[data-ho]");
+  if (!pad || !view.handsOn) return;
+  e.preventDefault();
+  unlockAudio();
+  const now = performance.now();
+  if (pad.dataset.ho === "release") handsOnRelease(now);
+  else handsOnStep(pad.dataset.ho, now);
+});
 
 // ── Input ───────────────────────────────────────────────────────────────
 // A tap on the map that opens a window must not also press whatever appears under the finger
@@ -978,13 +1039,14 @@ $("#app").addEventListener("click", async (e) => {
       presenter = null;
       view.hide = null;
       view.lastMark = null;
-      view.meter = null;
+      view.handsOn = null;
       view.meetPaused = false;
       break;
     case "meet-skip":
       return skipMeet(b.dataset.to);
     case "meet-pause":
       view.meetPaused = !view.meetPaused;
+      view.handsOn = null;
       break;
     case "meet-guide":
       return meetGuide();
@@ -994,7 +1056,7 @@ $("#app").addEventListener("click", async (e) => {
       return showTip(true);
     case "meet-mode":
       state.settings.meetMode = b.dataset.value;
-      if (state.settings.meetMode === "watch" && state.match?.phase === "decide") return decide(state.match.last?.recommended || "balanced");
+      if (state.settings.meetMode === "watch" && state.match?.phase === "decide" && !view.handsOn) return decide(state.match.last?.recommended || "balanced");
       break;
     case "follow-athlete":
       state.settings.followAthlete=state.settings.followAthlete===id?null:id;
@@ -1012,18 +1074,11 @@ $("#app").addEventListener("click", async (e) => {
     case "tactic":
       if (state.match?.phase !== "decide") return;
       sfx("tap");
-      if (state.settings.manualRelease) {
-        view.meter = { tactic: b.dataset.value };
-        meter.start = performance.now();
-        return render();
-      }
+      if (G.handsOnApplies(state.settings, state.match.last)) return startHandsOn(b.dataset.value);
       return decide(b.dataset.value);
-    case "release": {
-      if (!view.meter) return;
-      const half = G.effects(state, G.homeAthlete(state)).perfect ? 0.11 : 0.07,
-        off = Math.abs(meterPos(performance.now()) - 0.62);
-      return decide(view.meter.tactic, off < half ? "perfect" : off < 0.2 ? "good" : "poor");
-    }
+    case "hands-on":
+      if (G.HANDS_ON_MODES.includes(b.dataset.value)) state.settings.handsOn = b.dataset.value;
+      break;
     case "leave":
       G.leaveMatch(state);
       hideTip();
@@ -1487,6 +1542,7 @@ $("#app").addEventListener("change", async (e) => {
     catch { el.value = previous; $("#menuSaveStatus").textContent = "Could not change screen orientation. Please try again."; }
   }
   if (kind === "menu-meet-mode" && ["watch","coach"].includes(el.value)) state.settings.meetMode = el.value;
+  if (kind === "hands-on" && G.HANDS_ON_MODES.includes(el.value)) state.settings.handsOn = el.value;
   if (kind === "setting") {
     state.settings[el.dataset.key] = el.checked;
     setSound(state.settings.sound);
@@ -1749,16 +1805,26 @@ document.addEventListener("keydown", (e) => {
   if ($("#dialog").open || ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
   if (e.code === "Space") {
     e.preventDefault();
-    if (view.meter) $('#app [data-act="release"]')?.click();
+    if (view.handsOn) handsOnRelease(performance.now());
     else if (!state.match) view.playing ? (stopPlaying(), render()) : play();
+  }
+  if (view.handsOn && !e.repeat) {
+    const side = { ArrowLeft: "L", KeyF: "L", ArrowRight: "R", KeyJ: "R" }[e.code];
+    if (side) {
+      e.preventDefault();
+      const now = performance.now();
+      if (view.handsOn.phase === "release") handsOnRelease(now);
+      else handsOnStep(side, now);
+    }
   }
   if (e.key === "Escape" && view.window && !state.match) closeWindow();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     view.playing = false;
-    view.meter = null;
+    view.handsOn = null;
     save();
+    render();
   }
 });
 window.addEventListener("save-error", () => toast("Save failed. Export your club before leaving.", "warn"));
@@ -1767,7 +1833,7 @@ initNative({
   orientation: state.settings.orientation || "auto",
   pause: () => {
     view.playing = false;
-    view.meter = null;
+    view.handsOn = null;
     save();
     render();
   },
@@ -1861,10 +1927,7 @@ function frame(now) {
       const barSpace = (bar.hidden || sidePanel ? 0 : bar.offsetHeight) + "px";
       if (view.barSpace !== barSpace) $("#app").style.setProperty("--meetbar", (view.barSpace = barSpace));
       stadium.draw(state, now, { beat: presenter?.beat || state.match.last, elapsed: presenter ? presenter.el : 1e9, lastMark: view.lastMark, reduced: reduced(), pace: view.meetPaused ? 1 : playbackRate(meetSpeedNow() || state.settings.meetSpeed), insetTop: sidePanel ? 0 : Math.max(0, $("#hud").getBoundingClientRect().bottom - arena.top + 8), insetBottom: bar.hidden || sidePanel ? 0 : Math.max(0, arena.bottom - bar.getBoundingClientRect().top + 8) });
-      if (view.meter) {
-        const n = $("#needle");
-        if (n) n.style.left = meterPos(now) * 100 + "%";
-      }
+      tickHandsOn(now);
     } else {
       if (view.playing && now - lastDayAt >= DAY_MS[state.settings.speed]) doDay(now);
       // The clock runs from 06:00 to 22:00 across each day and holds while paused.

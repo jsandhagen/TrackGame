@@ -450,11 +450,14 @@ export function needsDecision(s) {
 }
 
 // Every number the planning panel needs, without rolling.
-export function throwPreview(s, tactic, quality = "good", sig = false) {
+export function throwPreview(s, tactic, quality = "good", sig = false, handsOn = false) {
   const c = context(s, "home");
-  return riskModel(s, c, "home", tactic, quality, sig);
+  return riskModel(s, c, "home", tactic, quality, sig, handsOn);
 }
-function riskModel(s, c, side, tactic, quality, sig) {
+// Played by hand, half of a Controlled or All out throw's foul risk comes from the player's own
+// release (running the needle over the line), so the dice carry only the other half.
+export const HANDS_ON_DICE = 0.5;
+function riskModel(s, c, side, tactic, quality, sig, handsOn = false) {
   const a = c.athlete,
     fx = effects(s, a, side === "home"),
     T = TACTICS[tactic],
@@ -510,6 +513,7 @@ function riskModel(s, c, side, tactic, quality, sig) {
   const baseFoul={shot:0.075,discus:0.14,hammer:0.125,jav:0.12}[c.ev];
   let foul = Math.max(0.015,baseFoul-mastery*0.00065-focus*0.0002) * T.foul * fx.foul * (leading && fx.leading !== 1 ? 0.5 : 1) * (afterFoul && fx.afterFoul !== 1 ? 0.7 : 1);
   foul *= quality === "perfect" ? 0.6 : quality === "poor" ? 1.5 : 1;
+  if (handsOn && tactic !== "safe") foul *= HANDS_ON_DICE;
   foul = clamp(foul, 0.01, 0.5);
   if (sig || (first && fx.safeFirst)) foul = 0;
   const sd = T.sd * fx.variance * EVENT_SPREAD[c.ev] * (1.4 - mastery / 200) * (1.1-focus/500),
@@ -523,13 +527,18 @@ function riskModel(s, c, side, tactic, quality, sig) {
   return { foul, sd, raw, metres, center: metres(0), low: metres(-1.6), high: metres(1.6), acts, fx, P: realMark(c.ev, P), target:c.target };
 }
 
-function throwFor(s, side, tactic, quality, sig) {
+function throwFor(s, side, tactic, quality, sig, handsOn = false) {
   const m = s.match,
     c = context(s, side),
     a = c.athlete;
   if (sig && !canSignature(s, side)) sig = false;
-  const r = riskModel(s, c, side, tactic, quality, sig);
-  const foul = random(s) < r.foul,
+  // Over the line by hand is a foul, unless a skill rules fouls out (then it is just a poor one).
+  const overLine = quality === "scratch";
+  if (overLine) quality = "poor";
+  const r = riskModel(s, c, side, tactic, quality, sig, handsOn);
+  const scratch = overLine && r.foul > 0;
+  const roll = random(s);
+  const foul = scratch || roll < r.foul,
     z = clamp(gauss(s), -2.4, 2.4),
     flightDistance = +r.metres(z).toFixed(2),
     mark = foul ? null : flightDistance;
@@ -574,6 +583,8 @@ function throwFor(s, side, tactic, quality, sig) {
     foul,
     tactic,
     quality,
+    ...(handsOn ? { handsOn: true } : {}),
+    ...(scratch ? { scratch: true } : {}),
     signature: !!sig,
     activations: r.acts.filter(Boolean),
     newPb,
@@ -733,11 +744,14 @@ function closeEvent(s, i) {
       m.last = beat;
       return beat;
 }
-export function decideThrow(s, tactic = "balanced", quality = "good", sig = false) {
+export function decideThrow(s, tactic = "balanced", quality = "good", sig = false, { handsOn = false } = {}) {
   const m = s.match;
   if (!m || m.phase !== "decide" || !TACTICS[tactic]) return null;
+  if (!["perfect", "good", "poor", "scratch"].includes(quality)) quality = "good";
+  // Only a hands-on throw can be over the line; the release-timing bar grades poor at worst.
+  if (quality === "scratch" && !handsOn) quality = "poor";
   m.phase = "live";
-  const beat = throwFor(s, "home", tactic, quality, sig);
+  const beat = throwFor(s, "home", tactic, quality, sig, handsOn);
   m.last = beat;
   return beat;
 }

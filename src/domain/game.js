@@ -89,6 +89,7 @@ import { athleteDuty, dutySite, workFacility, moveDuties, automaticDuties, effec
 import { planProblem, practiceInsights, INSIGHT_START, DRILLS, drillEnergy } from "./coaching.js";
 export * from "./core.js";
 export * from "./meet.js";
+export * from "./handson.js";
 export * from "./story.js";
 
 // Changing the primary event keeps earned mastery, marks and meet entries intact.
@@ -101,7 +102,7 @@ export function setAthleteEvent(s, id, event) {
   return true;
 }
 
-export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", manualRelease: false, clutch: true, quietMode: true, speed: 1, meetSpeed: 1, sound: true, reducedMotion: false, highlights: true };
+export const DEFAULT_SETTINGS = { autoMeetPrep: false, orientation: "auto", meetMode: "watch", handsOn: "off", clutch: true, quietMode: true, speed: 1, meetSpeed: 1, sound: true, reducedMotion: false, highlights: true };
 
 export function newGame(seed = Date.now() >>> 0) {
   const s = {

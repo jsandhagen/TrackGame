@@ -1019,6 +1019,7 @@ export function meetGuide(s) {
       <li><b>${TACTICS.safe.name}</b> · shortest but almost never fouls. Use it to get a first mark on the board.</li>
       <li><b>${TACTICS.balanced.name}</b> · the usual range and risk.</li>
       <li><b>${TACTICS.attack.name}</b> · a little further on average with a wider spread, but fouls far more often and costs stamina. Best once a mark is banked.</li></ul></li>
+    <li><b>Throw by hand</b> (optional, in the decision panel or Settings): tap the lit side to build the run-up, then release on the gold. The tactic sets the difficulty: ${TACTICS.safe.name} is just a release and can't foul, ${TACTICS.balanced.name} is a short run-up that alternates sides, and ${TACTICS.attack.name} is long, fast and shuffled. Run the needle over the red line and it's a foul, but the dice foul you half as often. Technique widens the gold, Speed gives more time per step and Focus steadies the pattern. Throws you leave to the athletes always count as a clean release.</li>
   </ul></section>
   <section><h3>What changes a throw</h3><ul class="howto">
     <li><b>The athlete</b>: their event rating (stats and event mastery), mood and stamina. Tired or unhappy athletes throw shorter.</li>
@@ -1194,7 +1195,8 @@ export function gameMenu(s, {page = "main", native = false} = {}) {
   ${page === "saved" ? `<div class="saved-club"><b>All progress saved.</b><p>${esc(s.clubName)} is ready for your next visit. You can safely close this tab.</p>${btn("Resume game", "menu-close")}</div>` : page === "settings" ? `
     <label>Screen orientation<select data-change="orientation" ${native ? "" : "disabled"}>${[["auto","Follow device"],["portrait","Portrait"],["landscape","Landscape"]].map(([id,name])=>`<option value="${id}" ${(s.settings.orientation||"auto")===id?"selected":""}>${name}</option>`).join("")}</select><small>${native ? "Follow device respects your phone’s rotation setting." : "In your browser, rotate the device or resize the window."}</small></label>
     <label>Default meet mode<select data-change="menu-meet-mode">${["watch","coach"].map(mode=>`<option value="${mode}" ${s.settings.meetMode===mode?"selected":""}>${mode==="watch"?"Watch":"Coach every throw"}</option>`).join("")}</select></label>
-    ${toggle("quietMode", "Quiet notifications", "Keep routine rewards, levels and goals in the journal and panels. Coached sessions still play out.")}${toggle("highlights", "Meet highlights", "Emphasise big throws without speeding up 1×.")}${toggle("clutch", "Pause for clutch moments")}${toggle("manualRelease", "Manual release timing")}${toggle("sound", "Sound effects")}${toggle("reducedMotion", "Reduce motion")}
+    ${toggle("quietMode", "Quiet notifications", "Keep routine rewards, levels and goals in the journal and panels. Coached sessions still play out.")}${toggle("highlights", "Meet highlights", "Emphasise big throws without speeding up 1×.")}${toggle("clutch", "Pause for clutch moments")}
+    <label>Throw by hand<select data-change="hands-on">${G.HANDS_ON_MODES.map(id=>`<option value="${id}" ${(s.settings.handsOn||"off")===id?"selected":""}>${HANDS_ON_NAMES[id]}</option>`).join("")}</select><small>Tap out the run-up and time the release yourself. Big moments means clutch throws only. Throws you leave to the athletes count as a clean release.</small></label>${toggle("sound", "Sound effects")}${toggle("reducedMotion", "Reduce motion")}
     ${btn("Back to menu", "game-menu", "", "subtle")}
   ` : `<p class="menu-club">${esc(s.clubName)} <span>Season ${s.season} · Day ${s.day}</span></p><div class="game-menu-actions">${btn("Resume game", "menu-close")}${btn("Settings", "menu-settings", "", "subtle")}${btn("Save game", "save-game", "", "subtle")}${btn("Main menu", "main-menu", "", "subtle")}${btn("Save & exit", "save-exit", "", "subtle")}</div><div class="game-menu-links">${btn("Export backup", "export", "", "text")}${btn("How to play", "menu-help", "", "text")}</div><p class="hint">Progress also saves automatically after each day and throw.</p>`}
   <p id="menuSaveStatus" role="status" aria-live="polite"></p></div>`;
@@ -1450,20 +1452,43 @@ export function decide(s, view) {
   const m = s.match,
     a = G.homeAthlete(s),
     sigReady = G.canSignature(s, "home");
-  if (view.meter)
-    return `<div class="meter-panel"><span class="eyebrow">RELEASE ON THE GOLD</span><div class="meter"><span class="zone good"></span><span class="zone perfect" style="--w:${G.effects(s, a).perfect ? 22 : 14}%"></span><span id="needle"></span></div>${btn("Release!", "release")}<small>Tap Release, or press Space.</small></div>`;
+  if (view.handsOn) return handsOnPanel(s, a, view.handsOn);
+  const byHand = G.handsOnApplies(s.settings, m.last);
   return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · PB ${pbMark(a,EVENT_IDS[m.eventIndex])}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
     <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>
     ${decideStandings(s, a)}
     <div class="tactics">${Object.entries(TACTICS)
       .map(([id, t]) => {
-        const p = G.throwPreview(s, id, "good", view.sig);
-        return `<button class="tactic t-${id}" data-act="tactic" data-value="${id}" title="${esc(t.desc)}"><strong>${t.name}</strong><small>${esc(t.desc)}</small><em>${Math.round(p.foul * 100)}% foul risk</em></button>`;
+        const p = G.throwPreview(s, id, "good", view.sig, byHand);
+        return `<button class="tactic t-${id}" data-act="tactic" data-value="${id}" title="${esc(t.desc)}"><strong>${t.name}</strong><small>${esc(t.desc)}</small><em>${byHand ? G.HANDS_ON_LEVEL[id] + " · " : ""}${Math.round(p.foul * 100)}% foul risk</em></button>`;
       })
       .join("")}</div>
-    <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} Distance is revealed when the throw lands.</p>
+    ${handsOnSwitch(s)}
+    <p class="hint">${m.homeMarks[m.eventIndex].some((x) => x != null) ? "A mark is banked, so a foul now only costs this throw." : "No mark yet: a foul here could cost the event."} ${byHand ? "By hand, the risk shown is luck alone; running the needle over the red line is a foul too." : "Distance is revealed when the throw lands."}</p>
     <div class="decide-speed"><span>Watch this throw at</span><span class="seg" role="group" aria-label="Speed for this throw">${speedButtons(view.throwSpeed || view.meetSpeed || s.settings.meetSpeed || 1, "throw-speed")}</span></div>
     ${G.effects(s, a).sig ? `<label class="toggle sig"><input type="checkbox" data-change="sig" ${view.sig ? "checked" : ""} ${sigReady ? "" : "disabled"}> Use signature skill${sigReady ? "" : " (already used)"}</label>` : ""}</div>`;
+}
+// Throw by hand: off, clutch moments only, or every decision. Mirrors the setting.
+const HANDS_ON_NAMES = { off: "Off", big: "Big moments", all: "Every throw" };
+function handsOnSwitch(s) {
+  const mode = s.settings.handsOn || "off";
+  return `<div class="hands-on-switch"><span>${ico("bolt")} Throw by hand</span><span class="seg" role="group" aria-label="Throw by hand">${G.HANDS_ON_MODES.map((id) => `<button class="${mode === id ? "active" : ""}" data-act="hands-on" data-value="${id}" aria-pressed="${mode === id}">${HANDS_ON_NAMES[id]}</button>`).join("")}</span></div>`;
+}
+// The run-up pads and the release needle. main.js moves the needle and lights the pads.
+function handsOnPanel(s, a, h) {
+  const p = h.pattern, r = p.release, ev = EVENTS[p.event], running = h.phase === "runup";
+  const lit = running ? p.steps[h.step]?.side : null;
+  const dots = p.steps.map((st, i) => `<i class="${i < h.scores.length ? (h.scores[i] >= 0.75 ? "hit great" : h.scores[i] > 0 ? "hit" : "miss") : i === h.step && running ? "now" : ""}"></i>`).join("");
+  const pct = (v) => (v * 100).toFixed(1) + "%";
+  const pad = (side) => `<button class="ho-pad ${lit === side ? "lit" : ""}" data-ho="${side}" aria-label="${side === "L" ? "Left" : "Right"}">${lit === side ? esc(p.steps[h.step].word) : ""}<small>${side === "L" ? "← F" : "J →"}</small></button>`;
+  return `<div class="handson ${running ? "running" : "releasing"} ho-${p.tactic}">
+    <p class="ho-head"><span class="eyebrow">${esc(ev.name)} · ${esc(TACTICS[p.tactic].name)} · ${G.HANDS_ON_LEVEL[p.tactic]}</span><b>${esc(a.name)}</b></p>
+    ${p.steps.length ? `<div class="ho-steps" aria-label="Run-up">${dots}</div>` : ""}
+    ${running ? `<div class="ho-pads">${pad("L")}${pad("R")}</div>` : ""}
+    <div class="meter ho-meter ${r.bounce ? "bounce" : "sweep"}"><span class="zone good" style="left:${pct(r.center - r.good)};width:${pct(2 * r.good)}"></span><span class="zone perfect" style="left:${pct(r.center - r.perfect)};width:${pct(2 * r.perfect)}"></span>${r.bounce ? "" : '<span class="zone line"></span>'}<span id="needle"></span></div>
+    ${running ? "" : `<button class="button ho-release" data-ho="release">${esc(p.word)}</button>`}
+    <small class="ho-help">${running ? "Tap the lit side as fast as you can. Wrong side or too slow, and the run-up stumbles." : r.bounce ? "Release on the gold. Bank it can't foul." : "Release on the gold before the needle reaches the red line, or it's a foul."} Keys: F/J or ←/→, Space to release.</small>
+  </div>`;
 }
 // Under the level bar: what the next level brings and the next bigger milestone.
 function levelRoad(s, a) {

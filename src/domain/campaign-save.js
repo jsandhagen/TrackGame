@@ -417,7 +417,11 @@ export function validateCampaign(input) {
   // The week's skill-book shelf remembers which books have sold.
   if (s.bookShelf != null && (!int(s.bookShelf.week, 0, 1e6) || !Array.isArray(s.bookShelf.sold) || s.bookShelf.sold.length > 3 || s.bookShelf.sold.some((k) => ITEMS[k]?.kind !== "book"))) bad();
   s.secretsOffered = s.secretsOffered.filter((k) => SECRETS[k]);
+  // The old manual release bar became hands-on throws for every decision.
+  if (s.settings?.handsOn == null && s.settings?.manualRelease) s.settings.handsOn = "all";
   s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
+  delete s.settings.manualRelease;
+  if (!["off","big","all"].includes(s.settings.handsOn)) s.settings.handsOn = "off";
   if (![1,2,3].includes(s.settings.speed)) s.settings.speed=1;
   if (![1,2,3].includes(s.settings.meetSpeed)) s.settings.meetSpeed=1;
   if (s.pendingEvent && typeof s.pendingEvent.id !== "string") s.pendingEvent = null;

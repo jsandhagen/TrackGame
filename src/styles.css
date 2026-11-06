@@ -2239,9 +2239,6 @@ tr.us {
 .t-attack {
   background: #d8603a;
 }
-.meter-panel {
-  text-align: center;
-}
 .meter {
   position: relative;
   height: 30px;
@@ -2273,9 +2270,6 @@ tr.us {
   margin-left: -2px;
   background: #fff;
   box-shadow: 0 0 0 2px #2a2420;
-}
-.meter-panel .button {
-  width: 100%;
 }
 .meet-controls {
   display: flex;
@@ -5650,3 +5644,34 @@ dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1
 .division-distances th, .division-distances td { font-size: 12px; padding: 6px; white-space: nowrap; }
 .division-duels { margin-top: 12px; }
 .division-duels > summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+
+/* Throw by hand: the switch in the decision panel, then the run-up pads and release needle. */
+.hands-on-switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.hands-on-switch > span:first-child { display: inline-flex; align-items: center; gap: 4px; }
+.hands-on-switch .seg { background: var(--green); border-radius: 8px; }
+.hands-on-switch .seg button { padding: 6px 8px; }
+.handson { display: grid; gap: 10px; text-align: center; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.ho-head { display: grid; gap: 2px; margin: 0; }
+.ho-head b { font-family: var(--display); font-size: 18px; letter-spacing: 0.02em; }
+.ho-steps { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+.ho-steps i { width: 14px; height: 14px; border-radius: 50%; background: var(--line); border: 2px solid #0b1d1622; }
+.ho-steps i.now { background: var(--gold); transform: scale(1.25); }
+.ho-steps i.hit { background: #8cc152; }
+.ho-steps i.hit.great { background: var(--green2); }
+.ho-steps i.miss { background: var(--red); }
+.ho-pads { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ho-pad {
+  position: relative; min-height: 96px; border-radius: 14px; border: 3px solid #0b1d16; border-bottom-width: 7px;
+  background: #3a4a42; color: #fff; font-family: var(--display); font-size: 22px; letter-spacing: 0.04em;
+  display: grid; place-items: center; touch-action: manipulation; transition: transform 0.05s;
+}
+.ho-pad small { position: absolute; bottom: 4px; left: 0; right: 0; font-family: inherit; font-size: 10px; opacity: 0.55; letter-spacing: 0; }
+.ho-pad.lit { background: #6cc04a; box-shadow: 0 0 0 3px #fff inset, 0 0 18px #8cff6a99; }
+.ho-attack .ho-pad.lit { background: #e07a3a; box-shadow: 0 0 0 3px #fff inset, 0 0 18px #ffae6a99; }
+.ho-pad:active { transform: translateY(3px); border-bottom-width: 4px; }
+.handson.running .ho-meter { opacity: 0.45; }
+.ho-meter { height: 34px; margin: 0; }
+.ho-meter .zone.line { left: auto; right: 0; width: 3%; background: var(--red); }
+.ho-release { width: 100%; min-height: 64px; font-size: 22px; }
+.ho-help { color: var(--muted); font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .ho-steps i.now { transform: none; } }
