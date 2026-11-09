@@ -14,12 +14,12 @@ Each day's weather comes from the save's weather seed and the day number, with s
 | --- | --- | --- | --- |
 | Sunny | — | +15% | — |
 | Cloudy | — | — | — |
-| Windy | — | −10% | Always a headwind or crosswind |
+| Windy | — | −10% | Always a stiff wind (2.8–5 m/s) in the discus and javelin |
 | Rain | Outdoor −20%, indoor +10% | −40% | Foul risk ×1.25 (wet circle) |
 | Heatwave (summer) | Stamina use +25% | +25% | Stamina use +25% |
 | Snow (winter) | Outdoor −35%, indoor +10% | −50% | Marks −1.5% (cold implements) |
 
-Indoors means the Strength Room and the film room; laps, sprints and throwing are outdoors. On other days the meet wind is calm half the time. The map draws cloud shadows, rain, snow, gusts and heat haze; meets show the same weather, plus a windsock.
+Indoors means the Strength Room and the film room; laps, sprints and throwing are outdoors. On other days the meet wind is calm four times in ten and a breeze (0.8–2.6 m/s) otherwise; see [wind, records, medals and rivals](MEET_HONOURS.md). The map draws cloud shadows, rain, snow, gusts and heat haze; meets show the same weather, plus a windsock.
 
 ## Away grounds
 

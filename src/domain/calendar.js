@@ -47,7 +47,7 @@ export const FORECAST_DAYS = 7;
 export const WEATHER = {
   sunny: { name: "Sunny", icon: "sun", desc: "Clear skies. Visitors +15%.", visitors: 1.15 },
   cloudy: { name: "Cloudy", icon: "cloud", desc: "Grey but dry. Nothing in the way.", visitors: 1 },
-  windy: { name: "Windy", icon: "wind", desc: "Gusts across the infield. Meets get a headwind or crosswind. Visitors −10%.", visitors: 0.9 },
+  windy: { name: "Windy", icon: "wind", desc: "Gusts across the infield. Meets get a stiff wind that the discus and javelin feel. Visitors −10%.", visitors: 0.9 },
   rain: { name: "Rain", icon: "rain", desc: "Outdoor training −20%, indoor +10%. Visitors −40%. A wet circle raises foul risk 25% at meets.", visitors: 0.6, outdoor: 0.8, indoor: 1.1, foul: 1.25 },
   heat: { name: "Heatwave", icon: "heat", desc: "Training and throws use 25% more stamina. Visitors +25%: ice creams all round.", visitors: 1.25, stamina: 1.25 },
   snow: { name: "Snow", icon: "snow", desc: "Outdoor training −35%, indoor +10%. Cold implements: marks −1.5%. Visitors −50%.", visitors: 0.5, outdoor: 0.65, indoor: 1.1, mark: 0.985 },
@@ -75,6 +75,19 @@ export function weatherOn(s, day) {
 }
 export const weatherToday = (s) => weatherOn(s, s.day);
 export const forecastDays = (s, n = FORECAST_DAYS) => Array.from({ length: n }, (_, i) => ({ day: s.day + i, weather: weatherOn(s, s.day + i) }));
+// The wind over the infield, forecast like the weather: a direction and a speed in metres a
+// second. Windy days always blow (2.8–5 m/s); other days are calm four times in ten, and
+// otherwise carry a breeze (0.8–2.6 m/s). Headwind and tailwind are along the throw.
+export function windOn(s, day) {
+  const windy = weatherOn(s, day) === "windy",
+    n = mix32(((s.weatherSeed >>> 0) ^ 0x51ed270b) + Math.imul(day, 0x9e3779b1) >>> 0),
+    u = (n % 1000) / 1000,
+    v = ((n >>> 12) % 1000) / 1000;
+  if (!windy && u < 0.4) return { wind: "calm", speed: 0 };
+  const along = windy ? u : (u - 0.4) / 0.6,
+    wind = along < 0.36 ? "headwind" : along < 0.72 ? "tailwind" : "crosswind";
+  return { wind, speed: +(windy ? 2.8 + v * 2.2 : 0.8 + v * 1.8).toFixed(1) };
+}
 // Gyms and film rooms are indoors; laps, sprints and throwing are not.
 export function planIndoors(planId) {
   const f = PLANS[planId]?.facility;

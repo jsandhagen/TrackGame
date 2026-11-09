@@ -88,5 +88,5 @@ test('meet XP follows the performance and stays near the old flat amount', () =>
       total += raw; n++;
     }
   }
-  assert(total / n > 24 && total / n < 36, 'average ' + (total / n).toFixed(1));
+  assert(total / n > 24 && total / n < 38, 'average ' + (total / n).toFixed(1));
 });

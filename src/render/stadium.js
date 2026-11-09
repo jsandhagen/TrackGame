@@ -638,9 +638,12 @@ function drawScreen(g, s, m, venue, now) {
 function windsock(g, m, now) {
   const x = W - 34, y = 150, wind = m.wind || "calm", flap = Math.sin(now / 160) * (wind === "calm" ? 0.3 : 1);
   rect(g, x, y - 26, 1, 26, "#d8d8d0");
-  const dir = wind === "headwind" ? -1 : 1, droop = wind === "calm" ? 7 : wind === "crosswind" ? 3 : 1;
+  // A stiffer wind lifts the sock; a headwind blows it back towards the thrower.
+  const speed = m.windSpeed ?? (wind === "calm" ? 0 : 2), dir = wind === "headwind" ? -1 : 1,
+    droop = wind === "calm" ? 7 : Math.max(wind === "crosswind" ? 2 : 0, Math.round(5 - speed * 1.3));
   for (let k = 0; k < 4; k++) rect(g, x + dir * (1 + k * 3) - (dir < 0 ? 2 : 0), y - 26 + Math.round((k * droop) / 3 + flap * k * 0.4), 3, 3, k % 2 ? "#f4f4f0" : "#e8703a");
   text(g, wind.toUpperCase(), x, y + 3, { color: "#fff6dc", align: "center" });
+  if (speed) text(g, speed.toFixed(1) + " M/S", x, y + 12, { color: "#fff6dc", align: "center" });
 }
 // Rain, snow and heat shimmer over the meet, and floodlight beams at night.
 function weatherFx(g, venue, now, reduced, H) {
@@ -676,7 +679,10 @@ function weatherFx(g, venue, now, reduced, H) {
 function markTags(b, flash) {
   const tags = [];
   if (b.worldRecord) tags.push(["WORLD RECORD", flash ? "#f2c94c" : "#fff6dc"]);
+  if (b.divisionRecord && !b.worldRecord) tags.push(["DIVISION RECORD", "#f2c94c"]);
   if (b.newPb) tags.push([b.previousPb ? "PB +" + b.pbDelta.toFixed(2) : "FIRST MARK", MARK.pb]);
+  else if (b.seasonBest) tags.push(["SB", MARK.pb]);
+  if (b.passedRival) tags.push(["PAST RIVAL", "#f08a5d"]);
   if (b.qualified && b.finalistLimit) tags.push(["INTO THE FINAL", MARK.cut]);
   if (b.madeStandard) tags.push(["QUALIFIED", MARK.q]);
   if (b.tookLead && !tags.length) tags.push(["LEADS", "#f2c94c"]);

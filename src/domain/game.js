@@ -60,6 +60,7 @@ import {
   STAR_CAP,
   cleanAthleteName,
   claimName,
+  rivalLoadout,
 } from "./core.js";
 import { checkGoals, rollStoryEvent, closeYear, yearStat } from "./story.js";
 import { autoLineup, meetOutcome, entriesOf } from "./meet.js";
@@ -82,6 +83,7 @@ export * from "./calendar.js";
 export * from "./venues.js";
 export * from "./invitational.js";
 export * from "./world.js";
+export * from "./honours.js";
 import { invitationDay, closeInvitation, ensureInvitations } from "./invitational.js";
 import { ensureCustom } from "./customize.js";
 import { WEATHER, weatherToday, weatherTrainFactor, weatherSeedFrom } from "./calendar.js";
@@ -275,7 +277,7 @@ function buildClubs(s, league, stage = 0, indices = [0, 1, 2]) {
         }
       }
       a.skills = [...new Set(a.skills)];
-      a.equipped = [...a.skills];
+      a.equipped = rivalLoadout(a);
       tuneDivisionRival(s,a,league,stage,index);
       return a;
     }),

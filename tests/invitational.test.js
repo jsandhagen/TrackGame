@@ -45,7 +45,8 @@ test('an invitation arrives, is accepted, played against the All-Star Select and
   s = reload(s);
   assert(G.simulateMatch(s));
   assert(G.meetOutcome(s.match) > 0);
-  assert.equal(s.bag[offer.prize], before + 1);
+  // The keepsake roll can land on the headline prize as well.
+  assert(s.bag[offer.prize] >= before + 1);
   assert.equal(s.match.rewards.invitational.won, true);
   assert.match(P.league(s, {}), new RegExp(offer.name));
   assert(G.leaveMatch(s));

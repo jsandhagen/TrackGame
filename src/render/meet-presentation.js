@@ -14,14 +14,14 @@ export const LANDING_HOLD_MS = 1400;
 export const CELEBRATION_MS = 2200;
 
 export function isHighlight(beat) {
-  return beat?.type === "throw" && !!(beat.worldRecord || beat.signature ||
+  return beat?.type === "throw" && !!(beat.worldRecord || beat.signature || beat.divisionRecord || beat.passedRival ||
     (beat.newPb && beat.previousPb > 0) ||
     (beat.attempt > 0 && (beat.scoringSwing > 0 || beat.tookLead || beat.qualified)));
 }
 // Your own big moments earn a celebration: a world record, a PB, making the final, reaching the
 // championship standard or taking the lead with a later throw.
 export function celebrates(beat) {
-  return beat?.type === "throw" && beat.side === "home" && beat.mark != null && !!(beat.worldRecord ||
+  return beat?.type === "throw" && beat.side === "home" && beat.mark != null && !!(beat.worldRecord || beat.divisionRecord || beat.passedRival ||
     (beat.newPb && beat.previousPb > 0) || beat.qualified || beat.madeStandard || (beat.attempt > 0 && beat.tookLead));
 }
 export function hasCutIn(beat) {
@@ -93,20 +93,28 @@ export function advanceBeatClock(beat, elapsed, dt, speed = 1, settings = {}) {
   return elapsed + dt * playbackRate(speed);
 }
 
+// The gauge reading for a throw the wind got hold of: "Headwind 2.3 m/s".
+export const windReading = (wind, speed) => !wind || wind === "calm" || !speed ? "" :
+  ({ headwind: "Headwind", tailwind: "Tailwind", crosswind: "Crosswind" }[wind] || "Wind") + " " + speed.toFixed(1) + " m/s";
+const lastName = (name = "") => name.split(" ").slice(1).join(" ") || name;
 const placeName = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
 export function throwResult(beat) {
   if (beat?.type !== "throw") return null;
-  const headline = beat.worldRecord ? "World record!" : beat.newPb && beat.previousPb > 0 ? "Personal best!" :
-    beat.foul ? "Foul" : beat.qualified && beat.finalistLimit ? "Into the final!" : beat.madeStandard ? "Championship standard!" : beat.tookLead ? "Into the lead!" : beat.place && (!beat.previousPlace || beat.place < beat.previousPlace) ? `Up to ${placeName(beat.place)}` :
-    beat.improvement > 0 ? "Series best" : beat.ownBest === beat.mark ? "Mark on the board" : "Best mark stands";
+  const headline = beat.worldRecord ? "World record!" : beat.divisionRecord ? "Division record!" : beat.newPb && beat.previousPb > 0 ? "Personal best!" :
+    beat.foul ? "Foul" : beat.qualified && beat.finalistLimit ? "Into the final!" : beat.madeStandard ? "Championship standard!" : beat.tookLead ? "Into the lead!" : beat.passedRival ? `Past rival ${lastName(beat.passedRival)}!` : beat.place && (!beat.previousPlace || beat.place < beat.previousPlace) ? `Up to ${placeName(beat.place)}` :
+    beat.seasonBest ? "Season's best!" : beat.improvement > 0 ? "Series best" : beat.ownBest === beat.mark ? "Mark on the board" : "Best mark stands";
   const detail = [];
   if (beat.foul) detail.push(beat.ownBest == null ? "Still needs a legal mark" : `${beat.ownBest.toFixed(2)} m still counts`);
   if (beat.place) detail.push(`${placeName(beat.place)} place`);
   if (beat.scoringSwing > 0) detail.push(`+${beat.scoringSwing} team-point swing`);
   if (beat.qualified) detail.push(beat.finalistLimit ? "Inside the top " + beat.finalistLimit + " final cut" : "Into the top four");
   if (beat.madeStandard) detail.push("Qualified for the championship");
+  if (beat.divisionRecord) detail.push(`Record was ${beat.previousDivisionRecord.toFixed(2)} m`);
+  if (beat.passedRival && !headline.startsWith("Past rival")) detail.push(`Past rival ${lastName(beat.passedRival)}`);
   if (beat.newPb && beat.previousPb > 0) detail.push(`PB +${beat.pbDelta.toFixed(2)} m`);
+  else if (beat.seasonBest) detail.push("Season's best");
   else if (beat.improvement > 0) detail.push(`Improved by ${beat.improvement.toFixed(2)} m`);
   if (!detail.length) detail.push(beat.foul ? (beat.ownBest == null ? "Still needs a legal mark" : `${beat.ownBest.toFixed(2)} m still counts`) : `${beat.ownBest.toFixed(2)} m still counts`);
+  if (beat.windSpeed) detail.push(windReading(beat.wind, beat.windSpeed));
   return { headline, detail: detail.join(" · ") };
 }

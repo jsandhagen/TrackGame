@@ -37,11 +37,45 @@ test('Hype Engine raises teammate condition on an individual event win',()=>{
  m.started[0]=true;m.phase='live';m.fields[0].home.forEach((e,i)=>e.marks=[20-i,19-i,18-i]);m.fields[0].away.forEach((e,i)=>e.marks=[10-i,9-i,8-i]);
  const beat=G.advanceMatch(s);assert.equal(beat.type,'eventEnd');assert.equal(other.condition,58);
 });
-test('every athlete scatters by event, and only the discus feels the wind',()=>{
+test('every event scatters differently, and only the discus and javelin feel the wind',()=>{
  assert(G.EVENT_SPREAD.discus>G.EVENT_SPREAD.shot);
- assert(G.windEffect('discus','headwind')>G.windEffect('discus','calm'));
- assert(G.windEffect('discus','crosswind')<G.windEffect('discus','calm'));
- for(const ev of ['shot','hammer','jav']) assert.equal(G.windEffect(ev,'headwind'),1);
+ for(const wind of ['headwind','tailwind','crosswind']) for(const ev of ['shot','hammer']) { assert.equal(G.windEffect(ev,wind,5,90),1); assert.equal(G.windFoul(ev,wind,5),1); }
+ for(const ev of ['discus','jav']) { assert.equal(G.windEffect(ev,'calm',0,90),1); assert(G.windEffect(ev,'crosswind',3,90)<1); assert(G.windFoul(ev,'crosswind',3)>1); assert.equal(G.windFoul(ev,'headwind',3),1); }
+ // A headwind lifts the disc for a thrower who can use it and costs a novice; a tailwind costs everyone.
+ assert(G.windEffect('discus','headwind',4,90)>1.015);
+ assert(G.windEffect('discus','headwind',4,10)<1);
+ assert(G.windEffect('discus','tailwind',4,90)<1);
+ // The javelin runs the other way: a tailwind carries it, a headwind stalls all but the best.
+ assert(G.windEffect('jav','tailwind',4,90)>G.windEffect('jav','tailwind',4,20)&&G.windEffect('jav','tailwind',4,20)>1);
+ assert(G.windEffect('jav','headwind',4,20)<G.windEffect('jav','headwind',4,95)&&G.windEffect('jav','headwind',4,95)<=1);
+ // Stronger wind, bigger effect; nothing runs away.
+ assert(G.windEffect('discus','headwind',5,100)>G.windEffect('discus','headwind',2,100));
+ for(const ev of ['discus','jav']) for(const wind of ['headwind','tailwind','crosswind']) for(const k of [0,50,100]) { const e=G.windEffect(ev,wind,6,k); assert(e>0.96&&e<1.04,ev+wind+k); }
+});
+test('wind is forecast with the weather, and every throw reads its own gust',()=>{
+ const s=G.newGame(77); let windy=0,calm=0; const seen=new Set();
+ for(let day=1;day<=400;day++) {
+  const w=G.windOn(s,day); assert.deepEqual(w,G.windOn(s,day)); seen.add(w.wind);
+  if(G.weatherOn(s,day)==='windy') { windy++; assert(w.wind!=='calm'&&w.speed>=2.8&&w.speed<=5); }
+  else if(w.wind==='calm') { calm++; assert.equal(w.speed,0); } else assert(w.speed>=0.8&&w.speed<=2.6);
+ }
+ assert(windy>10&&calm>60); assert.equal(seen.size,4);
+ assert.equal(G.gust('a:0:home:1:0',0),0);
+ const readings=Array.from({length:60},(_,i)=>G.gust('meet:1:home:7:'+i,3));
+ assert(readings.every(v=>v>=1.8&&v<=4.2)); assert(new Set(readings).size>8);
+ assert.equal(G.gust('meet:1:home:7:2',3),readings[2]);
+ // A meet takes the day's wind, and a discus throw in it carries a gauge reading.
+ let found=false;
+ for(let seed=1;seed<=40&&!found;seed++) {
+  const g=G.newGame(seed); g.settings.clutch=false; assert(G.enterCompetition(g,{kind:'duel',tier:0})); g.day=g.matchDay;
+  const w=G.windOn(g,g.day); if(w.wind==='calm') continue;
+  assert(G.startMatch(g)); assert.equal(g.match.wind,w.wind); assert.equal(g.match.windSpeed,w.speed);
+  const beats=[]; for(let i=0;i<400&&g.match.phase!=='complete';i++){const b=G.advanceMatch(g); if(b?.type==='throw') beats.push(b);}
+  assert(beats.filter(b=>b.event==='shot'||b.event==='hammer').every(b=>b.windSpeed==null));
+  const felt=beats.filter(b=>b.event==='discus'||b.event==='jav'); assert(felt.length&&felt.every(b=>b.wind===w.wind&&b.windSpeed>0));
+  found=true;
+ }
+ assert(found);
 });
 test('revisiting a tier or entering a new stage keeps the same rival athletes, including after a save',()=>{
  const s=G.newGame(67);s.circuit.cleared=['0:0','0:1'];const names=s.clubs.map(c=>({id:c.id,names:c.athletes.map(a=>a.name)}));

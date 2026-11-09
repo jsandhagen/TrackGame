@@ -1,6 +1,6 @@
 import * as G from "../domain/game.js";
 import { line as voiceLine } from "../domain/voice.js";
-import { throwResult } from "../render/meet-presentation.js";
+import { throwResult, windReading } from "../render/meet-presentation.js";
 import {
   SHOPKEEPER,
   HELPER,
@@ -272,6 +272,13 @@ export function statRows(a, compact = false) {
 export function renameBody(a) {
   return `<div class="rename-body">${portrait(a, "large")}<label>New name<input id="athleteName" maxlength="${G.NAME_MAX}" value="${esc(a.name)}" autocomplete="off" spellcheck="false"></label></div><p class="hint">Up to ${G.NAME_MAX} characters. Club records follow them to the new name.</p><p class="warning" id="renameProblem" hidden></p>`;
 }
+// Medals won at championships and the rival this athlete keeps meeting.
+function athleteHonours(s, a) {
+  const medals = G.medalsOf(a), rival = G.rivalOf(s, a), parts = [];
+  if (medals.some(Boolean)) parts.push(`<span class="medal-tally" title="Championship medals">${medals.map((n, i) => `<span class="medal-chip m${i + 1}"><i></i>${n}</span>`).join("")}</span>`);
+  if (rival) parts.push(`<span class="rival-fact">${ico("bolt")} Rival <b>${esc(rival.name)}</b> <small>${esc(rival.club)} · ${EVENTS[rival.event]?.short || ""}</small> <b>${rival.w}–${rival.l}</b></span>`);
+  return parts.length ? `<div class="facts honours-facts">${parts.join("")}</div>` : "";
+}
 function athletePage(s, a, view) {
   const tabs = [
     ["stats", "Stats"],
@@ -295,7 +302,7 @@ function athletePage(s, a, view) {
       ${next ? `<p>Raises the limit to <b>${Math.floor(G.rankCap(a, a.rank + 1))}</b> (a ${next.name} can reach ${next.limit})${next.slots > RANKS[a.rank].slots ? ", adds a <b>skill slot</b>" : ""}, +1 to every stat, 1 SP and a new look. Needs level ${next.level}${next.title ? " and a league title" : ""}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(next.cost) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Promote to " + next.name, "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}` : `<p>Every star lifts the ceiling to <b>${Math.floor(G.capOf(a) + G.STAR_CAP)}</b>, +1 to every stat and 1 SP. There is no last star. Needs level ${G.starLevel(a)}. ${a.promoteFree ? "<b>Promotion Letter ready: free!</b>" : "Fee " + cash(G.starCost(a)) + "."}</p>${btn(problem ? esc(problem) : ico("star") + " Earn star " + ((a.stars || 0) + 1), "promote", `data-id="${a.id}" ${problem ? "disabled" : ""}`)}`}
     </article>` : ""}
     <div class="explain"><b>${BACKGROUNDS[a.background].name}</b>: ${esc(BACKGROUNDS[a.background].story)} <em>${esc(BACKGROUNDS[a.background].desc)}.</em>${a.secret ? "<br><b>Secret character.</b> " + esc(SECRETS[a.secret].story) : ""}<br><b>${esc(typeName(a))}</b>: ${esc(ATHLETE_TYPES[a.type]?.desc || "")} <em>Growth: ${STAT_NAMES.map((n, i) => n + " " + GROWTH[ATHLETE_TYPES[a.type]?.growth[i] ?? 2].name.toLowerCase()).join(" · ")}.</em></div>
-    <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Personal best <b>${pbMark(a,a.event)}</b></span></div>`;
+    <div class="facts"><span>Wage <b>${cash(G.wageOf(a))}/wk</b></span><span>Potential <b>${Math.floor(a.potential)}</b></span><span>Personal best <b>${pbMark(a,a.event)}</b></span>${G.seasonBest(s, a, a.event) ? `<span>Season's best <b>${mark(G.seasonBest(s, a, a.event))}</b></span>` : ""}</div>${athleteHonours(s, a)}`;
   }
   if (tab === "stats" && G.systemUnlocked(s,"plans")) body += btn(s.settings.followAthlete===a.id ? "Following in highlights · stop" : "Follow this athlete in highlights","follow-athlete",`data-id="${a.id}"`,"subtle")+masteryCard(s,a)+developmentCard(a);
   if (tab === "train") {
@@ -1010,6 +1017,7 @@ export function meetGuide(s) {
   </ul></section>
   <section><h3>The scoreboard</h3><ul class="guide-legend">
     <li><i class="badge pb">PB</i><span>a personal best for one of your athletes today</span></li>
+    <li><i class="badge sb">SB</i><span>a season's best: their furthest this calendar year</span></li>
     <li><i class="badge q new">Q</i><span>reached the championship standard today (outlined if it was reached in an earlier duel)</span></li>
     <li><span class="guide-cut">FINAL CUT</span><span>everyone above the orange line is in the final; after the cut the rest are <b>OUT</b></span></li>
   </ul><p class="hint">Under the thrower, the goals they are chasing (PB, standard, final cut) fill in with a tick once done.</p></section>
@@ -1023,8 +1031,13 @@ export function meetGuide(s) {
   <section><h3>What changes a throw</h3><ul class="howto">
     <li><b>The athlete</b>: their event rating (stats and event mastery), mood and stamina. Tired or unhappy athletes throw shorter.</li>
     <li><b>Weather</b>: a wet circle raises foul risk; cold implements cost about 1.5%; heat drains stamina faster.</li>
-    <li><b>Wind</b> (the windsock): matters in the discus. A headwind gives the disc a little lift; a crosswind costs a little distance.</li>
+    <li><b>Wind</b> (the windsock and its reading in metres a second): the discus and the javelin feel it, the shot and the hammer don't. A <b>headwind</b> lifts the disc for a thrower with the mastery to ride it and costs a novice; a <b>tailwind</b> presses the disc down but carries the javelin; a <b>crosswind</b> costs both a little and pushes them towards the sector lines (more fouls). The call room shows the day's wind, and every throw gets its own gust.</li>
     <li><b>Skills</b> can fire during a throw. On the big moments a cut-in names the skill.</li>
+  </ul></section>
+  <section><h3>Records, medals and rivals</h3><ul class="howto">
+    <li><b>Division records</b>: every division keeps a record in each event. Break one in a league meet for prize money and fans. Rival throwers can break them too, and their mark becomes the one to beat.</li>
+    <li><b>Medals</b>: the first three in each event of a championship take gold, silver and bronze. Medals pay prize money, and the clubs placed second and third on points take a share of the title prize.</li>
+    <li><b>Rivals</b>: rival clubs keep their throwers, so yours meet the same people again. After two meetings the opponent an athlete has faced most becomes their rival, with a head-to-head score. Finishing ahead of a rival lifts the athlete's mood and earns extra XP and fans.</li>
   </ul></section>
   <section><h3>Pace</h3><p>One, two or three arrows play the meet at normal, fast or very fast. <b>Highlights</b> lingers on the big moments; <b>Every throw</b> gives each result the same time. Pause any time. Decisions always wait for you.</p></section>
   </div>`;
@@ -1111,13 +1124,13 @@ export function calendar(s) {
   }).join("");
   const ahead = [];
   for (let day = s.day; day < s.day + 28; day++) for (const m of dayMarks(s, day, meets)) if (m.cls !== "pay") ahead.push({ day, ...m });
-  return `<section class="card cal-today"><div><span class="eyebrow">${esc(G.SEASON_NAMES[today.season].toUpperCase())} · YEAR ${today.year}</span><h2>${esc(G.longDate(s.day))}</h2><p>${esc(G.WEATHER[w].desc)}</p></div>${weatherChip(w)}</section>
+  return `<section class="card cal-today"><div><span class="eyebrow">${esc(G.SEASON_NAMES[today.season].toUpperCase())} · YEAR ${today.year}</span><h2>${esc(G.longDate(s.day))}</h2><p>${esc(G.WEATHER[w].desc)}</p><p class="hint cal-wind">${ico("wind")} ${(({ wind, speed }) => wind === "calm" ? "Calm over the infield." : esc(windReading(wind, speed)) + " over the infield: the discus and javelin will feel it at a meet.")(G.windOn(s, s.day))}</p></div>${weatherChip(w)}</section>
   <div class="card-title"><h2>${ico("sun")} Seven-day forecast</h2></div>
   <div class="forecast">${forecast.map((f) => {
     const meet = dayMarks(s, f.day, meets).find((m) => m.cls !== "pay");
-    return `<div class="fc ${f.day === s.day ? "today" : ""} ${meet ? "meet" : ""}"><small>${f.day === s.day ? "Today" : G.WEEKDAYS[G.dateOf(f.day).weekday]}</small>${ico(G.WEATHER[f.weather].icon)}<b>${esc(G.WEATHER[f.weather].name)}</b>${meet ? `<em>${ico(meet.icon)} ${meet.cls === "cup" ? "Invitational" : "Meet"}</em>` : ""}</div>`;
+    return `<div class="fc ${f.day === s.day ? "today" : ""} ${meet ? "meet" : ""}"><small>${f.day === s.day ? "Today" : G.WEEKDAYS[G.dateOf(f.day).weekday]}</small>${ico(G.WEATHER[f.weather].icon)}<b>${esc(G.WEATHER[f.weather].name)}</b>${meet ? `<em>${ico(meet.icon)} ${meet.cls === "cup" ? "Invitational" : "Meet"}</em><small class="fc-wind">${(({ wind, speed }) => wind === "calm" ? "Calm" : esc(windReading(wind, speed)))(G.windOn(s, f.day))}</small>` : ""}</div>`;
   }).join("")}</div>
-  <p class="hint">Rain and snow slow outdoor work (laps, sprints, throwing) but not the gym or film room. Meet-day weather sets the conditions in the circle.</p>
+  <p class="hint">Rain and snow slow outdoor work (laps, sprints, throwing) but not the gym or film room. Meet-day weather sets the conditions in the circle, and the day's wind is forecast with it: plan discus and javelin entries around it.</p>
   <div class="card-title"><h2>${ico("calendar")} Next four weeks</h2></div>
   <div class="cal-grid">${G.WEEKDAYS.map((d) => `<span class="cal-head">${d}</span>`).join("")}${cells}</div>
   <div class="cal-legend"><span>${ico("league")} Meet</span><span>${ico("star")} Invitational</span><span>${ico("coin")} Payday</span></div>
@@ -1145,8 +1158,14 @@ export function league(s, view) {
     })
     .join("")}`;
 }
+// The records of the division the club is in (or has booked), and who holds them.
+function divisionRecordsCard(s) {
+  const d = G.currentDivision(s);
+  return `<div class="card-title"><h2>${esc(d.name)} records</h2></div><div class="records division-records">${EVENT_IDS.map((ev) => { const r = G.divisionRecord(s, d.index, ev); return `<span class="${r.home ? "record-ours" : ""}">${EVENTS[ev].name}<b>${mark(r.mark)}</b><small>${r.name ? esc(r.name) + " · " + esc(r.club || "") : "Division best"}</small></span>`; }).join("")}</div><p class="hint">Break one in a league duel or the championship: +${cash(G.divisionRecordReward(d.index).money)} and +${G.divisionRecordReward(d.index).fans} fans each.</p>`;
+}
 function leagueRecords(s) {
   return `${worldBoard(s)}<div class="card-title"><h2>Club records</h2></div><div class="records">${EVENT_IDS.map((ev) => `<span>${EVENTS[ev].name}<b>${s.records[ev] ? mark(s.records[ev].mark) : "—"}</b><small>${s.records[ev] ? esc(s.records[ev].name) + " · S" + s.records[ev].season : ""}</small><small class="${s.worldRecords?.[ev] ? "wr-ours" : ""}">World record ${G.worldRecord(s, ev).toFixed(2)}${s.worldRecords?.[ev] ? " · " + esc(s.worldRecords[ev].name) : ""}</small></span>`).join("")}</div>
+  ${divisionRecordsCard(s)}
   <div class="card-title"><h2>${ico("trophy")} Trophy cabinet</h2></div><div class="trophies">${s.trophies.length || s.invitations?.won.length ? s.trophies.map((t) => `<div>${ico("trophy", "big")}<strong>${esc(G.divisionOf(t.league,t.stage??2).name)}</strong><small>Season ${t.season}</small></div>`).join("") + (s.invitations?.won || []).map((t) => `<div class="invite-trophy">${ico("star", "big")}<strong>${esc(t.name)}</strong><small>${LEAGUES[t.tier].name} · ${esc(G.shortDate(t.day))}</small></div>`).join("") : "<p class='hint'>A space is waiting for the first one.</p>"}</div>`;
 }
 
@@ -1274,6 +1293,7 @@ export function lobby(s, view = {}) {
   view = { ...view, editLineup: view.editLineup || !!problem };
   return `${championship ? championshipStandards(s) : ""}<p class="lobby-sub"><b>vs ${esc(m.name)}</b> · ${esc(m.style)} · ${G.isLeagueChampionship(s) ? "3 preliminary throws · top six earn 3 more · marks carry forward" : s.fixture === 3 ? "3 qualifying throws + 3 final throws for the top four" : "3 throws per athlete"} · ${esc(G.venueLabel(G.meetVenue(s)))}${G.meetVenue(s)?.home ? (({ attendance, capacity }) => ` · crowd ~${attendance.toLocaleString()} of ${capacity.toLocaleString()}`)(G.stadiumCrowd(s, { meet: true, weather: s.match?.weather || G.weatherOn(s, s.matchDay) })) : ""}</p>
   <p class="meet-forecast">${weatherChip(sky)} <span>${esc(G.WEATHER[sky].desc)}</span></p>
+  ${windForecast(s)}
   <div class="lineup">${EVENT_IDS.map((ev, i) => {
     // Every entry slot for the event sits in one row, beside the rival's specialist.
     const ids = G.entriesOf(s, ev),
@@ -1283,6 +1303,10 @@ export function lobby(s, view = {}) {
       mine = ids.reduce((n, id) => Math.max(n, pb(s.roster.find((x) => x.id === id))), 0),
       theirs = pb(r);
     const known = mine > 0 && theirs > 0, edge = known ? mine / theirs - 1 : 0;
+    // Head-to-heads on the card: an entrant whose rival is in this event's field.
+    const awayIds = championship ? field[ev].map((e) => e.athlete.id) : G.rivalEntries(s, m)[ev];
+    const duels = s.competition?.kind === "cup" ? "" : ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => [x, G.rivalOf(s, x)]).filter(([, rv]) => rv && awayIds.includes(rv.id))
+      .map(([x, rv]) => `<small class="rivalry-line">${ico("bolt")} ${esc(shortName(x.name))} v rival ${esc(shortName(rv.name))} · head-to-head <b>${rv.w}–${rv.l}</b></small>`).join("");
     // Each entry slot opens the athlete picker, with portraits, stats and recorded PBs side by side.
     const slot = (k) => {
       const x = s.roster.find((y) => y.id === ids[k]);
@@ -1290,7 +1314,7 @@ export function lobby(s, view = {}) {
     };
     // Entries read as names until the coach asks to change them.
     const names = ids.map((id) => s.roster.find((x) => x.id === id)).filter(Boolean).map((x) => `<b>${esc(shortName(x.name))}</b> PB ${pbMark(x,ev)}${x.event === ev ? " " + specialistMark() : ""}`).join("<br>");
-    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Recorded PB comparison">${!known ? "Unproven" : edge > 0.01 ? "PB ahead" : edge < -0.01 ? "PB behind" : "PB level"}</span></div>
+    return `<div class="lineup-row"><div class="lineup-event">${eventChip(ev)}<span class="edge ${edge > 0.01 ? "up" : edge < -0.01 ? "down" : ""}" title="Recorded PB comparison">${!known ? "Unproven" : edge > 0.01 ? "PB ahead" : edge < -0.01 ? "PB behind" : "PB level"}</span>${duels}</div>
       <div class="lineup-us">${a && !view.editLineup ? portrait(a) : ""}<span class="entry-slots">${view.editLineup ? [0, 1, 2].filter((k) => k <= ids.length).map(slot).join("") : `<span class="entry-names">${names || "No entry yet"}</span>`}<small>${a ? mood(a) + " Stamina " + Math.round(a.stamina) : ""}</small></span></div>
       <div class="lineup-them">${championship ? `<span>${field[ev].map(({athlete,club}) => `<span class="championship-entry"><strong>${esc(athlete.name)}</strong><small>${esc(club.name)} · PB ${pbMark(athlete,ev)}</small></span>`).join("")}</span>` : `${rivalPortrait(m.id, m.athletes.indexOf(r))}<span><strong>${esc(r.name)}</strong><small>OVR ${G.overall(r)} · PB ${pbMark(r,ev)}${r.skills.length ? " · " + r.skills.length + " skill" + (r.skills.length > 1 ? "s" : "") : ""}</small></span>`}</div></div>`;
   }).join("")}</div>
@@ -1362,6 +1386,7 @@ function resultTable(s, event) {
 const BADGES = {
   pb: (r) => `<i class="badge pb" title="${r.firstMark ? "First mark: a personal best" : "Personal best"}">PB</i>`,
   q: (r) => `<i class="badge q${r.newlyQualified ? " new" : ""}" title="${r.newlyQualified ? "Reached the championship standard today" : "Championship standard reached"}">Q</i>`,
+  sb: () => `<i class="badge sb" title="Season's best: their furthest this year">SB</i>`,
   out: () => `<i class="badge out" title="Missed the final">OUT</i>`,
 };
 function standingRows(s, board, rows, side, id) {
@@ -1375,7 +1400,7 @@ function standingRows(s, board, rows, side, id) {
   rows.forEach((row, n) => {
     if (!standardShown && (row.mark == null || row.mark < board.standard)) { out.push(divider("standard-line", "CHAMPIONSHIP STANDARD", board.standard)); standardShown = true; }
     const {athlete,club}=meetAthlete(s,row.side,row.id);
-    const badges = (row.out ? BADGES.out() : "") + (row.pb ? BADGES.pb(row) : "") + (row.qualified ? BADGES.q(row) : "");
+    const badges = (row.out ? BADGES.out() : "") + (row.pb ? BADGES.pb(row) : row.sb ? BADGES.sb() : "") + (row.qualified ? BADGES.q(row) : "");
     out.push(`<div class="standing ${row.side === "home" ? "our-athlete" : ""} ${row.side === side && row.id === id ? "throwing" : ""} ${row.inFinal ? "in-final" : ""} ${row.out ? "out" : ""}"><b class="place place-${row.place}">${row.place || "—"}</b><span title="${esc(athlete?.name)}">${esc(athlete?.name)}${nationTag(athlete)}${row.side === "home" ? '<small class="club-tag">YOU</small>' : m.leagueChampionship ? `<small class="club-tag">${esc(club?.name)}</small>` : ""}</span><span class="badges">${badges}</span><strong>${row.mark == null ? "NM" : row.mark.toFixed(2)}</strong></div>`);
     if (n === cutAfter) out.push(divider("cut-line", `FINAL CUT · TOP ${board.cut}${open ? ` · ${open} OPEN` : ""}`, null));
   });
@@ -1388,6 +1413,9 @@ function throwerGoals(s, board, row, athlete, ev) {
   const goals = [];
   if (athlete) goals.push(athlete.pb?.[ev] ? `<span class="goal pb ${row?.pb ? "done" : ""}">PB <b>${athlete.pb[ev].toFixed(2)}</b></span>` : `<span class="goal pb ${row?.pb ? "done" : ""}">First PB</span>`);
   if (board.standard != null) goals.push(`<span class="goal q ${row?.qualified ? "done" : ""}">Standard <b>${board.standard.toFixed(2)}</b></span>`);
+  if (board.record) goals.push(`<span class="goal dr ${row && row.mark != null && row.mark >= board.record.mark ? "done" : ""}" title="${esc(G.DIVISIONS[board.record.division].name)} record${board.record.name ? " · " + esc(board.record.name) + (board.record.club ? ", " + esc(board.record.club) : "") : ""}">Division record <b>${board.record.mark.toFixed(2)}</b></span>`);
+  const rival = athlete && s.match?.kind !== "cup" ? G.rivalOf(s, athlete) : null;
+  if (rival && s.match?.fields?.[EVENT_IDS.indexOf(ev)]?.away.some((e) => e.id === rival.id)) goals.push(`<span class="goal rival" title="Head-to-head with ${esc(rival.name)} of ${esc(rival.club)}">Rival ${esc(shortName(rival.name))} <b>${rival.w}–${rival.l}</b></span>`);
   if (board.cut != null) goals.push(`<span class="goal cut ${row?.inFinal ? "done" : ""}">${row?.inFinal ? "In the final" : "Final cut"}${board.cutMark != null && !row?.inFinal ? ` <b>${board.cutMark.toFixed(2)}</b>` : ""}</span>`);
   if (board.finals && row && !row.out) goals.push(`<span class="goal cut done">Finalist</span>`);
   return goals.length ? `<div class="thrower-goals">${goals.join("")}</div>` : "";
@@ -1426,13 +1454,26 @@ export function meetBar(s, view) {
       <div class="thrower-attempts" aria-label="Throw attempts">${Array.from({length:m.attempts},(_,k)=>`<span class="${k >= marks.length ? "pending" : marks[k] == null ? "foul" : marks[k] === G.best(marks) ? "best" + (thrower?.pb ? " pb" : "") : ""}"><small>${k+1}</small><b>${k >= marks.length ? "·" : marks[k] == null ? "X" : marks[k].toFixed(2)}</b></span>`).join("")}</div>
       ${throwerGoals(s, board, thrower, side === "home" ? a : null, ev)}
     </section>
-    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event points " + liveHome + "–" + liveAway} <small class="standings-state" title="${m.closed[i] ? "These points are in the meet score" : "Points if the event ended now"}">${m.closed[i] ? "FINAL" : m.prelimFinals ? "LIVE" : "IF IT ENDED NOW"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${ev === "discus" ? " · " + esc(m.wind || "calm") : ""}</small></header><div class="standings-list">${standingRows(s, board, rows, side, a.id)}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}</section>`}
+    ${leagueDuel && view.meetStandards ? qualifications(s,view,ev) : `<section class="live-standings" aria-label="Live standings"><header><strong>${m.prelimFinals ? "Event standings" : "Event points " + liveHome + "–" + liveAway} <small class="standings-state" title="${m.closed[i] ? "These points are in the meet score" : "Points if the event ended now"}">${m.closed[i] ? "FINAL" : m.prelimFinals ? "LIVE" : "IF IT ENDED NOW"}</small></strong><small>${m.prelimFinals ? m.finalRound ? "Final · preliminary marks retained" : "Preliminaries · top six advance" : m.finalRound ? "Final throws" : m.championship ? "Qualifying" : "Three-throw series"}${m.weather ? " · " + esc(G.WEATHER[m.weather].name) : ""}${G.windFelt(ev) ? " · " + esc(windReading(m.wind, m.windSpeed ?? 2) || "Calm") : ""}</small></header><div class="standings-list">${standingRows(s, board, rows, side, a.id)}</div>${fullRows.length>SCOREBOARD_LIMIT ? `<small class="scoreboard-truncation">Top ${SCOREBOARD_LIMIT} of ${fullRows.length}</small>` : ""}</section>`}
   </div><div class="meet-toolbar">${toolButton(view.meetPaused ? "play" : "pause", view.meetPaused ? "Resume" : "Pause", "meet-pause", `aria-pressed="${!!view.meetPaused}"`, view.meetPaused ? "Resume meet" : "Pause meet")}<div class="seg" role="group" aria-label="Meet speed">${speedButtons(view.meetSpeed || s.settings.meetSpeed || 1, "meet-speed")}</div>${toolButton("skip", "My next throw", "meet-skip", `data-to="mine" ${m.phase === "decide" ? "disabled" : ""}`, "Skip to my next throw")}${toolButton("finish", "End of event", "meet-skip", `data-to="event" ${m.phase === "decide" ? "disabled" : ""}`, "Skip to the end of this event")}${meetOptions(s, view, leagueDuel)}<details class="meet-more"><summary class="button subtle small" aria-label="More meet options" title="More">⋯</summary><div class="meet-more-menu">${meetOptions(s, view, leagueDuel)}</div></details></div>`;
 }
 export function meetScore(s) {
   const m = s.match,
     scores = G.eventScores(m);
   return `<div class="meet-score"><span class="side"><i class="dot" style="--c:${s.colors.primary}"></i>${esc(s.clubName)}</span><b>${m.score}</b><div class="event-chips">${scores.map((e, n) => `<span class="ev ${n === m.eventIndex && m.phase !== "complete" ? "now" : ""} ${e.done ? (e.h > e.a ? "won" : e.a > e.h ? "lost" : "tied") : ""}" style="--c:${EVENTS[e.event].color}">${EVENTS[e.event].short}<em>${e.done ? e.h + ":" + e.a : n === m.eventIndex ? "LIVE" : "·"}</em></span>`).join("")}</div><b>${m.against}</b><span class="side">${esc(m.leadingClub || m.name)}<i class="dot" style="--c:${m.color}"></i></span></div>`;
+}
+// What the wind means for one thrower in one event, in a line: the reading and its effect.
+function windLine(wind, speed, ev, mastery) {
+  if (!G.windFelt(ev) || !wind || wind === "calm" || !speed) return "";
+  const pct = (G.windEffect(ev, wind, speed, mastery) - 1) * 100, fouls = G.windFoul(ev, wind, speed) > 1;
+  return `<p class="hint wind-line">${ico("wind")} <b>${esc(windReading(wind, speed))}</b> · ${Math.abs(pct) < 0.05 ? "no help, no harm" : (pct > 0 ? "+" : "−") + Math.abs(pct).toFixed(1) + "% distance at this mastery"}${fouls ? " · more sector fouls" : ""}</p>`;
+}
+// The day's wind for the call room, and which events it touches.
+function windForecast(s) {
+  const { wind, speed } = G.windOn(s, s.day);
+  if (wind === "calm") return `<p class="meet-forecast wind-forecast">${ico("wind")} <span><b>Calm.</b> The flags hang still: no wind in the discus or javelin.</span></p>`;
+  const tip = { headwind: "Lifts the discus for throwers with the mastery to ride it; stalls the javelin for those without.", tailwind: "Carries the javelin; presses the discus down.", crosswind: "Costs the discus and javelin a little and pushes them towards the sector lines." }[wind];
+  return `<p class="meet-forecast wind-forecast">${ico("wind")} <span><b>${esc(windReading(wind, speed))}.</b> ${tip} Shot and hammer are unaffected.</span></p>`;
 }
 // The decision window for one of your throws.
 // The standings as they are while you choose, since the call covers the scoreboard on a phone:
@@ -1442,7 +1483,7 @@ function decideStandings(s, a) {
   if (!rows.length) return "";
   const mine = rows.findIndex((r) => r.side === "home" && r.id === a.id);
   const shown = rows.filter((r, n) => n < 3 || n === mine);
-  const line = (r) => { const {athlete} = meetAthlete(s, r.side, r.id); return `<li class="${r.side === "home" ? "our-athlete" : ""} ${r.side === "home" && r.id === a.id ? "throwing" : ""}"><b>${r.place || "—"}</b><span>${esc(athlete?.name || "")}</span>${r.pb ? BADGES.pb(r) : ""}${r.qualified ? BADGES.q(r) : ""}<strong>${r.mark == null ? "NM" : r.mark.toFixed(2)}</strong></li>`; };
+  const line = (r) => { const {athlete} = meetAthlete(s, r.side, r.id); return `<li class="${r.side === "home" ? "our-athlete" : ""} ${r.side === "home" && r.id === a.id ? "throwing" : ""}"><b>${r.place || "—"}</b><span>${esc(athlete?.name || "")}</span>${r.pb ? BADGES.pb(r) : r.sb ? BADGES.sb() : ""}${r.qualified ? BADGES.q(r) : ""}<strong>${r.mark == null ? "NM" : r.mark.toFixed(2)}</strong></li>`; };
   const note = board.standard != null ? `Standard ${mark(board.standard)}` : board.cut != null ? `Final cut: top ${board.cut}${board.cutMark != null ? " · " + mark(board.cutMark) : ""}` : "";
   return `<ol class="decide-standings">${shown.map(line).join("")}</ol>${note ? `<p class="hint decide-note">${note}</p>` : ""}`;
 }
@@ -1454,6 +1495,7 @@ export function decide(s, view) {
     return `<div class="meter-panel"><span class="eyebrow">RELEASE ON THE GOLD</span><div class="meter"><span class="zone good"></span><span class="zone perfect" style="--w:${G.effects(s, a).perfect ? 22 : 14}%"></span><span id="needle"></span></div>${btn("Release!", "release")}<small>Tap Release, or press Space.</small></div>`;
   return `<div class="decide ${m.last?.clutch ? "clutch" : ""}">${G.firstMeet(s) && m.eventIndex === 0 && !m.homeMarks[0].length ? '<p class="hint">Your call: Bank it is safest. Controlled balances distance and risk. All out chases distance with more foul risk.</p>' : ""}<p>${m.last?.clutch ? ico("bolt") + " <b>Clutch moment.</b> " : ""}<b>${esc(a.name)}</b> · PB ${pbMark(a,EVENT_IDS[m.eventIndex])}. ${chip("Suggested: " + TACTICS[m.last?.recommended || "balanced"].name, "#88b0d0")}</p>
     <p class="scoring-target">${esc(targetText(G.fieldTarget(s)))}</p>
+    ${windLine(m.wind, m.windSpeed ?? 2, EVENT_IDS[m.eventIndex], G.masteryOf(a, EVENT_IDS[m.eventIndex]))}
     ${decideStandings(s, a)}
     <div class="tactics">${Object.entries(TACTICS)
       .map(([id, t]) => {
@@ -1507,6 +1549,17 @@ function meetHighlights(s) {
     return `<article class="meet-highlight ${row?.place === 1 ? "event-winner" : ""}" style="--event-color:${EVENTS[event.event].color}"><header>${eventChip(event.event)}<b>${event.h}–${event.a} pts</b></header><strong>${row ? title : "No club entry"}</strong>${athlete ? `<div>${face}<span><b>${esc(athlete.name)}</b><small>${row.mark == null ? "No legal mark" : mark(row.mark)}${row.place ? " · Place " + row.place : ""}</small></span></div>` : ""}${pb ? `<small class="highlight-pb">${pb.delta > 0 ? "PB +" + pb.delta.toFixed(2) + " m" : "First official mark"}</small>` : ""}</article>`;
   }).join("")}</section>`;
 }
+// Medals, division records and settled scores: what the meet adds to the club's story.
+function meetHonours(s, r) {
+  const lines = [];
+  const medals = r.medals || [];
+  if (medals.length) lines.push(`<p class="honour medals">${medals.slice().sort((a, b) => a.place - b.place).map((x) => `<span class="medal-chip m${x.place}" title="${G.MEDAL_NAMES[x.place - 1]} · ${EVENTS[x.event].name}"><i></i>${esc(shortName(x.name))} <small>${EVENTS[x.event].short}</small></span>`).join("")}${r.medalMoney ? `<em>Medal prizes +${cash(r.medalMoney)}</em>` : ""}</p>`);
+  if (r.podium) lines.push(`<p class="honour">${ico("trophy")} ${r.podium.place === 2 ? "Runners-up" : "Third place"} on points: <b>+${cash(r.podium.money)}</b> from the championship purse.</p>`);
+  for (const d of r.divisionRecords || []) lines.push(`<p class="honour ${d.home ? "record-ours" : ""}">${ico(d.home ? "trophy" : "target")} ${esc(G.DIVISIONS[d.division].name)} record · ${EVENTS[d.event].name} <b>${mark(d.mark)}</b> · ${esc(d.name)}${d.home ? ` (was ${d.previous.toFixed(2)}) · +${cash(G.divisionRecordReward(d.division).money)}, +${G.divisionRecordReward(d.division).fans} fans` : ` of ${esc(d.club)}: the new mark to beat`}</p>`);
+  // Settled scores: wins first, and no more than four lines.
+  for (const x of [...(r.rivalries || [])].sort((a, b) => b.won - a.won).slice(0, 4)) lines.push(`<p class="honour ${x.won ? "rival-won" : "rival-lost"}">${ico("bolt")} ${esc(shortName(x.name))} ${x.won ? "beat" : "lost to"} rival ${esc(x.rivalName)} (${esc(x.club)}) in the ${EVENTS[x.event].name.toLowerCase()} · head-to-head now <b>${x.w}–${x.l}</b></p>`);
+  return lines.length ? `<section class="meet-honours" aria-label="Medals, records and rivalries">${lines.join("")}</section>` : "";
+}
 export function meetComplete(s, view = {}) {
   const m = s.match,
     r = m.rewards || { items: [], pbs: [], levelUps: [], goals: [] },
@@ -1516,6 +1569,7 @@ export function meetComplete(s, view = {}) {
   const selected = EVENT_IDS.includes(view.resultEvent) ? view.resultEvent : "all";
   return `<header class="meet-verdict ${win ? "win" : draw ? "draw" : "loss"}"><div><span class="eyebrow">${m.kind === "final" ? "THE FINAL" : m.kind === "duel" ? "CLUB DUEL" : m.kind === "cup" ? esc(r.invitational?.name || "INVITATIONAL").toUpperCase() : "LEAGUE FIXTURE"} · COMPLETE</span><h1>${win ? "Victory!" : draw ? "Honours even" : "Defeat"}</h1></div><div class="verdict-score"><span>${esc(s.clubName)}</span><b><span data-count="${m.score}">${m.score}</span> <small>–</small> <span data-count="${m.against}">${m.against}</span></b><span>${esc(m.name)}</span></div>${win ? `<div class="confetti" aria-hidden="true">${Array.from({ length: 16 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${((i * 13) % 9) / 10}s;--r:${(i * 71) % 360}deg;--c:${["#f2c94c", s.colors.primary, "#e0506a", "#5aa4c8", "#8cc152"][i % 5]}"></i>`).join("")}</div>` : ""}</header>
   <div class="meet-payout"><span>${ico("coin")} <b>+<span data-count="${r.money || 0}" data-cash>${cash(r.money || 0)}</span></b></span><span>${ico("heart")} +<span data-count="${r.fans || 0}">${r.fans || 0}</span> fans</span>${G.systemUnlocked(s,"sessions") ? `<span>${ico("idea")} +<span data-count="${r.insights || 0}">${r.insights || 0}</span> Insights</span>` : ""}${r.mvp ? `<span class="meet-mvp">${ico("mvp")} MVP <b>${esc(r.mvp.name)}</b></span>` : ""}${(r.worldRecords || []).map((w) => `<span class="meet-mvp wr-ours">${ico("trophy")} WORLD RECORD <b>${esc(w.name)} ${mark(w.mark)}</b></span>`).join("")}</div>
+  ${meetHonours(s, r)}
   ${m.leagueChampionship ? championshipTable(s) : ""}
   ${r.introduction ? (() => { const d = G.INTRODUCTIONS.find(d => d.id === r.introduction); return `<article class="card introduction-card"><span class="eyebrow">NEW CLUB SYSTEM</span><h2>${esc(d.name)}</h2><p>${esc(d.desc)}</p>${btn("Try " + esc(d.name.toLowerCase()), "leave", `data-page="${d.page}"`, "subtle")}</article>`; })() : ""}
   ${m.tieBreak ? '<p class="hint">Decided on distance tie-break.</p>' : ""}
@@ -1535,6 +1589,7 @@ export function meetComplete(s, view = {}) {
     ${(r.development || []).map((d) => `<p class="pb-line">${ico("star")} ${esc(d.name)} · ${esc(d.milestone)} · ${esc(d.reward)}</p>`).join("")}
     ${(r.worldRecords || []).map((w) => `<p class="pb-line wr-line">${ico("trophy")} WORLD RECORD · ${esc(w.name)} · ${EVENTS[w.event].name} ${mark(w.mark)} (was ${w.previous.toFixed(2)}) · +$2,500, +400 fans</p>`).join("")}
     ${r.pbs.map((p) => `<p class="pb-line">${ico("medal")} ${esc(p.name)} · ${EVENTS[p.event].name} PB ${mark(p.mark)}${p.delta ? " (+" + p.delta.toFixed(2) + ")" : ""}</p>`).join("")}
+    ${(r.sbs || []).map((p) => `<p class="pb-line">${ico("spark")} ${esc(p.name)} · ${EVENTS[p.event].name} season's best ${mark(p.mark)}</p>`).join("")}
     ${r.levelUps.map((l) => `<p class="pb-line">${ico("levelup")} ${esc(l.name)} reached level ${l.level}</p>`).join("")}
     ${r.goals.map((id) => `<p class="pb-line">${ico("target")} Goal: ${esc(G.GOALS.find((g) => g.id === id)?.name)}</p>`).join("")}
   </section></details>

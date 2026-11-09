@@ -9,7 +9,8 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) / 2
 const pct = (a, q) => [...a].sort((x, y) => x - y)[Math.floor((a.length - 1) * q)];
 const BUILD = ["cafe", "library", "spa", "garden", "shop", "dorm", "institute", "workshop", "scout", "lab", "fountain"];
 const STAND = ["discus", "hammer", "stands", "studio", "shot", "jav", "track", "discus", "hammer", "stands", "studio", "lights"];
-const SKILL_PRIORITY = ["gymrat", "formfreak", "fasttwitch", "clutch", "icevein", "quickstudy", "hunter", "secondwind", "momentum", "workhorse", "bigstage", "highroller", "captain", "meteor", "cyclone", "tempest", "skyspear"];
+// Common meet skills come after the training ones: they cost a point each and sit in the meet loadout.
+const SKILL_PRIORITY = ["gymrat", "formfreak", "fasttwitch", "opener", "frontrunner", "clutch", "icevein", "quickstudy", "hunter", "secondwind", "momentum", "workhorse", "bigstage", "highroller", "captain", "meteor", "cyclone", "tempest", "skyspear"];
 
 export function engaged(s) {
   // Hold back the next entry fee and a week's bills; spend only what is above that.

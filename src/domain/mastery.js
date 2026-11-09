@@ -29,10 +29,33 @@ export function competeMastery(a,ev,valid){
  a.mastery[ev]=Math.max(old,Math.min(masteryCap(a,ev),old+2+Math.min(3,valid)*0.35));
  return a.mastery[ev]-old;
 }
-// How widely each event's marks scatter, and the discus's one wind effect: a headwind gives the
-// disc lift and a crosswind knocks it off line. Applies to every thrower alike.
+// How widely each event's marks scatter.
 export const EVENT_SPREAD={shot:0.8,discus:1.15,hammer:1,jav:1.05};
-export const windEffect=(ev,wind='calm')=>ev!=='discus'?1:wind==='headwind'?1.015:wind==='crosswind'?0.99:1;
+// Wind, as throwers know it. The two implements that fly on their shape feel it; the shot and
+// the hammer do not. Using it takes technique, so the effect grows with event mastery:
+//   discus   a headwind gives the disc lift, but only a clean release rides it; a tailwind
+//            presses every disc down; a crosswind tips it off line.
+//   javelin  a tailwind carries the spear; a headwind stalls it unless the thrower can keep the
+//            point down; a crosswind drifts it towards the sector line.
+// speed is metres a second (4 is a stiff breeze). Meets saved before wind had a speed read as 2.
+export const WIND_NAMES={calm:'Calm',headwind:'Headwind',tailwind:'Tailwind',crosswind:'Crosswind'};
+export const windFelt=ev=>ev==='discus'||ev==='jav';
+export function windEffect(ev,wind='calm',speed=2,mastery=50){
+ if(!windFelt(ev)||wind==='calm'||!WIND_NAMES[wind])return 1;
+ const w=clamp(speed,0,6)/4,k=clamp(mastery,0,100)/100;
+ if(ev==='discus')return 1+w*(wind==='headwind'?-0.01+0.035*k:wind==='tailwind'?-0.02+0.008*k:-0.008);
+ return 1+w*(wind==='tailwind'?0.006+0.012*k:wind==='headwind'?-0.022+0.022*k:-0.006);
+}
+// A crosswind carries the discus and the javelin towards the sector lines.
+export const windFoul=(ev,wind='calm',speed=2)=>windFelt(ev)&&wind==='crosswind'?1+0.05*clamp(speed,0,6):1;
+// The wind never holds still: each throw gets its own reading around the meet's wind. A fixed
+// function of the meet and the attempt, so replaying a save reads the same gauge.
+export function gust(seed,speed){
+ if(!speed)return 0;
+ let x=2166136261;for(const c of String(seed))x=Math.imul(x^c.charCodeAt(0),16777619);
+ x=Math.imul(x^(x>>>15),0x2c1b3c6d);x=Math.imul(x^(x>>>12),0x297a2d39);x=(x^(x>>>15))>>>0;
+ return +clamp(speed+(x/4294967296-0.5)*2.4,0.1,6).toFixed(1);
+}
 // Throwing form: how complete a technique an athlete uses in an event, from their technique
 // stat and event mastery. It only changes how throws look; distance comes from the rating.
 export const FORMS={
