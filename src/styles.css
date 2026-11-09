@@ -5650,3 +5650,36 @@ dialog.item-fx::backdrop { background: radial-gradient(circle at 50% 45%, #0b1a1
 .division-distances th, .division-distances td { font-size: 12px; padding: 6px; white-space: nowrap; }
 .division-duels { margin-top: 12px; }
 .division-duels > summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+
+/* ── Honours: season's bests, division records, medals and rivals ────────── */
+:root { --mk-dr: #f2c94c; --mk-rival: #f08a5d; }
+.badge.sb { background: transparent; color: var(--mk-pb); box-shadow: inset 0 0 0 1px var(--mk-pb); }
+.guide-legend .badge.sb { color: #0f3344; background: #d8f1fc; }
+.goal.dr { color: var(--mk-dr); border-color: color-mix(in srgb, var(--mk-dr) 55%, transparent); }
+.goal.dr.done { background: var(--mk-dr); }
+.goal.rival { color: var(--mk-rival); border-color: color-mix(in srgb, var(--mk-rival) 55%, transparent); }
+.wind-line, .wind-forecast { display: flex; align-items: center; gap: 6px; }
+.wind-line .ico, .wind-forecast .ico { width: 16px; height: 16px; flex: none; }
+.rivalry-line { display: flex; align-items: center; gap: 3px; margin-top: 3px; font-size: 10px; color: #b3541e; }
+.rivalry-line .ico { width: 12px; height: 12px; flex: none; }
+.meet-honours { display: grid; gap: 4px; margin: 4px 0 8px; padding: 8px 10px; border: 2px solid var(--line); border-radius: 8px; background: var(--card); }
+.meet-honours .honour { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: 12px; }
+.meet-honours .honour .ico { width: 16px; height: 16px; flex: none; }
+.meet-honours .honour em { font-style: normal; font-weight: 700; color: var(--muted); }
+.meet-honours .record-ours, .meet-honours .rival-won { font-weight: 700; }
+.meet-honours .rival-lost { color: var(--muted); }
+.medal-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px 1px 3px; border-radius: 10px; background: #00000010; font-size: 11px; font-weight: 700; }
+.medal-chip i { width: 11px; height: 11px; border-radius: 50%; background: #e2b53a; box-shadow: inset 0 0 0 2px #fff3; border: 1px solid #0003; }
+.medal-chip.m2 i { background: #c3c9cf; }
+.medal-chip.m3 i { background: #c98a52; }
+.medal-chip small { font-weight: 600; opacity: .7; }
+.honours-facts { margin-top: -4px; }
+.facts.honours-facts span { flex: 0 1 auto; min-width: 0; }
+.facts.honours-facts .medal-tally { display: inline-flex; gap: 4px; align-items: center; }
+.facts.honours-facts .medal-chip { border: 0; padding: 1px 7px 1px 3px; color: var(--ink); }
+.facts.honours-facts b { display: inline; }
+.facts.honours-facts .rival-fact .ico { width: 14px; height: 14px; vertical-align: -3px; }
+.division-records .record-ours b { color: #a8741a; }
+.cal-wind { display: flex; align-items: center; gap: 5px; margin: 4px 0 0; }
+.cal-wind .ico { width: 14px; height: 14px; flex: none; }
+.fc .fc-wind { display: block; font-size: 9px; color: var(--muted); white-space: nowrap; }

@@ -1,5 +1,5 @@
-import { masteryOf, competeMastery, EVENT_SPREAD, windEffect, formOf } from "./mastery.js";
-import { EVENTS, EVENT_IDS, TACTICS, SKILLS, BACKGROUNDS, ITEMS, GEAR_SLOTS, SPONSORS } from "../game-content.js";
+import { masteryOf, competeMastery, EVENT_SPREAD, windEffect, windFoul, windFelt, gust, formOf } from "./mastery.js";
+import { EVENTS, EVENT_IDS, TACTICS, SKILLS, BACKGROUNDS, ITEMS, GEAR_SLOTS, SPONSORS, DIVISIONS } from "../game-content.js";
 import {
   clamp,
   random,
@@ -23,16 +23,19 @@ import {
   ledgerAdd,
   personalBest,
   compareEntryPbs,
+  rivalLoadout,
+  RIVAL_SLOTS,
 } from "./core.js";
 import { checkGoals, yearStat } from "./story.js";
 import { competitionTier } from "./competition.js";
 import { meetInsights } from "./coaching.js";
 import { checkDevelopment } from "./development.js";
-import { WEATHER, weatherToday } from "./calendar.js";
+import { WEATHER, weatherToday, windOn } from "./calendar.js";
 import { venueFor } from "./venues.js";
 import { invitation, clubById, settleInvitation } from "./invitational.js";
 import { CHAMPIONSHIP_FINALISTS, CHAMPIONSHIP_POINTS, championshipBooking, championshipQualified, qualifyingMark, qualifyingStandard, recordQualifier, simulateQualifiers } from "./qualification.js";
 import { introduceAfterMeet, firstMeet } from "./progression.js";
+import { seasonBest, recordSeasonBest, divisionRecord, recordDivision, setDivisionRecord, divisionRecordReward, awardMedal, rivalOf, settleHeadToHeads } from "./honours.js";
 
 export const isLeagueChampionship = (s) => s.competition?.kind === "league" && s.competition.format === "championship" && s.fixture === 3;
 // The active three clubs can have more recent marks than their saved pool copies.
@@ -190,6 +193,8 @@ export function startMatch(s) {
   s.sponsorLocked = true;
   const { kind, home } = bookedMeet(s);
   for (const r of rival.athletes) { r.condition = 35 + Math.round(random(s) * 45); r.stamina=100; }
+  // Clubs saved before rivals kept to three skill slots trim their loadouts on the way in.
+  for (const c of clubs) for (const r of c.athletes) if ((r.equipped?.length || 0) > RIVAL_SLOTS) r.equipped = rivalLoadout(r);
   s.match = {
     id: s.season + "-" + s.day + "-" + competitionTier(s) + "-" + s.fixture,
     kind,
@@ -200,9 +205,10 @@ export function startMatch(s) {
     color: rival.color,
     eventIndex: 0,
     rotation: true,
-    // Meet-day weather: the forecast decides the conditions. Windy days always blow.
+    // Meet-day weather and wind: the forecast decides the conditions. Windy days always blow.
     weather: weatherToday(s),
-    wind: weatherToday(s)==="windy" ? (random(s)<0.5?"headwind":"crosswind") : ["calm","calm","headwind","crosswind"][Math.floor(random(s)*4)],
+    wind: windOn(s, s.day).wind,
+    windSpeed: windOn(s, s.day).speed,
     attempts: 3,
     championship: kind === "final" || kind === "cup",
     entryIndex: 0,
@@ -320,7 +326,11 @@ export function fieldLeaderboard(s,i=s.match?.eventIndex,hide) {
 // championship the top places go through to the final, and after the cut the rest are out.
 // Meet XP, before the duel discount and XP bonuses. A typical entry earns about what the old
 // flat 30 did; a clean series, a win or a PB earns more, a scratchy day less.
-export const MEET_XP = { competed: 12, legal: 1, place: [7, 4, 2], pb: 5, firstMark: 3, win: 3, draw: 1 };
+// Shares of a division's title prize: per gold, silver and bronze, and for the club placed
+// second or third in the championship (the winner takes the title prize itself).
+export const MEDAL_PRIZE = [0.06, 0.035, 0.02];
+export const PODIUM_PRIZE = { 2: 0.3, 3: 0.15 };
+export const MEET_XP = { competed: 12, legal: 1, place: [7, 4, 2], pb: 5, firstMark: 3, win: 3, draw: 1, rival: 4 };
 export function scoreboard(s,i=s.match?.eventIndex,hide) {
   const m=s.match,ev=EVENT_IDS[i],rows=fieldLeaderboard(s,i,hide);
   const standard=m?.kind==="league"&&championshipBooking(s)?qualifyingStandard(s,ev):null;
@@ -329,14 +339,19 @@ export function scoreboard(s,i=s.match?.eventIndex,hide) {
   // A cut only bites when more athletes have marks than there are places in the final.
   const cut=prelims&&rows.length>limit?limit:null;
   const settled=m?.phase==="complete"?new Set((m.rewards?.pbs||[]).filter(p=>p.event===ev).map(p=>p.id)):null;
+  const settledSb=m?.phase==="complete"?new Set((m.rewards?.sbs||[]).filter(p=>p.event===ev).map(p=>p.id)):null;
+  const division=recordDivision(s,m);
   return {
+    record: division==null?null:{...divisionRecord(s,division,ev),division},
     standard, cut, cutMark: cut&&marked.length>=cut?marked[cut-1].mark:null, finals: limit!=null&&!prelims,
     rows: rows.map(r=>{
       const a=r.side==="home"?s.roster.find(x=>x.id===r.id):null, before=a?.pb?.[ev]||0;
       const pb=!!a&&r.mark!=null&&(settled?settled.has(r.id):r.mark>before);
       const earlier=standard!=null?qualifyingMark(s,r.id,ev):0;
       const qualified=standard!=null&&Math.max(earlier,r.mark||0)>=standard;
-      return {...r, pb, firstMark:pb&&!before, qualified, newlyQualified:qualified&&earlier<standard,
+      const yearBest=a?seasonBest(s,a,ev):0;
+      const sb=!!a&&r.mark!=null&&!pb&&(settledSb?settledSb.has(r.id):yearBest>0&&r.mark>yearBest);
+      return {...r, pb, sb, firstMark:pb&&!before, qualified, newlyQualified:qualified&&earlier<standard,
         inFinal:cut!=null&&r.place!=null&&r.place<=cut, out:limit!=null&&!prelims&&r.finalist===false};
     }),
   };
@@ -454,7 +469,8 @@ export function throwPreview(s, tactic, quality = "good", sig = false) {
   const c = context(s, "home");
   return riskModel(s, c, "home", tactic, quality, sig);
 }
-function riskModel(s, c, side, tactic, quality, sig) {
+// reading: this throw's own wind gauge reading; previews use the meet's prevailing wind.
+function riskModel(s, c, side, tactic, quality, sig, reading) {
   const a = c.athlete,
     fx = effects(s, a, side === "home"),
     T = TACTICS[tactic],
@@ -517,8 +533,9 @@ function riskModel(s, c, side, tactic, quality, sig) {
     qm = quality === "perfect" ? 1.02 + (fx.perfect ? 0.01 : 0) : quality === "poor" ? 0.95 : 1;
   const P = forecastRaw(s, a, c.ev, { fx, club: side === "home", doubleDuty: side === "home" ? usesOf(s, a.id, c.m.lineup) > 1 : (c.m.fields?.filter((f) => f.away.some((e) => e.id === a.id)).length || 0) > 1 });
   const sky = WEATHER[c.m.weather] || {};
-  if (sky.foul && !sig && !(first && fx.safeFirst)) foul = clamp(foul * sky.foul, 0.01, 0.5);
-  const raw = P * mean * qm * mult * windEffect(c.ev, c.m.wind) * (sky.mark || 1),
+  const windSpeed = reading ?? c.m.windSpeed ?? 2;
+  if (!sig && !(first && fx.safeFirst)) foul = clamp(foul * (sky.foul || 1) * windFoul(c.ev, c.m.wind, windSpeed), 0.01, 0.5);
+  const raw = P * mean * qm * mult * windEffect(c.ev, c.m.wind, windSpeed, mastery) * (sky.mark || 1),
     metres = (z) => realMark(c.ev, raw * (1 + z * sd));
   return { foul, sd, raw, metres, center: metres(0), low: metres(-1.6), high: metres(1.6), acts, fx, P: realMark(c.ev, P), target:c.target };
 }
@@ -528,7 +545,10 @@ function throwFor(s, side, tactic, quality, sig) {
     c = context(s, side),
     a = c.athlete;
   if (sig && !canSignature(s, side)) sig = false;
-  const r = riskModel(s, c, side, tactic, quality, sig);
+  // The gauge beside the sector: every throw meets its own gust.
+  const blowing = windFelt(c.ev) && m.wind && m.wind !== "calm",
+    reading = !blowing ? null : m.windSpeed == null ? 2 : gust([m.id, c.i, side, a.id, c.k].join(":"), m.windSpeed);
+  const r = riskModel(s, c, side, tactic, quality, sig, reading ?? undefined);
   const foul = random(s) < r.foul,
     z = clamp(gauss(s), -2.4, 2.4),
     flightDistance = +r.metres(z).toFixed(2),
@@ -553,6 +573,22 @@ function throwFor(s, side, tactic, quality, sig) {
     s.worldRecords = { ...s.worldRecords, [c.ev]: { mark, name: a.name, season: s.season, day: s.day, previous } };
     (m.worldRecords ??= []).push({ id: a.id, name: a.name, event: c.ev, mark, previous });
   }
+  // A season's best: further than anything else this year, short of the lifetime best.
+  const yearBest = side === "home" ? seasonBest(s, a, c.ev) : 0;
+  const seasonBestNow = mark != null && !newPb && yearBest > 0 && mark > Math.max(yearBest, c.ownBest || 0);
+  // The division's record falls to either club, and stands from the moment the throw lands.
+  const division = recordDivision(s, m);
+  let previousDivisionRecord = null;
+  if (division != null && mark != null && mark > divisionRecord(s, division, c.ev).mark) {
+    previousDivisionRecord = divisionRecord(s, division, c.ev).mark;
+    const club = side === "home" ? s.clubName : rivalClubFor(s, a.id)?.name || m.name;
+    setDivisionRecord(s, division, c.ev, { mark, name: a.name, club, season: s.season, home: side === "home" });
+    (m.divisionRecords ??= []).push({ id: a.id, name: a.name, side, club, event: c.ev, mark, previous: previousDivisionRecord, division });
+  }
+  // Going past the rival this athlete keeps meeting.
+  const rival = side === "home" && m.fields && m.kind !== "cup" ? rivalOf(s, a) : null,
+    rivalMark = rival ? best(m.fields[c.i].away.find((e) => e.id === rival.id)?.marks || []) : null,
+    passedRival = rivalMark != null && mark != null && mark > rivalMark && (c.ownBest == null || c.ownBest <= rivalMark) ? rival.name : null;
   const ownBest = best(c.own),
     oppBest = c.oppBest;
   // Reaching the championship standard during a league duel, for the first time this league.
@@ -568,6 +604,7 @@ function throwFor(s, side, tactic, quality, sig) {
     name: a.name,
     // The technique the thrower used, which sets how long the delivery takes to watch.
     form: formOf(a, c.ev),
+    ...(blowing ? { wind: m.wind, windSpeed: reading } : {}),
     mark,
     // Keep the actual flight for sector fouls without turning it into a legal mark.
     flightDistance,
@@ -578,6 +615,10 @@ function throwFor(s, side, tactic, quality, sig) {
     activations: r.acts.filter(Boolean),
     newPb,
     worldRecord: worldRecordBroken,
+    seasonBest: seasonBestNow,
+    divisionRecord: previousDivisionRecord != null,
+    previousDivisionRecord,
+    passedRival,
     previousPb,
     pbDelta: newPb && previousPb ? mark - previousPb : 0,
     ownBest,
@@ -729,6 +770,17 @@ function closeEvent(s, i) {
           if(effects(s,winner,side==="home").hype) for(const a of teammates) if(a.id!==winner.id) a.condition=clamp(a.condition+8,0,100);
         }
       }
+      // Championship podiums go on the athlete's record.
+      if (m.championship) for (const row of e.placings || []) if (row.side === "home" && row.mark != null && row.place <= 3) {
+        const athlete = s.roster.find((x) => x.id === row.id);
+        if (athlete && awardMedal(athlete, row.place)) (m.medals ??= []).push({ id: athlete.id, name: athlete.name, event: e.event, place: row.place });
+      }
+      // Head-to-heads: every rival thrower met in this event, and the score with the one met most.
+      if (m.fields && m.kind !== "cup") {
+        const met = settleHeadToHeads(s, e.event, e.placings || [], (id) => { const club = rivalClubFor(s, id); return { club, athlete: club?.athletes.find((a) => a.id === id) }; });
+        for (const r of met) if (r.won) { const athlete = s.roster.find((x) => x.id === r.id); athlete.condition = clamp(athlete.condition + 5, 0, 100); }
+        (m.rivalryResults ??= []).push(...met);
+      }
       const beat = { type: "eventEnd", event: e.event, eventIndex:i, h:e.h, a:e.a, home:e.home, away:e.away, score:m.score, against:m.against };
       m.last = beat;
       return beat;
@@ -781,7 +833,7 @@ export function settleMatch(s) {
   ledgerAdd(s, "money", m.kind === "cup" ? "Invitational prizes" : "Meet prizes", money);
   let fans = win ? 15 + 10 * L : draw ? 6 + 4 * L : 3 + 2 * L;
   fans *= (sponsor.fanBoost || 1) * (hasCombo(s, "legends") ? 1.25 : 1) * (1 + 0.1 * facilityLevel(s, "statue")) * (win && m.home ? 1 + 0.2 * facilityLevel(s, "lights") : 1);
-  const rewards = { athleteProgress: [], mastery: [], money, fans: 0, items: [], levelUps: [], pbs: [], mvp: null, goals: [], development: [] };
+  const rewards = { athleteProgress: [], mastery: [], money, fans: 0, items: [], levelUps: [], pbs: [], sbs: [], medals: m.medals || [], rivalries: m.rivalryResults || [], divisionRecords: [], mvp: null, goals: [], development: [] };
   const duelKey = L + ":" + m.opponentId;
   if (m.kind === "duel" && win && !s.circuit.duels.includes(duelKey)) {
     s.circuit.duels.push(duelKey);
@@ -810,6 +862,7 @@ export function settleMatch(s) {
       const masteryGain=competeMastery(a,ev,entry.marks.filter(v=>v!=null).length);
       rewards.mastery.push({id:a.id,name:a.name,event:ev,gain:masteryGain,mastery:masteryOf(a,ev)});
       const mark = best(entry.marks), old = a.pb[ev] || 0;
+      if (mark != null && recordSeasonBest(s, a, ev, mark) && mark <= old) rewards.sbs.push({ id: a.id, name: a.name, event: ev, mark });
       if (mark != null && mark > old) {
         a.pb[ev] = mark; a.seasonPbs++; a.development.pbs++; count(s,"pbs"); fans += 2; yearStat(s, a).pbs++;
         earn(a.id, old ? EVENTS[ev].short + " PB" : "First " + EVENTS[ev].short + " mark", old ? MEET_XP.pb : MEET_XP.firstMark);
@@ -824,6 +877,11 @@ export function settleMatch(s) {
       a.development.clean += entry.marks.filter((v) => v != null).length;
       if (placing && placing.points > mvpScore) { mvpScore = placing.points; rewards.mvp = { id:a.id, name:a.name, event:ev }; }
     }
+  }
+  // Getting the better of a rival is worth a little extra to the athlete and the terraces.
+  for (const r of rewards.rivalries) if (r.won && participants.has(r.id)) {
+    earn(r.id, "Beat rival " + r.rivalName.split(" ").at(-1) + " · " + EVENTS[r.event].short, MEET_XP.rival);
+    fans += 3;
   }
   for (const id of participants) {
     const a = s.roster.find((x) => x.id === id);
@@ -855,7 +913,36 @@ export function settleMatch(s) {
     a?.career.unshift({ season: s.season, label: "WORLD RECORD · " + EVENTS[wr.event].name, mark: wr.mark });
     note(s, "WORLD RECORD! " + wr.name + " throws " + wr.mark.toFixed(2) + " m in the " + EVENTS[wr.event].name.toLowerCase() + ", beating " + wr.previous.toFixed(2) + ".", "win");
   }
-  rewards.insights = meetInsights(s,rewards.pbs.length + 3 * rewards.worldRecords.length);
+  // Division records still standing when the meet ends: prize money and fans for yours, and a
+  // line in the news either way, because a rival's record is the next thing to aim at.
+  const recordIndex = recordDivision(s, m);
+  for (const ev of EVENT_IDS) {
+    const set = recordIndex == null ? null : (m.divisionRecords || []).filter((r) => r.event === ev).at(-1);
+    if (!set) continue;
+    const first = m.divisionRecords.find((r) => r.event === ev), entry = { ...set, previous: first.previous, home: set.side === "home" };
+    rewards.divisionRecords.push(entry);
+    const where = DIVISIONS[recordIndex].name + " record";
+    if (entry.home) {
+      const prize = divisionRecordReward(recordIndex);
+      s.money += prize.money; rewards.money += prize.money; fans += prize.fans;
+      ledgerAdd(s, "money", "Division records", prize.money);
+      count(s, "divisionRecords");
+      s.roster.find((x) => x.id === entry.id)?.career.unshift({ season: s.season, label: where + " · " + EVENTS[ev].name, mark: entry.mark });
+      note(s, where + "! " + entry.name + " throws " + entry.mark.toFixed(2) + " m in the " + EVENTS[ev].name.toLowerCase() + " (was " + entry.previous.toFixed(2) + "). +$" + prize.money + ", +" + prize.fans + " fans.", "win");
+    } else note(s, entry.name + " (" + entry.club + ") sets a " + where.toLowerCase() + ": " + entry.mark.toFixed(2) + " m in the " + EVENTS[ev].name.toLowerCase() + ".", "meet");
+  }
+  // Championship prize money, as the sport pays it: every medal earns, and the clubs that finish
+  // second and third on points take a share of the title prize home.
+  if (m.kind === "final" && recordIndex != null) {
+    const purse = DIVISIONS[recordIndex].titlePrize, five = (n) => Math.round(n / 5) * 5;
+    const medalMoney = rewards.medals.reduce((n, x) => n + five(purse * MEDAL_PRIZE[x.place - 1]), 0);
+    const place = m.leagueChampionship ? m.teamScores.findIndex((c) => c.id === "us") + 1 : 0;
+    const podiumMoney = five(purse * (PODIUM_PRIZE[place] || 0));
+    if (medalMoney) { s.money += medalMoney; rewards.money += medalMoney; rewards.medalMoney = medalMoney; ledgerAdd(s, "money", "Medal prizes", medalMoney); }
+    if (podiumMoney) { s.money += podiumMoney; rewards.money += podiumMoney; rewards.podium = { place, money: podiumMoney }; ledgerAdd(s, "money", "Championship placings", podiumMoney); }
+    if (place) rewards.teamPlace = place;
+  }
+  rewards.insights = meetInsights(s,rewards.pbs.length + rewards.divisionRecords.filter((r) => r.home).length + 3 * rewards.worldRecords.length);
   rewards.fans = Math.round(fans);
   s.fans += rewards.fans;
   ledgerAdd(s, "fans", "World records", 400 * rewards.worldRecords.length);

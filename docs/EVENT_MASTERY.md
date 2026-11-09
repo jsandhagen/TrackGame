@@ -6,7 +6,7 @@ Athletes choose a technical training event independently of their original speci
 
 Ordinary athletes retain a permanent competition profile: steady performers have tighter spread, explosive competitors obtain more from aggressive attempts, efficient movers use less energy, and quick adapters learn secondary-event technique faster. These traits do not occupy skill slots and remain relevant alongside rarity and potential.
 
-Throwers no longer pick a per-event delivery style: the tactic (Bank it, Controlled, All out) is the one risk choice before each throw. Each event keeps its own scatter (`EVENT_SPREAD`), and in the discus a headwind adds about 1.5% and a crosswind costs about 1% for everyone (`windEffect` in `src/domain/mastery.js`). Saves that stored a delivery choice drop it on load.
+Throwers no longer pick a per-event delivery style: the tactic (Bank it, Controlled, All out) is the one risk choice before each throw. Each event keeps its own scatter (`EVENT_SPREAD`), and the wind reaches the discus and the javelin, by direction, speed and the thrower's event mastery (`windEffect` in `src/domain/mastery.js`; see [wind, records, medals and rivals](MEET_HONOURS.md)). Saves that stored a delivery choice drop it on load.
 
 New meets rotate single attempts across all entered athletes before starting another round. Championship qualifiers and the subsequent three final throws use the same rotation. The full leaderboard determines meaningful point targets, qualification opportunities, leading/trailing effects, automatic tactics and clutch decisions. Exact tied series share points; countback uses the next-best marks. Older active meets can finish with their saved ordering.
 

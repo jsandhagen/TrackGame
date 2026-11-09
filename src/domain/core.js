@@ -341,6 +341,14 @@ function apply(e, d, label) {
 }
 export const equippedSkills = (a, mode = "training") =>
   (a.loadouts?.enabled && Array.isArray(a.loadouts[mode]) ? a.loadouts[mode] : a.equipped || []).filter((k) => a.skills.includes(k) && SKILLS[k]);
+// Rival throwers pick a meet loadout under the rule the club plays by: three skill slots at
+// most. They keep their signature and the captaincy first, then their club's style in order.
+export const RIVAL_SLOTS = 3;
+export function rivalLoadout(a) {
+  const known = [...new Set(a.skills || [])].filter((k) => SKILLS[k]);
+  const first = known.filter((k) => SKILLS[k].sig || k === "captain");
+  return [...first, ...known.filter((k) => !first.includes(k))].slice(0, RIVAL_SLOTS);
+}
 export function effects(s, a, club = true, mode = s.match ? "meet" : "training", event = mode === "training" ? (a.trainingEvent || a.event) : EVENT_IDS[s.match?.eventIndex] || a.event) {
   const e = blank();
   apply(e, BACKGROUNDS[a.background]);
